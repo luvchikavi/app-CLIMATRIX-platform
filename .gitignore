@@ -1,0 +1,105 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Node.js (Frontend)
+node_modules/
+.next/
+out/
+.turbo/
+
+# Build outputs
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Type stubs
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Editor
+*.sublime-workspace
+*.sublime-project
+
+# Secrets (never commit these)
+*.pem
+*.key
+secrets/
+credentials/
+credentials.json
+
+# Upload files
+uploads/
+media/
+
+# Backup files
+*.bak
+*.backup

@@ -1,0 +1,48 @@
+# Core Framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+python-multipart==0.0.9
+
+# Database
+sqlmodel==0.0.22
+sqlalchemy[asyncio]==2.0.35
+asyncpg==0.29.0
+alembic==1.13.0
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Unit Conversion
+pint>=0.24.1
+
+# Task Queue (for Excel imports)
+arq==0.26.0
+redis>=4.2.0,<5
+
+# Data Processing
+openpyxl==3.1.2
+pandas==2.2.0
+
+# Validation & Settings
+pydantic-settings==2.5.0
+email-validator==2.1.0
+
+# HTTP Client
+httpx==0.27.0
+
+# AI Services
+anthropic>=0.35.0
+
+# CLI
+typer==0.12.0
+
+# Testing
+pytest==8.3.0
+pytest-asyncio==0.23.0
+pytest-cov==5.0.0
+
+# Dev
+black==24.8.0
+ruff==0.6.0
+aiosqlite==0.22.1
