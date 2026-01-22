@@ -1,5 +1,5 @@
 """
-CLIMATRIX v3 - GHG Emissions Accounting Platform
+CLIMATRIX - GHG Emissions Accounting Platform
 
 FastAPI application entry point.
 """
@@ -66,14 +66,14 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # Include API routers
-app.include_router(auth.router, prefix="/api/v3/auth", tags=["Authentication"])
-app.include_router(periods.router, prefix="/api/v3/periods", tags=["Reporting Periods"])
-app.include_router(activities.router, prefix="/api/v3", tags=["Activities"])
-app.include_router(reports.router, prefix="/api/v3", tags=["Reports"])
-app.include_router(reference.router, prefix="/api/v3/reference", tags=["Reference Data"])
-app.include_router(organization.router, prefix="/api/v3", tags=["Organization"])
-app.include_router(import_data.router, prefix="/api/v3", tags=["Import"])
-app.include_router(admin.router, prefix="/api/v3/admin", tags=["Admin"])
+app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(periods.router, prefix="/api/periods", tags=["Reporting Periods"])
+app.include_router(activities.router, prefix="/api", tags=["Activities"])
+app.include_router(reports.router, prefix="/api", tags=["Reports"])
+app.include_router(reference.router, prefix="/api/reference", tags=["Reference Data"])
+app.include_router(organization.router, prefix="/api", tags=["Organization"])
+app.include_router(import_data.router, prefix="/api", tags=["Import"])
+app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 
 
 @app.get("/")

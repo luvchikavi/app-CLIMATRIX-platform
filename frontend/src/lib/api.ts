@@ -1,11 +1,11 @@
 /**
- * API Client for CLIMATRIX backend_v3
+ * API Client for CLIMATRIX backend
  *
  * Uses explicit activity_key system - no fuzzy matching.
  * All endpoints are typed with TypeScript interfaces.
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v3';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api';
 
 // ============================================================================
 // Types
