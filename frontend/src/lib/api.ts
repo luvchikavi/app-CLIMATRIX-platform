@@ -1,0 +1,1111 @@
+/**
+ * API Client for CLIMATRIX backend_v3
+ *
+ * Uses explicit activity_key system - no fuzzy matching.
+ * All endpoints are typed with TypeScript interfaces.
+ */
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v3';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+  organization?: Organization;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  full_name: string;
+  organization_name: string;
+  country_code?: string;
+}
+
+export interface RegisterResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  user: User;
+  organization: Organization;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  organization_id: string;
+  role: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  country_code: string;
+}
+
+export interface ReportingPeriod {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_locked: boolean;
+}
+
+export interface ActivityCreate {
+  scope: 1 | 2 | 3;
+  category_code: string;
+  activity_key: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  activity_date: string;
+  site_id?: string;
+  // For Supplier-Specific method (3.1, 3.2): user provides their own emission factor
+  supplier_ef?: number;
+}
+
+export interface Activity {
+  id: string;
+  scope: number;
+  category_code: string;
+  activity_key: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  activity_date: string;
+  site_id: string | null;
+  created_at: string;
+  import_batch_id?: string | null;
+}
+
+export interface Emission {
+  id: string;
+  activity_id: string;
+  co2e_kg: number;
+  co2_kg: number | null;
+  ch4_kg: number | null;
+  n2o_kg: number | null;
+  wtt_co2e_kg: number | null;
+  formula: string;
+  confidence: 'high' | 'medium' | 'low';
+  resolution_strategy: string;
+  factor_used: string;
+  factor_source: string;
+  factor_value: number | null;
+  factor_unit: string | null;
+  warnings: string[];
+}
+
+export interface ActivityWithEmission {
+  activity: Activity;
+  emission: Emission | null;
+}
+
+export interface EmissionFactor {
+  id?: string;
+  activity_key: string;
+  display_name: string;
+  activity_unit?: string;
+  unit?: string; // For activity options
+  scope: number;
+  category_code: string;
+  co2e_factor?: number;
+  factor_unit?: string;
+  source?: string;
+  region?: string;
+  year?: number;
+}
+
+// Fuel Prices (for spend-to-quantity conversion)
+export interface FuelPrice {
+  id: string;
+  fuel_type: string;
+  price_per_unit: number;
+  currency: string;
+  unit: string;
+  region: string;
+  source: string;
+  source_url: string | null;
+  valid_from: string;
+  valid_until: string | null;
+}
+
+export interface SpendConversionRequest {
+  fuel_type: string;
+  spend_amount: number;
+  currency: string;
+  region?: string;
+}
+
+export interface SpendConversionResult {
+  fuel_type: string;
+  spend_amount: number;
+  currency: string;
+  fuel_price: number;
+  price_unit: string;
+  price_source: string;
+  calculated_quantity: number;
+  quantity_unit: string;
+  formula: string;
+}
+
+// Airport and Flight Distance Types
+export interface Airport {
+  iata_code: string;
+  name: string;
+  city: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface FlightDistanceResult {
+  origin: Airport;
+  destination: Airport;
+  distance_km: number;
+  haul_type: 'short' | 'medium' | 'long';
+  suggested_activity_key: string;
+  emission_factor_info: string;
+}
+
+// Import Batch tracking
+export interface ImportBatch {
+  id: string;
+  file_name: string;
+  file_type: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'partial';
+  total_rows: number;
+  successful_rows: number;
+  failed_rows: number;
+  uploaded_at: string;
+  completed_at: string | null;
+}
+
+export interface ImportBatchDetail extends ImportBatch {
+  file_size_bytes: number | null;
+  skipped_rows: number;
+  error_message: string | null;
+  row_errors: Array<{ row: number; errors: string[] }> | null;
+}
+
+export interface ReportSummary {
+  period_id: string;
+  period_name: string;
+  total_co2e_kg: number;
+  total_co2e_tonnes: number;
+  scope_1_co2e_kg: number;
+  scope_2_co2e_kg: number;
+  scope_3_co2e_kg: number;
+  scope_3_wtt_co2e_kg: number;
+  by_scope: ScopeSummary[];
+  by_category: CategorySummary[];
+}
+
+export interface ScopeSummary {
+  scope: number;
+  total_co2e_kg: number;
+  total_wtt_co2e_kg: number;
+  activity_count: number;
+}
+
+export interface CategorySummary {
+  scope: number;
+  category_code: string;
+  total_co2e_kg: number;
+  activity_count: number;
+}
+
+export interface OrganizationSettings {
+  id: string;
+  name: string;
+  country_code: string | null;
+  industry_code: string | null;
+  base_year: number | null;
+  default_region: string;
+}
+
+export interface Region {
+  code: string;
+  name: string;
+  description: string;
+}
+
+export interface Site {
+  id: string;
+  name: string;
+  country_code: string | null;
+  address: string | null;
+  grid_region: string | null;
+  is_active: boolean;
+}
+
+export interface ImportRow {
+  row_number: number;
+  scope: number | null;
+  category_code: string | null;
+  activity_key: string | null;
+  description: string | null;
+  quantity: number | null;
+  unit: string | null;
+  activity_date: string | null;
+  errors: string[];
+  warnings: string[];
+  is_valid: boolean;
+}
+
+export interface ImportPreview {
+  total_rows: number;
+  valid_rows: number;
+  invalid_rows: number;
+  rows: ImportRow[];
+  columns_found: string[];
+  columns_missing: string[];
+}
+
+export interface ImportResult {
+  total_rows: number;
+  imported: number;
+  failed: number;
+  errors: { row?: number; activity_key?: string; errors: string[] }[];
+  import_batch_id?: string;
+}
+
+// ============================================================================
+// API Client
+// ============================================================================
+
+class ApiClient {
+  private token: string | null = null;
+
+  setToken(token: string | null) {
+    this.token = token;
+    if (token) {
+      localStorage.setItem('auth_token', token);
+    } else {
+      localStorage.removeItem('auth_token');
+    }
+  }
+
+  getToken(): string | null {
+    if (this.token) return this.token;
+    if (typeof window !== 'undefined') {
+      this.token = localStorage.getItem('auth_token');
+    }
+    return this.token;
+  }
+
+  private async fetch<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    const token = this.getToken();
+    if (token) {
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+
+      // If 401 Unauthorized, clear the token
+      if (response.status === 401) {
+        this.setToken(null);
+        // Dispatch event to notify auth store
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth-expired'));
+        }
+      }
+
+      throw new Error(error.detail || `API Error: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  // Validate current token by calling /auth/me
+  async validateToken(): Promise<boolean> {
+    const token = this.getToken();
+    if (!token) return false;
+
+    try {
+      await this.fetch<User>('/auth/me');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Auth
+  async login(data: LoginRequest): Promise<LoginResponse> {
+    const formData = new URLSearchParams();
+    formData.append('username', data.email);
+    formData.append('password', data.password);
+
+    const response = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Login failed' }));
+      throw new Error(error.detail || 'Login failed');
+    }
+
+    const result = await response.json();
+    this.setToken(result.access_token);
+    return result;
+  }
+
+  logout() {
+    this.setToken(null);
+  }
+
+  // Registration
+  async register(data: RegisterRequest): Promise<RegisterResponse> {
+    const response = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Registration failed' }));
+      throw new Error(error.detail || 'Registration failed');
+    }
+
+    const result = await response.json();
+    this.setToken(result.access_token);
+    return result;
+  }
+
+  // Reporting Periods
+  async getPeriods(): Promise<ReportingPeriod[]> {
+    return this.fetch<ReportingPeriod[]>('/periods');
+  }
+
+  async createPeriod(data: Partial<ReportingPeriod>): Promise<ReportingPeriod> {
+    return this.fetch<ReportingPeriod>('/periods', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Activities
+  async getActivities(
+    periodId: string,
+    filters?: { scope?: number; category_code?: string }
+  ): Promise<ActivityWithEmission[]> {
+    const params = new URLSearchParams();
+    if (filters?.scope) params.append('scope', String(filters.scope));
+    if (filters?.category_code) params.append('category_code', filters.category_code);
+
+    const query = params.toString() ? `?${params}` : '';
+    return this.fetch<ActivityWithEmission[]>(`/periods/${periodId}/activities${query}`);
+  }
+
+  async createActivity(
+    periodId: string,
+    data: ActivityCreate
+  ): Promise<ActivityWithEmission> {
+    return this.fetch<ActivityWithEmission>(`/periods/${periodId}/activities`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteActivity(activityId: string): Promise<void> {
+    await this.fetch(`/activities/${activityId}`, { method: 'DELETE' });
+  }
+
+  // Emission Factors (Reference Data)
+  async getEmissionFactors(categoryCode?: string): Promise<EmissionFactor[]> {
+    const query = categoryCode ? `?category_code=${categoryCode}` : '';
+    return this.fetch<EmissionFactor[]>(`/reference/emission-factors${query}`);
+  }
+
+  async getActivityOptions(categoryCode: string): Promise<EmissionFactor[]> {
+    return this.fetch<EmissionFactor[]>(`/reference/activity-options/${categoryCode}`);
+  }
+
+  // Fuel Prices (for spend-to-quantity conversion)
+  async getFuelPrices(fuelType?: string, region?: string): Promise<FuelPrice[]> {
+    const params = new URLSearchParams();
+    if (fuelType) params.append('fuel_type', fuelType);
+    if (region) params.append('region', region);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.fetch<FuelPrice[]>(`/reference/fuel-prices${query}`);
+  }
+
+  async getFuelPrice(fuelType: string, region?: string): Promise<FuelPrice> {
+    const query = region ? `?region=${region}` : '';
+    return this.fetch<FuelPrice>(`/reference/fuel-prices/${fuelType}${query}`);
+  }
+
+  async convertSpendToQuantity(request: SpendConversionRequest): Promise<SpendConversionResult> {
+    return this.fetch<SpendConversionResult>('/reference/convert-spend', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  // Flight Distance Calculator
+  async calculateFlightDistance(
+    origin: string,
+    destination: string,
+    cabinClass: string = 'economy'
+  ): Promise<FlightDistanceResult> {
+    return this.fetch<FlightDistanceResult>(
+      `/reference/flight-distance?origin=${origin}&destination=${destination}&cabin_class=${cabinClass}`
+    );
+  }
+
+  async searchAirports(query: string, limit: number = 10): Promise<Airport[]> {
+    return this.fetch<Airport[]>(`/reference/airports/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  }
+
+  async getAirport(iataCode: string): Promise<Airport> {
+    return this.fetch<Airport>(`/reference/airports/${iataCode}`);
+  }
+
+  // Reports
+  async getReportSummary(periodId: string): Promise<ReportSummary> {
+    return this.fetch<ReportSummary>(`/periods/${periodId}/report/summary`);
+  }
+
+  async getReportByScope(periodId: string): Promise<any> {
+    return this.fetch(`/periods/${periodId}/report/by-scope`);
+  }
+
+  async getWTTReport(periodId: string): Promise<any> {
+    return this.fetch(`/periods/${periodId}/report/scope-3-3-wtt`);
+  }
+
+  // Recalculate
+  async recalculatePeriod(periodId: string): Promise<any> {
+    return this.fetch(`/periods/${periodId}/emissions/recalculate`, {
+      method: 'POST',
+    });
+  }
+
+  // Organization
+  async getOrganization(): Promise<OrganizationSettings> {
+    return this.fetch<OrganizationSettings>('/organization');
+  }
+
+  async updateOrganization(data: Partial<OrganizationSettings>): Promise<OrganizationSettings> {
+    return this.fetch<OrganizationSettings>('/organization', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getSupportedRegions(): Promise<Region[]> {
+    return this.fetch<Region[]>('/organization/regions');
+  }
+
+  async getSites(): Promise<Site[]> {
+    return this.fetch<Site[]>('/organization/sites');
+  }
+
+  async createSite(data: { name: string; country_code?: string; address?: string; grid_region?: string }): Promise<Site> {
+    return this.fetch<Site>('/organization/sites', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteSite(siteId: string): Promise<void> {
+    await this.fetch(`/organization/sites/${siteId}`, { method: 'DELETE' });
+  }
+
+  // Import
+  async previewImport(periodId: string, file: File): Promise<ImportPreview> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // Use template endpoint for Excel files (client's GHG template format)
+    const isExcel = file.name.toLowerCase().endsWith('.xlsx');
+    const endpoint = isExcel
+      ? `${API_BASE}/periods/${periodId}/import/template/preview`
+      : `${API_BASE}/periods/${periodId}/import/preview`;
+
+    const token = this.getToken();
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Import preview failed' }));
+      throw new Error(error.detail || 'Import preview failed');
+    }
+
+    const data = await response.json();
+
+    // Transform template preview response to standard format
+    if (isExcel && data.total_activities !== undefined) {
+      // Build rows from sheets data
+      const rows: ImportRow[] = [];
+      let rowNum = 1;
+
+      // Collect activities from each scope
+      for (const [scopeNum, scopeData] of Object.entries(data.by_scope || {})) {
+        const scope = parseInt(scopeNum);
+        const activities = (scopeData as { activities?: any[] }).activities || [];
+        for (const act of activities) {
+          rows.push({
+            row_number: rowNum++,
+            is_valid: true,
+            scope,
+            category_code: act.category_code,
+            activity_key: act.activity_key,
+            description: act.description,
+            quantity: act.quantity,
+            unit: act.unit,
+            activity_date: act.activity_date || new Date().toISOString().split('T')[0],
+            errors: [],
+            warnings: act.warnings || [],
+          });
+        }
+      }
+
+      // If no detailed rows, create summary rows from sheets
+      if (rows.length === 0 && data.sheets) {
+        for (const sheet of data.sheets) {
+          if (sheet.parsed_rows > 0) {
+            rows.push({
+              row_number: rowNum++,
+              is_valid: true,
+              scope: sheet.scope,
+              category_code: sheet.category_code,
+              activity_key: sheet.sheet_name,
+              description: `${sheet.parsed_rows} activities from ${sheet.sheet_name}`,
+              quantity: sheet.parsed_rows,
+              unit: 'activities',
+              activity_date: new Date().toISOString().split('T')[0],
+              errors: sheet.errors || [],
+              warnings: sheet.warnings || [],
+            });
+          }
+        }
+      }
+
+      return {
+        total_rows: data.total_activities,
+        valid_rows: data.total_activities,
+        invalid_rows: 0,
+        rows,
+        columns_found: ['scope', 'category_code', 'activity_key', 'quantity', 'unit', 'description'],
+        columns_missing: [],
+      };
+    }
+
+    return data;
+  }
+
+  async importActivities(periodId: string, file: File): Promise<ImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // Use template endpoint for Excel files (client's GHG template format)
+    const isExcel = file.name.toLowerCase().endsWith('.xlsx');
+    const endpoint = isExcel
+      ? `${API_BASE}/periods/${periodId}/import/template`
+      : `${API_BASE}/periods/${periodId}/import`;
+
+    const token = this.getToken();
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Import failed' }));
+      throw new Error(error.detail || 'Import failed');
+    }
+
+    const data = await response.json();
+
+    // Transform template import response to standard format
+    if (isExcel && (data.total_activities !== undefined || data.activities_created !== undefined)) {
+      return {
+        total_rows: data.total_activities || data.activities_created,
+        imported: data.imported || data.activities_created,
+        failed: data.failed || data.activities_failed || 0,
+        import_batch_id: data.import_batch_id,
+        errors: (data.errors || []).map((e: any) => ({
+          row: e.row,
+          activity_key: e.activity_key,
+          // Backend returns 'errors' (array) or 'error' (string) depending on endpoint
+          errors: Array.isArray(e.errors) ? e.errors :
+                  Array.isArray(e.error) ? e.error :
+                  [e.errors || e.error || e.message || 'Unknown error'],
+        })),
+      };
+    }
+
+    // For CSV import or other endpoints, normalize the error format
+    if (data.errors) {
+      data.errors = data.errors.map((e: any) => ({
+        row: e.row,
+        activity_key: e.activity_key,
+        errors: Array.isArray(e.errors) ? e.errors :
+                Array.isArray(e.error) ? e.error :
+                [e.errors || e.error || e.message || 'Unknown error'],
+      }));
+    }
+
+    return data;
+  }
+
+  async getImportTemplate(): Promise<{ filename: string; content: string; columns: Record<string, string> }> {
+    return this.fetch('/import/template?scope=csv');
+  }
+
+  async downloadTemplate(scope: '1-2' | '3'): Promise<void> {
+    // For Excel templates, fetch as blob
+    const headers: HeadersInit = {};
+    const token = this.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE}/import/template?scope=${scope}`, {
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to download template: ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const filename = scope === '3' ? 'climatrix_scope3_template.xlsx' : 'climatrix_scope1and2_template.xlsx';
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+
+  // ============================================================================
+  // Import Batch Tracking
+  // ============================================================================
+
+  async getImportBatches(periodId?: string, limit = 20): Promise<ImportBatch[]> {
+    const params = new URLSearchParams();
+    if (periodId) params.append('period_id', periodId);
+    params.append('limit', String(limit));
+    return this.fetch<ImportBatch[]>(`/import/batches?${params}`);
+  }
+
+  async getImportBatch(batchId: string): Promise<ImportBatchDetail> {
+    return this.fetch<ImportBatchDetail>(`/import/batches/${batchId}`);
+  }
+
+  async getImportBatchActivities(batchId: string): Promise<{
+    batch_id: string;
+    file_name: string;
+    activity_count: number;
+    activities: Array<{
+      id: string;
+      scope: number;
+      category_code: string;
+      activity_key: string;
+      description: string;
+      quantity: number;
+      unit: string;
+      activity_date: string | null;
+      emission: {
+        co2e_kg: number | null;
+        factor_value: number | null;
+        factor_unit: string | null;
+        factor_source: string | null;
+        formula: string | null;
+      } | null;
+    }>;
+  }> {
+    return this.fetch(`/import/batches/${batchId}/activities`);
+  }
+
+  async deleteImportBatch(batchId: string, deleteActivities = false): Promise<{
+    message: string;
+    batch_id: string;
+    deleted_activities: number;
+  }> {
+    return this.fetch(`/import/batches/${batchId}?delete_activities=${deleteActivities}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ============================================================================
+  // Bulk Delete Methods
+  // ============================================================================
+
+  /**
+   * Delete ALL activities for a specific reporting period.
+   * Also deletes associated emissions and import batches.
+   */
+  async deletePeriodActivities(periodId: string): Promise<{
+    deleted_activities: number;
+    deleted_emissions: number;
+    message: string;
+  }> {
+    return this.fetch(`/periods/${periodId}/activities`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Delete ALL activities for the organization (across all periods).
+   * Requires confirm=true parameter as safety measure.
+   */
+  async deleteOrganizationActivities(confirm = false): Promise<{
+    deleted_activities: number;
+    deleted_emissions: number;
+    message: string;
+  }> {
+    return this.fetch(`/organization/activities?confirm=${confirm}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ============================================================================
+  // Admin Methods (Super Admin Only)
+  // ============================================================================
+
+  async getAdminStats(): Promise<AdminStats> {
+    return this.fetch<AdminStats>('/admin/stats');
+  }
+
+  async getAdminOrganizations(skip = 0, limit = 50): Promise<AdminOrganization[]> {
+    return this.fetch<AdminOrganization[]>(`/admin/organizations?skip=${skip}&limit=${limit}`);
+  }
+
+  async getAdminOrganization(orgId: string): Promise<AdminOrganization> {
+    return this.fetch<AdminOrganization>(`/admin/organizations/${orgId}`);
+  }
+
+  async getAdminUsers(skip = 0, limit = 50, orgId?: string): Promise<AdminUser[]> {
+    const params = new URLSearchParams({ skip: String(skip), limit: String(limit) });
+    if (orgId) params.append('org_id', orgId);
+    return this.fetch<AdminUser[]>(`/admin/users?${params}`);
+  }
+
+  async getAdminActivities(skip = 0, limit = 100, orgId?: string, scope?: number): Promise<AdminActivity[]> {
+    const params = new URLSearchParams({ skip: String(skip), limit: String(limit) });
+    if (orgId) params.append('org_id', orgId);
+    if (scope) params.append('scope', String(scope));
+    return this.fetch<AdminActivity[]>(`/admin/activities?${params}`);
+  }
+
+  async getAdminOrgReport(orgId: string): Promise<AdminOrgReport> {
+    return this.fetch<AdminOrgReport>(`/admin/organizations/${orgId}/report`);
+  }
+
+  // Smart Import (AI-powered)
+  async smartImportPreview(periodId: string, file: File): Promise<SmartImportPreview> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = this.getToken();
+    const response = await fetch(`${API_BASE}/periods/${periodId}/import/analyze-columns`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Smart import analysis failed' }));
+      throw new Error(error.detail || 'Smart import analysis failed');
+    }
+
+    return response.json();
+  }
+
+  async smartImport(periodId: string, file: File): Promise<SmartImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = this.getToken();
+    const response = await fetch(`${API_BASE}/periods/${periodId}/import/smart`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Smart import failed' }));
+      throw new Error(error.detail || 'Smart import failed');
+    }
+
+    return response.json();
+  }
+
+  async getImportJobStatus(jobId: string): Promise<ImportJobStatus> {
+    return this.fetch(`/import/jobs/${jobId}`);
+  }
+
+  // ============================================================================
+  // Unified AI Import (handles ANY file type including multi-sheet Excel)
+  // ============================================================================
+
+  async unifiedImportPreview(file: File): Promise<UnifiedImportPreview> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = this.getToken();
+    const response = await fetch(`${API_BASE}/unified/preview`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unified import preview failed' }));
+      throw new Error(error.detail || 'Unified import preview failed');
+    }
+
+    return response.json();
+  }
+
+  async unifiedImport(periodId: string, file: File): Promise<UnifiedImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = this.getToken();
+    const response = await fetch(`${API_BASE}/unified/import/${periodId}`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unified import failed' }));
+      throw new Error(error.detail || 'Unified import failed');
+    }
+
+    return response.json();
+  }
+}
+
+// Smart Import Types
+export interface SmartImportPreview {
+  success: boolean;
+  detected_structure: string;
+  column_mappings: ColumnMapping[];
+  date_column: string | null;
+  description_column: string | null;
+  warnings: string[];
+  sample_extraction: {
+    activity_key: string;
+    quantity: number;
+    unit: string;
+    description: string;
+  }[];
+}
+
+export interface ColumnMapping {
+  original_header: string;
+  activity_key: string | null;
+  scope: number | null;
+  category_code: string | null;
+  detected_unit: string | null;
+  column_type: string;
+  confidence: number;
+  notes: string | null;
+}
+
+export interface SmartImportResult {
+  job_id: string;
+  status: string;
+  message: string;
+  ai_mapping_preview: {
+    detected_structure: string;
+    detected_columns: {
+      header: string;
+      maps_to: string;
+      unit: string | null;
+      confidence: string;
+    }[];
+    date_column: string | null;
+    warnings: string[];
+  };
+}
+
+export interface ImportJobStatus {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress_percent: number;
+  processed_rows: number;
+  total_rows: number;
+  successful_rows: number;
+  failed_rows: number;
+  error_message: string | null;
+}
+
+// ============================================================================
+// Unified AI Import Types (handles ANY file type including multi-sheet Excel)
+// ============================================================================
+
+export interface UnifiedSheetPreview {
+  sheet_name: string;
+  detected_scope: number | null;
+  detected_category: string | null;
+  header_row: number;
+  total_rows: number;
+  columns: string[];
+  column_mappings: UnifiedColumnMapping[];
+  sample_data: Record<string, any>[];
+  activities_preview: UnifiedActivityPreview[];
+  is_importable: boolean;
+  skip_reason: string | null;
+  warnings: string[];
+}
+
+export interface UnifiedColumnMapping {
+  original_header: string;
+  activity_key: string | null;
+  scope: number | null;
+  category_code: string | null;
+  detected_unit: string | null;
+  column_type: string;
+  confidence: number;
+  notes: string | null;
+}
+
+export interface UnifiedActivityPreview {
+  scope: number;
+  category_code: string;
+  activity_key: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  activity_date: string;
+  source_sheet: string;
+  source_row: number;
+  confidence: number;
+}
+
+export interface UnifiedImportPreview {
+  success: boolean;
+  file_name: string;
+  file_type: string;
+  total_sheets: number;
+  importable_sheets: number;
+  total_activities: number;
+  sheets: UnifiedSheetPreview[];
+  warnings: string[];
+  errors: string[];
+}
+
+export interface UnifiedImportResult {
+  success: boolean;
+  total_activities: number;
+  imported: number;
+  failed: number;
+  total_co2e_kg: number;
+  by_scope: Record<string, number>;
+  by_category: Record<string, number>;
+  errors: {
+    sheet?: string;
+    row?: number;
+    activity_key?: string;
+    error: string;
+  }[];
+  warnings: string[];
+}
+
+// ============================================================================
+// Admin Types (Super Admin Only)
+// ============================================================================
+
+export interface AdminStats {
+  total_organizations: number;
+  total_users: number;
+  total_activities: number;
+  total_co2e_tonnes: number;
+  active_organizations: number;
+  activities_this_month: number;
+}
+
+export interface AdminOrganization {
+  id: string;
+  name: string;
+  country_code: string | null;
+  default_region: string;
+  is_active: boolean;
+  created_at: string;
+  user_count: number;
+  period_count: number;
+  activity_count: number;
+  total_co2e_kg: number;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: string;
+  is_active: boolean;
+  organization_id: string;
+  organization_name: string;
+  created_at: string;
+  last_login: string | null;
+}
+
+export interface AdminActivity {
+  id: string;
+  organization_name: string;
+  user_email: string | null;
+  scope: number;
+  category_code: string;
+  activity_key: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  co2e_kg: number | null;
+  activity_date: string;
+  created_at: string;
+}
+
+export interface AdminOrgReport {
+  organization: {
+    id: string;
+    name: string;
+    country_code: string | null;
+  };
+  total_co2e_kg: number;
+  total_co2e_tonnes: number;
+  by_scope: {
+    scope_1: { total_co2e_kg: number; activity_count: number; activities: any[] };
+    scope_2: { total_co2e_kg: number; activity_count: number; activities: any[] };
+    scope_3: { total_co2e_kg: number; activity_count: number; activities: any[] };
+  };
+}
+
+export const api = new ApiClient();
