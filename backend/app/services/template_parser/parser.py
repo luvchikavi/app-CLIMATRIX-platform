@@ -531,10 +531,10 @@ class TemplateParser:
 
     def _get_airport_distance(self, from_code, to_code) -> int | None:
         """
-        Get approximate distance between two airport codes.
+        Get distance between two airport codes using the full airport database.
 
-        Uses a pre-defined lookup table for common routes from TLV (Tel Aviv).
-        Falls back to estimated distances for unknown routes.
+        Uses Haversine formula for accurate great-circle distance calculation
+        with 200+ airports worldwide.
         """
         # Handle potential non-string values (Excel might return dates)
         if not isinstance(from_code, str) or not isinstance(to_code, str):
@@ -543,62 +543,17 @@ class TemplateParser:
         from_code = from_code.upper().strip()
         to_code = to_code.upper().strip()
 
-        # Common distances from TLV (Tel Aviv)
-        tlv_distances = {
-            # Europe
-            'LHR': 3582,  # London Heathrow
-            'CDG': 3300,  # Paris CDG
-            'FCO': 2300,  # Rome Fiumicino
-            'FRA': 2940,  # Frankfurt
-            'AMS': 3295,  # Amsterdam
-            'MAD': 3540,  # Madrid
-            'BCN': 3130,  # Barcelona
-            'MUC': 2660,  # Munich
-            'ZRH': 2760,  # Zurich
-            'VIE': 2550,  # Vienna
-            'IST': 1150,  # Istanbul
-            'ATH': 1160,  # Athens
-            'BRU': 3230,  # Brussels
-            'CPH': 3080,  # Copenhagen
-            'WAW': 2560,  # Warsaw
-            'PRG': 2620,  # Prague
-            # US
-            'JFK': 9120,  # New York JFK
-            'EWR': 9100,  # Newark
-            'LAX': 12200, # Los Angeles
-            'SFO': 12500, # San Francisco
-            'MIA': 10450, # Miami
-            'ORD': 9650,  # Chicago
-            'BOS': 9200,  # Boston
-            # Asia
-            'BKK': 7200,  # Bangkok
-            'SIN': 8400,  # Singapore
-            'HKG': 8160,  # Hong Kong
-            'NRT': 9300,  # Tokyo Narita
-            'ICN': 8000,  # Seoul
-            'BOM': 4300,  # Mumbai
-            'DEL': 4300,  # Delhi
-            'DXB': 2050,  # Dubai
-            'DOH': 2100,  # Doha
-            # Other
-            'JNB': 6400,  # Johannesburg
-            'CAI': 500,   # Cairo
-            'AMM': 130,   # Amman
-        }
+        if not from_code or not to_code:
+            return None
 
-        # Check if from TLV
-        if from_code == 'TLV':
-            return tlv_distances.get(to_code)
+        # Use the full airport database for accurate distance calculation
+        try:
+            from app.data.airports import calculate_flight_distance
+            distance = calculate_flight_distance(from_code, to_code)
+            if distance:
+                return int(distance)
+        except ImportError:
+            pass
 
-        # Check if to TLV
-        if to_code == 'TLV':
-            return tlv_distances.get(from_code)
-
-        # For other routes, try to estimate based on known distances
-        # This is a rough approximation
-        if from_code in tlv_distances and to_code in tlv_distances:
-            # Very rough: use the larger of the two distances
-            return max(tlv_distances[from_code], tlv_distances[to_code])
-
-        # Unknown route - return None
+        # Fallback: return None if airports not found
         return None
