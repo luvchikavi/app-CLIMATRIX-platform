@@ -9,7 +9,7 @@
 
 import { useState, useEffect } from 'react';
 import { useWizardStore } from '@/stores/wizard';
-import { useCreateActivity, useActivityOptions } from '@/hooks/useEmissions';
+import { useCreateActivity, useActivityOptions, useOrganization } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
 import { formatCO2e } from '@/lib/utils';
 import {
@@ -49,6 +49,9 @@ export function ElectricityLocationForm({ periodId, onSuccess }: ElectricityLoca
 
   // Fetch activity options for 2.1
   const { data: activityOptions, isLoading: isLoadingOptions } = useActivityOptions('2.1');
+
+  // Fetch organization settings for default region
+  const { data: organization } = useOrganization();
 
   // Form state
   const [selectedFactor, setSelectedFactor] = useState<EmissionFactor | null>(null);
@@ -118,6 +121,24 @@ export function ElectricityLocationForm({ periodId, onSuccess }: ElectricityLoca
     factor.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     factor.region?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Auto-select grid based on organization's default region or country
+  useEffect(() => {
+    if (selectedFactor || !gridOptions.length || !organization) return;
+
+    // Try to find a matching grid based on organization's default_region or country_code
+    const regionToMatch = organization.default_region || organization.country_code;
+    if (!regionToMatch || regionToMatch === 'Global') return;
+
+    const matchedFactor = gridOptions.find((f) =>
+      f.region?.toUpperCase() === regionToMatch.toUpperCase() ||
+      f.activity_key?.toLowerCase().includes(`electricity_${regionToMatch.toLowerCase()}`)
+    );
+
+    if (matchedFactor) {
+      setSelectedFactor(matchedFactor);
+    }
+  }, [gridOptions, organization, selectedFactor]);
 
   // Fetch electricity price when spend mode is activated
   useEffect(() => {
