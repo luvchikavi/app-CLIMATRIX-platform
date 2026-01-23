@@ -317,8 +317,12 @@ REFRIGERANT_GWP = {
     "R-290": {"gwp_ar6": 3, "gwp_ar5": 3, "type": "Natural", "applications": "Propane - small commercial"},
     "R-600a": {"gwp_ar6": 3, "gwp_ar5": 3, "type": "Natural", "applications": "Isobutane - domestic refrigerators"},
 
-    # SF6 (electrical equipment)
+    # SF6 and other industrial gases
     "SF6": {"gwp_ar6": 23500, "gwp_ar5": 23500, "type": "Other", "applications": "Electrical switchgear"},
+
+    # Halons (fire suppression - being phased out)
+    "Halon-1211": {"gwp_ar6": 1890, "gwp_ar5": 1890, "type": "Halon", "applications": "Fire suppression (phased out)", "phased_out": True},
+    "Halon-1301": {"gwp_ar6": 7140, "gwp_ar5": 7140, "type": "Halon", "applications": "Fire suppression (phased out)", "phased_out": True},
 }
 
 

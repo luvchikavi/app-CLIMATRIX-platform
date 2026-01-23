@@ -86,7 +86,9 @@ REFRIGERANT_TYPES = [
     "HFC-125",
     "HFC-143a",
     "HFC-152a",
-    "HFC-227ea",
+    "HFC-227ea / FM-200",
+    "R-123 / HCFC-123",
+    "Halon-1211",
     "SF6",
     "NF3",
     "R-1234yf",
@@ -298,7 +300,6 @@ def create_introduction_sheet(ws):
         "   - 1.1 Stationary: Fuel burned in boilers, generators, heaters",
         "   - 1.2 Mobile: Company vehicles and fleet fuel",
         "   - 1.3 Fugitive: Refrigerant leaks and top-ups",
-        "   - 1.4 Process: Industrial process emissions (cement, steel, chemicals)",
         "",
         "   SCOPE 2 - INDIRECT ENERGY EMISSIONS:",
         "   - 2.1 Electricity: Purchased grid electricity (56 countries supported)",
@@ -982,7 +983,6 @@ def create_reference_sheet(ws):
         "Fuels (1.1)",
         "Vehicles (1.2)",
         "Refrigerants (1.3)",
-        "Materials (1.4)",
         "Countries (2.1)",
         "Electricity Types (2.1)",
         "Heat/Steam (2.2)",
@@ -1001,7 +1001,6 @@ def create_reference_sheet(ws):
         FUEL_TYPES_STATIONARY,
         VEHICLE_TYPES + FUEL_TYPES_MOBILE,
         REFRIGERANT_TYPES,
-        PROCESS_MATERIALS,
         COUNTRIES,
         ELECTRICITY_TYPES,
         HEAT_STEAM_TYPES,
@@ -1051,9 +1050,6 @@ def generate(
 
     create_scope_1_3_sheet(wb.create_sheet())
     typer.echo("  + Scope 1.3 Fugitive sheet")
-
-    create_scope_1_4_sheet(wb.create_sheet())
-    typer.echo("  + Scope 1.4 Process sheet")
 
     create_scope_2_1_sheet(wb.create_sheet())
     typer.echo("  + Scope 2.1 Electricity sheet")
