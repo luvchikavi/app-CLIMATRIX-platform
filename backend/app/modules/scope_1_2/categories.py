@@ -24,12 +24,6 @@ CATEGORIES_SCOPE_1 = {
         "units": ["kg"],
         "calculation_methods": ["physical", "spend"],
     },
-    "1.4": {
-        "name": "Process Emissions",
-        "description": "Chemical/physical transformations (cement, steel, chemicals)",
-        "units": ["tonnes"],
-        "calculation_methods": ["physical", "spend"],
-    },
 }
 
 CATEGORIES_SCOPE_2 = {

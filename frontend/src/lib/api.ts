@@ -655,15 +655,20 @@ class ApiClient {
     return data;
   }
 
-  async importActivities(periodId: string, file: File): Promise<ImportResult> {
+  async importActivities(periodId: string, file: File, siteId?: string): Promise<ImportResult> {
     const formData = new FormData();
     formData.append('file', file);
 
     // Use template endpoint for Excel files (client's GHG template format)
     const isExcel = file.name.toLowerCase().endsWith('.xlsx');
-    const endpoint = isExcel
+    let endpoint = isExcel
       ? `${API_BASE}/periods/${periodId}/import/template`
       : `${API_BASE}/periods/${periodId}/import`;
+
+    // Add site_id as query parameter if provided
+    if (siteId) {
+      endpoint += `?site_id=${siteId}`;
+    }
 
     const token = this.getToken();
     const response = await fetch(endpoint, {
@@ -924,12 +929,17 @@ class ApiClient {
     return response.json();
   }
 
-  async unifiedImport(periodId: string, file: File): Promise<UnifiedImportResult> {
+  async unifiedImport(periodId: string, file: File, siteId?: string): Promise<UnifiedImportResult> {
     const formData = new FormData();
     formData.append('file', file);
 
+    let url = `${API_BASE}/unified/import/${periodId}`;
+    if (siteId) {
+      url += `?site_id=${siteId}`;
+    }
+
     const token = this.getToken();
-    const response = await fetch(`${API_BASE}/unified/import/${periodId}`, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,

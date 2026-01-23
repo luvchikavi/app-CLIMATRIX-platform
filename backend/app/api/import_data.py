@@ -357,6 +357,7 @@ async def preview_import(
 async def import_activities(
     period_id: UUID,
     file: UploadFile = File(...),
+    site_id: UUID | None = Query(default=None, description="Optional site to associate with imported activities"),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
     current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
@@ -460,6 +461,7 @@ async def import_activities(
             activity = Activity(
                 organization_id=current_user.organization_id,
                 reporting_period_id=period_id,
+                site_id=site_id,
                 scope=validated.scope,
                 category_code=validated.category_code,
                 activity_key=validated.activity_key,
@@ -839,6 +841,7 @@ class JobStatusResponse(BaseModel):
 async def import_activities_async(
     period_id: UUID,
     file: UploadFile = File(...),
+    site_id: UUID | None = Query(default=None, description="Optional site to associate with imported activities"),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
     current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
@@ -909,6 +912,7 @@ async def import_activities_async(
         file_path=file_path,
         file_size_bytes=file_size,
         total_rows=row_count,
+        metadata={"site_id": str(site_id)} if site_id else None,
     )
     session.add(job)
     await session.commit()
@@ -1501,6 +1505,7 @@ async def import_template(
     period_id: UUID,
     file: UploadFile = File(...),
     year: int = Query(default=None, description="Reporting year (default: current year)"),
+    site_id: UUID | None = Query(default=None, description="Optional site to associate with imported activities"),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
     current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
@@ -1612,6 +1617,7 @@ async def import_template(
             activity = Activity(
                 organization_id=current_user.organization_id,
                 reporting_period_id=period_id,
+                site_id=site_id,
                 scope=activity_data.scope,
                 category_code=activity_data.category_code,
                 activity_key=activity_data.activity_key,
@@ -1820,6 +1826,7 @@ async def unified_import_preview(
 async def unified_import_activities(
     period_id: UUID,
     file: UploadFile = File(...),
+    site_id: UUID | None = Query(default=None, description="Optional site to associate with imported activities"),
     session: AsyncSession = Depends(get_session),
     current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
@@ -1893,6 +1900,7 @@ async def unified_import_activities(
             activity = Activity(
                 organization_id=current_user.organization_id,
                 reporting_period_id=period_id,
+                site_id=site_id,
                 scope=activity_data.scope,
                 category_code=activity_data.category_code,
                 activity_key=activity_data.activity_key,

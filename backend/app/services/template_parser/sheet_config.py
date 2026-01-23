@@ -622,15 +622,6 @@ GENERATED_TEMPLATE_COLUMN_MAP_FUGITIVE = {
     'Date': 'activity_date',
 }
 
-GENERATED_TEMPLATE_COLUMN_MAP_PROCESS = {
-    'Material Type': 'material_type',
-    'Method': 'calc_type',
-    'Description': 'description',
-    'Quantity/Amount': 'quantity',
-    'Unit/Currency': 'unit',
-    'Date': 'activity_date',
-}
-
 GENERATED_TEMPLATE_COLUMN_MAP_ELECTRICITY = {
     'Electricity Type': 'electricity_type',
     'Method': 'calc_type',
@@ -754,15 +745,6 @@ SHEET_CONFIGS = {
         header_row=4,  # Headers at row 4 in template
         column_map=GENERATED_TEMPLATE_COLUMN_MAP_FUGITIVE,
         activity_key_resolver=resolve_refrigerant,
-    ),
-
-    '1.4 Process': SheetConfig(
-        sheet_name='1.4 Process',
-        scope=1,
-        category_code='1.4',
-        header_row=4,  # Headers at row 4 in template
-        column_map=GENERATED_TEMPLATE_COLUMN_MAP_PROCESS,
-        activity_key_resolver=lambda row: ('cement_production', 'tonnes'),  # Default for process
     ),
 
     'Scope2_Electricity': SheetConfig(

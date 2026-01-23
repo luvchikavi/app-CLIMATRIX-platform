@@ -99,33 +99,6 @@ const FUEL_TYPE_MAP: Record<string, string> = {
   'hfc_23': 'refrigerant_hfc23',
 
   // =============================================
-  // SCOPE 1.4 - PROCESS EMISSIONS (Industrial)
-  // =============================================
-  // Cement & Clinker
-  'cement_production': 'cement_production',
-  'clinker_production': 'clinker_production',
-  // Lime
-  'quicklite_ite_production': 'quicklime_production',
-  'quicklime_production': 'quicklime_production',
-  'dolomitic_lime_production': 'dolomitic_lime_production',
-  // Glass
-  'glass_production': 'glass_production',
-  // Ammonia
-  'ammonia_production': 'ammonia_production',
-  // Iron & Steel
-  'iron_steel_production': 'iron_steel_production',
-  'steel_eaf_production': 'steel_eaf_production',
-  // Aluminum
-  'aluminum_primary_production': 'aluminum_primary_production',
-  // Chemicals
-  'nitric_acid_production': 'nitric_acid_production',
-  'adipic_acid_production': 'adipic_acid_production',
-  // Hydrogen
-  'hydrogen_smr_production': 'hydrogen_smr_production',
-  // Petrochemicals
-  'ethylene_production': 'ethylene_production',
-
-  // =============================================
   // SCOPE 2 - PURCHASED ELECTRICITY
   // =============================================
   'electricity_kwh': 'electricity',

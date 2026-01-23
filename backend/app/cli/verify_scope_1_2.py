@@ -36,12 +36,6 @@ GHG_PROTOCOL_SCOPE_1_2 = {
         "required_refrigerants": ["r134a", "r410a", "r32", "sf6"],
         "units": ["kg"],
     },
-    "1.4": {
-        "name": "Process Emissions",
-        "min_factors": 10,
-        "required_processes": ["cement", "steel", "aluminum", "ammonia"],
-        "units": ["tonnes"],
-    },
     "2.1": {
         "name": "Purchased Electricity",
         "min_factors": 50,
@@ -66,7 +60,6 @@ REQUIRED_SPEND_PRICES = {
     "1.1": ["natural_gas", "diesel", "petrol", "lpg", "coal", "fuel_oil", "kerosene"],
     "1.2": ["diesel", "petrol"],  # Mobile uses same fuels
     "1.3": ["refrigerant_r134a", "refrigerant_r410a", "refrigerant_r32", "refrigerant_sf6"],
-    "1.4": ["cement_production", "iron_steel_production", "aluminum_primary_production"],
     "2.1": ["electricity"],
     "2.2": ["district_heating", "steam"],
     "2.3": ["chilled_water", "district_cooling"],
@@ -234,7 +227,7 @@ def check_wizard_config():
     content = wizard_path.read_text()
 
     errors = []
-    required_codes = ["1.1", "1.2", "1.3", "1.4", "2.1", "2.2", "2.3"]
+    required_codes = ["1.1", "1.2", "1.3", "2.1", "2.2", "2.3"]
 
     for code in required_codes:
         if f"code: '{code}'" in content:

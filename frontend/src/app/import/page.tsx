@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth';
-import { usePeriods } from '@/hooks/useEmissions';
+import { usePeriods, useOrganization, useSites } from '@/hooks/useEmissions';
 import { api, ImportPreview, ImportResult, SmartImportResult, UnifiedImportPreview, UnifiedImportResult, UnifiedSheetPreview } from '@/lib/api';
 import { AppShell } from '@/components/layout';
 import {
@@ -36,6 +36,8 @@ import {
   ChevronRight,
   Activity,
   BarChart3,
+  Building2,
+  MapPin,
 } from 'lucide-react';
 import { ImportHistory } from '@/components/ImportHistory';
 import { useActivities } from '@/hooks/useEmissions';
@@ -83,12 +85,15 @@ function ImportContent() {
   }>>([]);
   const [loadingBatchDetails, setLoadingBatchDetails] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
 
   const [mounted, setMounted] = useState(false);
   const queryClient = useQueryClient();
 
   // All data fetching hooks (must be before any conditional returns)
   const { data: periods } = usePeriods();
+  const { data: organization } = useOrganization();
+  const { data: sites } = useSites();
   // Fix: Check if periodIdParam is a valid UUID (not "undefined" string)
   const isValidUUID = periodIdParam && periodIdParam !== 'undefined' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(periodIdParam);
   const periodId = isValidUUID ? periodIdParam : periods?.[0]?.id;
@@ -185,7 +190,7 @@ function ImportContent() {
     setError(null);
 
     try {
-      const unifiedResultData = await api.unifiedImport(periodId, file);
+      const unifiedResultData = await api.unifiedImport(periodId, file, selectedSiteId || undefined);
       setUnifiedResult(unifiedResultData);
       setStep('result');
 
@@ -277,7 +282,7 @@ function ImportContent() {
     setError(null);
 
     try {
-      const importResult = await api.importActivities(periodId, file);
+      const importResult = await api.importActivities(periodId, file, selectedSiteId || undefined);
       setResult(importResult);
       setStep('result');
 
@@ -502,9 +507,17 @@ function ImportContent() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold text-foreground">Import Activities</h1>
-          <p className="text-foreground-muted mt-1">
-            {currentPeriod?.name || 'Loading...'}
-          </p>
+          <div className="flex items-center gap-4 mt-1">
+            {organization && (
+              <div className="flex items-center gap-1.5 text-foreground-muted">
+                <Building2 className="w-4 h-4" />
+                <span className="text-sm font-medium">{organization.name}</span>
+              </div>
+            )}
+            <span className="text-foreground-muted text-sm">
+              {currentPeriod?.name || 'Loading...'}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -523,6 +536,52 @@ function ImportContent() {
             <XCircle className="w-5 h-5" />
           </button>
         </div>
+      )}
+
+      {/* Organization + Import Target Info */}
+      {step === 'upload' && organization && (
+        <Card padding="md" className="mb-6 bg-info/5 border-info/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-2 rounded-lg bg-info/10">
+                <Building2 className="w-6 h-6 text-info" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Import Target</h3>
+                <p className="text-sm text-foreground-muted">
+                  Importing to <span className="font-medium text-info">{organization.name}</span>
+                  {currentPeriod && (
+                    <> &middot; {currentPeriod.name}</>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Site Selector */}
+            {sites && sites.length > 0 && (
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-foreground-muted" />
+                <select
+                  value={selectedSiteId || ''}
+                  onChange={(e) => setSelectedSiteId(e.target.value || null)}
+                  className="h-9 px-3 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-info"
+                >
+                  <option value="">All Sites (no filter)</option>
+                  {sites.filter(s => s.is_active).map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          {selectedSiteId && (
+            <p className="mt-2 text-xs text-info">
+              Activities will be associated with the selected site. Leave blank to import without site association.
+            </p>
+          )}
+        </Card>
       )}
 
       {/* Current Data Status - Always Visible */}
