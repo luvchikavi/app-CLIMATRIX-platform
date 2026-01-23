@@ -110,7 +110,8 @@ export function MobileCombustionForm({ periodId, onSuccess }: MobileCombustionFo
     return FUEL_TYPE_MAP[selectedFactor.activity_key] || null;
   };
 
-  const canUseSpendMethod = getFuelType() !== null && inputMethod === 'fuel';
+  // Can use spend method when a fuel type with price mapping is selected (not distance-based)
+  const canUseSpendMethod = getFuelType() !== null && inputMethod !== 'distance';
 
   // Fetch system price when spend mode is activated
   useEffect(() => {
@@ -406,7 +407,7 @@ export function MobileCombustionForm({ periodId, onSuccess }: MobileCombustionFo
           </div>
 
           {/* Spend toggle for fuel-based */}
-          {canUseSpendMethod && inputMethod === 'fuel' && (
+          {canUseSpendMethod && (
             <div className="flex gap-2">
               <button
                 onClick={() => setInputMethod('fuel')}
