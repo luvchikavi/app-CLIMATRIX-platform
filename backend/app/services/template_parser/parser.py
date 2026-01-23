@@ -218,6 +218,12 @@ class TemplateParser:
             if first_val.startswith('[') and first_val.endswith(']'):
                 skipped += 1
                 continue
+
+            # Skip sample/example rows (greyed out rows with "SAMPLE" or "EXAMPLE")
+            row_text = ' '.join(str(v or '') for v in row_values).upper()
+            if 'SAMPLE' in row_text or 'EXAMPLE' in row_text:
+                skipped += 1
+                continue
             
             try:
                 activity = self._parse_row(
