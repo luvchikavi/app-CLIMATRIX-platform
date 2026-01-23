@@ -65,7 +65,6 @@ export const CATEGORIES = {
     { code: '1.1', name: 'Stationary Combustion', description: 'Boilers, furnaces, generators' },
     { code: '1.2', name: 'Mobile Combustion', description: 'Company vehicles' },
     { code: '1.3', name: 'Fugitive Emissions', description: 'Refrigerants, fire suppression' },
-    { code: '1.4', name: 'Process Emissions', description: 'Industrial processes (cement, lime, chemicals)' },
   ],
   2: [
     { code: '2.1', name: 'Purchased Electricity (Location-based)', description: 'Grid average emission factors' },
@@ -91,7 +90,15 @@ export const CATEGORIES = {
 };
 
 // Categories with specialized forms (skip activity selector step)
-export const SPECIALIZED_CATEGORIES = ['3.1', '3.2'];
+// All Scope 1, 2, and 3 categories now have specialized forms
+export const SPECIALIZED_CATEGORIES = [
+  // Scope 1
+  '1.1', '1.2', '1.3',
+  // Scope 2
+  '2.1', '2.2', '2.3',
+  // Scope 3
+  '3.1', '3.2', '3.4', '3.5', '3.6', '3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14'
+];
 
 const initialState = {
   step: 'scope' as WizardStep,

@@ -65,21 +65,14 @@ def normalize_category_code(category_code: str) -> str:
     """
     Normalize category codes to match database values.
 
-    Frontend sends subcategories (2.1, 2.2, 2.3) but database has base code (2).
-    This mapping ensures proper factor lookup.
+    Database stores emission factors with full subcategory codes (1.1, 1.2, 2.1, 2.2, etc.)
+    so we pass through the category code as-is.
 
-    Mapping:
-    - 2.1, 2.2, 2.3 → 2 (Scope 2 electricity factors)
-    - 1.4 → Not yet in DB, map to 1.1 for now
-    - All other codes pass through unchanged
+    Note: Previous implementation mapped 2.1/2.2/2.3 to "2" but this was incorrect
+    since the database actually stores factors with the subcategory codes.
     """
-    CATEGORY_MAPPING = {
-        "2.1": "2",  # Purchased Electricity (Location-based)
-        "2.2": "2",  # Purchased Electricity (Market-based)
-        "2.3": "2",  # Purchased Heat/Steam/Cooling
-        "1.4": "1.1",  # Process Emissions (temporary fallback)
-    }
-    return CATEGORY_MAPPING.get(category_code, category_code)
+    # Pass through as-is - database has subcategory codes (1.1, 1.2, 2.1, 2.2, etc.)
+    return category_code
 
 
 # ============================================================================

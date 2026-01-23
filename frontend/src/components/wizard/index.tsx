@@ -7,6 +7,15 @@ import { CategorySelector } from './CategorySelector';
 import { ActivitySelector } from './ActivitySelector';
 import { DetailsForm } from './DetailsForm';
 import { ReviewStep } from './ReviewStep';
+// Scope 1 forms
+import { StationaryCombustionForm } from './StationaryCombustionForm';
+import { MobileCombustionForm } from './MobileCombustionForm';
+import { FugitiveEmissionsForm } from './FugitiveEmissionsForm';
+// Scope 2 forms
+import { ElectricityLocationForm } from './ElectricityLocationForm';
+import { ElectricityMarketForm } from './ElectricityMarketForm';
+import { HeatSteamCoolingForm } from './HeatSteamCoolingForm';
+// Scope 3 forms
 import { PurchasedGoodsForm } from './PurchasedGoodsForm';
 import { CapitalGoodsForm } from './CapitalGoodsForm';
 import { TransportForm } from './TransportForm';
@@ -24,7 +33,15 @@ import { Globe, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Categories with specialized forms (skip activity selector)
-const SPECIALIZED_CATEGORIES = ['3.1', '3.2', '3.4', '3.5', '3.6', '3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14'];
+// All Scope 1, 2, and 3 categories now have specialized forms
+const SPECIALIZED_CATEGORIES = [
+  // Scope 1
+  '1.1', '1.2', '1.3',
+  // Scope 2
+  '2.1', '2.2', '2.3',
+  // Scope 3
+  '3.1', '3.2', '3.4', '3.5', '3.6', '3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14'
+];
 
 interface ActivityWizardProps {
   periodId: string;
@@ -119,7 +136,24 @@ export function ActivityWizard({ periodId, onSuccess }: ActivityWizardProps) {
         {step === 'category' && <CategorySelector />}
         {step === 'activity' && <ActivitySelector />}
         {step === 'details' && (
-          // Use specialized forms for certain categories
+          // Use specialized forms for all categories
+          // Scope 1
+          selectedCategory === '1.1' ? (
+            <StationaryCombustionForm periodId={periodId} onSuccess={onSuccess} />
+          ) : selectedCategory === '1.2' ? (
+            <MobileCombustionForm periodId={periodId} onSuccess={onSuccess} />
+          ) : selectedCategory === '1.3' ? (
+            <FugitiveEmissionsForm periodId={periodId} onSuccess={onSuccess} />
+          ) :
+          // Scope 2
+          selectedCategory === '2.1' ? (
+            <ElectricityLocationForm periodId={periodId} onSuccess={onSuccess} />
+          ) : selectedCategory === '2.2' ? (
+            <ElectricityMarketForm periodId={periodId} onSuccess={onSuccess} />
+          ) : selectedCategory === '2.3' ? (
+            <HeatSteamCoolingForm periodId={periodId} onSuccess={onSuccess} />
+          ) :
+          // Scope 3
           selectedCategory === '3.1' ? (
             <PurchasedGoodsForm periodId={periodId} onSuccess={onSuccess} />
           ) : selectedCategory === '3.2' ? (

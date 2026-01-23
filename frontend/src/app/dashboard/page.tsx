@@ -45,7 +45,9 @@ import {
   ArrowRight,
   ArrowLeft,
   Download,
+  Filter,
 } from 'lucide-react';
+import { CategorySummary } from '@/lib/api';
 
 // Back button for wizard - only shows when not on first step
 function WizardBackButton() {
@@ -74,6 +76,7 @@ function DashboardContent() {
   const [showWizard, setShowWizard] = useState(searchParams.get('wizard') === 'true');
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [drillDownCategory, setDrillDownCategory] = useState<CategorySummary | null>(null);
 
   // All data fetching hooks (must be before any conditional returns)
   const { data: periods, isLoading: periodsLoading } = usePeriods();
@@ -306,9 +309,13 @@ function DashboardContent() {
                   <BarChart3 className="w-5 h-5 text-foreground-muted" />
                   Emissions by Category
                 </CardTitle>
+                <p className="text-xs text-foreground-muted mt-1">Click a category to see activities</p>
               </CardHeader>
               <CardContent>
-                <CategoryBreakdown categories={summary.by_category} />
+                <CategoryBreakdown
+                  categories={summary.by_category}
+                  onCategoryClick={(category) => setDrillDownCategory(category)}
+                />
               </CardContent>
             </Card>
           </div>
@@ -457,6 +464,104 @@ function DashboardContent() {
                   refetchSummary();
                 }}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Category Drill-Down Modal */}
+      {drillDownCategory && activities && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-neutral-950/50 backdrop-blur-sm"
+            onClick={() => setDrillDownCategory(null)}
+          />
+
+          {/* Modal */}
+          <div className="relative bg-background-elevated rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-fade-in-up">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Filter className="w-5 h-5 text-foreground-muted" />
+                  <h2 className="text-lg font-semibold text-foreground">
+                    Category {drillDownCategory.category_code} Activities
+                  </h2>
+                </div>
+                <p className="text-sm text-foreground-muted mt-1">
+                  {formatCO2e(drillDownCategory.total_co2e_kg)} total from {drillDownCategory.activity_count} activities
+                </p>
+              </div>
+              <button
+                onClick={() => setDrillDownCategory(null)}
+                className="p-2 rounded-lg hover:bg-background-muted transition-colors"
+              >
+                <X className="w-5 h-5 text-foreground-muted" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-100px)]">
+              {(() => {
+                const filteredActivities = activities.filter(
+                  (item) =>
+                    item.activity.scope === drillDownCategory.scope &&
+                    item.activity.category_code === drillDownCategory.category_code
+                );
+
+                if (filteredActivities.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-foreground-muted">
+                      No activities found for this category
+                    </div>
+                  );
+                }
+
+                return (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Activity Key</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead className="text-right">EF</TableHead>
+                        <TableHead className="text-right">CO2e</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredActivities.map((item) => (
+                        <TableRow key={item.activity.id}>
+                          <TableCell className="font-medium text-foreground max-w-xs">
+                            {item.activity.description}
+                          </TableCell>
+                          <TableCell className="text-foreground-muted font-mono text-xs">
+                            {item.activity.activity_key}
+                          </TableCell>
+                          <TableCell className="text-foreground-muted">
+                            {item.activity.quantity.toLocaleString()} {item.activity.unit}
+                          </TableCell>
+                          <TableCell className="text-right text-xs text-foreground-muted">
+                            {item.emission?.factor_value
+                              ? `${item.emission.factor_value.toLocaleString(undefined, { maximumFractionDigits: 4 })}`
+                              : '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-foreground">
+                            {item.emission?.co2e_kg.toLocaleString(undefined, {
+                              maximumFractionDigits: 2,
+                            })}
+                            <span className="text-foreground-muted font-normal ml-1">kg</span>
+                          </TableCell>
+                          <TableCell className="text-foreground-muted text-sm">
+                            {item.activity.activity_date}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                );
+              })()}
             </div>
           </div>
         </div>
