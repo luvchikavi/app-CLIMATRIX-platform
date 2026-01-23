@@ -64,7 +64,14 @@ CURRENCY_RATES_TO_USD = {
 }
 
 # Categories that use spend-based calculations (EEIO factors in USD)
-SPEND_BASED_CATEGORIES = {"3.1", "3.2"}
+# Includes: Purchased Goods (3.1), Capital Goods (3.2), Fuel/Energy (3.3),
+# Transportation (3.4, 3.9), Waste (3.5), Business Travel (3.6),
+# Commuting (3.7), Leased Assets (3.8), and others
+SPEND_BASED_CATEGORIES = {
+    "1.1", "1.2",  # Stationary & Mobile combustion (can have spend method)
+    "3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7", "3.8", "3.9",
+    "3.10", "3.11", "3.12", "3.13", "3.14", "3.15",
+}
 
 
 class CalculationPipeline:

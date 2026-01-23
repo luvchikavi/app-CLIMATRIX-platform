@@ -64,10 +64,10 @@ const COUNTRIES = [
 ];
 
 const CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'GBP', symbol: '£', name: 'British Pound' },
-  { code: 'ILS', symbol: '₪', name: 'Israeli Shekel' },
+  { code: 'USD', symbol: '$', name: 'US Dollar', toUSD: 1.00 },
+  { code: 'EUR', symbol: '€', name: 'Euro', toUSD: 1.08 },
+  { code: 'GBP', symbol: '£', name: 'British Pound', toUSD: 1.27 },
+  { code: 'ILS', symbol: '₪', name: 'Israeli Shekel', toUSD: 0.27 },
 ];
 
 // Emission factor estimates
@@ -140,13 +140,16 @@ export function CommutingForm({ periodId, onSuccess }: CommutingFormProps) {
 
     if (method === 'spend') {
       if (!spendAmount || spendAmount <= 0) return null;
-      return spendAmount * EF_ESTIMATES.spend_per_usd;
+      // Convert to USD first, then apply emission factor
+      const currencyRate = CURRENCIES.find(c => c.code === currency)?.toUSD || 1;
+      const amountInUSD = spendAmount * currencyRate;
+      return amountInUSD * EF_ESTIMATES.spend_per_usd;
     }
 
     return null;
   }, [
     method, transportMode, numEmployees, avgDistanceOneWay, workingDays,
-    remoteWorkPct, avgNumEmployees, country, spendAmount
+    remoteWorkPct, avgNumEmployees, country, spendAmount, currency
   ]);
 
   // Build activity payload
@@ -162,7 +165,7 @@ export function CommutingForm({ periodId, onSuccess }: CommutingFormProps) {
         ...basePayload,
         activity_key: 'commute_spend_general',
         quantity: spendAmount,
-        unit: 'USD',
+        unit: currency,
         description: description || `Employee commuting reimbursement - ${siteDepartment || 'All employees'}`,
       };
     }

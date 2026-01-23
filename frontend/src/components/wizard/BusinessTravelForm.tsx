@@ -81,12 +81,12 @@ const COUNTRIES = [
 ];
 
 const CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'GBP', symbol: '£', name: 'British Pound' },
-  { code: 'ILS', symbol: '₪', name: 'Israeli Shekel' },
-  { code: 'CHF', symbol: 'Fr', name: 'Swiss Franc' },
-  { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
+  { code: 'USD', symbol: '$', name: 'US Dollar', toUSD: 1.00 },
+  { code: 'EUR', symbol: '€', name: 'Euro', toUSD: 1.08 },
+  { code: 'GBP', symbol: '£', name: 'British Pound', toUSD: 1.27 },
+  { code: 'ILS', symbol: '₪', name: 'Israeli Shekel', toUSD: 0.27 },
+  { code: 'CHF', symbol: 'Fr', name: 'Swiss Franc', toUSD: 1.13 },
+  { code: 'JPY', symbol: '¥', name: 'Japanese Yen', toUSD: 0.0067 },
 ];
 
 // Emission factor estimates (kg CO2e)
@@ -194,11 +194,16 @@ export function BusinessTravelForm({ periodId, onSuccess }: BusinessTravelFormPr
     }
   };
 
-  // Calculate estimated emissions
+  // Calculate estimated emissions (with currency conversion)
   const estimatedEmissions = useMemo(() => {
+    // Get currency conversion rate to USD
+    const currencyRate = CURRENCIES.find(c => c.code === currency)?.toUSD || 1;
+
     if (travelType === 'flights') {
       if (flightMethod === 'spend' && spendAmount) {
-        return spendAmount * EF_ESTIMATES.flight_spend;
+        // Convert to USD first, then apply emission factor
+        const amountInUSD = spendAmount * currencyRate;
+        return amountInUSD * EF_ESTIMATES.flight_spend;
       }
       if (flightMethod === 'distance' && flightDistance) {
         const cabin = CABIN_CLASSES.find(c => c.key === cabinClass);
@@ -215,7 +220,9 @@ export function BusinessTravelForm({ periodId, onSuccess }: BusinessTravelFormPr
 
     if (travelType === 'hotels') {
       if (hotelMethod === 'spend' && spendAmount) {
-        return spendAmount * EF_ESTIMATES.hotel_spend;
+        // Convert to USD first, then apply emission factor
+        const amountInUSD = spendAmount * currencyRate;
+        return amountInUSD * EF_ESTIMATES.hotel_spend;
       }
       if (hotelMethod === 'physical' && nights) {
         return nights * rooms * EF_ESTIMATES.hotel_night;
@@ -224,7 +231,9 @@ export function BusinessTravelForm({ periodId, onSuccess }: BusinessTravelFormPr
 
     if (travelType === 'other') {
       if (otherMethod === 'spend' && spendAmount) {
-        return spendAmount * EF_ESTIMATES.travel_spend;
+        // Convert to USD first, then apply emission factor
+        const amountInUSD = spendAmount * currencyRate;
+        return amountInUSD * EF_ESTIMATES.travel_spend;
       }
       if (otherMethod === 'distance' && otherDistance) {
         const travel = OTHER_TRAVEL_TYPES.find(t => t.key === otherTravelType);
@@ -236,7 +245,7 @@ export function BusinessTravelForm({ periodId, onSuccess }: BusinessTravelFormPr
   }, [
     travelType, flightMethod, hotelMethod, otherMethod,
     flightDistance, passengers, cabinClass, tripType,
-    nights, rooms, otherDistance, otherTravelType, spendAmount
+    nights, rooms, otherDistance, otherTravelType, spendAmount, currency
   ]);
 
   // Build activity payload
@@ -253,7 +262,7 @@ export function BusinessTravelForm({ periodId, onSuccess }: BusinessTravelFormPr
           ...basePayload,
           activity_key: 'travel_spend_air',
           quantity: spendAmount,
-          unit: 'USD',
+          unit: currency,
           description: description || `Air travel - ${travelerName || 'Business trip'}`,
         };
       }
@@ -281,7 +290,7 @@ export function BusinessTravelForm({ periodId, onSuccess }: BusinessTravelFormPr
           ...basePayload,
           activity_key: 'travel_spend_hotel',
           quantity: spendAmount,
-          unit: 'USD',
+          unit: currency,
           description: description || `Hotel - ${travelerName || 'Business trip'}`,
         };
       }
@@ -309,7 +318,7 @@ export function BusinessTravelForm({ periodId, onSuccess }: BusinessTravelFormPr
           ...basePayload,
           activity_key: travelTypeMap[otherTravelType] || 'travel_spend_general',
           quantity: spendAmount,
-          unit: 'USD',
+          unit: currency,
           description: description || `${OTHER_TRAVEL_TYPES.find(t => t.key === otherTravelType)?.label || 'Travel'} - ${travelerName || 'Business'}`,
         };
       }
