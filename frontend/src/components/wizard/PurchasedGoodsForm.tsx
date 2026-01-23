@@ -495,6 +495,11 @@ export function PurchasedGoodsForm({ periodId, onSuccess }: PurchasedGoodsFormPr
                   </option>
                 ))}
               </select>
+              {currency !== 'USD' && (
+                <p className="mt-1 text-xs text-foreground-muted">
+                  EEIO factors are in USD. Your {currency} amount will be converted automatically.
+                </p>
+              )}
             </div>
           </div>
         </>

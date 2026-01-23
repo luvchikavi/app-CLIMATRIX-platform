@@ -44,6 +44,40 @@ const CURRENCIES = [
   { code: 'ILS', symbol: '₪', name: 'Israeli Shekel' },
 ];
 
+// Currency conversion rates to USD (2024 annual averages)
+// Source: ECB, OECD
+const CURRENCY_RATES_TO_USD: Record<string, number> = {
+  USD: 1.00,
+  EUR: 1.08,
+  GBP: 1.27,
+  ILS: 0.27,
+  CAD: 0.74,
+  AUD: 0.66,
+  JPY: 0.0067,
+  CNY: 0.14,
+  INR: 0.012,
+  CHF: 1.13,
+  SEK: 0.095,
+  NOK: 0.092,
+  DKK: 0.145,
+};
+
+/**
+ * Convert amount from one currency to another via USD
+ */
+function convertCurrency(amount: number, fromCurrency: string, toCurrency: string): number {
+  if (fromCurrency === toCurrency) return amount;
+
+  const fromRate = CURRENCY_RATES_TO_USD[fromCurrency];
+  const toRate = CURRENCY_RATES_TO_USD[toCurrency];
+
+  if (!fromRate || !toRate) return amount; // Fallback: no conversion if rate unknown
+
+  // Convert to USD first, then to target currency
+  const usdAmount = amount * fromRate;
+  return usdAmount / toRate;
+}
+
 // Map activity_key to fuel_type for spend conversion
 const FUEL_TYPE_MAP: Record<string, string> = {
   'natural_gas_volume': 'natural_gas',
@@ -96,6 +130,7 @@ export function StationaryCombustionForm({ periodId, onSuccess }: StationaryComb
   const [currency, setCurrency] = useState('USD');
   const [unitPrice, setUnitPrice] = useState<number>(0);
   const [systemPrice, setSystemPrice] = useState<number | null>(null);
+  const [priceCurrency, setPriceCurrency] = useState<string>('USD'); // The actual currency of the price
   const [priceSource, setPriceSource] = useState('');
   const [isLoadingPrice, setIsLoadingPrice] = useState(false);
   const [spendConversion, setSpendConversion] = useState<SpendConversionResult | null>(null);
@@ -128,6 +163,7 @@ export function StationaryCombustionForm({ periodId, onSuccess }: StationaryComb
     if (!fuelType) {
       setSystemPrice(null);
       setPriceSource('');
+      setPriceCurrency('USD');
       return;
     }
 
@@ -137,23 +173,28 @@ export function StationaryCombustionForm({ periodId, onSuccess }: StationaryComb
 
       try {
         const prices = await api.getFuelPrices(fuelType, 'Global');
+        // First try to find a price in the user's currency
         let priceData = prices.find(p => p.currency === currency);
+        // Fall back to USD if not found
         if (!priceData) {
           priceData = prices.find(p => p.currency === 'USD');
         }
 
         if (priceData) {
           setSystemPrice(priceData.price_per_unit);
+          setPriceCurrency(priceData.currency); // Track actual price currency
           setPriceSource(priceData.source);
           if (unitPrice === 0 || unitPrice === oldSystemPrice) {
             setUnitPrice(priceData.price_per_unit);
           }
         } else {
           setSystemPrice(null);
+          setPriceCurrency('USD');
           setPriceSource('');
         }
       } catch {
         setSystemPrice(null);
+        setPriceCurrency('USD');
         setPriceSource('');
       } finally {
         setIsLoadingPrice(false);
@@ -163,7 +204,7 @@ export function StationaryCombustionForm({ periodId, onSuccess }: StationaryComb
     fetchSystemPrice();
   }, [inputMethod, currency, selectedFactor]);
 
-  // Calculate quantity from spend
+  // Calculate quantity from spend with currency conversion
   useEffect(() => {
     if (inputMethod !== 'spend' || !spendAmount || spendAmount <= 0 || !unitPrice || unitPrice <= 0 || !selectedFactor) {
       setSpendConversion(null);
@@ -172,22 +213,39 @@ export function StationaryCombustionForm({ periodId, onSuccess }: StationaryComb
 
     const fuelType = getFuelType();
     const unit = selectedFactor.activity_unit || 'units';
-    const calculatedQty = spendAmount / unitPrice;
     const isCustomPrice = systemPrice !== null && unitPrice !== systemPrice;
+
+    // Convert spend amount to price currency if different
+    const effectivePriceCurrency = isCustomPrice ? currency : priceCurrency;
+    const needsConversion = currency !== effectivePriceCurrency;
+    const convertedSpend = needsConversion
+      ? convertCurrency(spendAmount, currency, effectivePriceCurrency)
+      : spendAmount;
+
+    const calculatedQty = convertedSpend / unitPrice;
+
+    // Build formula string to show the conversion
+    let formula: string;
+    if (needsConversion) {
+      const rate = convertCurrency(1, currency, effectivePriceCurrency);
+      formula = `${spendAmount} ${currency} × ${rate.toFixed(4)} = ${convertedSpend.toFixed(2)} ${effectivePriceCurrency} ÷ ${unitPrice} ${effectivePriceCurrency}/${unit} = ${calculatedQty.toFixed(2)} ${unit}`;
+    } else {
+      formula = `${spendAmount} ${currency} ÷ ${unitPrice} ${effectivePriceCurrency}/${unit} = ${calculatedQty.toFixed(2)} ${unit}`;
+    }
 
     setSpendConversion({
       fuel_type: fuelType || 'custom',
       spend_amount: spendAmount,
       currency: currency,
       fuel_price: unitPrice,
-      price_unit: `${currency}/${unit}`,
+      price_unit: `${effectivePriceCurrency}/${unit}`,
       price_source: isCustomPrice ? 'Custom price (user provided)' : priceSource,
       calculated_quantity: Math.round(calculatedQty * 100) / 100,
       quantity_unit: unit,
-      formula: `${spendAmount} ${currency} ÷ ${unitPrice} ${currency}/${unit} = ${calculatedQty.toFixed(2)} ${unit}`,
+      formula,
     });
     setQuantity(Math.round(calculatedQty * 100) / 100);
-  }, [inputMethod, spendAmount, unitPrice, currency, selectedFactor, systemPrice, priceSource]);
+  }, [inputMethod, spendAmount, unitPrice, currency, priceCurrency, selectedFactor, systemPrice, priceSource]);
 
   const handleSelectFactor = (factor: EmissionFactor) => {
     setSelectedFactor(factor);
@@ -198,6 +256,7 @@ export function StationaryCombustionForm({ periodId, onSuccess }: StationaryComb
     setSpendAmount(0);
     setUnitPrice(0);
     setSystemPrice(null);
+    setPriceCurrency('USD');
     setSpendConversion(null);
   };
 
@@ -501,7 +560,7 @@ export function StationaryCombustionForm({ periodId, onSuccess }: StationaryComb
 
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Price per {selectedFactor.activity_unit} ({currency})
+                  Price per {selectedFactor.activity_unit} ({priceCurrency})
                 </label>
                 <Input
                   type="number"
@@ -517,8 +576,13 @@ export function StationaryCombustionForm({ periodId, onSuccess }: StationaryComb
                     onClick={() => setUnitPrice(systemPrice)}
                     className="mt-1 text-xs text-primary hover:underline"
                   >
-                    Reset to system price ({systemPrice} {currency})
+                    Reset to system price ({systemPrice} {priceCurrency})
                   </button>
+                )}
+                {currency !== priceCurrency && unitPrice === systemPrice && (
+                  <p className="mt-1 text-xs text-foreground-muted">
+                    Note: Price is in {priceCurrency}. Your {currency} amount will be converted automatically.
+                  </p>
                 )}
               </div>
 

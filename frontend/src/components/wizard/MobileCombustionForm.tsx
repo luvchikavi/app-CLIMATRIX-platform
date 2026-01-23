@@ -43,6 +43,40 @@ const CURRENCIES = [
   { code: 'ILS', symbol: '₪', name: 'Israeli Shekel' },
 ];
 
+// Currency conversion rates to USD (2024 annual averages)
+// Source: ECB, OECD
+const CURRENCY_RATES_TO_USD: Record<string, number> = {
+  USD: 1.00,
+  EUR: 1.08,
+  GBP: 1.27,
+  ILS: 0.27,
+  CAD: 0.74,
+  AUD: 0.66,
+  JPY: 0.0067,
+  CNY: 0.14,
+  INR: 0.012,
+  CHF: 1.13,
+  SEK: 0.095,
+  NOK: 0.092,
+  DKK: 0.145,
+};
+
+/**
+ * Convert amount from one currency to another via USD
+ */
+function convertCurrency(amount: number, fromCurrency: string, toCurrency: string): number {
+  if (fromCurrency === toCurrency) return amount;
+
+  const fromRate = CURRENCY_RATES_TO_USD[fromCurrency];
+  const toRate = CURRENCY_RATES_TO_USD[toCurrency];
+
+  if (!fromRate || !toRate) return amount; // Fallback: no conversion if rate unknown
+
+  // Convert to USD first, then to target currency
+  const usdAmount = amount * fromRate;
+  return usdAmount / toRate;
+}
+
 // Map activity_key to fuel_type for spend conversion
 const FUEL_TYPE_MAP: Record<string, string> = {
   'diesel_mobile': 'diesel',
@@ -79,6 +113,7 @@ export function MobileCombustionForm({ periodId, onSuccess }: MobileCombustionFo
   const [currency, setCurrency] = useState('USD');
   const [unitPrice, setUnitPrice] = useState<number>(0);
   const [systemPrice, setSystemPrice] = useState<number | null>(null);
+  const [priceCurrency, setPriceCurrency] = useState<string>('USD'); // The actual currency of the price
   const [priceSource, setPriceSource] = useState('');
   const [isLoadingPrice, setIsLoadingPrice] = useState(false);
 
@@ -121,6 +156,7 @@ export function MobileCombustionForm({ periodId, onSuccess }: MobileCombustionFo
     if (!fuelType) {
       setSystemPrice(null);
       setPriceSource('');
+      setPriceCurrency('USD');
       return;
     }
 
@@ -130,23 +166,28 @@ export function MobileCombustionForm({ periodId, onSuccess }: MobileCombustionFo
 
       try {
         const prices = await api.getFuelPrices(fuelType, 'Global');
+        // First try to find a price in the user's currency
         let priceData = prices.find(p => p.currency === currency);
+        // Fall back to USD if not found
         if (!priceData) {
           priceData = prices.find(p => p.currency === 'USD');
         }
 
         if (priceData) {
           setSystemPrice(priceData.price_per_unit);
+          setPriceCurrency(priceData.currency); // Track actual price currency
           setPriceSource(priceData.source);
           if (unitPrice === 0 || unitPrice === oldSystemPrice) {
             setUnitPrice(priceData.price_per_unit);
           }
         } else {
           setSystemPrice(null);
+          setPriceCurrency('USD');
           setPriceSource('');
         }
       } catch {
         setSystemPrice(null);
+        setPriceCurrency('USD');
         setPriceSource('');
       } finally {
         setIsLoadingPrice(false);
@@ -156,12 +197,22 @@ export function MobileCombustionForm({ periodId, onSuccess }: MobileCombustionFo
     fetchSystemPrice();
   }, [inputMethod, currency, selectedFactor]);
 
-  // Calculate quantity from spend
+  // Calculate quantity from spend with currency conversion
   useEffect(() => {
     if (inputMethod !== 'spend' || !spendAmount || !unitPrice || !selectedFactor) return;
-    const calculatedQty = spendAmount / unitPrice;
+
+    // Determine if user entered a custom price (then it's in user's currency)
+    const isCustomPrice = systemPrice !== null && unitPrice !== systemPrice;
+    const effectivePriceCurrency = isCustomPrice ? currency : priceCurrency;
+
+    // Convert spend amount to price currency if different
+    const convertedSpend = currency !== effectivePriceCurrency
+      ? convertCurrency(spendAmount, currency, effectivePriceCurrency)
+      : spendAmount;
+
+    const calculatedQty = convertedSpend / unitPrice;
     setQuantity(Math.round(calculatedQty * 100) / 100);
-  }, [inputMethod, spendAmount, unitPrice, selectedFactor]);
+  }, [inputMethod, spendAmount, unitPrice, currency, priceCurrency, systemPrice, selectedFactor]);
 
   const handleSelectFactor = (factor: EmissionFactor) => {
     setSelectedFactor(factor);
@@ -502,7 +553,7 @@ export function MobileCombustionForm({ periodId, onSuccess }: MobileCombustionFo
 
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Price per {selectedFactor.activity_unit} ({currency})
+                  Price per {selectedFactor.activity_unit} ({priceCurrency})
                 </label>
                 <Input
                   type="number"
@@ -513,6 +564,11 @@ export function MobileCombustionForm({ periodId, onSuccess }: MobileCombustionFo
                   step={0.01}
                   disabled={isLoadingPrice}
                 />
+                {currency !== priceCurrency && unitPrice === systemPrice && (
+                  <p className="mt-1 text-xs text-foreground-muted">
+                    Note: Price is in {priceCurrency}. Your {currency} amount will be converted automatically.
+                  </p>
+                )}
               </div>
 
               {quantity > 0 && (
@@ -524,6 +580,25 @@ export function MobileCombustionForm({ periodId, onSuccess }: MobileCombustionFo
                   <p className="text-2xl font-bold text-success mt-1">
                     {quantity.toLocaleString()} {selectedFactor.activity_unit}
                   </p>
+                  {(() => {
+                    const isCustomPrice = systemPrice !== null && unitPrice !== systemPrice;
+                    const effectivePriceCurrency = isCustomPrice ? currency : priceCurrency;
+                    const needsConversion = currency !== effectivePriceCurrency;
+                    if (needsConversion) {
+                      const convertedSpend = convertCurrency(spendAmount, currency, effectivePriceCurrency);
+                      const rate = convertCurrency(1, currency, effectivePriceCurrency);
+                      return (
+                        <p className="text-xs text-success/80 mt-1">
+                          {spendAmount} {currency} × {rate.toFixed(4)} = {convertedSpend.toFixed(2)} {effectivePriceCurrency} ÷ {unitPrice} = {quantity} {selectedFactor.activity_unit}
+                        </p>
+                      );
+                    }
+                    return (
+                      <p className="text-xs text-success/80 mt-1">
+                        {spendAmount} {currency} ÷ {unitPrice} {effectivePriceCurrency}/{selectedFactor.activity_unit} = {quantity} {selectedFactor.activity_unit}
+                      </p>
+                    );
+                  })()}
                 </div>
               )}
             </div>

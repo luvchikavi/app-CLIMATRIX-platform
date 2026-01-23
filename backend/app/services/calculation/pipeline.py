@@ -45,6 +45,28 @@ class ActivityInput:
     supplier_ef_unit: str | None = None  # e.g., "kg CO2e/kg"
 
 
+# Currency conversion rates to USD (2024 annual averages)
+# Source: ECB, OECD
+CURRENCY_RATES_TO_USD = {
+    "USD": Decimal("1.00"),
+    "EUR": Decimal("1.08"),
+    "GBP": Decimal("1.27"),
+    "ILS": Decimal("0.27"),
+    "CAD": Decimal("0.74"),
+    "AUD": Decimal("0.66"),
+    "JPY": Decimal("0.0067"),
+    "CNY": Decimal("0.14"),
+    "INR": Decimal("0.012"),
+    "CHF": Decimal("1.13"),
+    "SEK": Decimal("0.095"),
+    "NOK": Decimal("0.092"),
+    "DKK": Decimal("0.145"),
+}
+
+# Categories that use spend-based calculations (EEIO factors in USD)
+SPEND_BASED_CATEGORIES = {"3.1", "3.2"}
+
+
 class CalculationPipeline:
     """
     Main orchestrator for emission calculations.
@@ -139,11 +161,41 @@ class CalculationPipeline:
 
         factor = resolution.factor
 
+        # Currency conversion for spend-based categories
+        # EEIO factors are typically in kg CO2e per USD, so convert non-USD spend to USD
+        quantity = input_data.quantity
+        unit = input_data.unit
+        currency_conversion_warning = None
+
+        if input_data.category_code in SPEND_BASED_CATEGORIES:
+            input_currency = input_data.unit.upper()
+            target_currency = factor.activity_unit.upper() if factor.activity_unit else "USD"
+
+            # Check if both are currencies and different
+            if (input_currency in CURRENCY_RATES_TO_USD and
+                target_currency in CURRENCY_RATES_TO_USD and
+                input_currency != target_currency):
+
+                # Convert input currency to target currency (usually USD)
+                input_rate = CURRENCY_RATES_TO_USD[input_currency]
+                target_rate = CURRENCY_RATES_TO_USD[target_currency]
+
+                # Convert: input → USD → target
+                quantity = (quantity * input_rate) / target_rate
+                unit = target_currency
+
+                # Add warning about the conversion
+                rate = input_rate / target_rate
+                currency_conversion_warning = (
+                    f"Currency converted: {input_data.quantity} {input_currency} → "
+                    f"{quantity:.2f} {target_currency} (rate: {rate:.4f})"
+                )
+
         # Stage 1: NORMALIZE units to factor's expected unit
         try:
             normalized = self.normalizer.normalize(
-                quantity=input_data.quantity,
-                input_unit=input_data.unit,
+                quantity=quantity,
+                input_unit=unit,
                 target_unit=factor.activity_unit,
             )
         except UnitConversionError as e:
@@ -168,6 +220,10 @@ class CalculationPipeline:
         if resolution.strategy == ResolutionStrategy.GLOBAL:
             result.confidence = "medium"
             result.warnings.append(resolution.message)
+
+        # Add currency conversion warning if applicable
+        if currency_conversion_warning:
+            result.warnings.append(currency_conversion_warning)
 
         return result
 
