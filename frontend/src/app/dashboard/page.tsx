@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
 import { usePeriods, useReportSummary, useActivities } from '@/hooks/useEmissions';
@@ -49,8 +50,10 @@ import {
   ArrowLeft,
   Download,
   Filter,
+  FileSpreadsheet,
+  ChevronDown,
 } from 'lucide-react';
-import { CategorySummary } from '@/lib/api';
+import { api, CategorySummary, ImportBatch } from '@/lib/api';
 
 // Back button for wizard - only shows when not on first step
 function WizardBackButton() {
@@ -81,6 +84,8 @@ function DashboardContent() {
   const [mounted, setMounted] = useState(false);
   const [drillDownCategory, setDrillDownCategory] = useState<CategorySummary | null>(null);
   const [drillDownScope, setDrillDownScope] = useState<1 | 2 | 3 | null>(null);
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [showBatchDropdown, setShowBatchDropdown] = useState(false);
 
   // All data fetching hooks (must be before any conditional returns)
   const { data: periods, isLoading: periodsLoading } = usePeriods();
@@ -93,6 +98,42 @@ function DashboardContent() {
   } = useReportSummary(activePeriodId || '');
 
   const { data: activities, isLoading: activitiesLoading } = useActivities(activePeriodId || '');
+
+  // Fetch import batches for filter
+  const { data: importBatches } = useQuery({
+    queryKey: ['import-batches', activePeriodId],
+    queryFn: () => api.getImportBatches(activePeriodId, 50),
+    enabled: !!activePeriodId,
+  });
+
+  // Filter activities by selected batch
+  const filteredActivities = useMemo(() => {
+    if (!activities) return [];
+    if (!selectedBatchId) return activities; // Show all if no batch selected
+    return activities.filter(a => a.activity.import_batch_id === selectedBatchId);
+  }, [activities, selectedBatchId]);
+
+  // Calculate totals from filtered activities
+  const filteredTotals = useMemo(() => {
+    const scope1 = filteredActivities
+      .filter(a => a.activity.scope === 1)
+      .reduce((sum, a) => sum + (a.emission?.co2e_kg || 0), 0);
+    const scope2 = filteredActivities
+      .filter(a => a.activity.scope === 2)
+      .reduce((sum, a) => sum + (a.emission?.co2e_kg || 0), 0);
+    const scope3 = filteredActivities
+      .filter(a => a.activity.scope === 3)
+      .reduce((sum, a) => sum + (a.emission?.co2e_kg || 0), 0);
+    return {
+      total: scope1 + scope2 + scope3,
+      scope1,
+      scope2,
+      scope3,
+    };
+  }, [filteredActivities]);
+
+  // Get selected batch info
+  const selectedBatch = importBatches?.find(b => b.id === selectedBatchId);
 
   // All useEffect hooks
   useEffect(() => {
@@ -116,24 +157,32 @@ function DashboardContent() {
 
   const isLoading = periodsLoading || summaryLoading;
 
+  // Use filtered totals when batch is selected, otherwise use server summary
+  const displayTotals = selectedBatchId ? filteredTotals : {
+    total: summary?.total_co2e_kg || 0,
+    scope1: summary?.scope_1_co2e_kg || 0,
+    scope2: summary?.scope_2_co2e_kg || 0,
+    scope3: summary?.scope_3_co2e_kg || 0,
+  };
+
   // Calculate percentages for scope breakdown
-  const totalEmissions = summary?.total_co2e_kg || 0;
-  const scope1Pct = totalEmissions > 0 ? ((summary?.scope_1_co2e_kg || 0) / totalEmissions) * 100 : 0;
-  const scope2Pct = totalEmissions > 0 ? ((summary?.scope_2_co2e_kg || 0) / totalEmissions) * 100 : 0;
-  const scope3Pct = totalEmissions > 0 ? ((summary?.scope_3_co2e_kg || 0) / totalEmissions) * 100 : 0;
+  const totalEmissions = displayTotals.total;
+  const scope1Pct = totalEmissions > 0 ? (displayTotals.scope1 / totalEmissions) * 100 : 0;
+  const scope2Pct = totalEmissions > 0 ? (displayTotals.scope2 / totalEmissions) * 100 : 0;
+  const scope3Pct = totalEmissions > 0 ? (displayTotals.scope3 / totalEmissions) * 100 : 0;
 
-  // Get activity counts per scope
-  const scope1Activities = activities?.filter(a => a.activity.scope === 1).length || 0;
-  const scope2Activities = activities?.filter(a => a.activity.scope === 2).length || 0;
-  const scope3Activities = activities?.filter(a => a.activity.scope === 3).length || 0;
+  // Get activity counts per scope (from filtered activities)
+  const scope1Activities = filteredActivities.filter(a => a.activity.scope === 1).length;
+  const scope2Activities = filteredActivities.filter(a => a.activity.scope === 2).length;
+  const scope3Activities = filteredActivities.filter(a => a.activity.scope === 3).length;
 
-  // Export activities to Excel
+  // Export activities to Excel (uses filtered activities)
   const exportToExcel = () => {
-    if (!activities || activities.length === 0) return;
+    if (filteredActivities.length === 0) return;
 
     // Create CSV content
     const headers = ['Scope', 'Category', 'Description', 'Activity Key', 'Quantity', 'Unit', 'Emission Factor', 'Factor Unit', 'CO2e (kg)', 'Source', 'Date'];
-    const rows = activities.map(item => [
+    const rows = filteredActivities.map(item => [
       `Scope ${item.activity.scope}`,
       item.activity.category_code,
       item.activity.description,
@@ -157,7 +206,8 @@ function DashboardContent() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `activities_${summary?.period_name || 'export'}_${new Date().toISOString().split('T')[0]}.csv`;
+    const exportName = selectedBatch ? selectedBatch.file_name.replace(/\.[^.]+$/, '') : summary?.period_name || 'export';
+    a.download = `activities_${exportName}_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
@@ -200,6 +250,106 @@ function DashboardContent() {
         </div>
       </div>
 
+      {/* Import Batch Filter */}
+      {importBatches && importBatches.length > 0 && (
+        <Card padding="md" className="mb-6 bg-background-muted/50">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <FileSpreadsheet className="w-5 h-5 text-foreground-muted" />
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {selectedBatchId ? 'Filtered by Import' : 'Showing All Imports'}
+                </p>
+                <p className="text-xs text-foreground-muted">
+                  {selectedBatchId
+                    ? `${selectedBatch?.file_name} - ${filteredActivities.length} activities`
+                    : `${importBatches.length} imports, ${activities?.length || 0} total activities`
+                  }
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Batch Selector Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowBatchDropdown(!showBatchDropdown)}
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all',
+                    selectedBatchId
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-background hover:border-primary/50 text-foreground'
+                  )}
+                >
+                  <Filter className="w-4 h-4" />
+                  {selectedBatchId ? 'Filtered' : 'Filter by Import'}
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+
+                {showBatchDropdown && (
+                  <div className="absolute right-0 mt-2 w-80 bg-background-elevated rounded-xl shadow-lg border border-border py-2 z-50 animate-fade-in-down">
+                    <div className="px-3 py-2 border-b border-border">
+                      <p className="text-xs font-semibold text-foreground-muted uppercase">
+                        Select Import File
+                      </p>
+                    </div>
+
+                    {/* All option */}
+                    <button
+                      onClick={() => {
+                        setSelectedBatchId(null);
+                        setShowBatchDropdown(false);
+                      }}
+                      className={cn(
+                        'w-full text-left px-3 py-2 hover:bg-background-muted transition-colors',
+                        !selectedBatchId && 'bg-primary-light'
+                      )}
+                    >
+                      <p className="font-medium text-sm">All Imports</p>
+                      <p className="text-xs text-foreground-muted">
+                        Show all {activities?.length || 0} activities
+                      </p>
+                    </button>
+
+                    <div className="max-h-64 overflow-y-auto">
+                      {importBatches.map((batch) => (
+                        <button
+                          key={batch.id}
+                          onClick={() => {
+                            setSelectedBatchId(batch.id);
+                            setShowBatchDropdown(false);
+                          }}
+                          className={cn(
+                            'w-full text-left px-3 py-2 hover:bg-background-muted transition-colors',
+                            selectedBatchId === batch.id && 'bg-primary-light'
+                          )}
+                        >
+                          <p className="font-medium text-sm truncate">{batch.file_name}</p>
+                          <p className="text-xs text-foreground-muted">
+                            {new Date(batch.uploaded_at).toLocaleDateString()} - {batch.successful_rows} activities
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Clear filter button */}
+              {selectedBatchId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedBatchId(null)}
+                  leftIcon={<X className="w-4 h-4" />}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Loading State */}
       {isLoading && (
         <div className="flex items-center justify-center py-20">
@@ -233,12 +383,15 @@ function DashboardContent() {
                 <div>
                   <p className="text-sm font-medium text-foreground-muted uppercase tracking-wide">
                     Total Emissions
+                    {selectedBatchId && (
+                      <span className="ml-2 text-primary">(Filtered)</span>
+                    )}
                   </p>
                   <p className="text-4xl font-bold text-foreground mt-2 tracking-tight">
-                    {formatCO2e(summary.total_co2e_kg)}
+                    {formatCO2e(displayTotals.total)}
                   </p>
                   <p className="text-sm text-foreground-muted mt-1">
-                    {summary.period_name}
+                    {selectedBatch ? selectedBatch.file_name : summary.period_name}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-primary-light">
@@ -251,7 +404,7 @@ function DashboardContent() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-foreground-muted">Total Activities</span>
                   <span className="font-semibold text-foreground">
-                    {activities?.length || 0}
+                    {filteredActivities.length}
                   </span>
                 </div>
               </div>
@@ -260,21 +413,21 @@ function DashboardContent() {
             {/* Scope KPIs */}
             <ScopeKPI
               scope={1}
-              value={summary.scope_1_co2e_kg}
+              value={displayTotals.scope1}
               percentage={scope1Pct}
               activityCount={scope1Activities}
               onClick={() => scope1Activities > 0 && setDrillDownScope(1)}
             />
             <ScopeKPI
               scope={2}
-              value={summary.scope_2_co2e_kg}
+              value={displayTotals.scope2}
               percentage={scope2Pct}
               activityCount={scope2Activities}
               onClick={() => scope2Activities > 0 && setDrillDownScope(2)}
             />
             <ScopeKPI
               scope={3}
-              value={summary.scope_3_co2e_kg + (summary.scope_3_wtt_co2e_kg || 0)}
+              value={displayTotals.scope3}
               percentage={scope3Pct}
               activityCount={scope3Activities}
               onClick={() => scope3Activities > 0 && setDrillDownScope(3)}
@@ -332,21 +485,19 @@ function DashboardContent() {
             </Card>
           </div>
 
-          {/* Recent Activities Table */}
+          {/* Activities Table */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between w-full">
                 <CardTitle className="flex items-center gap-2">
                   <List className="w-5 h-5 text-foreground-muted" />
-                  Recent Activities
-                  {activities && (
-                    <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-background-muted text-foreground-muted">
-                      {activities.length}
-                    </span>
-                  )}
+                  {selectedBatchId ? 'Filtered Activities' : 'Recent Activities'}
+                  <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-background-muted text-foreground-muted">
+                    {filteredActivities.length}
+                  </span>
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  {activities && activities.length > 0 && (
+                  {filteredActivities.length > 0 && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -356,7 +507,7 @@ function DashboardContent() {
                       Export
                     </Button>
                   )}
-                  {activities && activities.length > 10 && (
+                  {filteredActivities.length > 10 && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -374,7 +525,7 @@ function DashboardContent() {
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
-              ) : activities && activities.length > 0 ? (
+              ) : filteredActivities.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -388,7 +539,7 @@ function DashboardContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {activities.slice(0, 10).map((item) => (
+                    {filteredActivities.slice(0, 10).map((item) => (
                       <TableRow key={item.activity.id} clickable>
                         <TableCell>
                           <ScopeBadge scope={item.activity.scope as 1 | 2 | 3} />
@@ -423,9 +574,9 @@ function DashboardContent() {
               ) : (
                 <EmptyState
                   variant="minimal"
-                  title="No activities yet"
-                  description="Add your first activity to start tracking emissions"
-                  action={{
+                  title={selectedBatchId ? "No activities in this import" : "No activities yet"}
+                  description={selectedBatchId ? "This import file has no activities" : "Add your first activity to start tracking emissions"}
+                  action={selectedBatchId ? undefined : {
                     label: 'Add Activity',
                     onClick: () => setShowWizard(true),
                   }}
@@ -482,16 +633,16 @@ function DashboardContent() {
       )}
 
       {/* Scope Drill-Down Modal */}
-      {drillDownScope && activities && (
+      {drillDownScope && filteredActivities.length > 0 && (
         <ScopeDrillDown
           scope={drillDownScope}
-          activities={activities}
+          activities={filteredActivities}
           onClose={() => setDrillDownScope(null)}
         />
       )}
 
       {/* Category Drill-Down Modal */}
-      {drillDownCategory && activities && (
+      {drillDownCategory && filteredActivities.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
@@ -525,13 +676,13 @@ function DashboardContent() {
             {/* Modal Content */}
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-100px)]">
               {(() => {
-                const filteredActivities = activities.filter(
+                const categoryActivities = filteredActivities.filter(
                   (item) =>
                     item.activity.scope === drillDownCategory.scope &&
                     item.activity.category_code === drillDownCategory.category_code
                 );
 
-                if (filteredActivities.length === 0) {
+                if (categoryActivities.length === 0) {
                   return (
                     <div className="text-center py-8 text-foreground-muted">
                       No activities found for this category
@@ -552,7 +703,7 @@ function DashboardContent() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredActivities.map((item) => (
+                      {categoryActivities.map((item) => (
                         <TableRow key={item.activity.id}>
                           <TableCell className="font-medium text-foreground max-w-xs">
                             {item.activity.description}
