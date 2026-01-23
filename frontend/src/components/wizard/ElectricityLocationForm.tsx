@@ -25,6 +25,7 @@ import {
   ChevronDown,
   Search,
   MapPin,
+  ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api, EmissionFactor } from '@/lib/api';
@@ -383,8 +384,19 @@ export function ElectricityLocationForm({ periodId, onSuccess }: ElectricityLoca
                 Grid Emission Factor: <strong>{selectedFactor.co2e_factor}</strong> kg CO2e/kWh
               </span>
             </div>
-            <div className="mt-1 text-info/80">
-              Source: {selectedFactor.source} ({selectedFactor.year}) | Region: {selectedFactor.region}
+            <div className="mt-1 text-info/80 flex items-center gap-2 flex-wrap">
+              <span>Source: {selectedFactor.source} ({selectedFactor.year}) | Region: {selectedFactor.region}</span>
+              {(selectedFactor.region?.startsWith('US') || selectedFactor.source?.includes('eGRID')) && (
+                <a
+                  href="https://www.epa.gov/egrid"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-primary hover:underline"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  EPA eGRID
+                </a>
+              )}
             </div>
           </div>
 
