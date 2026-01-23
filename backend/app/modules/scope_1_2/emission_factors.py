@@ -1,5 +1,5 @@
 """
-CLIMATRIX - Scope 1 & 2 Emission Factors
+CLIMATERIX - Scope 1 & 2 Emission Factors
 
 Verified emission factors from authoritative sources:
 - DEFRA 2024 (UK Department for Environment, Food & Rural Affairs)
@@ -483,114 +483,29 @@ SCOPE_1_FACTORS = {
             "source": "IPCC_AR6_GWP100",
             "region": "Global",
         },
-    },
-
-    # ------------------------------------------------------------------------
-    # 1.4 Process Emissions (13 factors)
-    # ------------------------------------------------------------------------
-    "1.4": {
-        "cement_production": {
-            "display_name": "Cement Production",
-            "co2e_factor": Decimal("0.622"),
-            "activity_unit": "tonnes",
-            "factor_unit": "tonnes CO2e/tonne",
-            "source": "IPCC_2006",
+        # Additional gases requested
+        "refrigerant_r123": {
+            "display_name": "R-123 / HCFC-123 (Dichlorotrifluoroethane)",
+            "co2e_factor": Decimal("77"),
+            "activity_unit": "kg",
+            "factor_unit": "kg CO2e/kg",
+            "source": "IPCC_AR6_GWP100",
             "region": "Global",
         },
-        "clinker_production": {
-            "display_name": "Clinker Production",
-            "co2e_factor": Decimal("0.525"),
-            "activity_unit": "tonnes",
-            "factor_unit": "tonnes CO2e/tonne",
-            "source": "IPCC_2006",
+        "refrigerant_halon1211": {
+            "display_name": "Halon-1211 (CF2BrCl - Fire Suppression)",
+            "co2e_factor": Decimal("1750"),
+            "activity_unit": "kg",
+            "factor_unit": "kg CO2e/kg",
+            "source": "IPCC_AR6_GWP100",
             "region": "Global",
         },
-        "quicklite_ite_production": {
-            "display_name": "Quicklime (CaO) Production",
-            "co2e_factor": Decimal("0.785"),
-            "activity_unit": "tonnes",
-            "factor_unit": "tonnes CO2e/tonne",
-            "source": "IPCC_2006",
-            "region": "Global",
-        },
-        "dolomitic_lime_production": {
-            "display_name": "Dolomitic Lime Production",
-            "co2e_factor": Decimal("0.913"),
-            "activity_unit": "tonnes",
-            "factor_unit": "tonnes CO2e/tonne",
-            "source": "IPCC_2006",
-            "region": "Global",
-        },
-        "iron_steel_production": {
-            "display_name": "Iron & Steel (integrated)",
-            "co2e_factor": Decimal("1.85"),
-            "activity_unit": "tonnes",
-            "factor_unit": "tonnes CO2e/tonne",
-            "source": "World_Steel_Association",
-            "region": "Global",
-        },
-        "steel_eaf_production": {
-            "display_name": "Steel (Electric Arc Furnace)",
-            "co2e_factor": Decimal("0.4"),
-            "activity_unit": "tonnes",
-            "factor_unit": "tonnes CO2e/tonne",
-            "source": "World_Steel_Association",
-            "region": "Global",
-        },
-        "aluminum_primary_production": {
-            "display_name": "Primary Aluminum Production",
-            "co2e_factor": Decimal("1.5"),
-            "activity_unit": "tonnes",
-            "factor_unit": "tonnes CO2e/tonne",
-            "source": "International_Aluminium_Institute",
-            "region": "Global",
-        },
-        "ammonia_production": {
-            "display_name": "Ammonia Production",
-            "co2e_factor": Decimal("1.694"),
-            "activity_unit": "tonnes",
-            "factor_unit": "tonnes CO2e/tonne",
-            "source": "IPCC_2006",
-            "region": "Global",
-        },
-        "nitric_acid_production": {
-            "display_name": "Nitric Acid Production",
-            "co2e_factor": Decimal("2.65"),
-            "activity_unit": "tonnes",
-            "factor_unit": "tonnes CO2e/tonne",
-            "source": "IPCC_2006",
-            "region": "Global",
-        },
-        "adipic_acid_production": {
-            "display_name": "Adipic Acid Production",
-            "co2e_factor": Decimal("2.79"),
-            "activity_unit": "tonnes",
-            "factor_unit": "tonnes CO2e/tonne",
-            "source": "IPCC_2006",
-            "region": "Global",
-        },
-        "glass_production": {
-            "display_name": "Glass Production (soda-lime)",
-            "co2e_factor": Decimal("0.2"),
-            "activity_unit": "tonnes",
-            "factor_unit": "tonnes CO2e/tonne",
-            "source": "IPCC_2006",
-            "region": "Global",
-        },
-        "ethylene_production": {
-            "display_name": "Ethylene Production",
-            "co2e_factor": Decimal("1.2"),
-            "activity_unit": "tonnes",
-            "factor_unit": "tonnes CO2e/tonne",
-            "source": "IEA_Chemicals",
-            "region": "Global",
-        },
-        "hydrogen_smr_production": {
-            "display_name": "Hydrogen (Steam Methane Reforming)",
-            "co2e_factor": Decimal("9"),
-            "activity_unit": "tonnes",
-            "factor_unit": "tonnes CO2e/tonne",
-            "source": "IEA_Hydrogen",
+        "refrigerant_fm200": {
+            "display_name": "FM-200 / HFC-227ea (Fire Suppression)",
+            "co2e_factor": Decimal("3350"),
+            "activity_unit": "kg",
+            "factor_unit": "kg CO2e/kg",
+            "source": "IPCC_AR6_GWP100",
             "region": "Global",
         },
     },
@@ -692,6 +607,22 @@ SCOPE_2_FACTORS = {
         "electricity_us_mw": {"display_name": "USA - Midwest Grid", "co2e_factor": Decimal("0.475"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_MROW", "region": "US-MW"},
         "electricity_us_ny": {"display_name": "USA - New York Grid", "co2e_factor": Decimal("0.188"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_NYUP", "region": "US-NY"},
         "electricity_us_tx": {"display_name": "USA - Texas Grid (ERCOT)", "co2e_factor": Decimal("0.373"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_ERCT", "region": "US-TX"},
+        # Additional US state-level factors (EPA eGRID 2024)
+        "electricity_us_fl": {"display_name": "USA - Florida Grid (FRCC)", "co2e_factor": Decimal("0.391"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_FRCC", "region": "US-FL"},
+        "electricity_us_az": {"display_name": "USA - Arizona Grid (AZNM)", "co2e_factor": Decimal("0.345"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_AZNM", "region": "US-AZ"},
+        "electricity_us_co": {"display_name": "USA - Colorado Grid (RMPA)", "co2e_factor": Decimal("0.525"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_RMPA", "region": "US-CO"},
+        "electricity_us_il": {"display_name": "USA - Illinois Grid (RFCM)", "co2e_factor": Decimal("0.341"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_RFCM", "region": "US-IL"},
+        "electricity_us_pa": {"display_name": "USA - Pennsylvania Grid (RFCE)", "co2e_factor": Decimal("0.297"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_RFCE", "region": "US-PA"},
+        "electricity_us_oh": {"display_name": "USA - Ohio Grid (RFCM)", "co2e_factor": Decimal("0.497"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_RFCM", "region": "US-OH"},
+        "electricity_us_wa": {"display_name": "USA - Washington Grid (NWPP)", "co2e_factor": Decimal("0.118"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_NWPP", "region": "US-WA"},
+        "electricity_us_or": {"display_name": "USA - Oregon Grid (NWPP)", "co2e_factor": Decimal("0.118"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_NWPP", "region": "US-OR"},
+        "electricity_us_ma": {"display_name": "USA - Massachusetts Grid (NEWE)", "co2e_factor": Decimal("0.227"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_NEWE", "region": "US-MA"},
+        "electricity_us_nj": {"display_name": "USA - New Jersey Grid (RFCE)", "co2e_factor": Decimal("0.232"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_RFCE", "region": "US-NJ"},
+        "electricity_us_ga": {"display_name": "USA - Georgia Grid (SRSO)", "co2e_factor": Decimal("0.383"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_SRSO", "region": "US-GA"},
+        "electricity_us_nc": {"display_name": "USA - North Carolina Grid (SRVC)", "co2e_factor": Decimal("0.347"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_SRVC", "region": "US-NC"},
+        "electricity_us_va": {"display_name": "USA - Virginia Grid (SRVC)", "co2e_factor": Decimal("0.318"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_SRVC", "region": "US-VA"},
+        "electricity_us_mi": {"display_name": "USA - Michigan Grid (RFCM)", "co2e_factor": Decimal("0.443"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_RFCM", "region": "US-MI"},
+        "electricity_us_mn": {"display_name": "USA - Minnesota Grid (MROW)", "co2e_factor": Decimal("0.405"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EPA_eGRID_2024_MROW", "region": "US-MN"},
         "electricity_vn": {"display_name": "Vietnam Grid Electricity", "co2e_factor": Decimal("0.476"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "VN"},
         "electricity_za": {"display_name": "South Africa Grid Electricity", "co2e_factor": Decimal("0.928"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "ZA"},
     },
