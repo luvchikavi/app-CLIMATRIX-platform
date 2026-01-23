@@ -94,8 +94,26 @@ UNIT_ALIASES = {
     "tonne-km": "tonne_km",
 }
 
-# Units that shouldn't be converted (currencies, counts)
-NON_CONVERTIBLE_UNITS = {"USD", "EUR", "GBP", "ILS", "nights", "units", "each"}
+# Currency conversion rates to USD (2024 annual averages)
+# Source: ECB, OECD, Bank of Israel
+CURRENCY_TO_USD = {
+    "USD": Decimal("1.00"),
+    "EUR": Decimal("1.08"),
+    "GBP": Decimal("1.27"),
+    "ILS": Decimal("0.27"),
+    "CAD": Decimal("0.74"),
+    "AUD": Decimal("0.66"),
+    "JPY": Decimal("0.0067"),
+    "CNY": Decimal("0.14"),
+    "INR": Decimal("0.012"),
+    "CHF": Decimal("1.13"),
+}
+
+# Currencies that can be converted between
+CURRENCY_UNITS = set(CURRENCY_TO_USD.keys())
+
+# Units that shouldn't be converted (counts, special units)
+NON_CONVERTIBLE_UNITS = {"nights", "units", "each"}
 
 
 class UnitNormalizer:
@@ -147,7 +165,34 @@ class UnitNormalizer:
                 conversion_applied=False,
             )
 
-        # Non-convertible units (currencies, counts)
+        # Currency conversion (ILS → USD, EUR → USD, etc.)
+        if input_resolved in CURRENCY_UNITS and target_resolved in CURRENCY_UNITS:
+            if input_resolved == target_resolved:
+                return NormalizedQuantity(
+                    quantity=quantity,
+                    unit=target_unit,
+                    original_quantity=quantity,
+                    original_unit=input_unit,
+                    conversion_factor=Decimal("1"),
+                    conversion_applied=False,
+                )
+            # Convert via USD
+            # First convert input currency to USD, then to target currency
+            input_to_usd = CURRENCY_TO_USD.get(input_resolved, Decimal("1"))
+            target_to_usd = CURRENCY_TO_USD.get(target_resolved, Decimal("1"))
+            conversion_factor = input_to_usd / target_to_usd
+            converted = quantity * conversion_factor
+
+            return NormalizedQuantity(
+                quantity=converted,
+                unit=target_unit,
+                original_quantity=quantity,
+                original_unit=input_unit,
+                conversion_factor=conversion_factor,
+                conversion_applied=True,
+            )
+
+        # Non-convertible units (counts, special units)
         if input_resolved in NON_CONVERTIBLE_UNITS or target_resolved in NON_CONVERTIBLE_UNITS:
             if input_resolved != target_resolved:
                 raise UnitConversionError(
