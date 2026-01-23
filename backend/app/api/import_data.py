@@ -441,7 +441,14 @@ async def import_activities(
     failed = 0
     errors = []
 
+    skipped_examples = 0
     for i, row in enumerate(rows, start=2):
+        # Skip example rows (common in templates)
+        description = str(row.get('description', '')).lower()
+        if 'example' in description or description.startswith('[') or 'sample' in description:
+            skipped_examples += 1
+            continue
+
         validated = validate_row(row, i, valid_keys)
 
         if not validated.is_valid:
@@ -1630,7 +1637,14 @@ async def import_template(
     errors = []
     warnings = parse_result.warnings.copy()
 
+    skipped_examples = 0
     for activity_data in parse_result.activities:
+        # Skip example rows (common in templates)
+        description_lower = (activity_data.description or '').lower()
+        if 'example' in description_lower or description_lower.startswith('[') or 'sample' in description_lower:
+            skipped_examples += 1
+            continue
+
         try:
             # Calculate emissions
             calc_result = await pipeline.calculate(ActivityInput(
@@ -1919,7 +1933,14 @@ async def unified_import_activities(
     by_scope = {}
     by_category = {}
 
+    skipped_examples = 0
     for activity_data in activities:
+        # Skip example rows (common in templates)
+        description_lower = (activity_data.description or '').lower()
+        if 'example' in description_lower or description_lower.startswith('[') or 'sample' in description_lower:
+            skipped_examples += 1
+            continue
+
         try:
             # Create activity input
             activity_input = ActivityInput(
