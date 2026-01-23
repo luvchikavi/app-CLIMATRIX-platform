@@ -225,6 +225,33 @@ export interface CategorySummary {
   activity_count: number;
 }
 
+// Scope 2 Location vs Market Comparison
+export interface Scope2ActivityComparison {
+  activity_id: string;
+  description: string;
+  country_code: string;
+  country_name: string;
+  quantity_kwh: number;
+  location_factor: number;
+  market_factor: number | null;
+  location_co2e_kg: number;
+  market_co2e_kg: number | null;
+  difference_kg: number | null;
+  difference_percent: number | null;
+}
+
+export interface Scope2ComparisonResponse {
+  period_id: string;
+  period_name: string;
+  total_activities: number;
+  total_location_co2e_kg: number;
+  total_market_co2e_kg: number | null;
+  total_difference_kg: number | null;
+  total_difference_percent: number | null;
+  activities: Scope2ActivityComparison[];
+  countries_without_market_factor: string[];
+}
+
 export interface OrganizationSettings {
   id: string;
   name: string;
@@ -498,6 +525,10 @@ class ApiClient {
 
   async getWTTReport(periodId: string): Promise<any> {
     return this.fetch(`/periods/${periodId}/report/scope-3-3-wtt`);
+  }
+
+  async getScope2Comparison(periodId: string): Promise<Scope2ComparisonResponse> {
+    return this.fetch<Scope2ComparisonResponse>(`/periods/${periodId}/report/scope-2-comparison`);
   }
 
   // Recalculate

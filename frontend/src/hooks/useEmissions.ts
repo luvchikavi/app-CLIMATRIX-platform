@@ -20,6 +20,7 @@ import {
   Site,
   Airport,
   FlightDistanceResult,
+  Scope2ComparisonResponse,
 } from '@/lib/api';
 
 // ============================================================================
@@ -35,6 +36,7 @@ export const queryKeys = {
   reportSummary: (periodId: string) => ['report-summary', periodId] as const,
   reportByScope: (periodId: string) => ['report-by-scope', periodId] as const,
   wttReport: (periodId: string) => ['wtt-report', periodId] as const,
+  scope2Comparison: (periodId: string) => ['scope-2-comparison', periodId] as const,
   organization: ['organization'] as const,
   regions: ['regions'] as const,
   sites: ['sites'] as const,
@@ -180,6 +182,18 @@ export function useWTTReport(periodId: string) {
     queryKey: queryKeys.wttReport(periodId),
     queryFn: () => api.getWTTReport(periodId),
     enabled: !!periodId,
+  });
+}
+
+/**
+ * Fetch Scope 2 Location vs Market comparison
+ */
+export function useScope2Comparison(periodId: string) {
+  return useQuery({
+    queryKey: queryKeys.scope2Comparison(periodId),
+    queryFn: () => api.getScope2Comparison(periodId),
+    enabled: !!periodId,
+    staleTime: 1 * 60 * 1000, // Cache for 1 minute
   });
 }
 

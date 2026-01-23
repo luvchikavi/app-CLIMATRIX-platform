@@ -14,8 +14,9 @@ from sqlmodel import select, func
 from app.api.auth import get_current_user
 from app.database import get_session
 from app.models.core import User, ReportingPeriod
-from app.models.emission import Activity, Emission
+from app.models.emission import Activity, Emission, EmissionFactor
 from app.services.calculation.wtt import WTTService
+from app.data.reference_data import GRID_EMISSION_FACTORS
 
 router = APIRouter()
 
@@ -285,3 +286,179 @@ async def get_wtt_report(
         "by_source": wtt_summary["by_source"],
         "activities_with_wtt": activities,
     }
+
+
+# ============================================================================
+# Scope 2 Location vs Market Comparison
+# ============================================================================
+
+class Scope2ActivityComparison(BaseModel):
+    """Single activity comparison between location and market-based methods."""
+    activity_id: str
+    description: str
+    country_code: str
+    country_name: str
+    quantity_kwh: float
+    location_factor: float
+    market_factor: float | None
+    location_co2e_kg: float
+    market_co2e_kg: float | None
+    difference_kg: float | None
+    difference_percent: float | None
+
+
+class Scope2ComparisonResponse(BaseModel):
+    """Scope 2 location vs market comparison report."""
+    period_id: str
+    period_name: str
+    total_activities: int
+    total_location_co2e_kg: float
+    total_market_co2e_kg: float | None
+    total_difference_kg: float | None
+    total_difference_percent: float | None
+    activities: list[Scope2ActivityComparison]
+    countries_without_market_factor: list[str]
+
+
+def _extract_country_code(activity_key: str, factor_region: str | None) -> str | None:
+    """
+    Extract country code from activity_key or factor region.
+
+    Examples:
+    - electricity_uk -> UK
+    - electricity_il -> IL
+    - electricity_us_ca -> US
+    - electricity_global -> None (use Global)
+    """
+    if factor_region and factor_region != "Global":
+        return factor_region.upper()
+
+    # Extract from activity_key like "electricity_uk", "electricity_us_ca"
+    parts = activity_key.lower().replace("electricity_", "").split("_")
+    if parts and len(parts[0]) == 2:
+        return parts[0].upper()
+
+    return None
+
+
+@router.get("/periods/{period_id}/report/scope-2-comparison", response_model=Scope2ComparisonResponse)
+async def get_scope2_comparison(
+    period_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Get Scope 2 location-based vs market-based comparison.
+
+    This report shows the difference between:
+    - Location-based: Uses grid average emission factor for region
+    - Market-based: Uses residual mix factor (for GHG Protocol dual reporting)
+
+    Market-based is typically higher as it excludes tracked renewable energy.
+    """
+    # Verify period
+    period_query = select(ReportingPeriod).where(
+        ReportingPeriod.id == period_id,
+        ReportingPeriod.organization_id == current_user.organization_id,
+    )
+    period_result = await session.execute(period_query)
+    period = period_result.scalar_one_or_none()
+    if not period:
+        raise HTTPException(status_code=404, detail="Reporting period not found")
+
+    # Get all Scope 2 activities with their emissions and factors
+    query = (
+        select(Activity, Emission, EmissionFactor)
+        .join(Emission, Activity.id == Emission.activity_id)
+        .join(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
+        .where(
+            Activity.reporting_period_id == period_id,
+            Activity.organization_id == current_user.organization_id,
+            Activity.scope == 2,
+        )
+        .order_by(Activity.activity_date)
+    )
+    result = await session.execute(query)
+    rows = result.all()
+
+    activities = []
+    total_location = Decimal(0)
+    total_market = Decimal(0)
+    countries_without_market = set()
+    has_any_market_factor = False
+
+    for activity, emission, factor in rows:
+        # Get country code from activity_key or factor region
+        country_code = _extract_country_code(activity.activity_key, factor.region)
+
+        # Get grid factors for this country
+        grid_factor = GRID_EMISSION_FACTORS.get(country_code) if country_code else None
+
+        # If no specific country factor, use Global
+        if not grid_factor:
+            grid_factor = GRID_EMISSION_FACTORS.get("GLOBAL", {
+                "country_name": "Global Average",
+                "location_factor": Decimal("0.436"),
+                "market_factor": None,
+            })
+            country_name = grid_factor.get("country_name", "Global Average")
+        else:
+            country_name = grid_factor.get("country_name", country_code)
+
+        location_factor = grid_factor.get("location_factor", factor.co2e_factor)
+        market_factor = grid_factor.get("market_factor")
+
+        # Calculate quantity in kWh (may already be in kWh)
+        quantity_kwh = float(activity.quantity)
+
+        # Calculate emissions with both methods
+        location_co2e = quantity_kwh * float(location_factor)
+        market_co2e = quantity_kwh * float(market_factor) if market_factor else None
+
+        # Track totals
+        total_location += Decimal(str(location_co2e))
+        if market_co2e is not None:
+            total_market += Decimal(str(market_co2e))
+            has_any_market_factor = True
+        else:
+            countries_without_market.add(country_name or country_code or "Unknown")
+
+        # Calculate difference
+        difference_kg = None
+        difference_percent = None
+        if market_co2e is not None and location_co2e > 0:
+            difference_kg = market_co2e - location_co2e
+            difference_percent = (difference_kg / location_co2e) * 100
+
+        activities.append(Scope2ActivityComparison(
+            activity_id=str(activity.id),
+            description=activity.description,
+            country_code=country_code or "GLOBAL",
+            country_name=country_name,
+            quantity_kwh=quantity_kwh,
+            location_factor=float(location_factor),
+            market_factor=float(market_factor) if market_factor else None,
+            location_co2e_kg=location_co2e,
+            market_co2e_kg=market_co2e,
+            difference_kg=difference_kg,
+            difference_percent=difference_percent,
+        ))
+
+    # Calculate total difference
+    total_difference_kg = None
+    total_difference_percent = None
+    if has_any_market_factor and total_location > 0:
+        total_difference_kg = float(total_market - total_location)
+        total_difference_percent = (total_difference_kg / float(total_location)) * 100
+
+    return Scope2ComparisonResponse(
+        period_id=str(period_id),
+        period_name=period.name,
+        total_activities=len(activities),
+        total_location_co2e_kg=float(total_location),
+        total_market_co2e_kg=float(total_market) if has_any_market_factor else None,
+        total_difference_kg=total_difference_kg,
+        total_difference_percent=total_difference_percent,
+        activities=activities,
+        countries_without_market_factor=list(countries_without_market),
+    )

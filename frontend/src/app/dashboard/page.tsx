@@ -24,6 +24,7 @@ import {
 } from '@/components/ui';
 import { ScopePieChart } from '@/components/dashboard/ScopePieChart';
 import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
+import { Scope2Comparison } from '@/components/dashboard/Scope2Comparison';
 import { ActivityWizard } from '@/components/wizard';
 import { ImportHistory } from '@/components/ImportHistory';
 import { useWizardStore } from '@/stores/wizard';
@@ -285,6 +286,11 @@ function DashboardContent() {
                 </p>
               </div>
             </Card>
+          )}
+
+          {/* Scope 2 Location vs Market Comparison */}
+          {summary.scope_2_co2e_kg > 0 && activePeriodId && (
+            <Scope2Comparison periodId={activePeriodId} />
           )}
 
           {/* Charts Row */}
