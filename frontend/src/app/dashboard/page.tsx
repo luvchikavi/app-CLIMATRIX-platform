@@ -25,6 +25,7 @@ import {
 import { ScopePieChart } from '@/components/dashboard/ScopePieChart';
 import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
 import { Scope2Comparison } from '@/components/dashboard/Scope2Comparison';
+import { ScopeDrillDown } from '@/components/dashboard/ScopeDrillDown';
 import { ActivityWizard } from '@/components/wizard';
 import { ImportHistory } from '@/components/ImportHistory';
 import { useWizardStore } from '@/stores/wizard';
@@ -78,6 +79,7 @@ function DashboardContent() {
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [drillDownCategory, setDrillDownCategory] = useState<CategorySummary | null>(null);
+  const [drillDownScope, setDrillDownScope] = useState<1 | 2 | 3 | null>(null);
 
   // All data fetching hooks (must be before any conditional returns)
   const { data: periods, isLoading: periodsLoading } = usePeriods();
@@ -260,18 +262,21 @@ function DashboardContent() {
               value={summary.scope_1_co2e_kg}
               percentage={scope1Pct}
               activityCount={scope1Activities}
+              onClick={() => scope1Activities > 0 && setDrillDownScope(1)}
             />
             <ScopeKPI
               scope={2}
               value={summary.scope_2_co2e_kg}
               percentage={scope2Pct}
               activityCount={scope2Activities}
+              onClick={() => scope2Activities > 0 && setDrillDownScope(2)}
             />
             <ScopeKPI
               scope={3}
               value={summary.scope_3_co2e_kg + (summary.scope_3_wtt_co2e_kg || 0)}
               percentage={scope3Pct}
               activityCount={scope3Activities}
+              onClick={() => scope3Activities > 0 && setDrillDownScope(3)}
             />
           </div>
 
@@ -473,6 +478,15 @@ function DashboardContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Scope Drill-Down Modal */}
+      {drillDownScope && activities && (
+        <ScopeDrillDown
+          scope={drillDownScope}
+          activities={activities}
+          onClose={() => setDrillDownScope(null)}
+        />
       )}
 
       {/* Category Drill-Down Modal */}

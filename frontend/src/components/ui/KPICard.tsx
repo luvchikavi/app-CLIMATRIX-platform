@@ -111,6 +111,7 @@ export interface ScopeKPIProps extends HTMLAttributes<HTMLDivElement> {
   value: number;
   percentage?: number;
   activityCount?: number;
+  onClick?: () => void;
 }
 
 const scopeLabels = {
@@ -126,7 +127,7 @@ const scopeDescriptions = {
 };
 
 export const ScopeKPI = forwardRef<HTMLDivElement, ScopeKPIProps>(
-  ({ className, scope, value, percentage, activityCount, ...props }, ref) => {
+  ({ className, scope, value, percentage, activityCount, onClick, ...props }, ref) => {
     const scopeColors = {
       1: 'border-l-scope1',
       2: 'border-l-scope2',
@@ -145,14 +146,21 @@ export const ScopeKPI = forwardRef<HTMLDivElement, ScopeKPIProps>(
       return `${v.toFixed(0)} kg`;
     };
 
+    const isClickable = !!onClick;
+
     return (
       <div
         ref={ref}
         className={cn(
           'bg-background-elevated rounded-xl border-l-4 p-6 shadow-card',
           scopeColors[scope],
+          isClickable && 'cursor-pointer hover:shadow-lg transition-shadow',
           className
         )}
+        onClick={onClick}
+        role={isClickable ? 'button' : undefined}
+        tabIndex={isClickable ? 0 : undefined}
+        onKeyDown={isClickable ? (e) => e.key === 'Enter' && onClick() : undefined}
         {...props}
       >
         <div className="flex items-start justify-between mb-1">
@@ -174,6 +182,12 @@ export const ScopeKPI = forwardRef<HTMLDivElement, ScopeKPIProps>(
         {activityCount !== undefined && (
           <p className="text-xs text-foreground-muted mt-3">
             {activityCount} {activityCount === 1 ? 'activity' : 'activities'}
+          </p>
+        )}
+
+        {isClickable && activityCount && activityCount > 0 && (
+          <p className="text-xs text-primary mt-2 font-medium">
+            Click for breakdown →
           </p>
         )}
       </div>
