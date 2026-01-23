@@ -303,7 +303,14 @@ export interface ImportResult {
   total_rows: number;
   imported: number;
   failed: number;
-  errors: { row?: number; activity_key?: string; errors: string[] }[];
+  errors: {
+    row?: number;
+    activity_key?: string;
+    category_code?: string;
+    quantity?: number;
+    unit?: string;
+    errors: string[];
+  }[];
   import_batch_id?: string;
 }
 

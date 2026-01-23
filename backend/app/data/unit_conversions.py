@@ -36,6 +36,8 @@ UNIT_CONVERSIONS = [
     {"from_unit": "GJ", "to_unit": "kWh", "multiplier": Decimal("277.778"), "category": "energy"},
     {"from_unit": "therm", "to_unit": "kWh", "multiplier": Decimal("29.3071"), "category": "energy"},
     {"from_unit": "BTU", "to_unit": "kWh", "multiplier": Decimal("0.000293071"), "category": "energy"},
+    {"from_unit": "MMBTU", "to_unit": "kWh", "multiplier": Decimal("293.071"), "category": "energy"},
+    {"from_unit": "mmBTU", "to_unit": "kWh", "multiplier": Decimal("293.071"), "category": "energy"},
 
     # Currency (approximate conversion rates - should be updated)
     {"from_unit": "EUR", "to_unit": "USD", "multiplier": Decimal("1.08"), "category": "currency"},

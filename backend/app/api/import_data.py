@@ -201,44 +201,61 @@ def validate_row(row: dict, row_number: int, valid_activity_keys: set) -> Import
 
     # Parse scope
     scope = None
-    if row.get('scope'):
+    scope_val = row.get('scope')
+    if scope_val:
         try:
-            scope = int(row['scope'])
+            scope = int(scope_val)
             if scope not in [1, 2, 3]:
-                errors.append(f"Scope must be 1, 2, or 3 (got {scope})")
+                errors.append(f"[scope] Must be 1, 2, or 3 (got '{scope}')")
         except ValueError:
-            errors.append(f"Invalid scope value: {row['scope']}")
+            errors.append(f"[scope] Invalid value '{scope_val}' - must be a number (1, 2, or 3)")
     else:
-        errors.append("Missing scope")
+        errors.append("[scope] Missing - please specify 1, 2, or 3")
 
     # Parse category_code
     category_code = row.get('category_code')
     if not category_code:
-        errors.append("Missing category_code")
+        errors.append("[category_code] Missing - e.g., '1.1', '2', '3.6'")
+    elif scope:
+        # Validate category matches scope
+        if scope == 1 and not category_code.startswith('1.'):
+            warnings.append(f"[category_code] '{category_code}' may not match Scope 1")
+        elif scope == 2 and not category_code.startswith('2'):
+            warnings.append(f"[category_code] '{category_code}' may not match Scope 2")
+        elif scope == 3 and not category_code.startswith('3.'):
+            warnings.append(f"[category_code] '{category_code}' may not match Scope 3")
 
     # Validate activity_key
     activity_key = row.get('activity_key')
     if not activity_key:
-        errors.append("Missing activity_key")
+        errors.append("[activity_key] Missing - e.g., 'natural_gas_m3', 'electricity_il'")
     elif valid_activity_keys and activity_key not in valid_activity_keys:
-        errors.append(f"Unknown activity_key: {activity_key}")
+        # Suggest similar keys
+        similar = [k for k in valid_activity_keys if activity_key.split('_')[0] in k][:3]
+        suggestion = f" Did you mean: {', '.join(similar)}?" if similar else ""
+        errors.append(f"[activity_key] Unknown '{activity_key}'.{suggestion}")
 
     # Parse quantity
     quantity = None
-    if row.get('quantity'):
+    quantity_val = row.get('quantity')
+    if quantity_val:
         try:
-            quantity = float(row['quantity'].replace(',', ''))
-            if quantity <= 0:
-                warnings.append("Quantity is zero or negative")
-        except ValueError:
-            errors.append(f"Invalid quantity: {row['quantity']}")
+            # Handle string with commas, or numbers
+            clean_qty = str(quantity_val).replace(',', '').strip()
+            quantity = float(clean_qty)
+            if quantity < 0:
+                errors.append(f"[quantity] Negative value ({quantity}) not allowed")
+            elif quantity == 0:
+                warnings.append("[quantity] Value is zero - activity will have no emissions")
+        except (ValueError, AttributeError):
+            errors.append(f"[quantity] Invalid value '{quantity_val}' - must be a number")
     else:
-        errors.append("Missing quantity")
+        errors.append("[quantity] Missing - please specify a numeric value")
 
     # Validate unit
     unit = row.get('unit')
     if not unit:
-        errors.append("Missing unit")
+        errors.append("[unit] Missing - e.g., 'kWh', 'liters', 'km', 'kg'")
 
     # Parse activity_date (optional, default to today)
     activity_date = row.get('activity_date')
@@ -495,18 +512,39 @@ async def import_activities(
 
             imported += 1
 
-        except (FactorNotFoundError, UnitConversionError, CalculationError) as e:
+        except FactorNotFoundError as e:
             failed += 1
             errors.append({
                 "row": i,
                 "activity_key": validated.activity_key,
-                "errors": [str(e)],
+                "category_code": validated.category_code,
+                "quantity": validated.quantity,
+                "unit": validated.unit,
+                "errors": [f"No emission factor found for '{validated.activity_key}' in category {validated.category_code}. "
+                          f"Check the activity_key is spelled correctly."],
+            })
+        except UnitConversionError as e:
+            failed += 1
+            errors.append({
+                "row": i,
+                "activity_key": validated.activity_key,
+                "quantity": validated.quantity,
+                "unit": validated.unit,
+                "errors": [f"Cannot convert unit '{validated.unit}'. Expected units for {validated.activity_key}: {str(e)}"],
+            })
+        except CalculationError as e:
+            failed += 1
+            errors.append({
+                "row": i,
+                "activity_key": validated.activity_key,
+                "errors": [f"Calculation failed: {str(e)}"],
             })
         except Exception as e:
             failed += 1
             errors.append({
                 "row": i,
-                "errors": [f"Unexpected error: {str(e)}"],
+                "activity_key": validated.activity_key,
+                "errors": [f"Unexpected error processing row: {str(e)}"],
             })
 
     # Update batch status

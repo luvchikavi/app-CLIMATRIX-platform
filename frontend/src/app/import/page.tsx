@@ -455,7 +455,8 @@ function ImportContent() {
 
   // Export import error log as CSV
   const exportErrorLog = () => {
-    let errors: Array<{ row?: number; sheet?: string; errors?: string[] | string; error?: string }> = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let errors: Array<any> = [];
 
     if (result?.errors && result.errors.length > 0) {
       errors = result.errors;
@@ -468,11 +469,15 @@ function ImportContent() {
       return;
     }
 
-    // Build CSV content
-    const headers = ['Row', 'Sheet', 'Error'];
+    // Build CSV content with enhanced columns
+    const headers = ['Row', 'Sheet', 'Activity Key', 'Category', 'Quantity', 'Unit', 'Error'];
     const rows = errors.map(err => [
       err.row || '',
       err.sheet || '',
+      err.activity_key || '',
+      err.category_code || '',
+      err.quantity !== undefined ? err.quantity : '',
+      err.unit || '',
       `"${(Array.isArray(err.errors) ? err.errors.join('; ') : (err.error || err.errors || '')).replace(/"/g, '""')}"`
     ]);
 
@@ -1416,17 +1421,30 @@ function ImportContent() {
 
               {result.errors && result.errors.length > 0 && (
                 <div className="mt-6 text-left">
-                  <h3 className="font-semibold text-foreground mb-2">Errors</h3>
-                  <div className="bg-error/5 border border-error/20 rounded-lg p-4 max-h-40 overflow-y-auto">
+                  <h3 className="font-semibold text-foreground mb-2">Errors ({result.errors.length} total)</h3>
+                  <div className="bg-error/5 border border-error/20 rounded-lg p-4 max-h-60 overflow-y-auto space-y-3">
                     {result.errors.slice(0, 10).map((err, i) => (
-                      <div key={i} className="text-sm text-error mb-2">
-                        <span className="font-medium">Row {err.row || i + 1}:</span>{' '}
-                        {Array.isArray(err.errors) ? err.errors.join(', ') : (err.errors || 'Unknown error')}
+                      <div key={i} className="text-sm border-b border-error/10 pb-2 last:border-0">
+                        <div className="flex items-center gap-2 text-error font-medium">
+                          <span>Row {err.row || i + 1}</span>
+                          {err.activity_key && (
+                            <span className="text-xs bg-error/10 px-2 py-0.5 rounded">{err.activity_key}</span>
+                          )}
+                        </div>
+                        {(err.quantity !== undefined || err.unit) && (
+                          <div className="text-xs text-foreground-muted mt-1">
+                            Data: {err.quantity !== undefined ? `${err.quantity} ` : ''}{err.unit || ''}
+                            {err.category_code && ` (${err.category_code})`}
+                          </div>
+                        )}
+                        <div className="text-error/90 mt-1">
+                          {Array.isArray(err.errors) ? err.errors.join(' | ') : (err.errors || 'Unknown error')}
+                        </div>
                       </div>
                     ))}
                     {result.errors && result.errors.length > 10 && (
-                      <p className="text-sm text-error/60">
-                        ...and {result.errors.length - 10} more errors
+                      <p className="text-sm text-error/60 pt-2">
+                        ...and {result.errors.length - 10} more errors. Export error log for full list.
                       </p>
                     )}
                   </div>

@@ -83,6 +83,7 @@ const FUEL_TYPE_MAP: Record<string, string> = {
   'natural_gas_volume': 'natural_gas',
   'natural_gas_kwh': 'natural_gas',
   'natural_gas_m3': 'natural_gas',
+  'natural_gas_mmbtu': 'natural_gas',
   'diesel_volume': 'diesel',
   'diesel_liters': 'diesel',
   'gas_oil_liters': 'diesel',
