@@ -12,6 +12,11 @@ from .models import ParsedActivity, ParseResult, SheetResult
 from .sheet_config import get_sheet_config, get_all_sheet_configs, SheetConfig, create_auto_detect_config
 
 
+class RowValidationError(Exception):
+    """Raised when a row fails validation with a helpful message."""
+    pass
+
+
 class TemplateParser:
     """
     Parser for the CLIMATRIX GHG Data Collection Template.
@@ -216,20 +221,29 @@ class TemplateParser:
             
             try:
                 activity = self._parse_row(
-                    row_values, 
-                    headers, 
-                    col_indices, 
-                    config, 
+                    row_values,
+                    headers,
+                    col_indices,
+                    config,
                     row_num
                 )
                 if activity:
                     activities.append(activity)
                 else:
                     skipped += 1
-            except Exception as e:
+            except RowValidationError as e:
+                # Helpful validation error - include it
                 errors.append({
                     "row": row_num,
+                    "sheet": config.sheet_name,
                     "error": str(e),
+                })
+            except Exception as e:
+                # General parsing error
+                errors.append({
+                    "row": row_num,
+                    "sheet": config.sheet_name,
+                    "error": f"Parsing error: {str(e)}",
                 })
         
         return SheetResult(
@@ -404,9 +418,33 @@ class TemplateParser:
                         quantity = Decimal(str(distance)) * num_trips
                     unit = 'km'
 
-        # Skip if no quantity
-        if quantity is None or quantity == 0:
-            return None
+        # Get the activity/fuel type for error messages
+        type_idx = col_indices.get('activity_type') or col_indices.get('type')
+        activity_type_value = ""
+        if type_idx is not None and type_idx < len(row_values):
+            activity_type_value = str(row_values[type_idx] or '').strip()
+
+        # Validate quantity - provide helpful error if missing
+        if quantity is None:
+            # Check what data we have to give better feedback
+            desc_idx = col_indices.get('description')
+            desc_value = ""
+            if desc_idx is not None and desc_idx < len(row_values):
+                desc_value = str(row_values[desc_idx] or '').strip()
+
+            # Skip truly empty rows silently
+            if not activity_type_value and not desc_value and not any(str(v).strip() for v in row_values if v):
+                return None
+
+            # Give helpful error for partial rows
+            hint = f"'{activity_type_value}'" if activity_type_value else f"'{desc_value}'" if desc_value else "this row"
+            raise RowValidationError(
+                f"Missing quantity/amount for {hint}. "
+                f"Check that the Quantity column has a valid number."
+            )
+
+        if quantity == 0:
+            return None  # Skip zero quantities silently
         
         # Get description
         desc_idx = col_indices.get('description')
@@ -420,6 +458,12 @@ class TemplateParser:
         # Resolve activity_key
         if config.activity_key_resolver:
             activity_key, resolved_unit = config.activity_key_resolver(row_dict)
+            if not activity_key:
+                # Give helpful error about unrecognized activity type
+                raise RowValidationError(
+                    f"Unknown activity type '{activity_type_value}'. "
+                    f"Check that the Fuel/Vehicle/Refrigerant type is from the valid options in the Reference sheet."
+                )
             if not unit:
                 unit = resolved_unit
         else:
