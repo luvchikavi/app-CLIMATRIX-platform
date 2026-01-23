@@ -650,6 +650,20 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
+    # Residual Mix (EU average for market-based accounting)
+    {
+        "scope": 2,
+        "category_code": "2",
+        "subcategory": "electricity",
+        "activity_key": "electricity_residual_mix",
+        "display_name": "Residual Mix (EU Average)",
+        "co2e_factor": Decimal("0.453"),
+        "activity_unit": "kWh",
+        "factor_unit": "kg CO2e/kWh",
+        "source": "AIB_Residual_2024",
+        "region": "EU",
+        "year": 2024,
+    },
 
     # =========================================================================
     # SCOPE 2 - HEAT/STEAM/COOLING

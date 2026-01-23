@@ -61,7 +61,7 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
       case 'supplier':
         return supplierEF;
       case 'residual':
-        return 0.5; // Default residual mix - should be region-specific
+        return 0.453; // EU average residual mix (AIB 2024)
       default:
         return 0;
     }
@@ -80,22 +80,23 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
     setSaveSuccess(false);
 
     try {
-      // For market-based, we use a special activity key
+      // For market-based, we use activity keys matching emission_factors.py
       const activityKey = method === 'rec'
-        ? 'electricity_rec_zero'
+        ? 'electricity_renewable'
         : method === 'supplier'
-          ? 'electricity_supplier_specific'
+          ? 'electricity_supplier'
           : 'electricity_residual_mix';
 
       const payload = {
         scope: 2 as const,
-        category_code: '2.2',
+        category_code: '2',
         activity_key: activityKey,
         description: `${description}${supplierName ? ` (${supplierName})` : ''}`,
         quantity,
         unit: 'kWh',
         activity_date: new Date().toISOString().split('T')[0],
-        // Note: custom_emission_factor would be used here in production
+        // Pass supplier emission factor for supplier-specific method
+        ...(method === 'supplier' && supplierEF > 0 ? { supplier_ef: supplierEF } : {}),
       };
 
       await createActivity.mutateAsync(payload);
@@ -119,20 +120,23 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
     setSaveError(null);
 
     try {
+      // For market-based, we use activity keys matching emission_factors.py
       const activityKey = method === 'rec'
-        ? 'electricity_rec_zero'
+        ? 'electricity_renewable'
         : method === 'supplier'
-          ? 'electricity_supplier_specific'
+          ? 'electricity_supplier'
           : 'electricity_residual_mix';
 
       const payload = {
         scope: 2 as const,
-        category_code: '2.2',
+        category_code: '2',
         activity_key: activityKey,
         description: `${description}${supplierName ? ` (${supplierName})` : ''}`,
         quantity,
         unit: 'kWh',
         activity_date: new Date().toISOString().split('T')[0],
+        // Pass supplier emission factor for supplier-specific method
+        ...(method === 'supplier' && supplierEF > 0 ? { supplier_ef: supplierEF } : {}),
       };
 
       await createActivity.mutateAsync(payload);
