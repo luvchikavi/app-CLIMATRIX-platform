@@ -48,7 +48,7 @@ type ReportTab = 'summary' | 'by-scope' | 'by-category' | 'by-site';
 function ReportsPageContent() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
-  const { selectedPeriodId } = usePeriodStore();
+  const { selectedPeriodId, setSelectedPeriodId } = usePeriodStore();
 
   // All useState hooks
   const [activeTab, setActiveTab] = useState<ReportTab>('summary');
@@ -129,7 +129,7 @@ function ReportsPageContent() {
         </div>
         <div className="flex items-center gap-3">
           <Select
-            value={selectedPeriodId}
+            value={selectedPeriodId || ''}
             onChange={(e) => setSelectedPeriodId(e.target.value)}
             options={[
               ...(periods?.map((p) => ({ value: p.id, label: p.name })) || []),
