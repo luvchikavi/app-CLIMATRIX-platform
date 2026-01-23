@@ -14,6 +14,7 @@ import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
 import { formatCO2e } from '@/lib/utils';
+import { calculateSpendEmissions } from '@/lib/currency';
 import {
   Calculator,
   Save,
@@ -206,10 +207,11 @@ export function PurchasedGoodsForm({ periodId, onSuccess }: PurchasedGoodsFormPr
         formula = `${quantity} ${unit} × ~${materialEF} kg CO2e/${unit} = ${co2e.toFixed(2)} kg CO2e (estimate)`;
         break;
       case 'spend':
-        // Use typical EEIO EF
+        // Use typical EEIO EF with currency conversion
         const spendEF = 0.5; // Placeholder, backend will use actual factor
-        co2e = spendAmount * spendEF;
-        formula = `${spendAmount} ${currency} × ~${spendEF} kg CO2e/${currency} = ${co2e.toFixed(2)} kg CO2e (estimate)`;
+        const spendResult = calculateSpendEmissions(spendAmount, currency, spendEF);
+        co2e = spendResult.co2e;
+        formula = spendResult.formula + ' (estimate)';
         break;
       case 'supplier-specific':
         co2e = quantity * supplierEF;

@@ -17,6 +17,7 @@ import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
 import { formatCO2e } from '@/lib/utils';
+import { CURRENCIES, calculateSpendEmissions } from '@/lib/currency';
 import {
   Calculator,
   Save,
@@ -67,13 +68,7 @@ const PROCESSING_TYPES = [
   'Other',
 ];
 
-const CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'GBP', symbol: '£', name: 'British Pound' },
-  { code: 'ILS', symbol: '₪', name: 'Israeli Shekel' },
-  { code: 'CHF', symbol: 'Fr', name: 'Swiss Franc' },
-];
+// CURRENCIES imported from @/lib/currency
 
 // Site-specific: energy-based factor
 const ENERGY_EF = 0.436; // kg CO2e per kWh (global average)
@@ -150,13 +145,14 @@ export function ProcessingSoldProductsForm({ periodId, onSuccess }: ProcessingSo
     if (method === 'spend') {
       const amount = parseFloat(revenue) || 0;
       if (!amount) return null;
-      const co2e = amount * SPEND_EF;
+      // Convert currency to USD before applying emission factor
+      const { co2e, formula } = calculateSpendEmissions(amount, currency, SPEND_EF);
       return {
         activityKey: 'processing_spend_manufacturing',
         quantity: amount,
         unit: currency,
         co2e,
-        formula: `${currency} ${amount.toLocaleString()} × ${SPEND_EF.toFixed(2)} kg CO2e/${currency} = ${co2e.toFixed(2)} kg CO2e`,
+        formula,
         efSource: 'USEEIO 2.0 (Manufacturing)',
       };
     }

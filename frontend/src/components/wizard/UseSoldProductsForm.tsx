@@ -16,6 +16,7 @@ import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
 import { formatCO2e } from '@/lib/utils';
+import { calculateSpendEmissions } from '@/lib/currency';
 import {
   Calculator,
   Save,
@@ -170,13 +171,14 @@ export function UseSoldProductsForm({ periodId, onSuccess }: UseSoldProductsForm
     if (method === 'spend') {
       const amount = parseFloat(revenue) || 0;
       if (!amount) return null;
-      const co2e = amount * SPEND_EF;
+      // Convert currency to USD before applying emission factor
+      const { co2e, formula } = calculateSpendEmissions(amount, currency, SPEND_EF);
       return {
         activityKey: 'use_phase_spend_products',
         quantity: amount,
         unit: currency,
         co2e,
-        formula: `${currency} ${amount.toLocaleString()} × ${SPEND_EF} kg CO2e/${currency} = ${co2e.toFixed(2)} kg CO2e`,
+        formula,
         efSource: 'USEEIO 2.0',
       };
     }

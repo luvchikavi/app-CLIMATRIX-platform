@@ -16,6 +16,7 @@ import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
 import { formatCO2e } from '@/lib/utils';
+import { calculateSpendEmissions } from '@/lib/currency';
 import {
   Calculator,
   Save,
@@ -152,13 +153,13 @@ export function DownstreamTransportForm({ periodId, onSuccess }: DownstreamTrans
       if (!transportMode || !amount) return null;
       const mode = selectedSpendMode;
       if (!mode) return null;
-      const co2e = amount * mode.efEstimate;
+      const { co2e, formula } = calculateSpendEmissions(amount, currency, mode.efEstimate);
       return {
         activityKey: mode.activityKey,
         quantity: amount,
         unit: currency,
         co2e,
-        formula: `${currency} ${amount.toLocaleString()} × ${mode.efEstimate.toFixed(2)} kg/${currency} = ${co2e.toFixed(2)} kg CO2e`,
+        formula,
         efSource: 'EEIO 2024',
       };
     }

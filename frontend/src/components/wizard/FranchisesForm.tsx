@@ -16,6 +16,7 @@ import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
 import { formatCO2e } from '@/lib/utils';
+import { calculateSpendEmissions } from '@/lib/currency';
 import {
   Calculator,
   Save,
@@ -174,13 +175,13 @@ export function FranchisesForm({ periodId, onSuccess }: FranchisesFormProps) {
       const revenue = parseFloat(franchiseRevenue) || 0;
       if (!revenue) return null;
 
-      const co2e = revenue * SPEND_EF;
+      const { co2e, formula } = calculateSpendEmissions(revenue, currency, SPEND_EF);
       return {
         activityKey: 'franchise_spend_revenue',
         quantity: revenue,
         unit: currency,
         co2e,
-        formula: `${currency} ${revenue.toLocaleString()} x ${SPEND_EF} kg CO2e/${currency} = ${co2e.toFixed(2)} kg CO2e`,
+        formula,
         efSource: 'EEIO 2024',
       };
     }

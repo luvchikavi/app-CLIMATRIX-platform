@@ -16,6 +16,7 @@ import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
 import { formatCO2e } from '@/lib/utils';
+import { calculateSpendEmissions } from '@/lib/currency';
 import {
   Calculator,
   Save,
@@ -169,13 +170,13 @@ export function DownstreamLeasedAssetsForm({ periodId, onSuccess }: DownstreamLe
     if (method === 'spend') {
       const income = parseFloat(rentalIncome) || 0;
       if (!income) return null;
-      const co2e = income * SPEND_EF;
+      const { co2e, formula } = calculateSpendEmissions(income, currency, SPEND_EF);
       return {
         activityKey: 'downstream_leased_spend_income',
         quantity: income,
         unit: currency,
         co2e,
-        formula: `${currency} ${income.toLocaleString()} x ${SPEND_EF} kg CO2e/${currency} = ${co2e.toFixed(2)} kg CO2e`,
+        formula,
         efSource: 'EEIO 2024',
       };
     }

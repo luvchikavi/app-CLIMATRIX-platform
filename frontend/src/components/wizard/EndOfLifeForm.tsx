@@ -13,6 +13,7 @@ import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
 import { formatCO2e } from '@/lib/utils';
+import { calculateSpendEmissions } from '@/lib/currency';
 import {
   Calculator,
   Save,
@@ -240,13 +241,13 @@ export function EndOfLifeForm({ periodId, onSuccess }: EndOfLifeFormProps) {
       const amount = parseFloat(spendAmount) || 0;
       if (!amount) return null;
 
-      const co2e = amount * SPEND_EF_ESTIMATE;
+      const { co2e, formula } = calculateSpendEmissions(amount, currency, SPEND_EF_ESTIMATE);
       return {
         activityKey: 'eol_spend_disposal',
         quantity: amount,
         unit: currency,
         co2e,
-        formula: `${currency} ${amount.toLocaleString()} x ${SPEND_EF_ESTIMATE.toFixed(2)} kg CO2e/${currency} = ${co2e.toFixed(2)} kg CO2e`,
+        formula,
         efSource: 'EEIO 2024',
       };
     }
