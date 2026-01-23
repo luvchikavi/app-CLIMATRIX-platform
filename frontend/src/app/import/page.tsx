@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth';
+import { usePeriodStore } from '@/stores/period';
 import { usePeriods, useOrganization, useSites } from '@/hooks/useEmissions';
 import { api, ImportPreview, ImportResult, SmartImportResult, UnifiedImportPreview, UnifiedImportResult, UnifiedSheetPreview } from '@/lib/api';
 import { AppShell } from '@/components/layout';
@@ -38,6 +39,7 @@ import {
   BarChart3,
   Building2,
   MapPin,
+  Calendar,
 } from 'lucide-react';
 import { ImportHistory } from '@/components/ImportHistory';
 import { useActivities } from '@/hooks/useEmissions';
@@ -48,9 +50,8 @@ type ImportMode = 'standard' | 'smart' | 'unified';
 
 function ImportContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const periodIdParam = searchParams.get('period');
   const { isAuthenticated } = useAuthStore();
+  const { selectedPeriodId, setSelectedPeriodId } = usePeriodStore();
 
   const [step, setStep] = useState<ImportStep>('upload');
   const [importMode, setImportMode] = useState<ImportMode>('standard');
@@ -94,10 +95,17 @@ function ImportContent() {
   const { data: periods } = usePeriods();
   const { data: organization } = useOrganization();
   const { data: sites } = useSites();
-  // Fix: Check if periodIdParam is a valid UUID (not "undefined" string)
-  const isValidUUID = periodIdParam && periodIdParam !== 'undefined' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(periodIdParam);
-  const periodId = isValidUUID ? periodIdParam : periods?.[0]?.id;
+
+  // Use shared period store, fallback to first period
+  const periodId = selectedPeriodId || periods?.[0]?.id;
   const currentPeriod = periods?.find((p) => p.id === periodId);
+
+  // Set default period if none selected
+  useEffect(() => {
+    if (periods?.length && !selectedPeriodId) {
+      setSelectedPeriodId(periods[0].id);
+    }
+  }, [periods, selectedPeriodId, setSelectedPeriodId]);
 
   // Fetch activities to show current data status
   const { data: activities, isLoading: activitiesLoading } = useActivities(periodId || '');
@@ -543,7 +551,60 @@ function ImportContent() {
         </div>
       )}
 
-      {/* Organization + Import Target Info */}
+      {/* Step 1: Select Reporting Period - Prominent */}
+      {step === 'upload' && periods && periods.length > 0 && (
+        <Card padding="lg" className="mb-6 bg-primary/5 border-primary/30 border-2">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-xl bg-primary/20">
+                <Calendar className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Step 1: Select Reporting Period</h3>
+                <p className="text-sm text-foreground-muted">
+                  Choose which year/period this data belongs to
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {periods.map((period) => (
+                <button
+                  key={period.id}
+                  onClick={() => setSelectedPeriodId(period.id)}
+                  className={cn(
+                    'px-4 py-2 rounded-lg border-2 transition-all font-medium',
+                    periodId === period.id
+                      ? 'border-primary bg-primary text-white'
+                      : 'border-border bg-background hover:border-primary/50 text-foreground'
+                  )}
+                >
+                  {period.name}
+                </button>
+              ))}
+              <button
+                onClick={() => router.push('/settings?tab=periods')}
+                className="px-4 py-2 rounded-lg border-2 border-dashed border-border hover:border-primary text-foreground-muted hover:text-primary transition-all"
+              >
+                + New Period
+              </button>
+            </div>
+
+            {currentPeriod && (
+              <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                <p className="text-sm text-primary font-medium">
+                  Data will be imported to: <span className="font-bold">{currentPeriod.name}</span>
+                  <span className="text-primary/70 ml-2">
+                    ({new Date(currentPeriod.start_date).toLocaleDateString()} - {new Date(currentPeriod.end_date).toLocaleDateString()})
+                  </span>
+                </p>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Step 2: Organization & Site */}
       {step === 'upload' && organization && (
         <Card padding="md" className="mb-6 bg-info/5 border-info/20">
           <div className="flex items-center justify-between">
@@ -552,12 +613,9 @@ function ImportContent() {
                 <Building2 className="w-6 h-6 text-info" />
               </div>
               <div>
-                <h3 className="font-semibold text-foreground">Import Target</h3>
+                <h3 className="font-semibold text-foreground">Step 2: Confirm Organization</h3>
                 <p className="text-sm text-foreground-muted">
                   Importing to <span className="font-medium text-info">{organization.name}</span>
-                  {currentPeriod && (
-                    <> &middot; {currentPeriod.name}</>
-                  )}
                 </p>
               </div>
             </div>

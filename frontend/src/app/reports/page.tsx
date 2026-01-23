@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth';
+import { usePeriodStore } from '@/stores/period';
 import { usePeriods, useReportSummary, useReportByScope, useActivities, useSites } from '@/hooks/useEmissions';
 import { AppShell } from '@/components/layout';
 import {
@@ -47,10 +48,10 @@ type ReportTab = 'summary' | 'by-scope' | 'by-category' | 'by-site';
 function ReportsPageContent() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
+  const { selectedPeriodId } = usePeriodStore();
 
   // All useState hooks
   const [activeTab, setActiveTab] = useState<ReportTab>('summary');
-  const [selectedPeriodId, setSelectedPeriodId] = useState<string>('');
   const [mounted, setMounted] = useState(false);
 
   // All data fetching hooks (must be before any conditional returns)

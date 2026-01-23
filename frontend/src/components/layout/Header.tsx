@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth';
+import { usePeriodStore } from '@/stores/period';
 import { usePeriods } from '@/hooks/useEmissions';
 import { cn } from '@/lib/utils';
 import {
@@ -26,11 +27,11 @@ interface HeaderProps {
 export function Header({ onMenuClick, sidebarCollapsed }: HeaderProps) {
   const router = useRouter();
   const { user, organization, logout } = useAuthStore();
+  const { selectedPeriodId, setSelectedPeriodId } = usePeriodStore();
   const { data: periods } = usePeriods();
 
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showPeriodMenu, setShowPeriodMenu] = useState(false);
-  const [selectedPeriodId, setSelectedPeriodId] = useState<string>('');
 
   const userMenuRef = useRef<HTMLDivElement>(null);
   const periodMenuRef = useRef<HTMLDivElement>(null);
@@ -49,12 +50,12 @@ export function Header({ onMenuClick, sidebarCollapsed }: HeaderProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Set default period
+  // Set default period if none selected
   useEffect(() => {
     if (periods?.length && !selectedPeriodId) {
       setSelectedPeriodId(periods[0].id);
     }
-  }, [periods, selectedPeriodId]);
+  }, [periods, selectedPeriodId, setSelectedPeriodId]);
 
   const selectedPeriod = periods?.find(p => p.id === selectedPeriodId);
 

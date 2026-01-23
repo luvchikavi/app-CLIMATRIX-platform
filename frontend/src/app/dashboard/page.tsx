@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth';
+import { usePeriodStore } from '@/stores/period';
 import { usePeriods, useReportSummary, useActivities } from '@/hooks/useEmissions';
 import { AppShell } from '@/components/layout';
 import {
@@ -73,10 +74,10 @@ function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated } = useAuthStore();
+  const { selectedPeriodId } = usePeriodStore();
 
   // All useState hooks at top
   const [showWizard, setShowWizard] = useState(searchParams.get('wizard') === 'true');
-  const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [drillDownCategory, setDrillDownCategory] = useState<CategorySummary | null>(null);
   const [drillDownScope, setDrillDownScope] = useState<1 | 2 | 3 | null>(null);

@@ -50,11 +50,26 @@ function SettingsPageContent() {
   // All useState hooks
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const [showPeriodModal, setShowPeriodModal] = useState(false);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [periodForm, setPeriodForm] = useState({
     name: '',
     start_date: '',
     end_date: '',
   });
+
+  // Generate year options (current year and next 2 years, plus last 5 years)
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 8 }, (_, i) => currentYear - 5 + i);
+
+  // Handle year selection - auto-fill form with defaults
+  const handleYearSelect = (year: number) => {
+    setSelectedYear(year);
+    setPeriodForm({
+      name: `FY ${year}`,
+      start_date: `${year}-01-01`,
+      end_date: `${year}-12-31`,
+    });
+  };
   const [mounted, setMounted] = useState(false);
 
   // All data fetching hooks (must be before any conditional returns)
@@ -98,10 +113,17 @@ function SettingsPageContent() {
         end_date: periodForm.end_date,
       });
       setShowPeriodModal(false);
+      setSelectedYear(null);
       setPeriodForm({ name: '', start_date: '', end_date: '' });
     } catch (error) {
       console.error('Failed to create period:', error);
     }
+  };
+
+  const handleClosePeriodModal = () => {
+    setShowPeriodModal(false);
+    setSelectedYear(null);
+    setPeriodForm({ name: '', start_date: '', end_date: '' });
   };
 
   const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
@@ -434,7 +456,7 @@ function SettingsPageContent() {
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-neutral-950/50 backdrop-blur-sm"
-            onClick={() => setShowPeriodModal(false)}
+            onClick={handleClosePeriodModal}
           />
 
           {/* Modal */}
@@ -446,7 +468,7 @@ function SettingsPageContent() {
                 <p className="text-sm text-foreground-muted">Define a new reporting period</p>
               </div>
               <button
-                onClick={() => setShowPeriodModal(false)}
+                onClick={handleClosePeriodModal}
                 className="p-2 rounded-lg hover:bg-background-muted transition-colors"
               >
                 <X className="w-5 h-5 text-foreground-muted" />
@@ -455,6 +477,34 @@ function SettingsPageContent() {
 
             {/* Modal Content */}
             <div className="p-6 space-y-4">
+              {/* Year Selector - Primary */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Select Year
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {yearOptions.map((year) => (
+                    <button
+                      key={year}
+                      type="button"
+                      onClick={() => handleYearSelect(year)}
+                      className={cn(
+                        'px-4 py-2 rounded-lg border-2 font-medium transition-all',
+                        selectedYear === year
+                          ? 'border-primary bg-primary text-white'
+                          : 'border-border bg-background hover:border-primary/50 text-foreground'
+                      )}
+                    >
+                      {year}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-foreground-muted mt-2">
+                  Select a year to auto-fill dates (Jan 1 - Dec 31)
+                </p>
+              </div>
+
+              {/* Period Name - Auto-filled but editable */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
                   Period Name *
@@ -466,6 +516,7 @@ function SettingsPageContent() {
                 />
               </div>
 
+              {/* Date Range - Auto-filled but editable */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">
@@ -488,11 +539,20 @@ function SettingsPageContent() {
                   />
                 </div>
               </div>
+
+              {/* Info box showing what will be created */}
+              {periodForm.name && periodForm.start_date && periodForm.end_date && (
+                <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                  <p className="text-sm text-primary">
+                    <span className="font-medium">Creating:</span> {periodForm.name} ({new Date(periodForm.start_date).toLocaleDateString()} - {new Date(periodForm.end_date).toLocaleDateString()})
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">
-              <Button variant="outline" onClick={() => setShowPeriodModal(false)}>
+              <Button variant="outline" onClick={handleClosePeriodModal}>
                 Cancel
               </Button>
               <Button
