@@ -25,7 +25,7 @@ export type { InputProps, TextareaProps } from './Input';
 export { Select } from './Select';
 export type { SelectProps, SelectOption } from './Select';
 
-export { Badge, ScopeBadge, StatusBadge, ConfidenceBadge, PeriodStatusBadge } from './Badge';
+export { Badge, ScopeBadge, StatusBadge, ConfidenceBadge, PeriodStatusBadge, DataQualityBadge } from './Badge';
 export type {
   BadgeProps,
   ScopeBadgeProps,
@@ -33,6 +33,8 @@ export type {
   ConfidenceBadgeProps,
   PeriodStatusBadgeProps,
   PeriodStatusType,
+  DataQualityBadgeProps,
+  DataQualityScoreType,
 } from './Badge';
 
 export {

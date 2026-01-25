@@ -8,7 +8,7 @@ from app.models.core import (
 )
 from app.models.emission import (
     EmissionFactor, Activity, Emission, UnitConversion, FuelPrice,
-    ImportBatch, ImportBatchStatus,
+    ImportBatch, ImportBatchStatus, DataQualityScore,
     # New Scope 3 Reference Tables
     Airport,
     TransportDistanceMatrix,
@@ -39,6 +39,8 @@ __all__ = [
     # Import Tracking
     "ImportBatch",
     "ImportBatchStatus",
+    # Data Quality
+    "DataQualityScore",
     # Jobs
     "ImportJob",
     "JobStatus",

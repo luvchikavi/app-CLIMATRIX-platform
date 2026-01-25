@@ -101,6 +101,10 @@ export interface ActivityCreate {
   site_id?: string;
   // For Supplier-Specific method (3.1, 3.2): user provides their own emission factor
   supplier_ef?: number;
+  // Data quality fields (PCAF: 1=best, 5=worst)
+  data_quality_score?: number;
+  data_quality_justification?: string;
+  supporting_document_url?: string;
 }
 
 export interface Activity {
@@ -115,6 +119,10 @@ export interface Activity {
   site_id: string | null;
   created_at: string;
   import_batch_id?: string | null;
+  // Data quality fields
+  data_quality_score: number;
+  data_quality_justification?: string | null;
+  supporting_document_url?: string | null;
 }
 
 export interface Emission {
@@ -238,6 +246,24 @@ export interface ReportSummary {
   scope_3_wtt_co2e_kg: number;
   by_scope: ScopeSummary[];
   by_category: CategorySummary[];
+}
+
+// Data Quality Report Types
+export interface DataQualityBreakdown {
+  score: number;
+  score_label: string;
+  activity_count: number;
+  total_co2e_kg: number;
+  percentage: number;
+}
+
+export interface DataQualitySummary {
+  period_id: string;
+  period_name: string;
+  total_activities: number;
+  weighted_average_score: number;
+  score_interpretation: string;
+  by_score: DataQualityBreakdown[];
 }
 
 export interface ScopeSummary {
@@ -597,6 +623,10 @@ class ApiClient {
 
   async getScope2Comparison(periodId: string): Promise<Scope2ComparisonResponse> {
     return this.fetch<Scope2ComparisonResponse>(`/periods/${periodId}/report/scope-2-comparison`);
+  }
+
+  async getDataQualitySummary(periodId: string): Promise<DataQualitySummary> {
+    return this.fetch<DataQualitySummary>(`/periods/${periodId}/report/data-quality`);
   }
 
   // Recalculate

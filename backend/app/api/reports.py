@@ -462,3 +462,126 @@ async def get_scope2_comparison(
         activities=activities,
         countries_without_market_factor=list(countries_without_market),
     )
+
+
+# ============================================================================
+# Data Quality Report
+# ============================================================================
+
+class DataQualityBreakdown(BaseModel):
+    """Breakdown of activities by data quality score."""
+    score: int
+    score_label: str
+    activity_count: int
+    total_co2e_kg: float
+    percentage: float
+
+
+class DataQualitySummaryResponse(BaseModel):
+    """Data quality summary for a reporting period."""
+    period_id: str
+    period_name: str
+    total_activities: int
+    weighted_average_score: float
+    score_interpretation: str
+    by_score: list[DataQualityBreakdown]
+
+
+# Score labels for PCAF methodology
+DATA_QUALITY_LABELS = {
+    1: "Verified Data",
+    2: "Primary Data",
+    3: "Activity Average",
+    4: "Spend-Based",
+    5: "Estimated",
+}
+
+
+@router.get("/periods/{period_id}/report/data-quality", response_model=DataQualitySummaryResponse)
+async def get_data_quality_summary(
+    period_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Get data quality summary for a reporting period.
+
+    Returns weighted average score (by CO2e) and breakdown by quality level.
+    Lower score = better quality (PCAF methodology).
+    """
+    # Verify period belongs to organization
+    period_query = select(ReportingPeriod).where(
+        ReportingPeriod.id == period_id,
+        ReportingPeriod.organization_id == current_user.organization_id,
+    )
+    period_result = await session.execute(period_query)
+    period = period_result.scalar_one_or_none()
+
+    if not period:
+        raise HTTPException(status_code=404, detail="Reporting period not found")
+
+    # Get data quality breakdown
+    quality_query = (
+        select(
+            Activity.data_quality_score,
+            func.count(Activity.id).label("count"),
+            func.sum(Emission.co2e_kg).label("total_co2e"),
+        )
+        .join(Emission, Activity.id == Emission.activity_id)
+        .where(
+            Activity.reporting_period_id == period_id,
+            Activity.organization_id == current_user.organization_id,
+        )
+        .group_by(Activity.data_quality_score)
+    )
+    quality_result = await session.execute(quality_query)
+    quality_rows = quality_result.all()
+
+    # Calculate totals
+    total_activities = sum(row.count for row in quality_rows)
+    total_co2e = sum(float(row.total_co2e or 0) for row in quality_rows)
+
+    # Build breakdown and calculate weighted average
+    by_score = []
+    weighted_sum = Decimal(0)
+
+    for score in range(1, 6):  # 1-5
+        matching = next((r for r in quality_rows if (r.data_quality_score or 5) == score), None)
+        count = matching.count if matching else 0
+        co2e = float(matching.total_co2e or 0) if matching else 0.0
+        pct = (co2e / total_co2e * 100) if total_co2e > 0 else 0.0
+
+        by_score.append(DataQualityBreakdown(
+            score=score,
+            score_label=DATA_QUALITY_LABELS[score],
+            activity_count=count,
+            total_co2e_kg=co2e,
+            percentage=round(pct, 1),
+        ))
+
+        if co2e > 0:
+            weighted_sum += Decimal(str(score)) * Decimal(str(co2e))
+
+    # Calculate weighted average score (weighted by CO2e)
+    weighted_avg = float(weighted_sum / Decimal(str(total_co2e))) if total_co2e > 0 else 5.0
+
+    # Interpret the score
+    if weighted_avg <= 1.5:
+        interpretation = "Excellent - Mostly verified/primary data"
+    elif weighted_avg <= 2.5:
+        interpretation = "Good - Mix of primary and modeled data"
+    elif weighted_avg <= 3.5:
+        interpretation = "Fair - Significant use of average factors"
+    elif weighted_avg <= 4.5:
+        interpretation = "Limited - Primarily spend-based estimates"
+    else:
+        interpretation = "Low - Mostly estimated data, consider improving data sources"
+
+    return DataQualitySummaryResponse(
+        period_id=str(period_id),
+        period_name=period.name,
+        total_activities=total_activities,
+        weighted_average_score=round(weighted_avg, 2),
+        score_interpretation=interpretation,
+        by_score=by_score,
+    )

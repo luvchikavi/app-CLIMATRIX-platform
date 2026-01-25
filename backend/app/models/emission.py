@@ -45,6 +45,28 @@ class ImportBatchStatus(str, Enum):
     PARTIAL = "partial"  # Some rows failed
 
 
+class DataQualityScore(int, Enum):
+    """
+    Data quality score based on PCAF methodology (1=best, 5=worst).
+
+    Score 1: Audited/verified data from primary sources
+             - Audited energy bills, verified supplier data
+    Score 2: Non-audited data from primary sources
+             - Unaudited utility bills, supplier invoices
+    Score 3: Physical activity data with average emission factors
+             - Measured km driven with average fuel efficiency
+    Score 4: Economic activity-based modeling
+             - Spend-based calculations, revenue proxies
+    Score 5: Estimated data with high uncertainty
+             - Industry averages, EEIO models, extrapolations
+    """
+    VERIFIED = 1
+    PRIMARY = 2
+    ACTIVITY_AVERAGE = 3
+    SPEND_BASED = 4
+    ESTIMATED = 5
+
+
 # ============================================================================
 # IMPORT BATCH (Track Uploaded Files)
 # ============================================================================
@@ -261,6 +283,11 @@ class Activity(ActivityBase, table=True):
     # Source Tracking
     data_source: DataSource = Field(default=DataSource.MANUAL)
     import_batch_id: Optional[UUID] = Field(default=None, foreign_key="import_batches.id", index=True)
+
+    # Data Quality (PCAF methodology: 1=best, 5=worst)
+    data_quality_score: int = Field(default=5, ge=1, le=5)  # Default to estimated (most conservative)
+    data_quality_justification: Optional[str] = Field(default=None, max_length=500)
+    supporting_document_url: Optional[str] = Field(default=None, max_length=500)
 
     # Audit
     created_by: Optional[UUID] = Field(default=None, foreign_key="users.id")

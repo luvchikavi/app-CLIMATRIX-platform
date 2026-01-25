@@ -177,3 +177,41 @@ export const PeriodStatusBadge = forwardRef<HTMLSpanElement, PeriodStatusBadgePr
 );
 
 PeriodStatusBadge.displayName = 'PeriodStatusBadge';
+
+// Data Quality Badge - For PCAF data quality scores (1=best, 5=worst)
+export type DataQualityScoreType = 1 | 2 | 3 | 4 | 5;
+
+export interface DataQualityBadgeProps extends HTMLAttributes<HTMLSpanElement> {
+  score: DataQualityScoreType;
+  size?: 'sm' | 'md';
+  showLabel?: boolean;
+}
+
+export const DataQualityBadge = forwardRef<HTMLSpanElement, DataQualityBadgeProps>(
+  ({ className, score, size = 'md', showLabel = true, ...props }, ref) => {
+    const scoreConfig: Record<DataQualityScoreType, { variant: BadgeProps['variant']; label: string }> = {
+      1: { variant: 'success', label: 'Verified' },
+      2: { variant: 'info', label: 'Primary' },
+      3: { variant: 'warning', label: 'Average' },
+      4: { variant: 'secondary', label: 'Spend-Based' },
+      5: { variant: 'error', label: 'Estimated' },
+    };
+
+    const config = scoreConfig[score] || scoreConfig[5];
+
+    return (
+      <Badge
+        ref={ref}
+        variant={config.variant}
+        size={size}
+        className={className}
+        title={`Data Quality Score: ${score}/5 - ${config.label}`}
+        {...props}
+      >
+        {showLabel ? `DQ${score}: ${config.label}` : `DQ${score}`}
+      </Badge>
+    );
+  }
+);
+
+DataQualityBadge.displayName = 'DataQualityBadge';

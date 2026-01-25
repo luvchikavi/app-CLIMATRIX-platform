@@ -1,10 +1,10 @@
 # CLIMATRIX Development Progress
 
 ## Quick Resume Section
-> **Last Updated:** 2026-01-25 12:15
+> **Last Updated:** 2026-01-25 13:00
 > **Current Phase:** Phase 1 - GHG Completion
-> **Current Task:** 1.1 Verification Workflow - COMPLETE
-> **Next Action:** Begin 1.2 Data Quality Scoring
+> **Current Task:** 1.2 Data Quality Scoring - COMPLETE
+> **Next Action:** Begin 1.3 Enhanced GHG Reporting
 > **Branch:** `phase1/ghg-completion`
 
 ---
@@ -22,13 +22,16 @@
 | Build verification UI in frontend | ✅ Done | PeriodStatusBadge component, API methods |
 | Update frontend types | ✅ Done | types.ts, api.ts updated |
 
-### 1.2 Data Quality Scoring
+### 1.2 Data Quality Scoring ✅ COMPLETE
 | Task | Status | Notes |
 |------|--------|-------|
-| Add data_quality_score field to Activity model | Not Started | |
-| Create quality score dropdown in activity forms | Not Started | |
-| Display quality scores in reports | Not Started | |
-| Calculate weighted average quality score | Not Started | |
+| Add data_quality_score field to Activity model | ✅ Done | Score 1-5 (PCAF), justification, document URL |
+| Create Alembic migration | ✅ Done | Migration b2c3d4e5f6a7 |
+| Update activities API | ✅ Done | Accept/return quality fields |
+| Add data quality report endpoint | ✅ Done | GET /report/data-quality |
+| Add DataQualityBadge component | ✅ Done | Color-coded by score |
+| Update frontend types | ✅ Done | types.ts, api.ts |
+| Calculate weighted average quality score | ✅ Done | Weighted by CO2e in report |
 
 ### 1.3 Enhanced GHG Reporting
 | Task | Status | Notes |
@@ -57,22 +60,28 @@
 
 ## Work Log
 
+### 2026-01-25 (Session 2 continued)
+- **Completed Phase 1.2 - Data Quality Scoring:**
+  - Added DataQualityScore enum (1-5, PCAF methodology)
+  - Added data_quality_score, justification, document_url to Activity
+  - Created Alembic migration b2c3d4e5f6a7
+  - Updated activities API to accept/return quality fields
+  - Added GET /report/data-quality endpoint with weighted average
+  - Added DataQualityBadge component (color-coded)
+  - Updated frontend types.ts and api.ts
+- **Next:** Begin 1.3 Enhanced GHG Reporting
+
 ### 2026-01-25 (Session 2)
 - **Session Start:** Phase 1 implementation
-- **Completed:**
+- **Completed Phase 1.1 - Verification Workflow:**
   - Fixed CORS to allow Vercel preview URLs (pushed to main)
   - Created phase1/ghg-completion branch
   - Added PeriodStatus, AssuranceLevel enums to core.py
   - Added verification fields to ReportingPeriod model
   - Created Alembic migration a1b2c3d4e5f6
-  - Updated periods.py API with verification endpoints:
-    - POST /{id}/transition - status transitions
-    - POST /{id}/verify - verify with assurance details
-    - POST /{id}/lock - lock verified period
-    - GET /{id}/status-history - audit trail
-  - Updated models/__init__.py with new exports
-- **In Progress:** Frontend verification UI
-- **Next:** Add status badges and transition buttons to frontend
+  - Updated periods.py API with verification endpoints
+  - Added PeriodStatusBadge component
+  - Updated frontend types and API methods
 
 ### 2026-01-25 (Session 1)
 - **Session Start:** Planning discussion

@@ -37,6 +37,25 @@ export type DataSource = "manual" | "import" | "api";
 
 export type ConfidenceLevel = "high" | "medium" | "low";
 
+// Data Quality Score (PCAF methodology: 1=best, 5=worst)
+export type DataQualityScore = 1 | 2 | 3 | 4 | 5;
+
+export const DATA_QUALITY_LABELS: Record<DataQualityScore, string> = {
+  1: "Verified Data",
+  2: "Primary Data",
+  3: "Activity Average",
+  4: "Spend-Based",
+  5: "Estimated",
+};
+
+export const DATA_QUALITY_DESCRIPTIONS: Record<DataQualityScore, string> = {
+  1: "Audited/verified data from primary sources (e.g., audited energy bills)",
+  2: "Non-audited data from primary sources (e.g., utility bills, invoices)",
+  3: "Physical activity data with average emission factors",
+  4: "Economic activity-based modeling (e.g., spend-based calculations)",
+  5: "Estimated data with high uncertainty (e.g., industry averages)",
+};
+
 // =============================================================================
 // ENTITY TYPES
 // =============================================================================
@@ -150,6 +169,10 @@ export interface Activity {
   created_at: string;
   updated_at?: string;
   emission?: Emission;
+  // Data quality fields (PCAF: 1=best, 5=worst)
+  data_quality_score: DataQualityScore;
+  data_quality_justification?: string;
+  supporting_document_url?: string;
 }
 
 export interface ActivityCreate {
@@ -162,6 +185,10 @@ export interface ActivityCreate {
   activity_date: string;
   site_id?: string;
   calculation_method?: CalculationMethod;
+  // Data quality fields (optional, defaults to 5)
+  data_quality_score?: DataQualityScore;
+  data_quality_justification?: string;
+  supporting_document_url?: string;
 }
 
 export interface Emission {

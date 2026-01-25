@@ -47,6 +47,10 @@ class ActivityCreate(BaseModel):
     site_id: str | None = None
     # For Supplier-Specific method (3.1, 3.2): user provides their own emission factor
     supplier_ef: Decimal | None = None
+    # Data quality fields (PCAF: 1=best, 5=worst)
+    data_quality_score: int = 5  # Default to most conservative
+    data_quality_justification: str | None = None
+    supporting_document_url: str | None = None
 
 
 class ActivityResponse(BaseModel):
@@ -63,6 +67,10 @@ class ActivityResponse(BaseModel):
     created_at: datetime
     data_source: str | None = None
     import_batch_id: str | None = None
+    # Data quality fields
+    data_quality_score: int = 5
+    data_quality_justification: str | None = None
+    supporting_document_url: str | None = None
 
 
 class EmissionResponse(BaseModel):
@@ -169,6 +177,9 @@ async def list_activities(
                 created_at=a.created_at,
                 data_source=a.data_source.value if a.data_source else None,
                 import_batch_id=str(a.import_batch_id) if a.import_batch_id else None,
+                data_quality_score=a.data_quality_score if hasattr(a, 'data_quality_score') else 5,
+                data_quality_justification=a.data_quality_justification if hasattr(a, 'data_quality_justification') else None,
+                supporting_document_url=a.supporting_document_url if hasattr(a, 'supporting_document_url') else None,
             ),
             emission=emission_response,
         ))
@@ -248,6 +259,10 @@ async def create_activity(
         site_id=UUID(data.site_id) if data.site_id else None,
         created_by=current_user.id,
         data_source=DataSource.MANUAL,
+        # Data quality fields
+        data_quality_score=data.data_quality_score,
+        data_quality_justification=data.data_quality_justification,
+        supporting_document_url=data.supporting_document_url,
     )
     session.add(activity)
     await session.flush()
@@ -286,6 +301,9 @@ async def create_activity(
             created_at=activity.created_at,
             data_source=activity.data_source.value if activity.data_source else None,
             import_batch_id=str(activity.import_batch_id) if activity.import_batch_id else None,
+            data_quality_score=activity.data_quality_score,
+            data_quality_justification=activity.data_quality_justification,
+            supporting_document_url=activity.supporting_document_url,
         ),
         emission=EmissionResponse(
             id=str(emission.id),
