@@ -1,15 +1,26 @@
 # CLIMATRIX Development Progress
 
 ## Quick Resume Section
-> **Last Updated:** 2026-01-25 17:15
-> **Current Phase:** Phase 2 - CBAM Module (PAUSED)
-> **Current Task:** Production fix deployed, waiting for verification
-> **Next Action:** Verify production works, then continue Phase 2.2 Reference Data
+> **Last Updated:** 2026-01-25 17:30
+> **Current Phase:** Phase 2 - CBAM Module
+> **Current Task:** 2.2 Reference Data - Not Started
+> **Next Action:** Continue Phase 2 development, set up test environment before merge
 > **Branch:** `phase2/cbam-module`
+> **Production Status:** ✅ Stable (rolled back to a8df492)
+
+### ⚠️ IMPORTANT: Phase 1 Rollback
+Phase 1 code was rolled back from production due to migration issues.
+- Phase 1 work is preserved on `phase1/ghg-completion` branch
+- Production is stable on commit `a8df492`
+- **DO NOT MERGE** feature branches to main without testing first
 
 ---
 
-## Phase 1: GHG Completion (Target: 4 weeks)
+## Phase 1: GHG Completion (Target: 4 weeks) ⏸️ ON BRANCH - NOT DEPLOYED
+
+> **Status:** Code complete on `phase1/ghg-completion` branch, rolled back from production
+> **Reason:** Database migration infrastructure issue (empty alembic.ini)
+> **Next:** Will deploy after test environment is set up
 
 ### 1.1 Verification Workflow ✅ COMPLETE
 | Task | Status | Notes |
@@ -127,6 +138,25 @@
 
 ## Work Log
 
+### 2026-01-25 (Session 4 - ROLLBACK)
+- **Production Broken:** After Phase 1 merge, production was crashing
+  - 500 errors on all API endpoints
+  - Dashboard empty, periods couldn't be created
+  - Root cause: Empty alembic.ini meant migrations never ran
+- **Decision:** Rollback main to last stable version
+  - Rolled back to commit `a8df492` (before Phase 1 merge)
+  - Command: `git reset --hard a8df492 && git push origin main --force`
+- **Result:** Production is now stable and working
+- **Lesson Learned:**
+  - Must test migrations in staging before production
+  - Need proper test environment
+  - Phase 1 code is preserved on branch, will redeploy after fixing infrastructure
+- **Next Steps:**
+  1. Set up staging environment on Railway
+  2. Fix alembic.ini and migration infrastructure
+  3. Test Phase 1 on staging
+  4. Continue Phase 2 development in parallel
+
 ### 2026-01-25 (Session 4 continued - Production Fix)
 - **Issue Reported:** Production app showing 500 errors + CORS failures
   - Users couldn't see dashboard
@@ -236,12 +266,37 @@
 
 | Branch | Purpose | Status |
 |--------|---------|--------|
-| `main` | Production - always deployable | Active |
-| `phase1/ghg-completion` | Phase 1 work | ✅ Merged to main |
-| `phase2/cbam-module` | CBAM module | 🔄 Active |
+| `main` | Production - always deployable | ✅ Stable (a8df492) |
+| `phase1/ghg-completion` | Phase 1 work | ⏸️ Complete, NOT deployed (rolled back) |
+| `phase2/cbam-module` | CBAM module | 🔄 Active development |
 | `phase3/pcaf-module` | PCAF module | Not created |
 | `phase4/lca-engine` | LCA Engine | Not created |
 | `phase5/epd-module` | EPD module | Not created |
+
+---
+
+## Test Environment Strategy (NEW)
+
+### Before Merging ANY Feature Branch to Main:
+
+1. **Set up staging Railway environment**
+   - Clone production Railway project
+   - Point to separate staging database
+   - Deploy feature branch to staging
+
+2. **Run database migrations manually on staging**
+   ```bash
+   cd backend && alembic upgrade head
+   ```
+
+3. **Test all critical paths:**
+   - [ ] User login (all users)
+   - [ ] Dashboard loads with data
+   - [ ] Create/edit reporting periods
+   - [ ] Import Excel files
+   - [ ] View emissions reports
+
+4. **Only after staging passes:** Merge to main
 
 ---
 
@@ -259,4 +314,6 @@
 | Date | Issue | Decision/Resolution |
 |------|-------|---------------------|
 | 2026-01-25 | Branch strategy | Use feature branches per phase, merge to main when complete |
+| 2026-01-25 | Phase 1 broke production | Rolled back main, need staging environment before any merge |
+| 2026-01-25 | alembic.ini was empty | Need to fix migration infrastructure, test on staging first |
 
