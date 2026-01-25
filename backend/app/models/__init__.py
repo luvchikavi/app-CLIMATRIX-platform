@@ -2,7 +2,10 @@
 SQLModel database models.
 All models are imported here for Alembic auto-discovery.
 """
-from app.models.core import Organization, User, Site, ReportingPeriod
+from app.models.core import (
+    Organization, User, Site, ReportingPeriod,
+    UserRole, PeriodStatus, AssuranceLevel,
+)
 from app.models.emission import (
     EmissionFactor, Activity, Emission, UnitConversion, FuelPrice,
     ImportBatch, ImportBatchStatus,
@@ -24,6 +27,9 @@ __all__ = [
     "User",
     "Site",
     "ReportingPeriod",
+    "UserRole",
+    "PeriodStatus",
+    "AssuranceLevel",
     # Emission
     "EmissionFactor",
     "Activity",

@@ -21,6 +21,22 @@ class UserRole(str, Enum):
     SUPER_ADMIN = "super_admin"
 
 
+class PeriodStatus(str, Enum):
+    """Verification workflow status for reporting periods."""
+    DRAFT = "draft"
+    REVIEW = "review"
+    SUBMITTED = "submitted"
+    AUDIT = "audit"
+    VERIFIED = "verified"
+    LOCKED = "locked"
+
+
+class AssuranceLevel(str, Enum):
+    """Level of assurance for verified reports."""
+    LIMITED = "limited"
+    REASONABLE = "reasonable"
+
+
 class OrganizationBase(SQLModel):
     """Base fields for Organization."""
     name: str = Field(max_length=255, index=True)
@@ -103,11 +119,18 @@ class ReportingPeriodBase(SQLModel):
     end_date: date
     is_locked: bool = Field(default=False)
 
+    # Verification workflow fields
+    status: PeriodStatus = Field(default=PeriodStatus.DRAFT)
+    assurance_level: Optional[AssuranceLevel] = Field(default=None)
+
 
 class ReportingPeriod(ReportingPeriodBase, table=True):
     """
     Reporting period for organizing activity data.
     Activities belong to a specific reporting period.
+
+    Verification Workflow:
+    DRAFT -> REVIEW -> SUBMITTED -> AUDIT -> VERIFIED -> LOCKED
     """
     __tablename__ = "reporting_periods"
 
@@ -115,6 +138,16 @@ class ReportingPeriod(ReportingPeriodBase, table=True):
     organization_id: UUID = Field(foreign_key="organizations.id", index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+    # Verification tracking
+    submitted_at: Optional[datetime] = Field(default=None)
+    submitted_by_id: Optional[UUID] = Field(default=None, foreign_key="users.id")
+    verified_at: Optional[datetime] = Field(default=None)
+    verified_by: Optional[str] = Field(default=None, max_length=255)  # Auditor name/firm
+    verification_statement: Optional[str] = Field(default=None)
+
     # Relationships
     organization: Organization = Relationship(back_populates="reporting_periods")
     activities: list["Activity"] = Relationship(back_populates="reporting_period")
+    submitted_by: Optional["User"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[ReportingPeriod.submitted_by_id]"}
+    )
