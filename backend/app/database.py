@@ -3,6 +3,7 @@ Database connection and session management.
 Uses SQLModel with async SQLAlchemy.
 """
 import logging
+import os
 from typing import AsyncGenerator
 from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
@@ -11,6 +12,31 @@ from sqlmodel import SQLModel, select
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+def run_migrations() -> None:
+    """Run Alembic migrations to ensure database schema is up to date."""
+    try:
+        from alembic.config import Config
+        from alembic import command
+
+        # Get the directory where this file is located
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        alembic_ini = os.path.join(base_dir, "alembic.ini")
+
+        if os.path.exists(alembic_ini):
+            logger.info("Running Alembic migrations...")
+            alembic_cfg = Config(alembic_ini)
+            # Set the database URL in alembic config
+            alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
+            command.upgrade(alembic_cfg, "head")
+            logger.info("Migrations completed successfully!")
+        else:
+            logger.warning(f"alembic.ini not found at {alembic_ini}, skipping migrations")
+    except Exception as e:
+        logger.error(f"Failed to run migrations: {e}")
+        # Don't crash the app, just log the error
+        # The app might still work with create_all
 
 # Create async engine (use async_database_url to handle Railway's format)
 engine = create_async_engine(
@@ -38,6 +64,11 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db() -> None:
     """Initialize database tables and seed data if needed."""
+    # Run Alembic migrations first (sync operation)
+    # This ensures new columns are added to existing tables
+    run_migrations()
+
+    # Then create any new tables that might not exist
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
 
