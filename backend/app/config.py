@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
 
     # CORS - Set via env as comma-separated: "http://localhost:3000,https://example.com"
-    cors_origins_str: str = "http://localhost:3000,http://localhost:3001,https://climatrix.io,https://www.climatrix.io,https://app.climatrix.io"
+    cors_origins_str: str = "http://localhost:3000,http://localhost:3001,https://climatrix.io,https://www.climatrix.io,https://app.climatrix.io,https://app-climatrix-platform.vercel.app"
 
     @property
     def cors_origins(self) -> list[str]:
