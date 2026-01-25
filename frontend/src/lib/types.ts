@@ -75,6 +75,12 @@ export interface Site {
   created_at: string;
 }
 
+// Verification workflow status for reporting periods
+export type PeriodStatus = "draft" | "review" | "submitted" | "audit" | "verified" | "locked";
+
+// Assurance level for verified reports
+export type AssuranceLevel = "limited" | "reasonable";
+
 export interface ReportingPeriod {
   id: string;
   organization_id: string;
@@ -83,6 +89,42 @@ export interface ReportingPeriod {
   end_date: string;
   is_locked: boolean;
   created_at: string;
+  // Verification workflow fields
+  status: PeriodStatus;
+  assurance_level?: AssuranceLevel;
+  submitted_at?: string;
+  submitted_by_id?: string;
+  verified_at?: string;
+  verified_by?: string;
+  verification_statement?: string;
+}
+
+export interface StatusTransitionRequest {
+  new_status: PeriodStatus;
+}
+
+export interface VerificationRequest {
+  assurance_level: AssuranceLevel;
+  verified_by: string;
+  verification_statement: string;
+}
+
+export interface StatusHistory {
+  period_id: string;
+  current_status: PeriodStatus;
+  is_locked: boolean;
+  timeline: {
+    created_at?: string;
+    submitted_at?: string;
+    submitted_by_id?: string;
+    verified_at?: string;
+    verified_by?: string;
+  };
+  verification: {
+    assurance_level?: AssuranceLevel;
+    verification_statement?: string;
+  };
+  valid_transitions: PeriodStatus[];
 }
 
 // =============================================================================

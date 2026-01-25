@@ -139,3 +139,41 @@ export const ConfidenceBadge = forwardRef<HTMLSpanElement, ConfidenceBadgeProps>
 );
 
 ConfidenceBadge.displayName = 'ConfidenceBadge';
+
+// Period Status Badge - For verification workflow
+export type PeriodStatusType = 'draft' | 'review' | 'submitted' | 'audit' | 'verified' | 'locked';
+
+export interface PeriodStatusBadgeProps extends HTMLAttributes<HTMLSpanElement> {
+  status: PeriodStatusType;
+  size?: 'sm' | 'md';
+}
+
+export const PeriodStatusBadge = forwardRef<HTMLSpanElement, PeriodStatusBadgeProps>(
+  ({ className, status, size = 'md', ...props }, ref) => {
+    const statusConfig: Record<PeriodStatusType, { variant: BadgeProps['variant']; label: string; icon?: string }> = {
+      draft: { variant: 'default', label: 'Draft', icon: '📝' },
+      review: { variant: 'info', label: 'In Review', icon: '👀' },
+      submitted: { variant: 'warning', label: 'Submitted', icon: '📤' },
+      audit: { variant: 'secondary', label: 'Under Audit', icon: '🔍' },
+      verified: { variant: 'success', label: 'Verified', icon: '✓' },
+      locked: { variant: 'primary', label: 'Locked', icon: '🔒' },
+    };
+
+    const config = statusConfig[status] || statusConfig.draft;
+
+    return (
+      <Badge
+        ref={ref}
+        variant={config.variant}
+        size={size}
+        className={className}
+        {...props}
+      >
+        <span className="mr-1">{config.icon}</span>
+        {config.label}
+      </Badge>
+    );
+  }
+);
+
+PeriodStatusBadge.displayName = 'PeriodStatusBadge';

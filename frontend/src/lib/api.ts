@@ -53,12 +53,41 @@ export interface Organization {
   country_code: string;
 }
 
+export type PeriodStatus = "draft" | "review" | "submitted" | "audit" | "verified" | "locked";
+export type AssuranceLevel = "limited" | "reasonable";
+
 export interface ReportingPeriod {
   id: string;
   name: string;
   start_date: string;
   end_date: string;
   is_locked: boolean;
+  // Verification workflow fields
+  status: PeriodStatus;
+  assurance_level?: AssuranceLevel;
+  submitted_at?: string;
+  submitted_by_id?: string;
+  verified_at?: string;
+  verified_by?: string;
+  verification_statement?: string;
+}
+
+export interface StatusHistory {
+  period_id: string;
+  current_status: PeriodStatus;
+  is_locked: boolean;
+  timeline: {
+    created_at?: string;
+    submitted_at?: string;
+    submitted_by_id?: string;
+    verified_at?: string;
+    verified_by?: string;
+  };
+  verification: {
+    assurance_level?: AssuranceLevel;
+    verification_statement?: string;
+  };
+  valid_transitions: PeriodStatus[];
 }
 
 export interface ActivityCreate {
@@ -442,6 +471,38 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  async getPeriod(periodId: string): Promise<ReportingPeriod> {
+    return this.fetch<ReportingPeriod>(`/periods/${periodId}`);
+  }
+
+  // Verification Workflow
+  async transitionPeriodStatus(periodId: string, newStatus: PeriodStatus): Promise<ReportingPeriod> {
+    return this.fetch<ReportingPeriod>(`/periods/${periodId}/transition`, {
+      method: 'POST',
+      body: JSON.stringify({ new_status: newStatus }),
+    });
+  }
+
+  async verifyPeriod(
+    periodId: string,
+    data: { assurance_level: AssuranceLevel; verified_by: string; verification_statement: string }
+  ): Promise<ReportingPeriod> {
+    return this.fetch<ReportingPeriod>(`/periods/${periodId}/verify`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async lockPeriod(periodId: string): Promise<ReportingPeriod> {
+    return this.fetch<ReportingPeriod>(`/periods/${periodId}/lock`, {
+      method: 'POST',
+    });
+  }
+
+  async getPeriodStatusHistory(periodId: string): Promise<StatusHistory> {
+    return this.fetch<StatusHistory>(`/periods/${periodId}/status-history`);
   }
 
   // Activities
