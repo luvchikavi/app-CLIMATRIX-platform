@@ -266,6 +266,101 @@ export interface DataQualitySummary {
   by_score: DataQualityBreakdown[];
 }
 
+// ISO 14064-1 GHG Inventory Report Types
+export interface OrganizationInfo {
+  name: string;
+  country?: string;
+  industry?: string;
+  base_year?: number;
+}
+
+export interface ReportingBoundary {
+  consolidation_approach: string;
+  included_facilities: number;
+  reporting_period_start: string;
+  reporting_period_end: string;
+}
+
+export interface EmissionSourceDetail {
+  activity_key: string;
+  display_name: string;
+  category_code: string;
+  activity_count: number;
+  total_quantity: number;
+  unit: string;
+  total_co2e_kg: number;
+  total_co2e_tonnes: number;
+  emission_factor: number;
+  factor_source: string;
+  factor_unit: string;
+  avg_data_quality: number;
+}
+
+export interface ScopeDetail {
+  scope: number;
+  scope_name: string;
+  total_co2e_kg: number;
+  total_co2e_tonnes: number;
+  percentage_of_total: number;
+  activity_count: number;
+  avg_data_quality: number;
+  sources: EmissionSourceDetail[];
+}
+
+export interface MethodologySection {
+  calculation_approach: string;
+  emission_factor_sources: string[];
+  gwp_values: string;
+  exclusions: string[];
+  assumptions: string[];
+}
+
+export interface BaseYearComparison {
+  base_year: number;
+  base_year_emissions_tonnes: number;
+  current_emissions_tonnes: number;
+  absolute_change_tonnes: number;
+  percentage_change: number;
+}
+
+export interface VerificationInfo {
+  status: string;
+  assurance_level?: string;
+  verified_by?: string;
+  verified_at?: string;
+  verification_statement?: string;
+}
+
+export interface GHGInventoryReport {
+  report_title: string;
+  report_date: string;
+  reporting_period: string;
+  organization: OrganizationInfo;
+  boundaries: ReportingBoundary;
+  executive_summary: {
+    total_emissions_tonnes: number;
+    scope_1_tonnes: number;
+    scope_2_tonnes: number;
+    scope_3_tonnes: number;
+    scope_1_percentage: number;
+    scope_2_percentage: number;
+    scope_3_percentage: number;
+    total_activities: number;
+    data_quality_score: number;
+    top_emission_sources: string[];
+  };
+  scope_1: ScopeDetail;
+  scope_2: ScopeDetail;
+  scope_3: ScopeDetail;
+  total_emissions_kg: number;
+  total_emissions_tonnes: number;
+  overall_data_quality_score: number;
+  data_quality_interpretation: string;
+  methodology: MethodologySection;
+  base_year_comparison?: BaseYearComparison;
+  verification: VerificationInfo;
+}
+
 export interface ScopeSummary {
   scope: number;
   total_co2e_kg: number;
@@ -627,6 +722,10 @@ class ApiClient {
 
   async getDataQualitySummary(periodId: string): Promise<DataQualitySummary> {
     return this.fetch<DataQualitySummary>(`/periods/${periodId}/report/data-quality`);
+  }
+
+  async getGHGInventoryReport(periodId: string): Promise<GHGInventoryReport> {
+    return this.fetch<GHGInventoryReport>(`/periods/${periodId}/report/ghg-inventory`);
   }
 
   // Recalculate
