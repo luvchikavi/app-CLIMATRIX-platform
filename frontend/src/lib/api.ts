@@ -361,6 +361,124 @@ export interface GHGInventoryReport {
   verification: VerificationInfo;
 }
 
+// Audit Package Types (Phase 1.4)
+export interface ActivityAuditRecord {
+  activity_id: string;
+  scope: number;
+  category_code: string;
+  category_name: string;
+  activity_key: string;
+  display_name: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  activity_date: string;
+  calculation_method: string;
+  data_source: string;
+  import_batch_id: string | null;
+  import_file_name: string | null;
+  data_quality_score: number;
+  data_quality_label: string;
+  data_quality_justification: string | null;
+  supporting_document_url: string | null;
+  co2e_kg: number;
+  co2e_tonnes: number;
+  co2_kg: number | null;
+  ch4_kg: number | null;
+  n2o_kg: number | null;
+  wtt_co2e_kg: number | null;
+  emission_factor_id: string;
+  emission_factor_value: number;
+  emission_factor_unit: string;
+  converted_quantity: number | null;
+  converted_unit: string | null;
+  calculation_formula: string | null;
+  confidence_level: string;
+  created_at: string;
+  created_by: string | null;
+}
+
+export interface EmissionFactorAuditRecord {
+  factor_id: string;
+  activity_key: string;
+  display_name: string;
+  scope: number;
+  category_code: string;
+  subcategory: string | null;
+  co2e_factor: number;
+  co2_factor: number | null;
+  ch4_factor: number | null;
+  n2o_factor: number | null;
+  activity_unit: string;
+  factor_unit: string;
+  source: string;
+  region: string;
+  year: number;
+  valid_from: string | null;
+  valid_until: string | null;
+  usage_count: number;
+  total_co2e_kg: number;
+}
+
+export interface ImportBatchAuditRecord {
+  batch_id: string;
+  file_name: string;
+  file_type: string;
+  file_size_bytes: number | null;
+  status: string;
+  total_rows: number;
+  successful_rows: number;
+  failed_rows: number;
+  skipped_rows: number;
+  error_message: string | null;
+  uploaded_at: string;
+  uploaded_by: string | null;
+  completed_at: string | null;
+}
+
+export interface CalculationMethodologySection {
+  overview: string;
+  ghg_protocol_alignment: string;
+  calculation_approach: string;
+  scope_1_methodology: Record<string, any>;
+  scope_2_methodology: Record<string, any>;
+  scope_3_methodology: Record<string, any>;
+  unit_conversion_approach: string;
+  wtt_calculation_method: string;
+  data_validation_rules: string[];
+  confidence_level_criteria: Record<string, string>;
+}
+
+export interface AuditPackageSummary {
+  period_id: string;
+  period_name: string;
+  organization_name: string;
+  reporting_period_start: string;
+  reporting_period_end: string;
+  verification_status: string;
+  assurance_level: string | null;
+  total_activities: number;
+  total_emissions_kg: number;
+  total_emissions_tonnes: number;
+  scope_1_emissions_tonnes: number;
+  scope_2_emissions_tonnes: number;
+  scope_3_emissions_tonnes: number;
+  overall_data_quality_score: number;
+  data_quality_interpretation: string;
+  total_import_batches: number;
+  generated_at: string;
+  generated_by: string;
+}
+
+export interface AuditPackage {
+  package_version: string;
+  summary: AuditPackageSummary;
+  methodology: CalculationMethodologySection;
+  activities: ActivityAuditRecord[];
+  emission_factors: EmissionFactorAuditRecord[];
+  import_batches: ImportBatchAuditRecord[];
+}
+
 export interface ScopeSummary {
   scope: number;
   total_co2e_kg: number;
@@ -726,6 +844,10 @@ class ApiClient {
 
   async getGHGInventoryReport(periodId: string): Promise<GHGInventoryReport> {
     return this.fetch<GHGInventoryReport>(`/periods/${periodId}/report/ghg-inventory`);
+  }
+
+  async getAuditPackage(periodId: string): Promise<AuditPackage> {
+    return this.fetch<AuditPackage>(`/periods/${periodId}/report/audit-package`);
   }
 
   // Recalculate

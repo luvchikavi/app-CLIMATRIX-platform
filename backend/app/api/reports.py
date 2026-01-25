@@ -2,24 +2,25 @@
 Reports API endpoints.
 Generates emission summaries and reports.
 
-Includes ISO 14064-1 compliant GHG inventory reports.
+Includes ISO 14064-1 compliant GHG inventory reports and audit package exports.
 """
 from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, func
 import io
+import json
 
 from app.api.auth import get_current_user
 from app.database import get_session
 from app.models.core import User, ReportingPeriod, Organization, PeriodStatus
-from app.models.emission import Activity, Emission, EmissionFactor
+from app.models.emission import Activity, Emission, EmissionFactor, ImportBatch
 from app.services.calculation.wtt import WTTService
 from app.data.reference_data import GRID_EMISSION_FACTORS
 
@@ -987,4 +988,495 @@ async def get_ghg_inventory_report(
         methodology=methodology,
         base_year_comparison=base_year_comparison,
         verification=verification,
+    )
+
+
+# ============================================================================
+# Audit Package Export (Phase 1.4)
+# ============================================================================
+
+class ActivityAuditRecord(BaseModel):
+    """Detailed activity record for audit purposes."""
+    activity_id: str
+    scope: int
+    category_code: str
+    category_name: str
+    activity_key: str
+    display_name: str
+    description: str
+
+    # Quantity and measurement
+    quantity: float
+    unit: str
+    activity_date: str
+
+    # Calculation method
+    calculation_method: str
+
+    # Source tracking
+    data_source: str  # manual, import, api
+    import_batch_id: Optional[str]
+    import_file_name: Optional[str]
+
+    # Data quality (PCAF)
+    data_quality_score: int
+    data_quality_label: str
+    data_quality_justification: Optional[str]
+    supporting_document_url: Optional[str]
+
+    # Calculated emission
+    co2e_kg: float
+    co2e_tonnes: float
+    co2_kg: Optional[float]
+    ch4_kg: Optional[float]
+    n2o_kg: Optional[float]
+    wtt_co2e_kg: Optional[float]
+
+    # Calculation audit trail
+    emission_factor_id: str
+    emission_factor_value: float
+    emission_factor_unit: str
+    converted_quantity: Optional[float]
+    converted_unit: Optional[str]
+    calculation_formula: Optional[str]
+    confidence_level: str
+
+    # Timestamps
+    created_at: str
+    created_by: Optional[str]
+
+
+class EmissionFactorAuditRecord(BaseModel):
+    """Emission factor documentation for audit."""
+    factor_id: str
+    activity_key: str
+    display_name: str
+
+    # Classification
+    scope: int
+    category_code: str
+    subcategory: Optional[str]
+
+    # Factor values
+    co2e_factor: float
+    co2_factor: Optional[float]
+    ch4_factor: Optional[float]
+    n2o_factor: Optional[float]
+
+    # Units
+    activity_unit: str
+    factor_unit: str
+
+    # Source documentation
+    source: str
+    region: str
+    year: int
+
+    # Validity
+    valid_from: Optional[str]
+    valid_until: Optional[str]
+
+    # Usage in this period
+    usage_count: int
+    total_co2e_kg: float
+
+
+class ImportBatchAuditRecord(BaseModel):
+    """Import batch record for audit trail."""
+    batch_id: str
+    file_name: str
+    file_type: str
+    file_size_bytes: Optional[int]
+
+    # Processing results
+    status: str
+    total_rows: int
+    successful_rows: int
+    failed_rows: int
+    skipped_rows: int
+    error_message: Optional[str]
+
+    # Timestamps
+    uploaded_at: str
+    uploaded_by: Optional[str]
+    completed_at: Optional[str]
+
+
+class CalculationMethodologySection(BaseModel):
+    """Detailed calculation methodology documentation."""
+    overview: str
+    ghg_protocol_alignment: str
+    calculation_approach: str
+
+    # Scope-specific methodology
+    scope_1_methodology: dict
+    scope_2_methodology: dict
+    scope_3_methodology: dict
+
+    # Data processing
+    unit_conversion_approach: str
+    wtt_calculation_method: str
+
+    # Quality assurance
+    data_validation_rules: list[str]
+    confidence_level_criteria: dict
+
+
+class AuditPackageSummary(BaseModel):
+    """Summary section of the audit package."""
+    period_id: str
+    period_name: str
+    organization_name: str
+    reporting_period_start: str
+    reporting_period_end: str
+
+    # Status
+    verification_status: str
+    assurance_level: Optional[str]
+
+    # Totals
+    total_activities: int
+    total_emissions_kg: float
+    total_emissions_tonnes: float
+
+    # By scope
+    scope_1_emissions_tonnes: float
+    scope_2_emissions_tonnes: float
+    scope_3_emissions_tonnes: float
+
+    # Data quality
+    overall_data_quality_score: float
+    data_quality_interpretation: str
+
+    # Import history
+    total_import_batches: int
+
+    # Generation metadata
+    generated_at: str
+    generated_by: str
+
+
+class AuditPackageResponse(BaseModel):
+    """
+    Complete audit package for third-party verification.
+
+    Contains all information needed for auditors to verify:
+    1. Activity data with source references
+    2. Emission factors used with documentation
+    3. Calculation methodology
+    4. Import/change history
+    """
+    # Package metadata
+    package_version: str
+
+    # Summary
+    summary: AuditPackageSummary
+
+    # Detailed methodology
+    methodology: CalculationMethodologySection
+
+    # Activity records (sorted by scope, then category)
+    activities: list[ActivityAuditRecord]
+
+    # Emission factors used
+    emission_factors: list[EmissionFactorAuditRecord]
+
+    # Import history (change log)
+    import_batches: list[ImportBatchAuditRecord]
+
+
+@router.get("/periods/{period_id}/report/audit-package", response_model=AuditPackageResponse)
+async def get_audit_package(
+    period_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Generate comprehensive audit package for third-party verification.
+
+    Returns complete documentation including:
+    - All activities with source references and data quality info
+    - All emission factors used with their documentation
+    - Detailed calculation methodology
+    - Import batch history (change log)
+
+    This endpoint is designed for auditors and verifiers who need
+    complete transparency into the emissions calculation process.
+    """
+    # Verify period belongs to organization
+    period_query = select(ReportingPeriod).where(
+        ReportingPeriod.id == period_id,
+        ReportingPeriod.organization_id == current_user.organization_id,
+    )
+    period_result = await session.execute(period_query)
+    period = period_result.scalar_one_or_none()
+
+    if not period:
+        raise HTTPException(status_code=404, detail="Reporting period not found")
+
+    # Get organization
+    org_query = select(Organization).where(Organization.id == current_user.organization_id)
+    org_result = await session.execute(org_query)
+    org = org_result.scalar_one_or_none()
+
+    # Get all activities with emissions and factors
+    activities_query = (
+        select(Activity, Emission, EmissionFactor)
+        .join(Emission, Activity.id == Emission.activity_id)
+        .join(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
+        .where(
+            Activity.reporting_period_id == period_id,
+            Activity.organization_id == current_user.organization_id,
+        )
+        .order_by(Activity.scope, Activity.category_code, Activity.activity_date)
+    )
+    activities_result = await session.execute(activities_query)
+    activity_rows = activities_result.all()
+
+    # Get import batches for this period
+    batches_query = (
+        select(ImportBatch)
+        .where(
+            ImportBatch.reporting_period_id == period_id,
+            ImportBatch.organization_id == current_user.organization_id,
+        )
+        .order_by(ImportBatch.uploaded_at.desc())
+    )
+    batches_result = await session.execute(batches_query)
+    import_batches = batches_result.scalars().all()
+
+    # Build activity records
+    activity_records = []
+    factor_usage = {}  # Track emission factor usage
+    total_co2e = Decimal(0)
+    scope_totals = {1: Decimal(0), 2: Decimal(0), 3: Decimal(0)}
+    quality_weighted_sum = Decimal(0)
+
+    # Data quality labels
+    dq_labels = {
+        1: "Verified Data",
+        2: "Primary Data",
+        3: "Activity Average",
+        4: "Spend-Based",
+        5: "Estimated",
+    }
+
+    for activity, emission, factor in activity_rows:
+        # Find import batch info if applicable
+        import_file_name = None
+        if activity.import_batch_id:
+            for batch in import_batches:
+                if batch.id == activity.import_batch_id:
+                    import_file_name = batch.file_name
+                    break
+
+        # Build activity record
+        dq_score = activity.data_quality_score or 5
+        activity_records.append(ActivityAuditRecord(
+            activity_id=str(activity.id),
+            scope=activity.scope,
+            category_code=activity.category_code,
+            category_name=CATEGORY_NAMES.get(activity.category_code, activity.category_code),
+            activity_key=activity.activity_key,
+            display_name=factor.display_name,
+            description=activity.description or "",
+            quantity=float(activity.quantity),
+            unit=activity.unit,
+            activity_date=activity.activity_date.isoformat(),
+            calculation_method=activity.calculation_method.value if activity.calculation_method else "activity",
+            data_source=activity.data_source.value if activity.data_source else "manual",
+            import_batch_id=str(activity.import_batch_id) if activity.import_batch_id else None,
+            import_file_name=import_file_name,
+            data_quality_score=dq_score,
+            data_quality_label=dq_labels.get(dq_score, "Unknown"),
+            data_quality_justification=activity.data_quality_justification,
+            supporting_document_url=activity.supporting_document_url,
+            co2e_kg=float(emission.co2e_kg),
+            co2e_tonnes=float(emission.co2e_kg) / 1000,
+            co2_kg=float(emission.co2_kg) if emission.co2_kg else None,
+            ch4_kg=float(emission.ch4_kg) if emission.ch4_kg else None,
+            n2o_kg=float(emission.n2o_kg) if emission.n2o_kg else None,
+            wtt_co2e_kg=float(emission.wtt_co2e_kg) if emission.wtt_co2e_kg else None,
+            emission_factor_id=str(emission.emission_factor_id),
+            emission_factor_value=float(factor.co2e_factor),
+            emission_factor_unit=factor.factor_unit,
+            converted_quantity=float(emission.converted_quantity) if emission.converted_quantity else None,
+            converted_unit=emission.converted_unit,
+            calculation_formula=emission.formula,
+            confidence_level=emission.confidence.value if emission.confidence else "high",
+            created_at=activity.created_at.isoformat() if activity.created_at else "",
+            created_by=str(activity.created_by) if activity.created_by else None,
+        ))
+
+        # Track factor usage
+        factor_id = str(factor.id)
+        if factor_id not in factor_usage:
+            factor_usage[factor_id] = {
+                "factor": factor,
+                "count": 0,
+                "total_co2e_kg": Decimal(0),
+            }
+        factor_usage[factor_id]["count"] += 1
+        factor_usage[factor_id]["total_co2e_kg"] += emission.co2e_kg
+
+        # Track totals
+        total_co2e += emission.co2e_kg
+        scope_totals[activity.scope] += emission.co2e_kg
+        quality_weighted_sum += emission.co2e_kg * Decimal(str(dq_score))
+
+    # Build emission factor records
+    factor_records = []
+    for factor_id, usage in factor_usage.items():
+        factor = usage["factor"]
+        factor_records.append(EmissionFactorAuditRecord(
+            factor_id=factor_id,
+            activity_key=factor.activity_key,
+            display_name=factor.display_name,
+            scope=factor.scope,
+            category_code=factor.category_code,
+            subcategory=factor.subcategory,
+            co2e_factor=float(factor.co2e_factor),
+            co2_factor=float(factor.co2_factor) if factor.co2_factor else None,
+            ch4_factor=float(factor.ch4_factor) if factor.ch4_factor else None,
+            n2o_factor=float(factor.n2o_factor) if factor.n2o_factor else None,
+            activity_unit=factor.activity_unit,
+            factor_unit=factor.factor_unit,
+            source=factor.source,
+            region=factor.region,
+            year=factor.year,
+            valid_from=factor.valid_from.isoformat() if factor.valid_from else None,
+            valid_until=factor.valid_until.isoformat() if factor.valid_until else None,
+            usage_count=usage["count"],
+            total_co2e_kg=float(usage["total_co2e_kg"]),
+        ))
+
+    # Sort factors by total emissions (highest first)
+    factor_records.sort(key=lambda x: x.total_co2e_kg, reverse=True)
+
+    # Build import batch records
+    batch_records = []
+    for batch in import_batches:
+        batch_records.append(ImportBatchAuditRecord(
+            batch_id=str(batch.id),
+            file_name=batch.file_name,
+            file_type=batch.file_type,
+            file_size_bytes=batch.file_size_bytes,
+            status=batch.status.value if batch.status else "unknown",
+            total_rows=batch.total_rows,
+            successful_rows=batch.successful_rows,
+            failed_rows=batch.failed_rows,
+            skipped_rows=batch.skipped_rows,
+            error_message=batch.error_message,
+            uploaded_at=batch.uploaded_at.isoformat() if batch.uploaded_at else "",
+            uploaded_by=str(batch.uploaded_by) if batch.uploaded_by else None,
+            completed_at=batch.completed_at.isoformat() if batch.completed_at else None,
+        ))
+
+    # Calculate overall data quality
+    overall_quality = float(quality_weighted_sum / total_co2e) if total_co2e > 0 else 5.0
+    if overall_quality <= 1.5:
+        quality_interpretation = "Excellent - Predominantly verified data"
+    elif overall_quality <= 2.5:
+        quality_interpretation = "Good - Mix of primary and modeled data"
+    elif overall_quality <= 3.5:
+        quality_interpretation = "Fair - Significant use of average factors"
+    elif overall_quality <= 4.5:
+        quality_interpretation = "Limited - Primarily economic estimates"
+    else:
+        quality_interpretation = "Low - Consider improving data sources"
+
+    # Build methodology section
+    methodology = CalculationMethodologySection(
+        overview=(
+            "Emissions are calculated using activity-based methodology following "
+            "the GHG Protocol Corporate Standard. Activity data is multiplied by "
+            "appropriate emission factors to calculate CO2-equivalent emissions."
+        ),
+        ghg_protocol_alignment=(
+            "This inventory follows the GHG Protocol Corporate Accounting and Reporting "
+            "Standard (Revised Edition), including the Scope 2 Guidance and Corporate "
+            "Value Chain (Scope 3) Standard."
+        ),
+        calculation_approach=(
+            "Activity-based approach: CO2e = Activity Data × Emission Factor. "
+            "Emission factors are sourced from recognized databases including DEFRA, "
+            "EPA, and IPCC. All factors use AR6 GWP values unless otherwise noted."
+        ),
+        scope_1_methodology={
+            "description": "Direct GHG emissions from sources owned or controlled by the organization",
+            "categories": {
+                "1.1": "Stationary Combustion - Fuel combustion in stationary equipment",
+                "1.2": "Mobile Combustion - Fuel combustion in company vehicles",
+                "1.3": "Fugitive Emissions - Refrigerant leaks and other fugitive sources",
+            },
+            "calculation": "Physical quantity (liters, m³, kg) × Emission factor (kg CO2e/unit)",
+        },
+        scope_2_methodology={
+            "description": "Indirect GHG emissions from purchased electricity, steam, heat, or cooling",
+            "approach": "Location-based method using grid average factors; market-based available where data exists",
+            "categories": {
+                "2.1": "Purchased Electricity",
+                "2.2": "Purchased Heat/Steam",
+                "2.3": "Purchased Cooling",
+            },
+            "calculation": "Energy consumption (kWh) × Grid emission factor (kg CO2e/kWh)",
+        },
+        scope_3_methodology={
+            "description": "Other indirect emissions in the value chain",
+            "categories_covered": list(set(a.category_code for a in activity_records if a.scope == 3)),
+            "calculation": "Various methods including activity-based, spend-based, and distance-based",
+            "wtt_note": "Category 3.3 includes Well-to-Tank emissions auto-calculated from Scope 1 & 2 activities",
+        },
+        unit_conversion_approach=(
+            "Unit conversions are performed using standardized conversion factors. "
+            "All quantities are converted to factor-expected units before calculation."
+        ),
+        wtt_calculation_method=(
+            "Well-to-Tank (WTT) emissions for Scope 1 & 2 fuels are automatically calculated "
+            "and reported under Category 3.3 (Fuel and Energy Related Activities). WTT factors "
+            "represent upstream emissions from fuel extraction, refining, and transportation."
+        ),
+        data_validation_rules=[
+            "Quantity must be positive",
+            "Activity date must fall within reporting period",
+            "Activity key must match registered emission factor",
+            "Unit must be compatible with emission factor requirements",
+            "Data quality score must be between 1-5 (PCAF methodology)",
+        ],
+        confidence_level_criteria={
+            "high": "Exact emission factor match for activity type and region",
+            "medium": "Regional or similar factor used when exact match unavailable",
+            "low": "Global average or proxy factor used",
+        },
+    )
+
+    # Build summary
+    summary = AuditPackageSummary(
+        period_id=str(period_id),
+        period_name=period.name,
+        organization_name=org.name if org else "Organization",
+        reporting_period_start=period.start_date.isoformat(),
+        reporting_period_end=period.end_date.isoformat(),
+        verification_status=period.status.value if period.status else "draft",
+        assurance_level=period.assurance_level.value if period.assurance_level else None,
+        total_activities=len(activity_records),
+        total_emissions_kg=float(total_co2e),
+        total_emissions_tonnes=round(float(total_co2e) / 1000, 2),
+        scope_1_emissions_tonnes=round(float(scope_totals[1]) / 1000, 2),
+        scope_2_emissions_tonnes=round(float(scope_totals[2]) / 1000, 2),
+        scope_3_emissions_tonnes=round(float(scope_totals[3]) / 1000, 2),
+        overall_data_quality_score=round(overall_quality, 2),
+        data_quality_interpretation=quality_interpretation,
+        total_import_batches=len(batch_records),
+        generated_at=datetime.utcnow().isoformat(),
+        generated_by=current_user.email,
+    )
+
+    return AuditPackageResponse(
+        package_version="1.0",
+        summary=summary,
+        methodology=methodology,
+        activities=activity_records,
+        emission_factors=factor_records,
+        import_batches=batch_records,
     )

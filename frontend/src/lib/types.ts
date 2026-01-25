@@ -516,3 +516,138 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
 }
+
+// =============================================================================
+// AUDIT PACKAGE TYPES (Phase 1.4)
+// =============================================================================
+
+export interface ActivityAuditRecord {
+  activity_id: string;
+  scope: Scope;
+  category_code: string;
+  category_name: string;
+  activity_key: string;
+  display_name: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  activity_date: string;
+  calculation_method: CalculationMethod;
+  data_source: DataSource;
+  import_batch_id?: string;
+  import_file_name?: string;
+  data_quality_score: DataQualityScore;
+  data_quality_label: string;
+  data_quality_justification?: string;
+  supporting_document_url?: string;
+  co2e_kg: number;
+  co2e_tonnes: number;
+  co2_kg?: number;
+  ch4_kg?: number;
+  n2o_kg?: number;
+  wtt_co2e_kg?: number;
+  emission_factor_id: string;
+  emission_factor_value: number;
+  emission_factor_unit: string;
+  converted_quantity?: number;
+  converted_unit?: string;
+  calculation_formula?: string;
+  confidence_level: ConfidenceLevel;
+  created_at: string;
+  created_by?: string;
+}
+
+export interface EmissionFactorAuditRecord {
+  factor_id: string;
+  activity_key: string;
+  display_name: string;
+  scope: Scope;
+  category_code: string;
+  subcategory?: string;
+  co2e_factor: number;
+  co2_factor?: number;
+  ch4_factor?: number;
+  n2o_factor?: number;
+  activity_unit: string;
+  factor_unit: string;
+  source: string;
+  region: string;
+  year: number;
+  valid_from?: string;
+  valid_until?: string;
+  usage_count: number;
+  total_co2e_kg: number;
+}
+
+export interface ImportBatchAuditRecord {
+  batch_id: string;
+  file_name: string;
+  file_type: string;
+  file_size_bytes?: number;
+  status: string;
+  total_rows: number;
+  successful_rows: number;
+  failed_rows: number;
+  skipped_rows: number;
+  error_message?: string;
+  uploaded_at: string;
+  uploaded_by?: string;
+  completed_at?: string;
+}
+
+export interface CalculationMethodologySection {
+  overview: string;
+  ghg_protocol_alignment: string;
+  calculation_approach: string;
+  scope_1_methodology: {
+    description: string;
+    categories: Record<string, string>;
+    calculation: string;
+  };
+  scope_2_methodology: {
+    description: string;
+    approach: string;
+    categories: Record<string, string>;
+    calculation: string;
+  };
+  scope_3_methodology: {
+    description: string;
+    categories_covered: string[];
+    calculation: string;
+    wtt_note: string;
+  };
+  unit_conversion_approach: string;
+  wtt_calculation_method: string;
+  data_validation_rules: string[];
+  confidence_level_criteria: Record<ConfidenceLevel, string>;
+}
+
+export interface AuditPackageSummary {
+  period_id: string;
+  period_name: string;
+  organization_name: string;
+  reporting_period_start: string;
+  reporting_period_end: string;
+  verification_status: PeriodStatus;
+  assurance_level?: AssuranceLevel;
+  total_activities: number;
+  total_emissions_kg: number;
+  total_emissions_tonnes: number;
+  scope_1_emissions_tonnes: number;
+  scope_2_emissions_tonnes: number;
+  scope_3_emissions_tonnes: number;
+  overall_data_quality_score: number;
+  data_quality_interpretation: string;
+  total_import_batches: number;
+  generated_at: string;
+  generated_by: string;
+}
+
+export interface AuditPackage {
+  package_version: string;
+  summary: AuditPackageSummary;
+  methodology: CalculationMethodologySection;
+  activities: ActivityAuditRecord[];
+  emission_factors: EmissionFactorAuditRecord[];
+  import_batches: ImportBatchAuditRecord[];
+}
