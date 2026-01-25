@@ -1,10 +1,10 @@
 # CLIMATRIX Development Progress
 
 ## Quick Resume Section
-> **Last Updated:** 2026-01-25 17:30
-> **Current Phase:** Phase 2 - CBAM Module
-> **Current Task:** 2.2 Reference Data - Not Started
-> **Next Action:** Continue Phase 2 development, set up test environment before merge
+> **Last Updated:** 2026-01-25 20:00
+> **Current Phase:** Phase 2 - CBAM Module ✅ COMPLETE
+> **Current Task:** All Phase 2 tasks complete
+> **Next Action:** Set up test environment, then merge Phase 2 to main
 > **Branch:** `phase2/cbam-module`
 > **Production Status:** ✅ Stable (rolled back to a8df492)
 
@@ -82,7 +82,7 @@ Phase 1 code was rolled back from production due to migration issues.
 
 ---
 
-## Phase 2: CBAM Module (Target: 6 weeks)
+## Phase 2: CBAM Module (Target: 6 weeks) ✅ COMPLETE
 
 ### 2.1 Database Models ✅ COMPLETE
 | Task | Status | Notes |
@@ -97,46 +97,145 @@ Phase 1 code was rolled back from production due to migration issues.
 | EUETSPrice model (weekly prices) | ✅ Done | For certificate cost calculation |
 | Create Alembic migration | ✅ Done | Migration c3d4e5f6g7h8 |
 
-### 2.2 Reference Data
+### 2.2 Reference Data ✅ COMPLETE
 | Task | Status | Notes |
 |------|--------|-------|
-| CBAM default emission values by CN code | Not Started | Cement, steel, aluminium, fertiliser, hydrogen |
-| Third-country grid emission factors | Not Started | For indirect emissions calculation |
-| EU ETS price tracking structure | Not Started | Weekly price for certificate calculation |
+| CBAM default emission values by CN code | ✅ Done | 50+ products: Cement, steel, aluminium, fertiliser, hydrogen, electricity |
+| Third-country grid emission factors | ✅ Done | 35+ countries with grid factors for indirect emissions |
+| EU ETS price tracking structure | ✅ Done | Sample 2024 weekly prices, helper functions |
+| CBAM products reference | ✅ Done | CN code lookup with descriptions and sectors |
 
-### 2.3 Calculation Engine
+### 2.3 Calculation Engine ✅ COMPLETE
 | Task | Status | Notes |
 |------|--------|-------|
-| Embedded emissions calculation | Not Started | Direct + Indirect |
-| Specific embedded emissions (SEE) | Not Started | tCO2e per tonne of product |
-| Carbon price deduction logic | Not Started | Third-country carbon pricing |
-| Certificate requirement calculation | Not Started | For definitive phase |
+| Embedded emissions calculation | ✅ Done | Direct + Indirect, supports actual or default SEE |
+| Specific embedded emissions (SEE) | ✅ Done | tCO2e per tonne, with grid factor lookup |
+| Carbon price deduction logic | ✅ Done | Third-country carbon pricing with free allocation |
+| Certificate requirement calculation | ✅ Done | For definitive phase (2026+) |
+| Quarterly report aggregation | ✅ Done | Transitional period reporting by sector/CN code |
+| Annual declaration aggregation | ✅ Done | Definitive phase with certificate totals |
 
-### 2.4 API Endpoints
+### 2.4 API Endpoints ✅ COMPLETE
 | Task | Status | Notes |
 |------|--------|-------|
-| CRUD for CBAM installations | Not Started | |
-| CRUD for CBAM imports | Not Started | |
-| Quarterly report generation | Not Started | Aggregation by sector |
-| Annual declaration generation | Not Started | With certificate calculation |
-| CN code lookup/search | Not Started | |
+| CRUD for CBAM installations | ✅ Done | GET, POST, PUT, DELETE /api/cbam/installations |
+| CRUD for CBAM imports | ✅ Done | GET, POST, DELETE /api/cbam/imports with auto-calculation |
+| Quarterly report generation | ✅ Done | POST /api/cbam/reports/quarterly/{year}/{quarter} |
+| Annual declaration generation | ✅ Done | POST /api/cbam/reports/annual/{year} (2026+) |
+| CN code lookup/search | ✅ Done | GET /api/cbam/cn-codes?query=... |
+| Emissions calculation preview | ✅ Done | POST /api/cbam/calculate-emissions |
+| Dashboard summary | ✅ Done | GET /api/cbam/dashboard |
 
-### 2.5 Reporting & Export
+### 2.5 Reporting & Export ✅ COMPLETE
 | Task | Status | Notes |
 |------|--------|-------|
-| CBAM quarterly report format | Not Started | EU Commission format |
-| CBAM XML export for registry | Not Started | For submission to EU CBAM Registry |
-| Dashboard summary endpoint | Not Started | KPIs by sector, quarter |
+| CBAM quarterly report format | ✅ Done | EU Commission format via /export/eu-format |
+| CBAM XML export for registry | ✅ Done | /export/xml for quarterly and annual reports |
+| CSV export for analysis | ✅ Done | /export/csv with detailed import data |
+| Dashboard summary endpoint | ✅ Done | (Completed in 2.4) |
 
-### 2.6 Frontend Types & API
+### 2.6 Frontend Types & API ✅ COMPLETE
 | Task | Status | Notes |
 |------|--------|-------|
-| CBAM TypeScript types | Not Started | |
-| API client methods | Not Started | |
+| CBAM TypeScript types | ✅ Done | All models, enums, and response types in types.ts |
+| API client methods | ✅ Done | Full CRUD + reports + exports in api.ts |
 
 ---
 
 ## Work Log
+
+### 2026-01-25 (Session 5 - Phase 2 Continued)
+- **Completed Phase 2.2 - Reference Data:**
+  - Created `backend/app/data/cbam_data.py` with comprehensive CBAM reference data
+  - CBAM_DEFAULT_VALUES: 50+ products with default SEE (Specific Embedded Emissions)
+    - Cement sector: clinker, portland cement, aluminous cement
+    - Iron & Steel: pig iron, ferro-alloys, iron products, steel bars, tubes
+    - Aluminium: unwrought, bars, wire, plates, foil
+    - Fertilisers: ammonia, nitric acid, urea, mixed fertilisers
+    - Electricity: generation emissions
+    - Hydrogen: production emissions
+  - CBAM_GRID_FACTORS: 35+ countries with grid emission factors
+    - Major trading partners: China, India, Turkey, Russia, Ukraine, etc.
+    - Used for indirect emissions calculation
+  - EU_ETS_PRICES_2024: Sample weekly ETS prices (€75-85 range)
+  - CBAM_PRODUCTS: CN code reference with descriptions and sectors
+  - Helper functions: get_default_see_by_cn_code, get_grid_factor_by_country, get_sector_for_cn_code
+  - Updated `data/__init__.py` to export all CBAM data
+- **Completed Phase 2.3 - Calculation Engine:**
+  - Created `backend/app/services/cbam_calculator.py`
+  - CBAMCalculator class with methods:
+    - `calculate_embedded_emissions()`: Direct + Indirect emissions using actual or default SEE
+    - `calculate_carbon_price_deduction()`: Deduction for third-country carbon pricing
+    - `calculate_certificate_requirement()`: CBAM certificate calculation (definitive phase)
+    - `calculate_import_full()`: Complete import calculation combining all steps
+  - Aggregation functions:
+    - `aggregate_quarterly_report()`: For transitional period (2024-2025) reporting
+    - `aggregate_annual_declaration()`: For definitive phase (2026+) declarations
+  - Features:
+    - Supports actual emission values from installations
+    - Falls back to EU default values when actuals unavailable
+    - Grid factor lookup for indirect emissions
+    - Free allocation handling (both EU and foreign)
+    - Proper decimal precision throughout
+- **Completed Phase 2.4 - API Endpoints:**
+  - Created `backend/app/api/cbam.py` with comprehensive CBAM API
+  - **Installation Endpoints:**
+    - GET /api/cbam/installations - List with country/sector filters
+    - POST /api/cbam/installations - Create new installation
+    - GET /api/cbam/installations/{id} - Get specific installation
+    - PUT /api/cbam/installations/{id} - Update installation
+    - DELETE /api/cbam/installations/{id} - Delete (if no linked imports)
+  - **Import Endpoints:**
+    - GET /api/cbam/imports - List with filters (installation, CN code, sector, year, quarter)
+    - POST /api/cbam/imports - Create with automatic emissions calculation
+    - GET /api/cbam/imports/{id} - Get specific import
+    - DELETE /api/cbam/imports/{id} - Delete import
+  - **Report Endpoints:**
+    - GET /api/cbam/reports/quarterly - List quarterly reports
+    - POST /api/cbam/reports/quarterly/{year}/{quarter} - Generate/regenerate quarterly report
+    - POST /api/cbam/reports/quarterly/{year}/{quarter}/submit - Submit report
+    - GET /api/cbam/reports/annual - List annual declarations
+    - POST /api/cbam/reports/annual/{year} - Generate annual declaration (2026+)
+  - **Utility Endpoints:**
+    - POST /api/cbam/calculate-emissions - Preview calculation without saving
+    - GET /api/cbam/cn-codes - Search CN codes by keyword/description
+    - GET /api/cbam/dashboard - Summary KPIs for CBAM module
+  - Registered router in main.py with prefix /api/cbam
+- **Completed Phase 2.5 - Reporting & Export:**
+  - Created `backend/app/services/cbam_export.py` with export services:
+    - CBAMXMLExporter: Generate XML for EU CBAM Registry submission
+      - `generate_quarterly_xml()`: Transitional period quarterly reports
+      - `generate_annual_xml()`: Definitive phase annual declarations
+    - CBAMCSVExporter: CSV exports for data analysis
+      - `generate_imports_csv()`: Detailed import data
+      - `generate_quarterly_summary_csv()`: Summary report
+    - CBAMReportFormatter: EU Commission format structure
+      - `format_quarterly_report()`: Structured JSON with all required fields
+  - Added export endpoints to CBAM API:
+    - GET /api/cbam/reports/quarterly/{year}/{quarter}/export/xml
+    - GET /api/cbam/reports/quarterly/{year}/{quarter}/export/csv
+    - GET /api/cbam/reports/quarterly/{year}/{quarter}/export/eu-format
+    - GET /api/cbam/reports/annual/{year}/export/xml
+- **Completed Phase 2.6 - Frontend Types & API:**
+  - Added CBAM types to `frontend/src/lib/types.ts`:
+    - Enums: CBAMSector, CBAMCalculationMethod, CBAMReportStatus, CBAMInstallationStatus
+    - Label mappings for all enums
+    - Interfaces: CBAMInstallation, CBAMImport, CBAMQuarterlyReport, CBAMAnnualDeclaration
+    - Create/Update request types
+    - Summary types: CBAMSectorSummary, CBAMCNCodeSummary, CBAMAnnualSectorSummary
+    - Calculation types: CBAMEmissionCalculationRequest, CBAMEmissionCalculationResult
+    - Dashboard type: CBAMDashboard
+    - EU format: CBAMQuarterlyReportEUFormat
+  - Added CBAM API methods to `frontend/src/lib/api.ts`:
+    - Installation CRUD: getCBAMInstallations, createCBAMInstallation, updateCBAMInstallation, deleteCBAMInstallation
+    - Import CRUD: getCBAMImports, createCBAMImport, getCBAMImport, deleteCBAMImport
+    - Calculation: calculateCBAMEmissions (preview)
+    - CN Codes: searchCBAMCNCodes
+    - Quarterly Reports: getCBAMQuarterlyReports, generateCBAMQuarterlyReport, submitCBAMQuarterlyReport
+    - Report Exports: exportCBAMQuarterlyReportXML, exportCBAMQuarterlyReportCSV, getCBAMQuarterlyReportEUFormat
+    - Annual Declarations: getCBAMAnnualDeclarations, generateCBAMAnnualDeclaration, exportCBAMAnnualDeclarationXML
+    - Dashboard: getCBAMDashboard
+- **Phase 2 COMPLETE!** All CBAM backend and frontend infrastructure ready
 
 ### 2026-01-25 (Session 4 - ROLLBACK)
 - **Production Broken:** After Phase 1 merge, production was crashing

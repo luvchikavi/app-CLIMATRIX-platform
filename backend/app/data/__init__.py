@@ -34,6 +34,15 @@ from app.data.reference_data import (
     PRICE_RANGES,
     validate_price,
 )
+from app.data.cbam_data import (
+    CBAM_DEFAULT_VALUES,
+    CBAM_GRID_FACTORS,
+    CBAM_PRODUCTS,
+    EU_ETS_PRICES_2024,
+    get_default_see_by_cn_code,
+    get_grid_factor_by_country,
+    get_sector_for_cn_code,
+)
 
 # Combine base and expanded emission factors
 EMISSION_FACTORS = BASE_EMISSION_FACTORS + EXPANDED_EMISSION_FACTORS
@@ -73,4 +82,12 @@ __all__ = [
     "get_waste_factor",
     "PRICE_RANGES",
     "validate_price",
+    # CBAM reference data
+    "CBAM_DEFAULT_VALUES",
+    "CBAM_GRID_FACTORS",
+    "CBAM_PRODUCTS",
+    "EU_ETS_PRICES_2024",
+    "get_default_see_by_cn_code",
+    "get_grid_factor_by_country",
+    "get_sector_for_cn_code",
 ]

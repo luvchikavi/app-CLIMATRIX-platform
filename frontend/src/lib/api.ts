@@ -1416,7 +1416,214 @@ class ApiClient {
 
     return response.json();
   }
+
+  // ============================================================================
+  // CBAM Module (Phase 2) - EU Carbon Border Adjustment Mechanism
+  // ============================================================================
+
+  // CBAM Installations
+  async getCBAMInstallations(filters?: {
+    country_code?: string;
+    sector?: string;
+  }): Promise<CBAMInstallation[]> {
+    const params = new URLSearchParams();
+    if (filters?.country_code) params.append('country_code', filters.country_code);
+    if (filters?.sector) params.append('sector', filters.sector);
+    const query = params.toString() ? `?${params}` : '';
+    return this.fetch<CBAMInstallation[]>(`/cbam/installations${query}`);
+  }
+
+  async createCBAMInstallation(data: CBAMInstallationCreate): Promise<CBAMInstallation> {
+    return this.fetch<CBAMInstallation>('/cbam/installations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getCBAMInstallation(installationId: string): Promise<CBAMInstallation> {
+    return this.fetch<CBAMInstallation>(`/cbam/installations/${installationId}`);
+  }
+
+  async updateCBAMInstallation(
+    installationId: string,
+    data: CBAMInstallationUpdate
+  ): Promise<CBAMInstallation> {
+    return this.fetch<CBAMInstallation>(`/cbam/installations/${installationId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCBAMInstallation(installationId: string): Promise<void> {
+    await this.fetch(`/cbam/installations/${installationId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // CBAM Imports
+  async getCBAMImports(filters?: {
+    installation_id?: string;
+    cn_code?: string;
+    sector?: string;
+    year?: number;
+    quarter?: number;
+  }): Promise<CBAMImport[]> {
+    const params = new URLSearchParams();
+    if (filters?.installation_id) params.append('installation_id', filters.installation_id);
+    if (filters?.cn_code) params.append('cn_code', filters.cn_code);
+    if (filters?.sector) params.append('sector', filters.sector);
+    if (filters?.year) params.append('year', String(filters.year));
+    if (filters?.quarter) params.append('quarter', String(filters.quarter));
+    const query = params.toString() ? `?${params}` : '';
+    return this.fetch<CBAMImport[]>(`/cbam/imports${query}`);
+  }
+
+  async createCBAMImport(data: CBAMImportCreate): Promise<CBAMImport> {
+    return this.fetch<CBAMImport>('/cbam/imports', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getCBAMImport(importId: string): Promise<CBAMImport> {
+    return this.fetch<CBAMImport>(`/cbam/imports/${importId}`);
+  }
+
+  async deleteCBAMImport(importId: string): Promise<void> {
+    await this.fetch(`/cbam/imports/${importId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // CBAM Calculation Preview
+  async calculateCBAMEmissions(
+    data: CBAMEmissionCalculationRequest
+  ): Promise<CBAMEmissionCalculationResult> {
+    return this.fetch<CBAMEmissionCalculationResult>('/cbam/calculate-emissions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // CBAM CN Code Search
+  async searchCBAMCNCodes(
+    query: string,
+    sector?: string,
+    limit = 20
+  ): Promise<CBAMCNCode[]> {
+    const params = new URLSearchParams({ query, limit: String(limit) });
+    if (sector) params.append('sector', sector);
+    return this.fetch<CBAMCNCode[]>(`/cbam/cn-codes?${params}`);
+  }
+
+  // CBAM Quarterly Reports
+  async getCBAMQuarterlyReports(year?: number): Promise<CBAMQuarterlyReport[]> {
+    const params = year ? `?year=${year}` : '';
+    return this.fetch<CBAMQuarterlyReport[]>(`/cbam/reports/quarterly${params}`);
+  }
+
+  async generateCBAMQuarterlyReport(
+    year: number,
+    quarter: number
+  ): Promise<CBAMQuarterlyReport> {
+    return this.fetch<CBAMQuarterlyReport>(`/cbam/reports/quarterly/${year}/${quarter}`, {
+      method: 'POST',
+    });
+  }
+
+  async submitCBAMQuarterlyReport(
+    year: number,
+    quarter: number
+  ): Promise<{ message: string }> {
+    return this.fetch<{ message: string }>(
+      `/cbam/reports/quarterly/${year}/${quarter}/submit`,
+      { method: 'POST' }
+    );
+  }
+
+  async exportCBAMQuarterlyReportXML(year: number, quarter: number): Promise<Blob> {
+    const token = this.getToken();
+    const response = await fetch(
+      `${API_BASE}/cbam/reports/quarterly/${year}/${quarter}/export/xml`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }
+    );
+    if (!response.ok) {
+      throw new Error('Failed to export quarterly report XML');
+    }
+    return response.blob();
+  }
+
+  async exportCBAMQuarterlyReportCSV(year: number, quarter: number): Promise<Blob> {
+    const token = this.getToken();
+    const response = await fetch(
+      `${API_BASE}/cbam/reports/quarterly/${year}/${quarter}/export/csv`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }
+    );
+    if (!response.ok) {
+      throw new Error('Failed to export quarterly report CSV');
+    }
+    return response.blob();
+  }
+
+  async getCBAMQuarterlyReportEUFormat(
+    year: number,
+    quarter: number
+  ): Promise<CBAMQuarterlyReportEUFormat> {
+    return this.fetch<CBAMQuarterlyReportEUFormat>(
+      `/cbam/reports/quarterly/${year}/${quarter}/export/eu-format`
+    );
+  }
+
+  // CBAM Annual Declarations
+  async getCBAMAnnualDeclarations(): Promise<CBAMAnnualDeclaration[]> {
+    return this.fetch<CBAMAnnualDeclaration[]>('/cbam/reports/annual');
+  }
+
+  async generateCBAMAnnualDeclaration(year: number): Promise<CBAMAnnualDeclaration> {
+    return this.fetch<CBAMAnnualDeclaration>(`/cbam/reports/annual/${year}`, {
+      method: 'POST',
+    });
+  }
+
+  async exportCBAMAnnualDeclarationXML(year: number): Promise<Blob> {
+    const token = this.getToken();
+    const response = await fetch(
+      `${API_BASE}/cbam/reports/annual/${year}/export/xml`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }
+    );
+    if (!response.ok) {
+      throw new Error('Failed to export annual declaration XML');
+    }
+    return response.blob();
+  }
+
+  // CBAM Dashboard
+  async getCBAMDashboard(): Promise<CBAMDashboard> {
+    return this.fetch<CBAMDashboard>('/cbam/dashboard');
+  }
 }
+
+// CBAM Types for API
+import type {
+  CBAMInstallation,
+  CBAMInstallationCreate,
+  CBAMInstallationUpdate,
+  CBAMImport,
+  CBAMImportCreate,
+  CBAMQuarterlyReport,
+  CBAMAnnualDeclaration,
+  CBAMCNCode,
+  CBAMEmissionCalculationRequest,
+  CBAMEmissionCalculationResult,
+  CBAMDashboard,
+  CBAMQuarterlyReportEUFormat,
+} from './types';
 
 // Smart Import Types
 export interface SmartImportPreview {

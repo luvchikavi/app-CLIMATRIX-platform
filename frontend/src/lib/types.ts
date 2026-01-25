@@ -794,3 +794,315 @@ export interface ESRSE1Export {
   emission_factor_sources: string[];
   gwp_values_source: string;
 }
+
+// =============================================================================
+// CBAM TYPES (Phase 2)
+// =============================================================================
+
+/**
+ * CBAM (Carbon Border Adjustment Mechanism) Types
+ * EU Regulation 2023/956
+ */
+
+// CBAM Sectors covered by the regulation
+export type CBAMSector =
+  | "cement"
+  | "iron_steel"
+  | "aluminium"
+  | "fertilisers"
+  | "electricity"
+  | "hydrogen"
+  | "other";
+
+export const CBAM_SECTOR_LABELS: Record<CBAMSector, string> = {
+  cement: "Cement",
+  iron_steel: "Iron & Steel",
+  aluminium: "Aluminium",
+  fertilisers: "Fertilisers",
+  electricity: "Electricity",
+  hydrogen: "Hydrogen",
+  other: "Other",
+};
+
+// Calculation method for embedded emissions
+export type CBAMCalculationMethod = "actual" | "default" | "fallback";
+
+export const CBAM_CALCULATION_METHOD_LABELS: Record<CBAMCalculationMethod, string> = {
+  actual: "Actual Installation Data",
+  default: "EU Default Values",
+  fallback: "Fallback Values",
+};
+
+// Report status
+export type CBAMReportStatus = "draft" | "review" | "submitted" | "accepted" | "rejected";
+
+// Installation verification status
+export type CBAMInstallationStatus = "pending" | "verified" | "rejected" | "expired";
+
+// CBAM Installation (non-EU production facility)
+export interface CBAMInstallation {
+  id: string;
+  organization_id: string;
+  name: string;
+  country_code: string;
+  address?: string;
+  contact_name?: string;
+  contact_email?: string;
+  sectors: CBAMSector[];
+  verification_status: CBAMInstallationStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CBAMInstallationCreate {
+  name: string;
+  country_code: string;
+  address?: string;
+  contact_name?: string;
+  contact_email?: string;
+  sectors?: CBAMSector[];
+  verification_status?: CBAMInstallationStatus;
+}
+
+export interface CBAMInstallationUpdate {
+  name?: string;
+  country_code?: string;
+  address?: string;
+  contact_name?: string;
+  contact_email?: string;
+  sectors?: CBAMSector[];
+  verification_status?: CBAMInstallationStatus;
+}
+
+// CBAM Import record
+export interface CBAMImport {
+  id: string;
+  organization_id: string;
+  installation_id: string;
+  cn_code: string;
+  sector: CBAMSector;
+  product_description?: string;
+  import_date: string;
+  mass_tonnes: number;
+  calculation_method: CBAMCalculationMethod;
+  direct_see: number;
+  indirect_see: number;
+  total_see: number;
+  direct_emissions_tco2e: number;
+  indirect_emissions_tco2e: number;
+  total_emissions_tco2e: number;
+  foreign_carbon_price_eur?: number;
+  created_at: string;
+}
+
+export interface CBAMImportCreate {
+  installation_id: string;
+  cn_code: string;
+  product_description?: string;
+  import_date: string;
+  mass_tonnes: number;
+  customs_procedure?: string;
+  customs_declaration_number?: string;
+  actual_direct_see?: number;
+  actual_indirect_see?: number;
+  electricity_consumption_mwh?: number;
+  foreign_carbon_price_eur?: number;
+  foreign_carbon_price_currency?: string;
+}
+
+// CBAM Quarterly Report (transitional period 2024-2025)
+export interface CBAMQuarterlyReport {
+  id: string;
+  organization_id: string;
+  year: number;
+  quarter: number;
+  status: CBAMReportStatus;
+  total_imports: number;
+  total_mass_tonnes: number;
+  total_emissions_tco2e: number;
+  by_sector: Record<string, CBAMSectorSummary>;
+  by_cn_code: Record<string, CBAMCNCodeSummary>;
+  submitted_at?: string;
+  created_at: string;
+}
+
+export interface CBAMSectorSummary {
+  mass_tonnes: number;
+  direct_emissions_tco2e: number;
+  indirect_emissions_tco2e: number;
+  total_emissions_tco2e: number;
+  import_count: number;
+  cn_codes: string[];
+  countries: string[];
+}
+
+export interface CBAMCNCodeSummary {
+  mass_tonnes: number;
+  total_emissions_tco2e: number;
+  import_count: number;
+  countries: string[];
+}
+
+// CBAM Annual Declaration (definitive phase 2026+)
+export interface CBAMAnnualDeclaration {
+  id: string;
+  organization_id: string;
+  year: number;
+  status: CBAMReportStatus;
+  total_imports: number;
+  total_mass_tonnes: number;
+  gross_emissions_tco2e: number;
+  deductions_tco2e: number;
+  net_emissions_tco2e: number;
+  certificates_required: number;
+  estimated_cost_eur: number;
+  by_sector: Record<string, CBAMAnnualSectorSummary>;
+  submitted_at?: string;
+  created_at: string;
+}
+
+export interface CBAMAnnualSectorSummary {
+  gross_emissions_tco2e: number;
+  net_emissions_tco2e: number;
+  certificates_required: number;
+  estimated_cost_eur: number;
+}
+
+// CN Code search result
+export interface CBAMCNCode {
+  cn_code: string;
+  description: string;
+  sector: CBAMSector;
+}
+
+// Emissions calculation preview
+export interface CBAMEmissionCalculationRequest {
+  cn_code: string;
+  mass_tonnes: number;
+  country_code: string;
+  actual_direct_see?: number;
+  actual_indirect_see?: number;
+  electricity_consumption_mwh?: number;
+  foreign_carbon_price_eur?: number;
+}
+
+export interface CBAMEmissionCalculationResult {
+  summary: {
+    cn_code: string;
+    sector: CBAMSector;
+    mass_tonnes: number;
+    country_code: string;
+    total_emissions_tco2e: number;
+    net_emissions_tco2e: number;
+    net_cbam_cost_eur: number;
+    calculation_method: CBAMCalculationMethod;
+    is_definitive_phase: boolean;
+  };
+  embedded_emissions: {
+    cn_code: string;
+    mass_tonnes: number;
+    country_code: string;
+    calculation_method: CBAMCalculationMethod;
+    direct_see: number;
+    indirect_see: number;
+    total_see: number;
+    direct_emissions_tco2e: number;
+    indirect_emissions_tco2e: number;
+    total_emissions_tco2e: number;
+    warnings: string[];
+  };
+  carbon_price_deduction: {
+    total_emissions_tco2e: number;
+    foreign_carbon_price_eur: number;
+    deduction_tco2e: number;
+    net_emissions_tco2e: number;
+    gross_cbam_cost_eur: number;
+    deduction_eur: number;
+    net_cbam_cost_eur: number;
+  };
+  certificate_requirement?: {
+    net_emissions_tco2e: number;
+    certificates_required: number;
+    fractional_certificates: number;
+    eu_ets_price_eur: number;
+    estimated_cost_eur: number;
+  };
+  warnings: string[];
+}
+
+// CBAM Dashboard
+export interface CBAMDashboard {
+  year: number;
+  installations: {
+    total: number;
+    by_country: Record<string, number>;
+  };
+  imports: {
+    total_count: number;
+    total_mass_tonnes: number;
+    total_emissions_tco2e: number;
+  };
+  by_sector: Array<{
+    sector: CBAMSector;
+    import_count: number;
+    total_emissions_tco2e: number;
+  }>;
+  quarterly_reports: Array<{
+    quarter: number;
+    status: CBAMReportStatus;
+    total_emissions_tco2e: number;
+  }>;
+  phase: "transitional" | "definitive";
+}
+
+// EU Commission format for quarterly reports
+export interface CBAMQuarterlyReportEUFormat {
+  report_type: string;
+  regulation_reference: string;
+  reporting_period: {
+    year: number;
+    quarter: number;
+    start_date: string;
+    end_date: string;
+    phase: "transitional" | "definitive";
+  };
+  reporting_declarant: {
+    name: string;
+    eori_number: string;
+    address: string;
+    member_state: string;
+  };
+  summary: {
+    total_imports: number;
+    total_mass_tonnes: number;
+    total_embedded_emissions_tco2e: number;
+    direct_emissions_tco2e: number;
+    indirect_emissions_tco2e: number;
+  };
+  emissions_by_sector: Record<string, {
+    mass_tonnes: number;
+    direct_emissions_tco2e: number;
+    indirect_emissions_tco2e: number;
+    total_emissions_tco2e: number;
+    import_count: number;
+    cn_codes: string[];
+    source_countries: string[];
+  }>;
+  installations: Array<{
+    id: string;
+    name: string;
+    country: string;
+    sectors: string[];
+    verification_status: CBAMInstallationStatus;
+  }>;
+  data_quality_notes: {
+    calculation_methods_used: CBAMCalculationMethod[];
+    default_values_used: boolean;
+    actual_values_available: boolean;
+  };
+  submission_metadata: {
+    generated_at: string;
+    status: CBAMReportStatus;
+    submitted_at?: string;
+  };
+}
