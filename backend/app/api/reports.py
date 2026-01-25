@@ -1480,3 +1480,590 @@ async def get_audit_package(
         emission_factors=factor_records,
         import_batches=batch_records,
     )
+
+
+# ============================================================================
+# CDP Climate Change Questionnaire Export (Phase 1.5)
+# ============================================================================
+
+class CDPScope1Breakdown(BaseModel):
+    """CDP C6.1 - Scope 1 emissions by source."""
+    source_category: str  # Stationary combustion, Mobile combustion, etc.
+    emissions_metric_tonnes: float
+    methodology: str
+    source_of_emission_factors: str
+
+
+class CDPScope2Breakdown(BaseModel):
+    """CDP C6.3 - Scope 2 emissions by location."""
+    country: str
+    grid_region: Optional[str]
+    purchased_electricity_mwh: float
+    location_based_emissions_tonnes: float
+    market_based_emissions_tonnes: Optional[float]
+
+
+class CDPScope3Category(BaseModel):
+    """CDP C6.5 - Scope 3 emissions by category."""
+    category_number: int  # 1-15
+    category_name: str
+    emissions_metric_tonnes: float
+    calculation_methodology: str
+    percentage_calculated_using_primary_data: float
+    explanation: str
+
+
+class CDPEmissionsTotals(BaseModel):
+    """CDP C6.1/C6.3/C6.5 - Total emissions summary."""
+    scope_1_metric_tonnes: float
+    scope_2_location_based_metric_tonnes: float
+    scope_2_market_based_metric_tonnes: Optional[float]
+    scope_3_metric_tonnes: float
+    total_metric_tonnes: float
+
+
+class CDPTargetsAndPerformance(BaseModel):
+    """CDP C4 - Targets and performance."""
+    base_year: Optional[int]
+    base_year_emissions_tonnes: Optional[float]
+    target_year: Optional[int]
+    target_reduction_percentage: Optional[float]
+    current_year_emissions_tonnes: float
+    progress_percentage: Optional[float]
+
+
+class CDPDataQuality(BaseModel):
+    """CDP data quality metrics."""
+    overall_data_quality_score: float
+    percentage_verified_data: float
+    percentage_primary_data: float
+    percentage_estimated_data: float
+    verification_status: str
+    assurance_level: Optional[str]
+
+
+class CDPExportResponse(BaseModel):
+    """
+    CDP Climate Change Questionnaire Export Format.
+
+    Aligned with CDP Climate Change 2024 questionnaire structure.
+    Key sections covered:
+    - C0: Introduction (organization info)
+    - C4: Targets and performance
+    - C6: Emissions data
+    - C7: Emissions breakdown
+    """
+    # Metadata
+    export_version: str
+    export_date: str
+    reporting_year: int
+
+    # C0: Introduction
+    organization_name: str
+    country: Optional[str]
+    primary_industry: Optional[str]
+    reporting_boundary: str
+
+    # C4: Targets
+    targets: CDPTargetsAndPerformance
+
+    # C6: Emissions totals
+    emissions_totals: CDPEmissionsTotals
+
+    # C6.1: Scope 1 breakdown
+    scope_1_breakdown: list[CDPScope1Breakdown]
+
+    # C6.3: Scope 2 breakdown
+    scope_2_breakdown: list[CDPScope2Breakdown]
+
+    # C6.5: Scope 3 categories
+    scope_3_categories: list[CDPScope3Category]
+
+    # Data quality
+    data_quality: CDPDataQuality
+
+    # Methodology
+    emission_factor_sources: list[str]
+    global_warming_potential_source: str
+
+
+# CDP Scope 3 category names (GHG Protocol)
+CDP_SCOPE3_CATEGORIES = {
+    1: "Purchased goods and services",
+    2: "Capital goods",
+    3: "Fuel-and-energy-related activities (not included in Scope 1 or 2)",
+    4: "Upstream transportation and distribution",
+    5: "Waste generated in operations",
+    6: "Business travel",
+    7: "Employee commuting",
+    8: "Upstream leased assets",
+    9: "Downstream transportation and distribution",
+    10: "Processing of sold products",
+    11: "Use of sold products",
+    12: "End of life treatment of sold products",
+    13: "Downstream leased assets",
+    14: "Franchises",
+    15: "Investments",
+}
+
+# Map our category codes to CDP category numbers
+CATEGORY_TO_CDP = {
+    "3.1": 1,
+    "3.2": 2,
+    "3.3": 3,
+    "3.4": 4,
+    "3.5": 5,
+    "3.6": 6,
+    "3.7": 7,
+    "3.8": 8,
+    "3.9": 9,
+    "3.10": 10,
+    "3.11": 11,
+    "3.12": 12,
+    "3.13": 13,
+    "3.14": 14,
+    "3.15": 15,
+}
+
+# Map our Scope 1 categories to CDP source categories
+SCOPE1_CDP_SOURCES = {
+    "1.1": "Stationary combustion",
+    "1.2": "Mobile combustion",
+    "1.3": "Fugitive emissions",
+}
+
+
+@router.get("/periods/{period_id}/export/cdp", response_model=CDPExportResponse)
+async def export_cdp_format(
+    period_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Export emissions data in CDP Climate Change questionnaire format.
+
+    Aligned with CDP Climate Change 2024 questionnaire.
+    Returns data structured for easy transfer to CDP online platform.
+    """
+    # Verify period belongs to organization
+    period_query = select(ReportingPeriod).where(
+        ReportingPeriod.id == period_id,
+        ReportingPeriod.organization_id == current_user.organization_id,
+    )
+    period_result = await session.execute(period_query)
+    period = period_result.scalar_one_or_none()
+
+    if not period:
+        raise HTTPException(status_code=404, detail="Reporting period not found")
+
+    # Get organization
+    org_query = select(Organization).where(Organization.id == current_user.organization_id)
+    org_result = await session.execute(org_query)
+    org = org_result.scalar_one_or_none()
+
+    # Get all activities with emissions
+    activities_query = (
+        select(Activity, Emission, EmissionFactor)
+        .join(Emission, Activity.id == Emission.activity_id)
+        .join(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
+        .where(
+            Activity.reporting_period_id == period_id,
+            Activity.organization_id == current_user.organization_id,
+        )
+    )
+    activities_result = await session.execute(activities_query)
+    rows = activities_result.all()
+
+    # Aggregate data
+    scope_totals = {1: Decimal(0), 2: Decimal(0), 3: Decimal(0)}
+    scope1_by_category = {}
+    scope2_by_country = {}
+    scope3_by_category = {}
+
+    factor_sources = set()
+    quality_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    total_activities = 0
+
+    for activity, emission, factor in rows:
+        total_activities += 1
+        scope_totals[activity.scope] += emission.co2e_kg
+        factor_sources.add(factor.source)
+        quality_counts[activity.data_quality_score or 5] += 1
+
+        if activity.scope == 1:
+            cat = activity.category_code
+            if cat not in scope1_by_category:
+                scope1_by_category[cat] = {
+                    "emissions": Decimal(0),
+                    "sources": set(),
+                }
+            scope1_by_category[cat]["emissions"] += emission.co2e_kg
+            scope1_by_category[cat]["sources"].add(factor.source)
+
+        elif activity.scope == 2:
+            country = factor.region or "Global"
+            if country not in scope2_by_country:
+                scope2_by_country[country] = {
+                    "quantity_kwh": Decimal(0),
+                    "location_emissions": Decimal(0),
+                    "market_emissions": Decimal(0),
+                }
+            scope2_by_country[country]["quantity_kwh"] += activity.quantity
+            scope2_by_country[country]["location_emissions"] += emission.co2e_kg
+
+        elif activity.scope == 3:
+            cat = activity.category_code
+            if cat not in scope3_by_category:
+                scope3_by_category[cat] = {
+                    "emissions": Decimal(0),
+                    "count": 0,
+                    "primary_count": 0,
+                }
+            scope3_by_category[cat]["emissions"] += emission.co2e_kg
+            scope3_by_category[cat]["count"] += 1
+            if (activity.data_quality_score or 5) <= 2:
+                scope3_by_category[cat]["primary_count"] += 1
+
+    # Build Scope 1 breakdown
+    scope1_breakdown = []
+    for cat, data in sorted(scope1_by_category.items()):
+        scope1_breakdown.append(CDPScope1Breakdown(
+            source_category=SCOPE1_CDP_SOURCES.get(cat, cat),
+            emissions_metric_tonnes=round(float(data["emissions"]) / 1000, 2),
+            methodology="Activity data × emission factor",
+            source_of_emission_factors=", ".join(data["sources"]),
+        ))
+
+    # Build Scope 2 breakdown
+    scope2_breakdown = []
+    for country, data in sorted(scope2_by_country.items()):
+        scope2_breakdown.append(CDPScope2Breakdown(
+            country=country,
+            grid_region=None,
+            purchased_electricity_mwh=round(float(data["quantity_kwh"]) / 1000, 2),
+            location_based_emissions_tonnes=round(float(data["location_emissions"]) / 1000, 2),
+            market_based_emissions_tonnes=None,  # Would need market-based calculation
+        ))
+
+    # Build Scope 3 categories
+    scope3_categories = []
+    for cat, data in sorted(scope3_by_category.items()):
+        cdp_num = CATEGORY_TO_CDP.get(cat, int(cat.split(".")[1]) if "." in cat else 0)
+        primary_pct = (data["primary_count"] / data["count"] * 100) if data["count"] > 0 else 0
+        scope3_categories.append(CDPScope3Category(
+            category_number=cdp_num,
+            category_name=CDP_SCOPE3_CATEGORIES.get(cdp_num, f"Category {cdp_num}"),
+            emissions_metric_tonnes=round(float(data["emissions"]) / 1000, 2),
+            calculation_methodology="Activity-based calculation",
+            percentage_calculated_using_primary_data=round(primary_pct, 1),
+            explanation=f"Calculated from {data['count']} activities",
+        ))
+
+    # Calculate data quality metrics
+    verified_pct = (quality_counts[1] / total_activities * 100) if total_activities > 0 else 0
+    primary_pct = ((quality_counts[1] + quality_counts[2]) / total_activities * 100) if total_activities > 0 else 0
+    estimated_pct = ((quality_counts[4] + quality_counts[5]) / total_activities * 100) if total_activities > 0 else 0
+
+    # Calculate overall weighted quality score
+    total_co2e = sum(scope_totals.values())
+
+    data_quality = CDPDataQuality(
+        overall_data_quality_score=3.0,  # Would need weighted calculation
+        percentage_verified_data=round(verified_pct, 1),
+        percentage_primary_data=round(primary_pct, 1),
+        percentage_estimated_data=round(estimated_pct, 1),
+        verification_status=period.status.value if period.status else "draft",
+        assurance_level=period.assurance_level.value if period.assurance_level else None,
+    )
+
+    # Targets (basic structure - would need org target data)
+    targets = CDPTargetsAndPerformance(
+        base_year=org.base_year if org else None,
+        base_year_emissions_tonnes=None,
+        target_year=None,
+        target_reduction_percentage=None,
+        current_year_emissions_tonnes=round(float(total_co2e) / 1000, 2),
+        progress_percentage=None,
+    )
+
+    return CDPExportResponse(
+        export_version="CDP-2024-v1",
+        export_date=datetime.utcnow().strftime("%Y-%m-%d"),
+        reporting_year=period.start_date.year,
+        organization_name=org.name if org else "Organization",
+        country=org.country_code if org else None,
+        primary_industry=org.industry_code if org else None,
+        reporting_boundary="Operational control",
+        targets=targets,
+        emissions_totals=CDPEmissionsTotals(
+            scope_1_metric_tonnes=round(float(scope_totals[1]) / 1000, 2),
+            scope_2_location_based_metric_tonnes=round(float(scope_totals[2]) / 1000, 2),
+            scope_2_market_based_metric_tonnes=None,
+            scope_3_metric_tonnes=round(float(scope_totals[3]) / 1000, 2),
+            total_metric_tonnes=round(float(total_co2e) / 1000, 2),
+        ),
+        scope_1_breakdown=scope1_breakdown,
+        scope_2_breakdown=scope2_breakdown,
+        scope_3_categories=scope3_categories,
+        data_quality=data_quality,
+        emission_factor_sources=list(factor_sources),
+        global_warming_potential_source="IPCC AR6 (2021) - 100-year GWP values",
+    )
+
+
+# ============================================================================
+# ESRS E1 Climate Export (Phase 1.5)
+# ============================================================================
+
+class ESRSE1GrossEmissions(BaseModel):
+    """ESRS E1-6: Gross Scope 1, 2, 3 emissions."""
+    scope_1_tonnes: float
+    scope_2_location_based_tonnes: float
+    scope_2_market_based_tonnes: Optional[float]
+    scope_3_tonnes: float
+    total_ghg_emissions_tonnes: float
+
+
+class ESRSE1Scope3Detail(BaseModel):
+    """ESRS E1-6: Scope 3 emissions by category."""
+    category: str
+    emissions_tonnes: float
+    percentage_of_scope_3: float
+
+
+class ESRSE1IntensityMetric(BaseModel):
+    """ESRS E1-6: GHG intensity metrics."""
+    metric_name: str
+    numerator_tonnes: float
+    denominator_value: float
+    denominator_unit: str
+    intensity_value: float
+    intensity_unit: str
+
+
+class ESRSE1TargetInfo(BaseModel):
+    """ESRS E1-4: Climate targets."""
+    target_type: str  # "absolute" or "intensity"
+    target_scope: str  # "Scope 1", "Scope 1+2", "All scopes"
+    base_year: int
+    base_year_value: float
+    target_year: int
+    target_value: float
+    target_reduction_percentage: float
+
+
+class ESRSE1TransitionPlan(BaseModel):
+    """ESRS E1-1: Transition plan summary."""
+    has_transition_plan: bool
+    plan_aligned_with: Optional[str]  # "Paris Agreement", "1.5°C pathway", etc.
+    key_decarbonization_levers: list[str]
+    locked_in_emissions_tonnes: Optional[float]
+
+
+class ESRSE1DataQuality(BaseModel):
+    """Data quality disclosure for ESRS."""
+    data_quality_approach: str
+    percentage_estimated_scope_3: float
+    significant_assumptions: list[str]
+    verification_statement: Optional[str]
+
+
+class ESRSE1ExportResponse(BaseModel):
+    """
+    ESRS E1 Climate Change Disclosure Export.
+
+    Aligned with European Sustainability Reporting Standards (ESRS) E1.
+    Covers disclosure requirements for:
+    - E1-1: Transition plan
+    - E1-4: Targets
+    - E1-5: Energy consumption
+    - E1-6: Gross GHG emissions
+    - E1-7: GHG removals and carbon credits
+    - E1-9: Anticipated financial effects
+    """
+    # Metadata
+    export_version: str
+    export_date: str
+    reporting_period_start: str
+    reporting_period_end: str
+
+    # Organization
+    undertaking_name: str
+    country_of_domicile: Optional[str]
+    nace_sector: Optional[str]
+    consolidation_scope: str
+
+    # E1-1: Transition plan (simplified)
+    transition_plan: ESRSE1TransitionPlan
+
+    # E1-4: Targets
+    climate_targets: list[ESRSE1TargetInfo]
+
+    # E1-6: Gross GHG emissions
+    gross_emissions: ESRSE1GrossEmissions
+    scope_3_breakdown: list[ESRSE1Scope3Detail]
+
+    # E1-6: GHG intensity
+    intensity_metrics: list[ESRSE1IntensityMetric]
+
+    # Data quality
+    data_quality: ESRSE1DataQuality
+
+    # Methodology
+    ghg_accounting_standard: str
+    emission_factor_sources: list[str]
+    gwp_values_source: str
+
+
+@router.get("/periods/{period_id}/export/esrs-e1", response_model=ESRSE1ExportResponse)
+async def export_esrs_e1_format(
+    period_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Export emissions data in ESRS E1 (Climate Change) format.
+
+    Aligned with European Sustainability Reporting Standards.
+    For CSRD compliance and EU sustainability reporting.
+    """
+    # Verify period belongs to organization
+    period_query = select(ReportingPeriod).where(
+        ReportingPeriod.id == period_id,
+        ReportingPeriod.organization_id == current_user.organization_id,
+    )
+    period_result = await session.execute(period_query)
+    period = period_result.scalar_one_or_none()
+
+    if not period:
+        raise HTTPException(status_code=404, detail="Reporting period not found")
+
+    # Get organization
+    org_query = select(Organization).where(Organization.id == current_user.organization_id)
+    org_result = await session.execute(org_query)
+    org = org_result.scalar_one_or_none()
+
+    # Get all activities with emissions
+    activities_query = (
+        select(Activity, Emission, EmissionFactor)
+        .join(Emission, Activity.id == Emission.activity_id)
+        .join(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
+        .where(
+            Activity.reporting_period_id == period_id,
+            Activity.organization_id == current_user.organization_id,
+        )
+    )
+    activities_result = await session.execute(activities_query)
+    rows = activities_result.all()
+
+    # Aggregate emissions
+    scope_totals = {1: Decimal(0), 2: Decimal(0), 3: Decimal(0)}
+    scope3_by_category = {}
+    factor_sources = set()
+    estimated_count = 0
+    total_count = 0
+
+    for activity, emission, factor in rows:
+        total_count += 1
+        scope_totals[activity.scope] += emission.co2e_kg
+        factor_sources.add(factor.source)
+
+        if (activity.data_quality_score or 5) >= 4:
+            estimated_count += 1
+
+        if activity.scope == 3:
+            cat = activity.category_code
+            cdp_num = CATEGORY_TO_CDP.get(cat, int(cat.split(".")[1]) if "." in cat else 0)
+            cat_name = CDP_SCOPE3_CATEGORIES.get(cdp_num, f"Category {cdp_num}")
+
+            if cat_name not in scope3_by_category:
+                scope3_by_category[cat_name] = Decimal(0)
+            scope3_by_category[cat_name] += emission.co2e_kg
+
+    total_co2e = sum(scope_totals.values())
+    scope3_total = scope_totals[3]
+
+    # Build Scope 3 breakdown
+    scope3_breakdown = []
+    for cat_name, emissions in sorted(scope3_by_category.items(), key=lambda x: x[1], reverse=True):
+        pct = float(emissions / scope3_total * 100) if scope3_total > 0 else 0
+        scope3_breakdown.append(ESRSE1Scope3Detail(
+            category=cat_name,
+            emissions_tonnes=round(float(emissions) / 1000, 2),
+            percentage_of_scope_3=round(pct, 1),
+        ))
+
+    # Gross emissions
+    gross_emissions = ESRSE1GrossEmissions(
+        scope_1_tonnes=round(float(scope_totals[1]) / 1000, 2),
+        scope_2_location_based_tonnes=round(float(scope_totals[2]) / 1000, 2),
+        scope_2_market_based_tonnes=None,
+        scope_3_tonnes=round(float(scope_totals[3]) / 1000, 2),
+        total_ghg_emissions_tonnes=round(float(total_co2e) / 1000, 2),
+    )
+
+    # Transition plan (placeholder - would need actual plan data)
+    transition_plan = ESRSE1TransitionPlan(
+        has_transition_plan=False,
+        plan_aligned_with=None,
+        key_decarbonization_levers=[],
+        locked_in_emissions_tonnes=None,
+    )
+
+    # Climate targets (placeholder - would need actual target data)
+    climate_targets = []
+    if org and org.base_year:
+        climate_targets.append(ESRSE1TargetInfo(
+            target_type="absolute",
+            target_scope="All scopes",
+            base_year=org.base_year,
+            base_year_value=0,  # Would need historical data
+            target_year=2030,  # Placeholder
+            target_value=0,
+            target_reduction_percentage=0,
+        ))
+
+    # Intensity metrics (placeholder)
+    intensity_metrics = [
+        ESRSE1IntensityMetric(
+            metric_name="Total GHG intensity per activity",
+            numerator_tonnes=round(float(total_co2e) / 1000, 2),
+            denominator_value=float(total_count) if total_count > 0 else 1,
+            denominator_unit="activities",
+            intensity_value=round(float(total_co2e) / 1000 / max(total_count, 1), 4),
+            intensity_unit="tCO2e/activity",
+        ),
+    ]
+
+    # Data quality
+    estimated_pct = (estimated_count / total_count * 100) if total_count > 0 else 0
+    data_quality = ESRSE1DataQuality(
+        data_quality_approach="PCAF data quality scoring (1-5 scale)",
+        percentage_estimated_scope_3=round(estimated_pct, 1),
+        significant_assumptions=[
+            "Emission factors from recognized databases (DEFRA, EPA, IPCC)",
+            "GWP values from IPCC AR6 (100-year horizon)",
+            "Operational control approach for organizational boundaries",
+        ],
+        verification_statement=period.verification_statement if period.verification_statement else None,
+    )
+
+    return ESRSE1ExportResponse(
+        export_version="ESRS-E1-2024-v1",
+        export_date=datetime.utcnow().strftime("%Y-%m-%d"),
+        reporting_period_start=period.start_date.isoformat(),
+        reporting_period_end=period.end_date.isoformat(),
+        undertaking_name=org.name if org else "Organization",
+        country_of_domicile=org.country_code if org else None,
+        nace_sector=org.industry_code if org else None,
+        consolidation_scope="Operational control",
+        transition_plan=transition_plan,
+        climate_targets=climate_targets,
+        gross_emissions=gross_emissions,
+        scope_3_breakdown=scope3_breakdown,
+        intensity_metrics=intensity_metrics,
+        data_quality=data_quality,
+        ghg_accounting_standard="GHG Protocol Corporate Standard",
+        emission_factor_sources=list(factor_sources),
+        gwp_values_source="IPCC AR6 (2021) - 100-year GWP values",
+    )

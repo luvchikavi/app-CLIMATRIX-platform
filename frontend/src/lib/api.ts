@@ -479,6 +479,143 @@ export interface AuditPackage {
   import_batches: ImportBatchAuditRecord[];
 }
 
+// CDP Export Types (Phase 1.5)
+export interface CDPScope1Breakdown {
+  source_category: string;
+  emissions_metric_tonnes: number;
+  methodology: string;
+  source_of_emission_factors: string;
+}
+
+export interface CDPScope2Breakdown {
+  country: string;
+  grid_region: string | null;
+  purchased_electricity_mwh: number;
+  location_based_emissions_tonnes: number;
+  market_based_emissions_tonnes: number | null;
+}
+
+export interface CDPScope3Category {
+  category_number: number;
+  category_name: string;
+  emissions_metric_tonnes: number;
+  calculation_methodology: string;
+  percentage_calculated_using_primary_data: number;
+  explanation: string;
+}
+
+export interface CDPEmissionsTotals {
+  scope_1_metric_tonnes: number;
+  scope_2_location_based_metric_tonnes: number;
+  scope_2_market_based_metric_tonnes: number | null;
+  scope_3_metric_tonnes: number;
+  total_metric_tonnes: number;
+}
+
+export interface CDPTargetsAndPerformance {
+  base_year: number | null;
+  base_year_emissions_tonnes: number | null;
+  target_year: number | null;
+  target_reduction_percentage: number | null;
+  current_year_emissions_tonnes: number;
+  progress_percentage: number | null;
+}
+
+export interface CDPDataQuality {
+  overall_data_quality_score: number;
+  percentage_verified_data: number;
+  percentage_primary_data: number;
+  percentage_estimated_data: number;
+  verification_status: string;
+  assurance_level: string | null;
+}
+
+export interface CDPExport {
+  export_version: string;
+  export_date: string;
+  reporting_year: number;
+  organization_name: string;
+  country: string | null;
+  primary_industry: string | null;
+  reporting_boundary: string;
+  targets: CDPTargetsAndPerformance;
+  emissions_totals: CDPEmissionsTotals;
+  scope_1_breakdown: CDPScope1Breakdown[];
+  scope_2_breakdown: CDPScope2Breakdown[];
+  scope_3_categories: CDPScope3Category[];
+  data_quality: CDPDataQuality;
+  emission_factor_sources: string[];
+  global_warming_potential_source: string;
+}
+
+// ESRS E1 Export Types (Phase 1.5)
+export interface ESRSE1GrossEmissions {
+  scope_1_tonnes: number;
+  scope_2_location_based_tonnes: number;
+  scope_2_market_based_tonnes: number | null;
+  scope_3_tonnes: number;
+  total_ghg_emissions_tonnes: number;
+}
+
+export interface ESRSE1Scope3Detail {
+  category: string;
+  emissions_tonnes: number;
+  percentage_of_scope_3: number;
+}
+
+export interface ESRSE1IntensityMetric {
+  metric_name: string;
+  numerator_tonnes: number;
+  denominator_value: number;
+  denominator_unit: string;
+  intensity_value: number;
+  intensity_unit: string;
+}
+
+export interface ESRSE1TargetInfo {
+  target_type: string;
+  target_scope: string;
+  base_year: number;
+  base_year_value: number;
+  target_year: number;
+  target_value: number;
+  target_reduction_percentage: number;
+}
+
+export interface ESRSE1TransitionPlan {
+  has_transition_plan: boolean;
+  plan_aligned_with: string | null;
+  key_decarbonization_levers: string[];
+  locked_in_emissions_tonnes: number | null;
+}
+
+export interface ESRSE1DataQuality {
+  data_quality_approach: string;
+  percentage_estimated_scope_3: number;
+  significant_assumptions: string[];
+  verification_statement: string | null;
+}
+
+export interface ESRSE1Export {
+  export_version: string;
+  export_date: string;
+  reporting_period_start: string;
+  reporting_period_end: string;
+  undertaking_name: string;
+  country_of_domicile: string | null;
+  nace_sector: string | null;
+  consolidation_scope: string;
+  transition_plan: ESRSE1TransitionPlan;
+  climate_targets: ESRSE1TargetInfo[];
+  gross_emissions: ESRSE1GrossEmissions;
+  scope_3_breakdown: ESRSE1Scope3Detail[];
+  intensity_metrics: ESRSE1IntensityMetric[];
+  data_quality: ESRSE1DataQuality;
+  ghg_accounting_standard: string;
+  emission_factor_sources: string[];
+  gwp_values_source: string;
+}
+
 export interface ScopeSummary {
   scope: number;
   total_co2e_kg: number;
@@ -848,6 +985,14 @@ class ApiClient {
 
   async getAuditPackage(periodId: string): Promise<AuditPackage> {
     return this.fetch<AuditPackage>(`/periods/${periodId}/report/audit-package`);
+  }
+
+  async exportCDP(periodId: string): Promise<CDPExport> {
+    return this.fetch<CDPExport>(`/periods/${periodId}/export/cdp`);
+  }
+
+  async exportESRSE1(periodId: string): Promise<ESRSE1Export> {
+    return this.fetch<ESRSE1Export>(`/periods/${periodId}/export/esrs-e1`);
   }
 
   // Recalculate

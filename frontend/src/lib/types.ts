@@ -651,3 +651,146 @@ export interface AuditPackage {
   emission_factors: EmissionFactorAuditRecord[];
   import_batches: ImportBatchAuditRecord[];
 }
+
+// =============================================================================
+// CDP EXPORT TYPES (Phase 1.5)
+// =============================================================================
+
+export interface CDPScope1Breakdown {
+  source_category: string;
+  emissions_metric_tonnes: number;
+  methodology: string;
+  source_of_emission_factors: string;
+}
+
+export interface CDPScope2Breakdown {
+  country: string;
+  grid_region?: string;
+  purchased_electricity_mwh: number;
+  location_based_emissions_tonnes: number;
+  market_based_emissions_tonnes?: number;
+}
+
+export interface CDPScope3Category {
+  category_number: number;
+  category_name: string;
+  emissions_metric_tonnes: number;
+  calculation_methodology: string;
+  percentage_calculated_using_primary_data: number;
+  explanation: string;
+}
+
+export interface CDPEmissionsTotals {
+  scope_1_metric_tonnes: number;
+  scope_2_location_based_metric_tonnes: number;
+  scope_2_market_based_metric_tonnes?: number;
+  scope_3_metric_tonnes: number;
+  total_metric_tonnes: number;
+}
+
+export interface CDPTargetsAndPerformance {
+  base_year?: number;
+  base_year_emissions_tonnes?: number;
+  target_year?: number;
+  target_reduction_percentage?: number;
+  current_year_emissions_tonnes: number;
+  progress_percentage?: number;
+}
+
+export interface CDPDataQuality {
+  overall_data_quality_score: number;
+  percentage_verified_data: number;
+  percentage_primary_data: number;
+  percentage_estimated_data: number;
+  verification_status: string;
+  assurance_level?: string;
+}
+
+export interface CDPExport {
+  export_version: string;
+  export_date: string;
+  reporting_year: number;
+  organization_name: string;
+  country?: string;
+  primary_industry?: string;
+  reporting_boundary: string;
+  targets: CDPTargetsAndPerformance;
+  emissions_totals: CDPEmissionsTotals;
+  scope_1_breakdown: CDPScope1Breakdown[];
+  scope_2_breakdown: CDPScope2Breakdown[];
+  scope_3_categories: CDPScope3Category[];
+  data_quality: CDPDataQuality;
+  emission_factor_sources: string[];
+  global_warming_potential_source: string;
+}
+
+// =============================================================================
+// ESRS E1 EXPORT TYPES (Phase 1.5)
+// =============================================================================
+
+export interface ESRSE1GrossEmissions {
+  scope_1_tonnes: number;
+  scope_2_location_based_tonnes: number;
+  scope_2_market_based_tonnes?: number;
+  scope_3_tonnes: number;
+  total_ghg_emissions_tonnes: number;
+}
+
+export interface ESRSE1Scope3Detail {
+  category: string;
+  emissions_tonnes: number;
+  percentage_of_scope_3: number;
+}
+
+export interface ESRSE1IntensityMetric {
+  metric_name: string;
+  numerator_tonnes: number;
+  denominator_value: number;
+  denominator_unit: string;
+  intensity_value: number;
+  intensity_unit: string;
+}
+
+export interface ESRSE1TargetInfo {
+  target_type: string;
+  target_scope: string;
+  base_year: number;
+  base_year_value: number;
+  target_year: number;
+  target_value: number;
+  target_reduction_percentage: number;
+}
+
+export interface ESRSE1TransitionPlan {
+  has_transition_plan: boolean;
+  plan_aligned_with?: string;
+  key_decarbonization_levers: string[];
+  locked_in_emissions_tonnes?: number;
+}
+
+export interface ESRSE1DataQuality {
+  data_quality_approach: string;
+  percentage_estimated_scope_3: number;
+  significant_assumptions: string[];
+  verification_statement?: string;
+}
+
+export interface ESRSE1Export {
+  export_version: string;
+  export_date: string;
+  reporting_period_start: string;
+  reporting_period_end: string;
+  undertaking_name: string;
+  country_of_domicile?: string;
+  nace_sector?: string;
+  consolidation_scope: string;
+  transition_plan: ESRSE1TransitionPlan;
+  climate_targets: ESRSE1TargetInfo[];
+  gross_emissions: ESRSE1GrossEmissions;
+  scope_3_breakdown: ESRSE1Scope3Detail[];
+  intensity_metrics: ESRSE1IntensityMetric[];
+  data_quality: ESRSE1DataQuality;
+  ghg_accounting_standard: string;
+  emission_factor_sources: string[];
+  gwp_values_source: string;
+}

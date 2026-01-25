@@ -1,10 +1,10 @@
 # CLIMATRIX Development Progress
 
 ## Quick Resume Section
-> **Last Updated:** 2026-01-25 15:30
-> **Current Phase:** Phase 1 - GHG Completion
-> **Current Task:** 1.5 CDP/CSRD Export - Not Started
-> **Next Action:** Begin CDP questionnaire format export
+> **Last Updated:** 2026-01-25 16:00
+> **Current Phase:** Phase 1 - GHG Completion ✅ COMPLETE
+> **Current Task:** All Phase 1 tasks complete
+> **Next Action:** Merge phase1/ghg-completion branch to main
 > **Branch:** `phase1/ghg-completion`
 
 ---
@@ -57,15 +57,40 @@
 | Frontend types | ✅ Done | AuditPackage, ActivityAuditRecord, etc. in types.ts |
 | API method | ✅ Done | api.getAuditPackage() in api.ts |
 
-### 1.5 CDP/CSRD Export
+### 1.5 CDP/CSRD Export ✅ COMPLETE
 | Task | Status | Notes |
 |------|--------|-------|
-| CDP questionnaire format export | Not Started | |
-| ESRS E1 climate data format | Not Started | |
+| CDP questionnaire format export | ✅ Done | GET /export/cdp - C6 emissions data, scope breakdowns |
+| ESRS E1 climate data format | ✅ Done | GET /export/esrs-e1 - EU CSRD compliance format |
+| CDP Scope 1/2/3 breakdowns | ✅ Done | Category-level detail for all scopes |
+| CDP data quality metrics | ✅ Done | Verification status, primary data % |
+| ESRS gross emissions | ✅ Done | Location/market-based Scope 2 |
+| ESRS intensity metrics | ✅ Done | Configurable intensity calculations |
+| Frontend types | ✅ Done | CDPExport, ESRSE1Export in types.ts |
+| API methods | ✅ Done | exportCDP(), exportESRSE1() in api.ts |
 
 ---
 
 ## Work Log
+
+### 2026-01-25 (Session 3 continued)
+- **Completed Phase 1.5 - CDP/CSRD Export:**
+  - CDP Climate Change questionnaire format: GET /periods/{id}/export/cdp
+    - C6.1 Scope 1 breakdown by source category
+    - C6.3 Scope 2 breakdown by country/region
+    - C6.5 Scope 3 breakdown by GHG Protocol category (1-15)
+    - Data quality metrics (verified %, primary data %, estimated %)
+    - Targets and performance structure
+  - ESRS E1 Climate disclosure format: GET /periods/{id}/export/esrs-e1
+    - Gross GHG emissions (location/market-based Scope 2)
+    - Scope 3 category breakdown with percentages
+    - Intensity metrics (configurable)
+    - Transition plan structure
+    - Climate targets structure
+    - Data quality disclosure
+  - Added frontend types for both formats
+  - Added api.exportCDP() and api.exportESRSE1() methods
+- **Phase 1 Complete!** Ready to merge to main
 
 ### 2026-01-25 (Session 3)
 - **Completed Phase 1.4 - Audit Package Export:**
