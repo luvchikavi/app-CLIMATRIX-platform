@@ -676,13 +676,13 @@ SHEET_CONFIGS = {
 
     # =========================================================================
     # Generated template sheet names (from generate_template.py)
-    # Headers at row 4, row 5 is placeholder text, data starts at row 6+
+    # Headers at row 3, row 4 is sample data (contains "SAMPLE" - auto-skipped), data starts at row 5+
     # =========================================================================
     '1.1 Stationary': SheetConfig(
         sheet_name='1.1 Stationary',
         scope=1,
         category_code='1.1',
-        header_row=4,  # Headers at row 4 in template
+        header_row=3,  # Headers at row 3 in template
         column_map=GENERATED_TEMPLATE_COLUMN_MAP_STATIONARY,
         activity_key_resolver=resolve_stationary_fuel,
     ),
@@ -712,7 +712,7 @@ SHEET_CONFIGS = {
         sheet_name='1.2 Mobile',
         scope=1,
         category_code='1.2',
-        header_row=4,  # Headers at row 4 in template
+        header_row=3,  # Headers at row 3 in template
         column_map=GENERATED_TEMPLATE_COLUMN_MAP_MOBILE,
         activity_key_resolver=resolve_mobile_fuel,
     ),
@@ -742,7 +742,7 @@ SHEET_CONFIGS = {
         sheet_name='1.3 Fugitive',
         scope=1,
         category_code='1.3',
-        header_row=4,  # Headers at row 4 in template
+        header_row=3,  # Headers at row 3 in template
         column_map=GENERATED_TEMPLATE_COLUMN_MAP_FUGITIVE,
         activity_key_resolver=resolve_refrigerant,
     ),
@@ -771,7 +771,7 @@ SHEET_CONFIGS = {
         sheet_name='2.1 Electricity',
         scope=2,
         category_code='2.1',
-        header_row=4,  # Headers at row 4 in template
+        header_row=3,  # Headers at row 3 in template
         column_map=GENERATED_TEMPLATE_COLUMN_MAP_ELECTRICITY,
         activity_key_resolver=resolve_electricity,
     ),
@@ -800,7 +800,7 @@ SHEET_CONFIGS = {
         sheet_name='2.2 Heat-Steam',
         scope=2,
         category_code='2.2',
-        header_row=4,  # Headers at row 4 in template
+        header_row=3,  # Headers at row 3 in template
         column_map=GENERATED_TEMPLATE_COLUMN_MAP_HEAT_STEAM,
         activity_key_resolver=resolve_heat_steam,
     ),
@@ -809,7 +809,7 @@ SHEET_CONFIGS = {
         sheet_name='2.3 Cooling',
         scope=2,
         category_code='2.3',
-        header_row=4,  # Headers at row 4 in template
+        header_row=3,  # Headers at row 3 in template
         column_map=GENERATED_TEMPLATE_COLUMN_MAP_COOLING,
         activity_key_resolver=lambda row: ('district_heat_kwh', 'kWh'),  # Use heat as proxy for cooling
     ),
