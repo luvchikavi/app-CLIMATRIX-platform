@@ -20,6 +20,22 @@ from app.models.emission import (
     WasteDisposalFactor,
 )
 from app.models.jobs import ImportJob, JobStatus, JobType
+from app.models.cbam import (
+    # CBAM Enums
+    CBAMSector,
+    CBAMCalculationMethod,
+    CBAMReportStatus,
+    CBAMInstallationStatus,
+    # CBAM Models
+    CBAMProduct,
+    CBAMInstallation,
+    CBAMImport,
+    CBAMQuarterlyReport,
+    CBAMAnnualDeclaration,
+    CBAMDefaultValue,
+    CBAMGridFactor,
+    EUETSPrice,
+)
 
 __all__ = [
     # Core
@@ -54,4 +70,18 @@ __all__ = [
     "GridEmissionFactor",
     "RefrigerantGWP",
     "WasteDisposalFactor",
+    # CBAM Enums
+    "CBAMSector",
+    "CBAMCalculationMethod",
+    "CBAMReportStatus",
+    "CBAMInstallationStatus",
+    # CBAM Models
+    "CBAMProduct",
+    "CBAMInstallation",
+    "CBAMImport",
+    "CBAMQuarterlyReport",
+    "CBAMAnnualDeclaration",
+    "CBAMDefaultValue",
+    "CBAMGridFactor",
+    "EUETSPrice",
 ]

@@ -1,11 +1,11 @@
 # CLIMATRIX Development Progress
 
 ## Quick Resume Section
-> **Last Updated:** 2026-01-25 16:00
-> **Current Phase:** Phase 1 - GHG Completion ✅ COMPLETE
-> **Current Task:** All Phase 1 tasks complete
-> **Next Action:** Merge phase1/ghg-completion branch to main
-> **Branch:** `phase1/ghg-completion`
+> **Last Updated:** 2026-01-25 16:30
+> **Current Phase:** Phase 2 - CBAM Module
+> **Current Task:** 2.1 Database Models - In Progress
+> **Next Action:** Create CBAM models and migrations
+> **Branch:** `phase2/cbam-module`
 
 ---
 
@@ -71,7 +71,71 @@
 
 ---
 
+## Phase 2: CBAM Module (Target: 6 weeks)
+
+### 2.1 Database Models ✅ COMPLETE
+| Task | Status | Notes |
+|------|--------|-------|
+| CBAMProduct model (CN codes, sectors) | ✅ Done | Reference table for covered products |
+| CBAMInstallation model (non-EU facilities) | ✅ Done | Supplier production installations |
+| CBAMImport model (import declarations) | ✅ Done | Individual import records with emissions |
+| CBAMQuarterlyReport model (transitional) | ✅ Done | Q1-Q4 2024-2025 reports |
+| CBAMAnnualDeclaration model (definitive) | ✅ Done | From 2026, with certificates |
+| CBAMDefaultValue model (EU default SEE) | ✅ Done | Reference data by CN code |
+| CBAMGridFactor model (third-country grid) | ✅ Done | For indirect emissions |
+| EUETSPrice model (weekly prices) | ✅ Done | For certificate cost calculation |
+| Create Alembic migration | ✅ Done | Migration c3d4e5f6g7h8 |
+
+### 2.2 Reference Data
+| Task | Status | Notes |
+|------|--------|-------|
+| CBAM default emission values by CN code | Not Started | Cement, steel, aluminium, fertiliser, hydrogen |
+| Third-country grid emission factors | Not Started | For indirect emissions calculation |
+| EU ETS price tracking structure | Not Started | Weekly price for certificate calculation |
+
+### 2.3 Calculation Engine
+| Task | Status | Notes |
+|------|--------|-------|
+| Embedded emissions calculation | Not Started | Direct + Indirect |
+| Specific embedded emissions (SEE) | Not Started | tCO2e per tonne of product |
+| Carbon price deduction logic | Not Started | Third-country carbon pricing |
+| Certificate requirement calculation | Not Started | For definitive phase |
+
+### 2.4 API Endpoints
+| Task | Status | Notes |
+|------|--------|-------|
+| CRUD for CBAM installations | Not Started | |
+| CRUD for CBAM imports | Not Started | |
+| Quarterly report generation | Not Started | Aggregation by sector |
+| Annual declaration generation | Not Started | With certificate calculation |
+| CN code lookup/search | Not Started | |
+
+### 2.5 Reporting & Export
+| Task | Status | Notes |
+|------|--------|-------|
+| CBAM quarterly report format | Not Started | EU Commission format |
+| CBAM XML export for registry | Not Started | For submission to EU CBAM Registry |
+| Dashboard summary endpoint | Not Started | KPIs by sector, quarter |
+
+### 2.6 Frontend Types & API
+| Task | Status | Notes |
+|------|--------|-------|
+| CBAM TypeScript types | Not Started | |
+| API client methods | Not Started | |
+
+---
+
 ## Work Log
+
+### 2026-01-25 (Session 4 - Phase 2 Start)
+- **Merged Phase 1 to main:** All GHG Completion work now live
+- **Created phase2/cbam-module branch**
+- **Phase 2 Scope:** EU CBAM (Carbon Border Adjustment Mechanism) module
+  - Regulation: EU 2023/956
+  - Covered sectors: Cement, Iron/Steel, Aluminium, Fertilisers, Electricity, Hydrogen
+  - Transitional phase: Quarterly reports (2024-2025)
+  - Definitive phase: Annual declarations with certificates (2026+)
+- **Starting:** Database models for CBAM entities
 
 ### 2026-01-25 (Session 3 continued)
 - **Completed Phase 1.5 - CDP/CSRD Export:**
@@ -155,8 +219,8 @@
 | Branch | Purpose | Status |
 |--------|---------|--------|
 | `main` | Production - always deployable | Active |
-| `phase1/ghg-completion` | Phase 1 work | Not created |
-| `phase2/cbam-module` | CBAM module | Not created |
+| `phase1/ghg-completion` | Phase 1 work | ✅ Merged to main |
+| `phase2/cbam-module` | CBAM module | 🔄 Active |
 | `phase3/pcaf-module` | PCAF module | Not created |
 | `phase4/lca-engine` | LCA Engine | Not created |
 | `phase5/epd-module` | EPD module | Not created |
