@@ -1,10 +1,10 @@
 # CLIMATRIX Development Progress
 
 ## Quick Resume Section
-> **Last Updated:** 2026-01-25 16:30
-> **Current Phase:** Phase 2 - CBAM Module
-> **Current Task:** 2.1 Database Models - In Progress
-> **Next Action:** Create CBAM models and migrations
+> **Last Updated:** 2026-01-25 17:15
+> **Current Phase:** Phase 2 - CBAM Module (PAUSED)
+> **Current Task:** Production fix deployed, waiting for verification
+> **Next Action:** Verify production works, then continue Phase 2.2 Reference Data
 > **Branch:** `phase2/cbam-module`
 
 ---
@@ -126,6 +126,24 @@
 ---
 
 ## Work Log
+
+### 2026-01-25 (Session 4 continued - Production Fix)
+- **Issue Reported:** Production app showing 500 errors + CORS failures
+  - Users couldn't see dashboard
+  - SivanLa@bdo.co.il couldn't log in
+  - Console showing CORS errors with status 500
+- **Root Cause:** Database migrations not running on Railway deployment
+  - Phase 1 added new columns (status, assurance_level, etc.) to ReportingPeriod
+  - `SQLModel.metadata.create_all` only creates NEW tables, doesn't add columns
+  - Code tried to access missing columns → 500 error → no CORS headers sent
+- **Fix Applied (commit b3042bf on main):**
+  - Added `run_migrations()` function to database.py
+  - Runs Alembic migrations automatically on app startup
+  - Added explicit `https://app-climatrix-platform.vercel.app` to CORS origins
+- **User Login:** SivanLa@bdo.co.il
+  - Should be auto-created by `ensure_team_users()` in database.py
+  - Password: `Climatrix2026!`
+- **Status:** Fix pushed, waiting for Railway redeploy
 
 ### 2026-01-25 (Session 4 - Phase 2 Start)
 - **Merged Phase 1 to main:** All GHG Completion work now live
