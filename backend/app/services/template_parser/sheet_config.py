@@ -44,12 +44,15 @@ def resolve_stationary_fuel(row: dict) -> tuple[str, str]:
     if calc_type == 'spend':
         return 'spend_other', 'USD'
 
-    # Check if user provided energy units (kWh, MWh, etc.)
+    # Check if user provided energy units (kWh, MWh, MMBTU, etc.)
     is_energy_unit = 'kwh' in input_unit or 'mwh' in input_unit or 'wh' in input_unit
+    is_mmbtu = 'mmbtu' in input_unit or 'mm btu' in input_unit
 
-    # Natural gas can be in volume (m3) or energy (kWh)
+    # Natural gas can be in volume (m3), energy (kWh), or MMBTU
     if 'natural gas' in fuel_type:
-        if is_energy_unit:
+        if is_mmbtu:
+            return 'natural_gas_mmbtu', 'MMBTU'
+        elif is_energy_unit:
             return 'natural_gas_kwh', 'kWh'
         else:
             return 'natural_gas_volume', 'm3'
@@ -70,7 +73,9 @@ def resolve_stationary_fuel(row: dict) -> tuple[str, str]:
         if key in fuel_type:
             return activity_key, unit
 
-    # Default fallback - check if energy unit, otherwise volume
+    # Default fallback - check unit type
+    if is_mmbtu:
+        return 'natural_gas_mmbtu', 'MMBTU'
     if is_energy_unit:
         return 'natural_gas_kwh', 'kWh'
     return 'natural_gas_volume', 'm3'
@@ -79,10 +84,11 @@ def resolve_stationary_fuel(row: dict) -> tuple[str, str]:
 def resolve_mobile_fuel(row: dict) -> tuple[str, str]:
     """Resolve activity_key for mobile combustion."""
     # Support both legacy and generated template column names
-    vehicle_type = (row.get('Vehicle_Type') or row.get('Vehicle Type') or '').lower().strip()
-    fuel_type = (row.get('Fuel_Type') or row.get('Fuel Type') or '').lower().strip()
-    calc_type = (row.get('Calc_Type') or row.get('Method') or '').lower().strip()
-    unit = (row.get('Physical_Unit') or row.get('Unit/Currency') or '').lower().strip()
+    # After column mapping, values are stored with mapped names (vehicle_type, fuel_type, etc.)
+    vehicle_type = (row.get('vehicle_type') or row.get('Vehicle_Type') or row.get('Vehicle Type') or '').lower().strip()
+    fuel_type = (row.get('fuel_type') or row.get('Fuel_Type') or row.get('Fuel Type') or '').lower().strip()
+    calc_type = (row.get('calc_type') or row.get('Calc_Type') or row.get('Method') or '').lower().strip()
+    unit = (row.get('unit') or row.get('Physical_Unit') or row.get('Unit/Currency') or '').lower().strip()
 
     # Spend-based - use spend_other as generic spend factor
     if calc_type == 'spend':
@@ -91,9 +97,13 @@ def resolve_mobile_fuel(row: dict) -> tuple[str, str]:
     # If unit is liters/gallons, use fuel-based (direct fuel consumption)
     if 'liter' in unit or 'gallon' in unit:
         if 'diesel' in fuel_type:
-            return 'diesel_liters', 'liters'  # Use diesel_liters (exists)
+            return 'diesel_liters', 'liters'
         elif 'petrol' in fuel_type or 'gasoline' in fuel_type:
             return 'petrol_liters', 'liters'
+        elif 'urea' in fuel_type or 'adblue' in fuel_type or 'def' in fuel_type:
+            # Urea/AdBlue/DEF (Diesel Exhaust Fluid) - used for NOx reduction
+            # Has its own emission factor for production/transport
+            return 'urea_liters', 'liters'
 
     # Distance-based by vehicle type (using existing activity_keys from emission_factors)
     vehicle_map = {
@@ -170,14 +180,48 @@ def resolve_refrigerant(row: dict) -> tuple[str, str]:
 
 
 def resolve_electricity(row: dict) -> tuple[str, str]:
-    """Resolve activity_key for electricity."""
+    """
+    Resolve activity_key for electricity (Scope 2.1).
+
+    Template v1.0.1 columns:
+    Type | Method | Country | Description | Supplier Name | Supplier Emission Factor | Quantity/Amount | Unit/Currency | Date | Comments
+
+    If Supplier Emission Factor is provided, uses custom EF for calculation.
+    """
     # Support both legacy and generated template column names
-    calc_type = (row.get('Calc_Type') or row.get('Method') or '').lower().strip()
-    country = (row.get('Country/Region') or row.get('country_code') or '').upper().strip()
+    calc_type = (row.get('calc_type') or row.get('Calc_Type') or row.get('Method') or '').lower().strip()
+    country = (row.get('country_code') or row.get('Country') or row.get('Country/Region') or '').upper().strip()
+    electricity_type = (row.get('electricity_type') or row.get('Electricity Type') or row.get('Type') or '').lower().strip()
+
+    # Check for Supplier Emission Factor (new column in v1.0.1)
+    supplier_ef = row.get('supplier_ef') or row.get('Supplier Emission Factor')
+
+    # Try to parse supplier EF as a number
+    if supplier_ef is not None and supplier_ef != '':
+        try:
+            ef_value = float(supplier_ef)
+            if ef_value > 0:
+                # Store supplier EF for calculation engine to use
+                row['_supplier_ef'] = ef_value
+        except (ValueError, TypeError):
+            pass
 
     # Spend-based - use spend_other as generic spend factor
     if calc_type == 'spend':
         return 'spend_other', 'USD'
+
+    # Check for renewable electricity (100% Renewable)
+    if '100%' in electricity_type and 'renewable' in electricity_type:
+        return 'electricity_renewable', 'kWh'  # Zero emission certified renewable
+
+    # If supplier EF is provided, use custom calculation
+    if row.get('_supplier_ef'):
+        return 'electricity_supplier', 'kWh'  # Use supplier-specific factor
+
+    # Extract country code from Country column or electricity type
+    if not country and ' - ' in str(row.get('electricity_type') or row.get('Type') or ''):
+        type_val = str(row.get('electricity_type') or row.get('Type') or '')
+        country = type_val.split(' - ')[0].strip().upper()
 
     # Map country codes to activity keys (using existing activity_keys from emission_factors)
     country_map = {
@@ -207,19 +251,50 @@ def resolve_electricity(row: dict) -> tuple[str, str]:
 
 
 def resolve_heat_steam(row: dict) -> tuple[str, str]:
-    """Resolve activity_key for heat/steam/cooling."""
+    """
+    Resolve activity_key for heat/steam (Scope 2.2) and cooling (Scope 2.3).
+
+    Template v1.0.1 columns (2.2 Heat-Steam):
+    Type | Method | Description | Supplier Name | Supplier Emission Factor | Quantity/Amount | Unit/Currency | Date | Comments
+
+    Template v1.0.1 columns (2.3 Cooling):
+    Type | Method | Description | Supplier Name | Supplier Emission Factor | Quantity/Amount | Unit/Currency | Date | Comments
+
+    If Supplier Emission Factor is provided, uses custom EF for calculation.
+    """
     # Support both legacy and generated template column names
-    energy_type = (row.get('Energy_Type') or row.get('Energy Type') or '').lower().strip()
-    calc_type = (row.get('Calc_Type') or row.get('Method') or '').lower().strip()
+    energy_type = (row.get('energy_type') or row.get('Energy_Type') or row.get('Energy Type') or row.get('Type') or '').lower().strip()
+    cooling_type = (row.get('cooling_type') or row.get('Cooling Type') or '').lower().strip()
+    calc_type = (row.get('calc_type') or row.get('Calc_Type') or row.get('Method') or '').lower().strip()
+
+    # Check for Supplier Emission Factor (new column in v1.0.1)
+    supplier_ef = row.get('supplier_ef') or row.get('Supplier Emission Factor')
+
+    # Try to parse supplier EF as a number
+    if supplier_ef is not None and supplier_ef != '':
+        try:
+            ef_value = float(supplier_ef)
+            if ef_value > 0:
+                # Store supplier EF for calculation engine to use
+                row['_supplier_ef'] = ef_value
+        except (ValueError, TypeError):
+            pass
 
     # Spend-based - use spend_other as generic spend factor
     if calc_type == 'spend':
         return 'spend_other', 'USD'
 
+    # If supplier EF is provided, use custom calculation
+    if row.get('_supplier_ef'):
+        return 'energy_supplier', 'kWh'  # Use supplier-specific factor
+
+    # Determine type from energy_type or cooling_type
+    type_str = energy_type or cooling_type
+
     # Use existing activity_keys from emission_factors
-    if 'cooling' in energy_type:
-        return 'district_heat_kwh', 'kWh'  # Use heat as proxy for cooling
-    elif 'steam' in energy_type:
+    if 'cooling' in type_str or 'chill' in type_str:
+        return 'district_cooling_kwh', 'kWh'
+    elif 'steam' in type_str:
         return 'steam_kwh', 'kWh'
     else:
         return 'district_heat_kwh', 'kWh'
@@ -590,9 +665,14 @@ def resolve_downstream_transport(row: dict) -> tuple[str, str]:
 # Sheet Configurations
 # =============================================================================
 
-# Column mappings for generated template format (from generate_template.py)
-# Sheets like "1.1 Stationary" have headers at row 4, data starts at row 6
+# =============================================================================
+# Column Mappings for Template v1.0.1
+# Headers at row 3, data starts at row 4 (0-indexed: header_row=2, data_row=3)
+# Yellow cells = dropdowns, white cells = free text
+# =============================================================================
+
 GENERATED_TEMPLATE_COLUMN_MAP_STATIONARY = {
+    # Template v1.0.1: Fuel Type | Method | Description | Quantity/Amount | Unit/Currency | Date | Site (Optional) | Comments
     'Fuel Type': 'fuel_type',
     'Method': 'calc_type',
     'Description': 'description',
@@ -600,54 +680,83 @@ GENERATED_TEMPLATE_COLUMN_MAP_STATIONARY = {
     'Unit/Currency': 'unit',
     'Date': 'activity_date',
     'Site (Optional)': 'site',
-    'Site': 'site',  # Also support without "(Optional)"
+    'Site': 'site',
+    'Comments': 'comments',
 }
 
 GENERATED_TEMPLATE_COLUMN_MAP_MOBILE = {
+    # Template v1.0.1: Type | Phyiscal | Spent base | Description | Quantity/Amount | Unit/Currency | Date | Comments
+    # Note: "Phyiscal" is intentionally misspelled in template, contains fuel type (Petrol, Diesel, Urea, etc.)
+    # Note: "Spent base" = Physical or Spend method
+    'Type': 'vehicle_type',           # Vehicle type: Car, Van, LGV, HGV, Motorcycle, Bus, (Fuel Only)
+    'Phyiscal': 'fuel_type',          # Fuel type (misspelled column): Petrol, Diesel, Urea, etc.
+    'Physical': 'fuel_type',          # Correct spelling variant
+    'Spent base': 'calc_type',        # Calculation method: Physical or Spend
+    'Description': 'description',
+    'Quantity/Amount': 'quantity',
+    'Unit/Currency': 'unit',
+    'Date': 'activity_date',
+    'Comments': 'comments',
+    # Legacy column names (for backwards compatibility)
     'Vehicle Type': 'vehicle_type',
     'Fuel Type': 'fuel_type',
     'Method': 'calc_type',
-    'Description': 'description',
-    'Quantity/Amount': 'quantity',
-    'Unit/Currency': 'unit',
-    'Date': 'activity_date',
 }
 
 GENERATED_TEMPLATE_COLUMN_MAP_FUGITIVE = {
-    'Refrigerant Type': 'gas_type',
+    # Template v1.0.1: Type | Method | Description | Quantity/Amount | Unit/Currency | Date | Comments
+    'Type': 'gas_type',               # Refrigerant type: R-134a, R-410A, R-32, etc.
+    'Refrigerant Type': 'gas_type',   # Legacy column name
     'Method': 'calc_type',
     'Description': 'description',
     'Quantity/Amount': 'quantity',
     'Unit/Currency': 'unit',
     'Date': 'activity_date',
+    'Comments': 'comments',
 }
 
 GENERATED_TEMPLATE_COLUMN_MAP_ELECTRICITY = {
-    'Electricity Type': 'electricity_type',
-    'Method': 'calc_type',
-    'Country/Region': 'country_code',
+    # Template v1.0.1: Type | Method | Country | Description | Supplier Name | Supplier Emission Factor | Quantity/Amount | Unit/Currency | Date | Comments
+    'Type': 'electricity_type',       # Grid Electricity (Location-based), Supplier Specific (Market-based), 100% Renewable
+    'Electricity Type': 'electricity_type',  # Legacy column name
+    'Method': 'calc_type',            # Physical or Spend
+    'Country': 'country_code',        # Country code: IL, US, UK, etc.
+    'Country/Region': 'country_code', # Legacy column name
     'Description': 'description',
+    'Supplier Name': 'supplier_name', # Electricity supplier name (IEC, Dorad, OPC, etc.)
+    'Supplier Emission Factor': 'supplier_ef',  # Custom emission factor (kg CO2e/kWh)
     'Quantity/Amount': 'quantity',
     'Unit/Currency': 'unit',
     'Date': 'activity_date',
+    'Comments': 'comments',
 }
 
 GENERATED_TEMPLATE_COLUMN_MAP_HEAT_STEAM = {
-    'Energy Type': 'energy_type',
+    # Template v1.0.1: Type | Method | Description | Supplier Name | Supplier Emission Factor | Quantity/Amount | Unit/Currency | Date | Comments
+    'Type': 'energy_type',            # District Heating, Steam
+    'Energy Type': 'energy_type',     # Legacy column name
     'Method': 'calc_type',
     'Description': 'description',
+    'Supplier Name': 'supplier_name', # Heat/steam supplier name
+    'Supplier Emission Factor': 'supplier_ef',  # Custom emission factor (kg CO2e/kWh)
     'Quantity/Amount': 'quantity',
     'Unit/Currency': 'unit',
     'Date': 'activity_date',
+    'Comments': 'comments',
 }
 
 GENERATED_TEMPLATE_COLUMN_MAP_COOLING = {
-    'Cooling Type': 'cooling_type',
+    # Template v1.0.1: Type | Method | Description | Supplier Name | Supplier Emission Factor | Quantity/Amount | Unit/Currency | Date | Comments
+    'Type': 'cooling_type',           # Chilled Water, District Cooling
+    'Cooling Type': 'cooling_type',   # Legacy column name
     'Method': 'calc_type',
     'Description': 'description',
+    'Supplier Name': 'supplier_name', # Cooling supplier name
+    'Supplier Emission Factor': 'supplier_ef',  # Custom emission factor (kg CO2e/kWh)
     'Quantity/Amount': 'quantity',
     'Unit/Currency': 'unit',
     'Date': 'activity_date',
+    'Comments': 'comments',
 }
 
 SHEET_CONFIGS = {
@@ -811,7 +920,7 @@ SHEET_CONFIGS = {
         category_code='2.3',
         header_row=3,  # Headers at row 3 in template
         column_map=GENERATED_TEMPLATE_COLUMN_MAP_COOLING,
-        activity_key_resolver=lambda row: ('district_heat_kwh', 'kWh'),  # Use heat as proxy for cooling
+        activity_key_resolver=resolve_heat_steam,  # Handles cooling, supplier EF, and spend-based
     ),
 
     'Cat1_RawMaterials': SheetConfig(

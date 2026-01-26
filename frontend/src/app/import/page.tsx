@@ -1545,9 +1545,13 @@ function ImportContent() {
                 )}
                 <Button
                   variant="primary"
-                  onClick={() => router.push('/dashboard')}
+                  onClick={() => {
+                    // Redirect to dashboard with batch filter pre-selected
+                    const batchId = result.import_batch_id;
+                    router.push(batchId ? `/dashboard?batchId=${batchId}` : '/dashboard');
+                  }}
                 >
-                  Go to Dashboard
+                  View Import Results
                 </Button>
               </div>
 
@@ -1789,9 +1793,13 @@ function ImportContent() {
                 )}
                 <Button
                   variant="primary"
-                  onClick={() => router.push('/dashboard')}
+                  onClick={() => {
+                    // Redirect to dashboard with batch filter pre-selected
+                    const batchId = unifiedResult.import_batch_id;
+                    router.push(batchId ? `/dashboard?batchId=${batchId}` : '/dashboard');
+                  }}
                 >
-                  Go to Dashboard
+                  View Import Results
                 </Button>
               </div>
             </div>

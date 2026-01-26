@@ -1750,6 +1750,7 @@ export interface UnifiedImportResult {
     error: string;
   }[];
   warnings: string[];
+  import_batch_id?: string;
 }
 
 // ============================================================================

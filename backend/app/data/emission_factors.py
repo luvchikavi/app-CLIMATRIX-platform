@@ -230,6 +230,20 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
+    {
+        "scope": 1,
+        "category_code": "1.2",
+        "subcategory": "mobile",
+        "activity_key": "urea_liters",
+        "display_name": "Urea/AdBlue/DEF (Diesel Exhaust Fluid)",
+        "co2e_factor": Decimal("1.33"),  # Production + transport emissions
+        "activity_unit": "liters",
+        "factor_unit": "kg CO2e/liter",
+        "source": "DEFRA_2024",  # Approximation based on chemical production
+        "region": "Global",
+        "year": 2024,
+        "notes": "AdBlue/DEF used for NOx reduction in diesel vehicles. EF covers production emissions.",
+    },
 
     # =========================================================================
     # SCOPE 1.3 - FUGITIVE EMISSIONS (Refrigerants)
@@ -741,6 +755,21 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
+    # Custom EF (user-provided emission factor - used when _custom_ef is set in row data)
+    {
+        "scope": 2,
+        "category_code": "2",
+        "subcategory": "electricity",
+        "activity_key": "electricity_custom",
+        "display_name": "Custom Emission Factor",
+        "co2e_factor": Decimal("1.000"),  # Placeholder - actual factor from _custom_ef
+        "activity_unit": "kWh",
+        "factor_unit": "kg CO2e/kWh",
+        "source": "User_Provided",
+        "region": "Global",
+        "year": 2024,
+        "notes": "Use _custom_ef field in row data for actual emission factor",
+    },
     # Residual Mix (EU average for market-based accounting)
     {
         "scope": 2,
@@ -784,6 +813,35 @@ EMISSION_FACTORS = [
         "source": "DEFRA_2024",
         "region": "Global",
         "year": 2024,
+    },
+    # District Cooling
+    {
+        "scope": 2,
+        "category_code": "2.3",
+        "subcategory": "cooling",
+        "activity_key": "district_cooling_kwh",
+        "display_name": "District Cooling",
+        "co2e_factor": Decimal("0.166"),  # Similar to district heat (varies by region)
+        "activity_unit": "kWh",
+        "factor_unit": "kg CO2e/kWh",
+        "source": "DEFRA_2024",
+        "region": "Global",
+        "year": 2024,
+    },
+    # Supplier-Specific Energy (placeholder - actual EF from _supplier_ef)
+    {
+        "scope": 2,
+        "category_code": "2",
+        "subcategory": "energy",
+        "activity_key": "energy_supplier",
+        "display_name": "Supplier-Specific Energy",
+        "co2e_factor": Decimal("1.000"),  # Placeholder - actual factor from _supplier_ef
+        "activity_unit": "kWh",
+        "factor_unit": "kg CO2e/kWh",
+        "source": "User_Provided",
+        "region": "Global",
+        "year": 2024,
+        "notes": "Use _supplier_ef field in row data for actual emission factor",
     },
 
     # =========================================================================

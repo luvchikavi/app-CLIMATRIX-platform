@@ -84,7 +84,8 @@ function DashboardContent() {
   const [mounted, setMounted] = useState(false);
   const [drillDownCategory, setDrillDownCategory] = useState<CategorySummary | null>(null);
   const [drillDownScope, setDrillDownScope] = useState<1 | 2 | 3 | null>(null);
-  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  // Initialize batch filter from URL parameter (for import redirect)
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(searchParams.get('batchId'));
   const [showBatchDropdown, setShowBatchDropdown] = useState(false);
 
   // All data fetching hooks (must be before any conditional returns)
@@ -249,6 +250,35 @@ function DashboardContent() {
           </Button>
         </div>
       </div>
+
+      {/* Import Results Banner - shown when coming from import with batch filter */}
+      {selectedBatchId && selectedBatch && searchParams.get('batchId') && (
+        <div className="mb-6 p-4 bg-success/10 border border-success/30 rounded-xl flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-success/20">
+              <FileSpreadsheet className="w-5 h-5 text-success" />
+            </div>
+            <div>
+              <p className="font-medium text-success">Import Results: {selectedBatch.file_name}</p>
+              <p className="text-sm text-success/80">
+                Showing {filteredActivities.length} activities from this import.
+                Export below will only include these activities.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSelectedBatchId(null);
+              router.replace('/dashboard');
+            }}
+            className="text-success border-success/50 hover:bg-success/10"
+          >
+            Show All Activities
+          </Button>
+        </div>
+      )}
 
       {/* Import Batch Filter */}
       {importBatches && importBatches.length > 0 && (

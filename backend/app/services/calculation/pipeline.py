@@ -153,6 +153,14 @@ class CalculationPipeline:
             return await self._calculate_supplier_specific(input_data)
 
         # =================================================================
+        # SPECIAL CASE: Supplier EF for electricity/energy
+        # When user provides supplier emission factor for Scope 2
+        # =================================================================
+        if (input_data.activity_key in ('electricity_supplier', 'energy_supplier') and
+            input_data.supplier_ef is not None):
+            return await self._calculate_supplier_ef(input_data)
+
+        # =================================================================
         # STANDARD FLOW: Lookup factor from database
         # =================================================================
 
@@ -280,6 +288,56 @@ class CalculationPipeline:
         result.confidence = "high"
         result.warnings.append(
             "Using supplier-provided emission factor. This is the most accurate method."
+        )
+
+        return result
+
+    async def _calculate_supplier_ef(self, input_data: ActivityInput) -> CalculationResult:
+        """
+        Calculate emissions using supplier-provided emission factor for Scope 2.
+
+        Used for market-based method when user provides the supplier's emission factor
+        (e.g., from electricity supplier's environmental report).
+
+        This enables accurate market-based reporting per GHG Protocol Scope 2 guidance.
+        """
+        if input_data.supplier_ef is None:
+            raise CalculationError(
+                "Supplier emission factor required but not provided"
+            )
+
+        # Create a "virtual" emission factor from user input
+        display_name = "Electricity Supplier" if input_data.activity_key == 'electricity_supplier' else "Energy Supplier"
+        factor = EmissionFactor(
+            scope=input_data.scope,
+            category_code=input_data.category_code,
+            activity_key=input_data.activity_key,
+            display_name=f"{display_name} (Market-Based)",
+            co2e_factor=input_data.supplier_ef,
+            activity_unit="kWh",
+            factor_unit="kg CO2e/kWh",
+            source="Supplier-Provided",
+            region="Supplier",
+            year=input_data.year,
+        )
+
+        # Normalize to kWh
+        normalized = self.normalizer.normalize(
+            quantity=input_data.quantity,
+            input_unit=input_data.unit,
+            target_unit="kWh",
+        )
+
+        # Calculate using electricity calculator
+        calculator = ElectricityCalculator()
+        result = calculator.calculate(normalized, factor, wtt_factor=None)
+
+        # Mark as market-based with high confidence
+        result.resolution_strategy = "market_based_supplier"
+        result.confidence = "high"
+        result.warnings.append(
+            f"Using supplier-provided emission factor ({input_data.supplier_ef} kg CO2e/kWh). "
+            "This is the market-based method per GHG Protocol Scope 2 Guidance."
         )
 
         return result

@@ -814,9 +814,9 @@ async def get_import_template(
         filename = "climatrix_scope3_template.xlsx"
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     elif scope == "1-2":
-        # Scope 1 & 2 Excel template
-        file_path = os.path.join(base_path, "climatrix_files", "climatrix_import_template_scope1and2_v3.xlsx")
-        filename = "climatrix_scope1and2_template.xlsx"
+        # Scope 1 & 2 Excel template (v1.0.1 - with Supplier EF support)
+        file_path = os.path.join(base_path, "climatrix_files", "climatrix_import_template_scope1and2_v1.0.1.xlsx")
+        filename = "climatrix_scope1and2_template_v1.0.1.xlsx"
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     else:
         # Simple CSV template
@@ -1646,6 +1646,13 @@ async def import_template(
             continue
 
         try:
+            # Extract supplier EF if provided (for market-based Scope 2)
+            supplier_ef = None
+            if activity_data.raw_data:
+                supplier_ef_val = activity_data.raw_data.get('_supplier_ef')
+                if supplier_ef_val is not None:
+                    supplier_ef = Decimal(str(supplier_ef_val))
+
             # Calculate emissions
             calc_result = await pipeline.calculate(ActivityInput(
                 activity_key=activity_data.activity_key,
@@ -1655,6 +1662,7 @@ async def import_template(
                 category_code=activity_data.category_code,
                 region=org_region,
                 year=year or datetime.now().year,
+                supplier_ef=supplier_ef,
             ))
 
             # Parse activity date
@@ -1813,6 +1821,7 @@ class UnifiedImportResultResponse(BaseModel):
     by_category: dict[str, int]
     errors: list[dict] = []
     warnings: list[str] = []
+    import_batch_id: str | None = None
 
 
 @router.post("/unified/preview", response_model=UnifiedImportPreviewResponse)
@@ -1922,6 +1931,21 @@ async def unified_import_activities(
     org = await session.get(Organization, current_user.organization_id)
     region = org.default_region if org else "Global"
 
+    # Create ImportBatch to track this import
+    file_type = 'xlsx' if filename.lower().endswith(('.xlsx', '.xls')) else 'csv'
+    import_batch = ImportBatch(
+        organization_id=current_user.organization_id,
+        reporting_period_id=period_id,
+        file_name=filename,
+        file_type=file_type,
+        file_size_bytes=len(content),
+        total_rows=len(activities),
+        status=ImportBatchStatus.PROCESSING,
+        uploaded_by=current_user.id,
+    )
+    session.add(import_batch)
+    await session.flush()  # Get the batch ID
+
     # Create calculation pipeline
     pipeline = CalculationPipeline(session)
 
@@ -1960,6 +1984,7 @@ async def unified_import_activities(
                 organization_id=current_user.organization_id,
                 reporting_period_id=period_id,
                 site_id=site_id,
+                import_batch_id=import_batch.id,  # Link to batch for filtering
                 scope=activity_data.scope,
                 category_code=activity_data.category_code,
                 activity_key=activity_data.activity_key,
@@ -2015,6 +2040,13 @@ async def unified_import_activities(
                 "error": f"Unexpected error: {str(e)}",
             })
 
+    # Update batch status
+    import_batch.status = ImportBatchStatus.COMPLETED if failed == 0 else ImportBatchStatus.PARTIAL
+    import_batch.successful_rows = imported
+    import_batch.failed_rows = failed
+    import_batch.skipped_rows = skipped_examples
+    import_batch.completed_at = datetime.utcnow()
+
     await session.commit()
 
     return UnifiedImportResultResponse(
@@ -2027,4 +2059,5 @@ async def unified_import_activities(
         by_category=by_category,
         errors=errors[:50],
         warnings=warnings[:50],
+        import_batch_id=str(import_batch.id),
     )
