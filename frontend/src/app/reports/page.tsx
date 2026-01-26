@@ -2,9 +2,10 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
-import { usePeriods, useReportSummary, useReportByScope, useActivities, useSites } from '@/hooks/useEmissions';
+import { usePeriods, useReportSummary, useActivities, useSites } from '@/hooks/useEmissions';
 import { AppShell } from '@/components/layout';
 import {
   Button,
@@ -22,13 +23,30 @@ import {
   EmptyState,
   ScopeBadge,
   Badge,
-  KPICard,
+  PeriodStatusBadge,
 } from '@/components/ui';
 import { ScopePieChart } from '@/components/dashboard/ScopePieChart';
 import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
-import { cn, formatCO2e, categoryNames } from '@/lib/utils';
 import {
-  Download,
+  GHGInventoryReport,
+  DataQualityReport,
+  AuditPackageView,
+  ExportOptions,
+  VerificationWorkflow,
+} from '@/components/reports';
+import { api } from '@/lib/api';
+import { cn, formatCO2e, categoryNames, downloadFile } from '@/lib/utils';
+import type {
+  GHGInventoryReport as GHGInventoryReportType,
+  DataQualitySummary,
+  AuditPackage,
+  CDPExport,
+  ESRSE1Export,
+  PeriodStatus,
+  AssuranceLevel,
+  StatusHistory,
+} from '@/lib/api';
+import {
   FileText,
   PieChart,
   BarChart3,
@@ -37,17 +55,20 @@ import {
   Calendar,
   Building2,
   Leaf,
-  TrendingUp,
   FileSpreadsheet,
   File,
-  Printer,
+  ClipboardList,
+  Shield,
+  Download,
+  CheckSquare,
 } from 'lucide-react';
 
-type ReportTab = 'summary' | 'by-scope' | 'by-category' | 'by-site';
+type ReportTab = 'summary' | 'by-scope' | 'by-category' | 'by-site' | 'inventory' | 'data-quality' | 'audit' | 'export' | 'verification';
 
 function ReportsPageContent() {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuthStore();
   const { selectedPeriodId, setSelectedPeriodId } = usePeriodStore();
 
   // All useState hooks
@@ -57,10 +78,74 @@ function ReportsPageContent() {
   // All data fetching hooks (must be before any conditional returns)
   const { data: periods, isLoading: periodsLoading } = usePeriods();
   const activePeriodId = selectedPeriodId || periods?.[0]?.id || '';
+  const activePeriod = periods?.find(p => p.id === activePeriodId);
 
   const { data: summary, isLoading: summaryLoading } = useReportSummary(activePeriodId);
   const { data: activities, isLoading: activitiesLoading } = useActivities(activePeriodId);
   const { data: sites } = useSites();
+
+  // Phase 1 specific queries - only fetch when on relevant tabs
+  const { data: ghgInventory, isLoading: inventoryLoading } = useQuery({
+    queryKey: ['ghg-inventory', activePeriodId],
+    queryFn: () => api.getGHGInventoryReport(activePeriodId),
+    enabled: !!activePeriodId && activeTab === 'inventory',
+  });
+
+  const { data: dataQuality, isLoading: qualityLoading } = useQuery({
+    queryKey: ['data-quality', activePeriodId],
+    queryFn: () => api.getDataQualitySummary(activePeriodId),
+    enabled: !!activePeriodId && activeTab === 'data-quality',
+  });
+
+  const { data: auditPackage, isLoading: auditLoading } = useQuery({
+    queryKey: ['audit-package', activePeriodId],
+    queryFn: () => api.getAuditPackage(activePeriodId),
+    enabled: !!activePeriodId && activeTab === 'audit',
+  });
+
+  const { data: cdpExport, isLoading: cdpLoading } = useQuery({
+    queryKey: ['cdp-export', activePeriodId],
+    queryFn: () => api.exportCDP(activePeriodId),
+    enabled: !!activePeriodId && activeTab === 'export',
+  });
+
+  const { data: esrsExport, isLoading: esrsLoading } = useQuery({
+    queryKey: ['esrs-export', activePeriodId],
+    queryFn: () => api.exportESRSE1(activePeriodId),
+    enabled: !!activePeriodId && activeTab === 'export',
+  });
+
+  const { data: statusHistory } = useQuery({
+    queryKey: ['status-history', activePeriodId],
+    queryFn: () => api.getPeriodStatusHistory(activePeriodId),
+    enabled: !!activePeriodId && activeTab === 'verification',
+  });
+
+  // Mutations for verification workflow
+  const transitionMutation = useMutation({
+    mutationFn: (newStatus: PeriodStatus) => api.transitionPeriodStatus(activePeriodId, newStatus),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['periods'] });
+      queryClient.invalidateQueries({ queryKey: ['status-history', activePeriodId] });
+    },
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: (data: { assurance_level: AssuranceLevel; verified_by: string; verification_statement: string }) =>
+      api.verifyPeriod(activePeriodId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['periods'] });
+      queryClient.invalidateQueries({ queryKey: ['status-history', activePeriodId] });
+    },
+  });
+
+  const lockMutation = useMutation({
+    mutationFn: () => api.lockPeriod(activePeriodId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['periods'] });
+      queryClient.invalidateQueries({ queryKey: ['status-history', activePeriodId] });
+    },
+  });
 
   // All useEffect hooks
   useEffect(() => {
@@ -101,13 +186,31 @@ function ReportsPageContent() {
   }, {} as Record<string, typeof activities>);
 
   const handleExportCSV = () => {
-    // In production, this would call the backend export endpoint
     alert('Export to CSV coming soon');
   };
 
   const handleExportPDF = () => {
-    // In production, this would call the backend PDF generation endpoint
     alert('Export to PDF coming soon');
+  };
+
+  const handleExportCDP = async () => {
+    if (cdpExport) {
+      downloadFile(
+        JSON.stringify(cdpExport, null, 2),
+        `cdp-export-${activePeriod?.name?.replace(/\s+/g, '-') || 'report'}.json`,
+        'application/json'
+      );
+    }
+  };
+
+  const handleExportESRS = async () => {
+    if (esrsExport) {
+      downloadFile(
+        JSON.stringify(esrsExport, null, 2),
+        `esrs-e1-export-${activePeriod?.name?.replace(/\s+/g, '-') || 'report'}.json`,
+        'application/json'
+      );
+    }
   };
 
   const tabs: { id: ReportTab; label: string; icon: React.ElementType }[] = [
@@ -115,6 +218,11 @@ function ReportsPageContent() {
     { id: 'by-scope', label: 'By Scope', icon: BarChart3 },
     { id: 'by-category', label: 'By Category', icon: List },
     { id: 'by-site', label: 'By Site', icon: Building2 },
+    { id: 'inventory', label: 'GHG Inventory', icon: FileText },
+    { id: 'data-quality', label: 'Data Quality', icon: CheckSquare },
+    { id: 'audit', label: 'Audit Package', icon: ClipboardList },
+    { id: 'export', label: 'Export', icon: Download },
+    { id: 'verification', label: 'Verification', icon: Shield },
   ];
 
   return (
@@ -122,7 +230,10 @@ function ReportsPageContent() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Reports</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-foreground">Reports</h1>
+            {activePeriod && <PeriodStatusBadge status={activePeriod.status} />}
+          </div>
           <p className="text-foreground-muted mt-1">
             View and export your emission reports
           </p>
@@ -162,7 +273,7 @@ function ReportsPageContent() {
       )}
 
       {/* No Data State */}
-      {!isLoading && (!summary || !activities || activities.length === 0) && (
+      {!isLoading && (!summary || !activities || activities.length === 0) && activeTab !== 'verification' && (
         <Card padding="lg">
           <EmptyState
             icon={<FileText className="w-12 h-12" />}
@@ -177,10 +288,10 @@ function ReportsPageContent() {
       )}
 
       {/* Report Content */}
-      {!isLoading && summary && activities && activities.length > 0 && (
+      {(!isLoading && summary && activities && activities.length > 0) || activeTab === 'verification' ? (
         <div className="space-y-6 animate-fade-in">
           {/* Tab Navigation */}
-          <div className="flex items-center gap-2 border-b border-border pb-4">
+          <div className="flex items-center gap-2 border-b border-border pb-4 overflow-x-auto">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -188,7 +299,7 @@ function ReportsPageContent() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    'flex items-center gap-2 px-4 py-2 rounded-lg transition-colors',
+                    'flex items-center gap-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap',
                     activeTab === tab.id
                       ? 'bg-primary text-white'
                       : 'text-foreground-muted hover:bg-background-muted'
@@ -202,7 +313,7 @@ function ReportsPageContent() {
           </div>
 
           {/* Summary Tab */}
-          {activeTab === 'summary' && (
+          {activeTab === 'summary' && summary && (
             <div className="space-y-6">
               {/* KPI Cards */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -280,7 +391,7 @@ function ReportsPageContent() {
                   </div>
                   <div className="flex items-center gap-2">
                     <List className="w-4 h-4" />
-                    <span>{activities.length} activities</span>
+                    <span>{activities?.length || 0} activities</span>
                   </div>
                 </div>
               </Card>
@@ -353,7 +464,7 @@ function ReportsPageContent() {
           )}
 
           {/* By Category Tab */}
-          {activeTab === 'by-category' && (
+          {activeTab === 'by-category' && summary && (
             <Card>
               <CardHeader>
                 <CardTitle>Emissions by GHG Category</CardTitle>
@@ -469,8 +580,98 @@ function ReportsPageContent() {
               })}
             </div>
           )}
+
+          {/* GHG Inventory Tab */}
+          {activeTab === 'inventory' && (
+            inventoryLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <span className="ml-3 text-foreground-muted">Loading GHG inventory report...</span>
+              </div>
+            ) : ghgInventory ? (
+              <GHGInventoryReport report={ghgInventory} />
+            ) : (
+              <Card padding="lg">
+                <EmptyState
+                  icon={<FileText className="w-12 h-12" />}
+                  title="Unable to generate report"
+                  description="There was an issue generating the GHG inventory report. Please try again."
+                />
+              </Card>
+            )
+          )}
+
+          {/* Data Quality Tab */}
+          {activeTab === 'data-quality' && (
+            qualityLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <span className="ml-3 text-foreground-muted">Loading data quality report...</span>
+              </div>
+            ) : dataQuality ? (
+              <DataQualityReport report={dataQuality} />
+            ) : (
+              <Card padding="lg">
+                <EmptyState
+                  icon={<CheckSquare className="w-12 h-12" />}
+                  title="Unable to generate report"
+                  description="There was an issue generating the data quality report. Please try again."
+                />
+              </Card>
+            )
+          )}
+
+          {/* Audit Package Tab */}
+          {activeTab === 'audit' && (
+            auditLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <span className="ml-3 text-foreground-muted">Loading audit package...</span>
+              </div>
+            ) : auditPackage ? (
+              <AuditPackageView auditPackage={auditPackage} />
+            ) : (
+              <Card padding="lg">
+                <EmptyState
+                  icon={<ClipboardList className="w-12 h-12" />}
+                  title="Unable to generate audit package"
+                  description="There was an issue generating the audit package. Please try again."
+                />
+              </Card>
+            )
+          )}
+
+          {/* Export Tab */}
+          {activeTab === 'export' && (
+            <ExportOptions
+              cdpData={cdpExport}
+              esrsData={esrsExport}
+              cdpLoading={cdpLoading}
+              esrsLoading={esrsLoading}
+              onExportCDP={handleExportCDP}
+              onExportESRS={handleExportESRS}
+            />
+          )}
+
+          {/* Verification Tab */}
+          {activeTab === 'verification' && activePeriod && (
+            <VerificationWorkflow
+              period={activePeriod}
+              statusHistory={statusHistory}
+              userRole={user?.role as 'admin' | 'editor' | 'viewer' | undefined}
+              onTransition={async (newStatus) => {
+                await transitionMutation.mutateAsync(newStatus);
+              }}
+              onVerify={async (data) => {
+                await verifyMutation.mutateAsync(data);
+              }}
+              onLock={async () => {
+                await lockMutation.mutateAsync();
+              }}
+            />
+          )}
         </div>
-      )}
+      ) : null}
     </AppShell>
   );
 }

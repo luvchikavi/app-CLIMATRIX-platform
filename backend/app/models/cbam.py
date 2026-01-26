@@ -86,7 +86,7 @@ class CBAMProduct(SQLModel, table=True):
     indirect_emissions_required: bool = Field(default=False)  # Only cement/fertiliser
 
     # Default emission value (tCO2e per tonne)
-    default_see: Optional[Decimal] = Field(default=None, decimal_places=6)
+    default_see: Optional[Decimal] = Field(default=None)
     default_see_source: Optional[str] = Field(default=None, max_length=200)
 
     # Precursor products (for complex goods)
@@ -123,8 +123,8 @@ class CBAMInstallation(SQLModel, table=True):
     country_code: str = Field(max_length=2, index=True)  # ISO 3166-1 alpha-2
     region: Optional[str] = Field(default=None, max_length=100)
     address: str = Field(max_length=500)
-    coordinates_lat: Optional[Decimal] = Field(default=None, decimal_places=6)
-    coordinates_lng: Optional[Decimal] = Field(default=None, decimal_places=6)
+    coordinates_lat: Optional[Decimal] = Field(default=None)
+    coordinates_lng: Optional[Decimal] = Field(default=None)
 
     # Operator information
     operator_name: str = Field(max_length=255)
@@ -190,16 +190,16 @@ class CBAMImport(SQLModel, table=True):
     origin_country: str = Field(max_length=2, index=True)  # ISO country code
 
     # Quantities
-    net_mass_kg: Decimal = Field(decimal_places=2)
-    net_mass_tonnes: Decimal = Field(decimal_places=4)  # Calculated: kg / 1000
+    net_mass_kg: Decimal = Field()
+    net_mass_tonnes: Decimal = Field()  # Calculated: kg / 1000
     supplementary_unit: Optional[str] = Field(default=None, max_length=20)  # MWh, m3, etc.
     supplementary_quantity: Optional[Decimal] = Field(default=None)
 
     # Embedded emissions
-    direct_emissions_tco2e: Decimal = Field(decimal_places=6)
-    indirect_emissions_tco2e: Optional[Decimal] = Field(default=None, decimal_places=6)
-    total_embedded_emissions_tco2e: Decimal = Field(decimal_places=6)
-    specific_embedded_emissions: Decimal = Field(decimal_places=6)  # tCO2e per tonne
+    direct_emissions_tco2e: Decimal = Field()
+    indirect_emissions_tco2e: Optional[Decimal] = Field(default=None)
+    total_embedded_emissions_tco2e: Decimal = Field()
+    specific_embedded_emissions: Decimal = Field()  # tCO2e per tonne
 
     # Calculation details
     calculation_method: CBAMCalculationMethod = Field(default=CBAMCalculationMethod.DEFAULT_VALUE)
@@ -208,17 +208,17 @@ class CBAMImport(SQLModel, table=True):
     indirect_ef_used: Optional[Decimal] = Field(default=None)
 
     # Precursor emissions (for complex goods)
-    precursor_emissions_tco2e: Optional[Decimal] = Field(default=None, decimal_places=6)
+    precursor_emissions_tco2e: Optional[Decimal] = Field(default=None)
     precursor_details: Optional[dict] = Field(default=None, sa_column=Column(JSON))
 
     # Carbon price deduction
-    carbon_price_paid_eur: Optional[Decimal] = Field(default=None, decimal_places=2)
+    carbon_price_paid_eur: Optional[Decimal] = Field(default=None)
     carbon_price_country: Optional[str] = Field(default=None, max_length=2)
     carbon_price_mechanism: Optional[str] = Field(default=None, max_length=200)
-    carbon_price_deduction_tco2e: Optional[Decimal] = Field(default=None, decimal_places=6)
+    carbon_price_deduction_tco2e: Optional[Decimal] = Field(default=None)
 
     # Net emissions (after deduction)
-    net_emissions_tco2e: Decimal = Field(decimal_places=6)
+    net_emissions_tco2e: Decimal = Field()
 
     # Source and quality
     data_source: str = Field(default="estimate", max_length=50)  # supplier, estimate, default
@@ -260,16 +260,16 @@ class CBAMQuarterlyReport(SQLModel, table=True):
 
     # Aggregated totals
     total_imports_count: int = Field(default=0)
-    total_mass_tonnes: Decimal = Field(default=Decimal(0), decimal_places=2)
+    total_mass_tonnes: Decimal = Field(default=Decimal(0))
 
     # Emissions by type
-    total_direct_emissions_tco2e: Decimal = Field(default=Decimal(0), decimal_places=2)
-    total_indirect_emissions_tco2e: Decimal = Field(default=Decimal(0), decimal_places=2)
-    total_embedded_emissions_tco2e: Decimal = Field(default=Decimal(0), decimal_places=2)
+    total_direct_emissions_tco2e: Decimal = Field(default=Decimal(0))
+    total_indirect_emissions_tco2e: Decimal = Field(default=Decimal(0))
+    total_embedded_emissions_tco2e: Decimal = Field(default=Decimal(0))
 
     # Carbon price deductions
-    total_carbon_price_deductions_tco2e: Decimal = Field(default=Decimal(0), decimal_places=2)
-    total_net_emissions_tco2e: Decimal = Field(default=Decimal(0), decimal_places=2)
+    total_carbon_price_deductions_tco2e: Decimal = Field(default=Decimal(0))
+    total_net_emissions_tco2e: Decimal = Field(default=Decimal(0))
 
     # Breakdown by sector (JSON)
     by_sector: Optional[dict] = Field(default=None, sa_column=Column(JSON))
@@ -317,15 +317,15 @@ class CBAMAnnualDeclaration(SQLModel, table=True):
 
     # Aggregated emissions
     total_imports_count: int = Field(default=0)
-    total_mass_tonnes: Decimal = Field(default=Decimal(0), decimal_places=2)
-    total_embedded_emissions_tco2e: Decimal = Field(default=Decimal(0), decimal_places=2)
+    total_mass_tonnes: Decimal = Field(default=Decimal(0))
+    total_embedded_emissions_tco2e: Decimal = Field(default=Decimal(0))
 
     # Carbon price deductions
-    carbon_price_deductions_tco2e: Decimal = Field(default=Decimal(0), decimal_places=2)
-    carbon_price_deductions_eur: Decimal = Field(default=Decimal(0), decimal_places=2)
+    carbon_price_deductions_tco2e: Decimal = Field(default=Decimal(0))
+    carbon_price_deductions_eur: Decimal = Field(default=Decimal(0))
 
     # Net emissions requiring certificates
-    net_emissions_tco2e: Decimal = Field(decimal_places=2)
+    net_emissions_tco2e: Decimal = Field()
 
     # Certificate calculations
     certificates_required: int = Field(default=0)  # 1 certificate = 1 tCO2e
@@ -334,9 +334,9 @@ class CBAMAnnualDeclaration(SQLModel, table=True):
     certificates_balance: int = Field(default=0)  # Surplus/deficit
 
     # Financial
-    average_certificate_price_eur: Optional[Decimal] = Field(default=None, decimal_places=2)
-    total_certificate_cost_eur: Decimal = Field(default=Decimal(0), decimal_places=2)
-    total_liability_eur: Decimal = Field(default=Decimal(0), decimal_places=2)
+    average_certificate_price_eur: Optional[Decimal] = Field(default=None)
+    total_certificate_cost_eur: Decimal = Field(default=Decimal(0))
+    total_liability_eur: Decimal = Field(default=Decimal(0))
 
     # Breakdown by sector
     by_sector: Optional[dict] = Field(default=None, sa_column=Column(JSON))
@@ -376,9 +376,9 @@ class CBAMDefaultValue(SQLModel, table=True):
     product_description: str = Field(max_length=500)
 
     # Default specific embedded emissions (tCO2e per tonne)
-    direct_see: Decimal = Field(decimal_places=6)
-    indirect_see: Optional[Decimal] = Field(default=None, decimal_places=6)
-    total_see: Decimal = Field(decimal_places=6)
+    direct_see: Decimal = Field()
+    indirect_see: Optional[Decimal] = Field(default=None)
+    total_see: Decimal = Field()
 
     # Source and validity
     source: str = Field(max_length=200)  # "EU Commission Implementing Regulation..."
@@ -410,7 +410,7 @@ class CBAMGridFactor(SQLModel, table=True):
     country_name: str = Field(max_length=100)
 
     # Emission factor (tCO2e per MWh)
-    grid_factor: Decimal = Field(decimal_places=6)
+    grid_factor: Decimal = Field()
 
     # Source and validity
     source: str = Field(max_length=200)
@@ -443,7 +443,7 @@ class EUETSPrice(SQLModel, table=True):
     year: int
 
     # Price (EUR per tCO2e)
-    price_eur: Decimal = Field(decimal_places=2)
+    price_eur: Decimal = Field()
 
     # Source
     source: str = Field(default="EU Commission", max_length=100)
