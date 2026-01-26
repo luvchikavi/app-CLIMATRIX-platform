@@ -197,39 +197,47 @@ class EmissionCalculationRequest(BaseModel):
 
 def installation_to_response(inst: CBAMInstallation) -> CBAMInstallationResponse:
     """Convert installation model to response."""
+    # Model uses single sector, API expects list
+    sectors = [inst.sector.value] if inst.sector else []
     return CBAMInstallationResponse(
         id=str(inst.id),
         organization_id=str(inst.organization_id),
         name=inst.name,
         country_code=inst.country_code,
         address=inst.address,
-        contact_name=inst.contact_name,
-        contact_email=inst.contact_email,
-        sectors=inst.sectors or [],
+        contact_name=inst.operator_contact_name,
+        contact_email=inst.operator_contact_email,
+        sectors=sectors,
         verification_status=inst.verification_status.value if inst.verification_status else "pending",
         created_at=inst.created_at,
-        updated_at=inst.updated_at,
+        updated_at=inst.updated_at or inst.created_at,
     )
 
 
 def import_to_response(imp: CBAMImport) -> CBAMImportResponse:
     """Convert import model to response."""
+    # Calculate Specific Embedded Emissions (SEE) from model data
+    mass = imp.net_mass_tonnes or Decimal("1")  # Avoid division by zero
+    direct_emissions = imp.direct_emissions_tco2e or Decimal("0")
+    indirect_emissions = imp.indirect_emissions_tco2e or Decimal("0")
+    total_emissions = imp.total_embedded_emissions_tco2e or Decimal("0")
+
     return CBAMImportResponse(
         id=str(imp.id),
         organization_id=str(imp.organization_id),
-        installation_id=str(imp.installation_id),
+        installation_id=str(imp.installation_id) if imp.installation_id else "",
         cn_code=imp.cn_code,
         sector=imp.sector.value if imp.sector else "unknown",
         product_description=imp.product_description,
         import_date=imp.import_date,
         mass_tonnes=imp.net_mass_tonnes,
         calculation_method=imp.calculation_method.value if imp.calculation_method else "default",
-        direct_see=imp.direct_see or Decimal("0"),
-        indirect_see=imp.indirect_see or Decimal("0"),
-        total_see=imp.total_see or Decimal("0"),
-        direct_emissions_tco2e=imp.direct_emissions_tco2e or Decimal("0"),
-        indirect_emissions_tco2e=imp.indirect_emissions_tco2e or Decimal("0"),
-        total_emissions_tco2e=imp.total_embedded_emissions_tco2e or Decimal("0"),
+        direct_see=direct_emissions / mass if mass > 0 else Decimal("0"),
+        indirect_see=indirect_emissions / mass if mass > 0 else Decimal("0"),
+        total_see=imp.specific_embedded_emissions or (total_emissions / mass if mass > 0 else Decimal("0")),
+        direct_emissions_tco2e=direct_emissions,
+        indirect_emissions_tco2e=indirect_emissions,
+        total_emissions_tco2e=total_emissions,
         foreign_carbon_price_eur=imp.foreign_carbon_price_eur,
         created_at=imp.created_at,
     )
@@ -274,15 +282,20 @@ async def create_installation(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """Create a new CBAM installation (non-EU production facility)."""
+    # Map request fields to model fields
+    # API uses sectors list, model uses single sector enum
+    sector = CBAMSector(data.sectors[0].lower()) if data.sectors else CBAMSector.CEMENT
+
     installation = CBAMInstallation(
         id=uuid4(),
         organization_id=current_user.organization_id,
         name=data.name,
         country_code=data.country_code.upper(),
-        address=data.address,
-        contact_name=data.contact_name,
-        contact_email=data.contact_email,
-        sectors=data.sectors,
+        address=data.address or "Not specified",
+        operator_name=data.name,  # Use installation name as operator name
+        operator_contact_name=data.contact_name,
+        operator_contact_email=data.contact_email,
+        sector=sector,
         verification_status=CBAMInstallationStatus(data.verification_status),
     )
 
@@ -336,16 +349,17 @@ async def update_installation(
     # Update fields
     if data.name is not None:
         installation.name = data.name
+        installation.operator_name = data.name  # Keep in sync
     if data.country_code is not None:
         installation.country_code = data.country_code.upper()
     if data.address is not None:
         installation.address = data.address
     if data.contact_name is not None:
-        installation.contact_name = data.contact_name
+        installation.operator_contact_name = data.contact_name
     if data.contact_email is not None:
-        installation.contact_email = data.contact_email
-    if data.sectors is not None:
-        installation.sectors = data.sectors
+        installation.operator_contact_email = data.contact_email
+    if data.sectors is not None and len(data.sectors) > 0:
+        installation.sector = CBAMSector(data.sectors[0].lower())
     if data.verification_status is not None:
         installation.verification_status = CBAMInstallationStatus(data.verification_status)
 
@@ -468,26 +482,32 @@ async def create_import(
     sector = CBAMSector(sector_str) if sector_str else CBAMSector.OTHER
 
     # Create import record
+    mass_tonnes = data.mass_tonnes
+    mass_kg = mass_tonnes * 1000
+    direct_emissions = calculation["direct_emissions_tco2e"]
+    indirect_emissions = calculation.get("indirect_emissions_tco2e", Decimal("0"))
+    total_emissions = calculation["total_emissions_tco2e"]
+    specific_emissions = total_emissions / mass_tonnes if mass_tonnes > 0 else Decimal("0")
+
     cbam_import = CBAMImport(
         id=uuid4(),
         organization_id=current_user.organization_id,
         installation_id=installation.id,
         cn_code=data.cn_code,
         sector=sector,
-        product_description=data.product_description,
+        product_description=data.product_description or f"Product {data.cn_code}",
         import_date=data.import_date,
-        mass_tonnes=data.mass_tonnes,
-        calculation_method=CBAMCalculationMethod.ACTUAL if data.actual_direct_see else CBAMCalculationMethod.DEFAULT,
-        direct_see=calculation["direct_see"],
-        indirect_see=calculation["indirect_see"],
-        total_see=calculation["total_see"],
-        direct_emissions_tco2e=calculation["direct_emissions_tco2e"],
-        indirect_emissions_tco2e=calculation["indirect_emissions_tco2e"],
-        total_emissions_tco2e=calculation["total_emissions_tco2e"],
+        origin_country=installation.country_code,
+        net_mass_kg=mass_kg,
+        net_mass_tonnes=mass_tonnes,
+        calculation_method=CBAMCalculationMethod.ACTUAL if data.actual_direct_see else CBAMCalculationMethod.DEFAULT_VALUE,
+        direct_emissions_tco2e=direct_emissions,
+        indirect_emissions_tco2e=indirect_emissions,
+        total_embedded_emissions_tco2e=total_emissions,
+        specific_embedded_emissions=specific_emissions,
+        net_emissions_tco2e=total_emissions,  # No deductions applied yet
         customs_procedure=data.customs_procedure,
-        customs_declaration_number=data.customs_declaration_number,
         foreign_carbon_price_eur=data.foreign_carbon_price_eur,
-        foreign_carbon_price_currency=data.foreign_carbon_price_currency,
     )
 
     session.add(cbam_import)
@@ -631,10 +651,10 @@ async def list_quarterly_reports(
     )
 
     if year:
-        query = query.where(CBAMQuarterlyReport.year == year)
+        query = query.where(CBAMQuarterlyReport.reporting_year == year)
 
     result = await session.execute(
-        query.order_by(CBAMQuarterlyReport.year.desc(), CBAMQuarterlyReport.quarter.desc())
+        query.order_by(CBAMQuarterlyReport.reporting_year.desc(), CBAMQuarterlyReport.reporting_quarter.desc())
     )
     reports = result.scalars().all()
 
@@ -642,14 +662,14 @@ async def list_quarterly_reports(
         CBAMQuarterlyReportResponse(
             id=str(r.id),
             organization_id=str(r.organization_id),
-            year=r.year,
-            quarter=r.quarter,
+            year=r.reporting_year,
+            quarter=r.reporting_quarter,
             status=r.status.value if r.status else "draft",
-            total_imports=r.total_imports or 0,
+            total_imports=r.total_imports_count or 0,
             total_mass_tonnes=r.total_mass_tonnes or Decimal("0"),
-            total_emissions_tco2e=r.total_emissions_tco2e or Decimal("0"),
+            total_emissions_tco2e=r.total_embedded_emissions_tco2e or Decimal("0"),
             by_sector=r.by_sector or {},
-            by_cn_code=r.by_cn_code or {},
+            by_cn_code={},
             submitted_at=r.submitted_at,
             created_at=r.created_at,
         )
@@ -676,8 +696,8 @@ async def generate_quarterly_report(
     result = await session.execute(
         select(CBAMQuarterlyReport).where(
             CBAMQuarterlyReport.organization_id == current_user.organization_id,
-            CBAMQuarterlyReport.year == year,
-            CBAMQuarterlyReport.quarter == quarter,
+            CBAMQuarterlyReport.reporting_year == year,
+            CBAMQuarterlyReport.reporting_quarter == quarter,
         )
     )
     existing_report = result.scalar_one_or_none()
@@ -721,13 +741,24 @@ async def generate_quarterly_report(
     # Aggregate the report
     aggregated = aggregate_quarterly_report(import_data, quarter, year)
 
+    # Calculate report period dates
+    from calendar import monthrange
+    period_start = date(year, month_start, 1)
+    last_month_day = monthrange(year, month_end)[1]
+    period_end = date(year, month_end, last_month_day)
+    # Submission deadline is end of month following quarter
+    deadline_month = month_end + 1
+    deadline_year = year if deadline_month <= 12 else year + 1
+    deadline_month = deadline_month if deadline_month <= 12 else 1
+    deadline_day = monthrange(deadline_year, deadline_month)[1]
+    submission_deadline = date(deadline_year, deadline_month, deadline_day)
+
     if existing_report:
         # Update existing report
-        existing_report.total_imports = len(imports)
+        existing_report.total_imports_count = len(imports)
         existing_report.total_mass_tonnes = aggregated["totals"]["mass_tonnes"]
-        existing_report.total_emissions_tco2e = aggregated["totals"]["total_emissions_tco2e"]
+        existing_report.total_embedded_emissions_tco2e = aggregated["totals"]["total_emissions_tco2e"]
         existing_report.by_sector = aggregated["by_sector"]
-        existing_report.by_cn_code = aggregated["by_cn_code"]
         existing_report.updated_at = datetime.utcnow()
         report = existing_report
     else:
@@ -735,14 +766,16 @@ async def generate_quarterly_report(
         report = CBAMQuarterlyReport(
             id=uuid4(),
             organization_id=current_user.organization_id,
-            year=year,
-            quarter=quarter,
+            reporting_year=year,
+            reporting_quarter=quarter,
+            period_start=period_start,
+            period_end=period_end,
+            submission_deadline=submission_deadline,
             status=CBAMReportStatus.DRAFT,
-            total_imports=len(imports),
+            total_imports_count=len(imports),
             total_mass_tonnes=aggregated["totals"]["mass_tonnes"],
-            total_emissions_tco2e=aggregated["totals"]["total_emissions_tco2e"],
+            total_embedded_emissions_tco2e=aggregated["totals"]["total_emissions_tco2e"],
             by_sector=aggregated["by_sector"],
-            by_cn_code=aggregated["by_cn_code"],
         )
         session.add(report)
 
@@ -752,14 +785,14 @@ async def generate_quarterly_report(
     return CBAMQuarterlyReportResponse(
         id=str(report.id),
         organization_id=str(report.organization_id),
-        year=report.year,
-        quarter=report.quarter,
+        year=report.reporting_year,
+        quarter=report.reporting_quarter,
         status=report.status.value if report.status else "draft",
-        total_imports=report.total_imports or 0,
+        total_imports=report.total_imports_count or 0,
         total_mass_tonnes=report.total_mass_tonnes or Decimal("0"),
-        total_emissions_tco2e=report.total_emissions_tco2e or Decimal("0"),
+        total_emissions_tco2e=report.total_embedded_emissions_tco2e or Decimal("0"),
         by_sector=report.by_sector or {},
-        by_cn_code=report.by_cn_code or {},
+        by_cn_code={},  # Not stored in model
         submitted_at=report.submitted_at,
         created_at=report.created_at,
     )
@@ -776,8 +809,8 @@ async def submit_quarterly_report(
     result = await session.execute(
         select(CBAMQuarterlyReport).where(
             CBAMQuarterlyReport.organization_id == current_user.organization_id,
-            CBAMQuarterlyReport.year == year,
-            CBAMQuarterlyReport.quarter == quarter,
+            CBAMQuarterlyReport.reporting_year == year,
+            CBAMQuarterlyReport.reporting_quarter == quarter,
         )
     )
     report = result.scalar_one_or_none()
@@ -790,7 +823,7 @@ async def submit_quarterly_report(
 
     report.status = CBAMReportStatus.SUBMITTED
     report.submitted_at = datetime.utcnow()
-    report.submitted_by_id = current_user.id
+    report.submitted_by = current_user.id
     report.updated_at = datetime.utcnow()
 
     await session.commit()
@@ -1027,14 +1060,14 @@ async def get_cbam_dashboard(
     report_result = await session.execute(
         select(CBAMQuarterlyReport).where(
             CBAMQuarterlyReport.organization_id == org_id,
-            CBAMQuarterlyReport.year == current_year,
-        ).order_by(CBAMQuarterlyReport.quarter)
+            CBAMQuarterlyReport.reporting_year == current_year,
+        ).order_by(CBAMQuarterlyReport.reporting_quarter)
     )
     quarterly_reports = [
         {
-            "quarter": r.quarter,
+            "quarter": r.reporting_quarter,
             "status": r.status.value if r.status else "not_started",
-            "total_emissions_tco2e": float(r.total_emissions_tco2e or 0),
+            "total_emissions_tco2e": float(r.total_embedded_emissions_tco2e or 0),
         }
         for r in report_result.scalars().all()
     ]
@@ -1080,8 +1113,8 @@ async def export_quarterly_report_xml(
     result = await session.execute(
         select(CBAMQuarterlyReport).where(
             CBAMQuarterlyReport.organization_id == current_user.organization_id,
-            CBAMQuarterlyReport.year == year,
-            CBAMQuarterlyReport.quarter == quarter,
+            CBAMQuarterlyReport.reporting_year == year,
+            CBAMQuarterlyReport.reporting_quarter == quarter,
         )
     )
     report = result.scalar_one_or_none()
@@ -1123,7 +1156,7 @@ async def export_quarterly_report_xml(
         "status": report.status.value if report.status else "draft",
         "total_imports": report.total_imports,
         "total_mass_tonnes": report.total_mass_tonnes,
-        "total_emissions_tco2e": report.total_emissions_tco2e,
+        "total_emissions_tco2e": report.total_embedded_emissions_tco2e,
         "by_sector": report.by_sector,
         "by_cn_code": report.by_cn_code,
     }
@@ -1262,8 +1295,8 @@ async def export_quarterly_report_eu_format(
     result = await session.execute(
         select(CBAMQuarterlyReport).where(
             CBAMQuarterlyReport.organization_id == current_user.organization_id,
-            CBAMQuarterlyReport.year == year,
-            CBAMQuarterlyReport.quarter == quarter,
+            CBAMQuarterlyReport.reporting_year == year,
+            CBAMQuarterlyReport.reporting_quarter == quarter,
         )
     )
     report = result.scalar_one_or_none()
@@ -1305,7 +1338,7 @@ async def export_quarterly_report_eu_format(
         "status": report.status.value if report.status else "draft",
         "total_imports": report.total_imports,
         "total_mass_tonnes": report.total_mass_tonnes,
-        "total_emissions_tco2e": report.total_emissions_tco2e,
+        "total_emissions_tco2e": report.total_embedded_emissions_tco2e,
         "by_sector": report.by_sector,
         "by_cn_code": report.by_cn_code,
         "submitted_at": report.submitted_at.isoformat() if report.submitted_at else None,

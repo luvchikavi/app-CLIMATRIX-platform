@@ -32,6 +32,7 @@ class CBAMSector(str, Enum):
     FERTILISER = "fertiliser"
     ELECTRICITY = "electricity"
     HYDROGEN = "hydrogen"
+    OTHER = "other"  # For products not clearly in a single sector
 
 
 class CBAMCalculationMethod(str, Enum):
@@ -176,7 +177,7 @@ class CBAMImport(SQLModel, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     organization_id: UUID = Field(foreign_key="organizations.id", index=True)
-    reporting_period_id: UUID = Field(foreign_key="reporting_periods.id", index=True)
+    reporting_period_id: Optional[UUID] = Field(default=None, foreign_key="reporting_periods.id", index=True)
     installation_id: Optional[UUID] = Field(default=None, foreign_key="cbam_installations.id")
 
     # Import identification
@@ -186,6 +187,7 @@ class CBAMImport(SQLModel, table=True):
 
     # Product details
     cn_code: str = Field(max_length=10, index=True)
+    sector: Optional[CBAMSector] = Field(default=None, index=True)  # Derived from CN code
     product_description: str = Field(max_length=500)
     origin_country: str = Field(max_length=2, index=True)  # ISO country code
 
