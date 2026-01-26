@@ -222,14 +222,14 @@ def import_to_response(imp: CBAMImport) -> CBAMImportResponse:
         sector=imp.sector.value if imp.sector else "unknown",
         product_description=imp.product_description,
         import_date=imp.import_date,
-        mass_tonnes=imp.mass_tonnes,
+        mass_tonnes=imp.net_mass_tonnes,
         calculation_method=imp.calculation_method.value if imp.calculation_method else "default",
         direct_see=imp.direct_see or Decimal("0"),
         indirect_see=imp.indirect_see or Decimal("0"),
         total_see=imp.total_see or Decimal("0"),
         direct_emissions_tco2e=imp.direct_emissions_tco2e or Decimal("0"),
         indirect_emissions_tco2e=imp.indirect_emissions_tco2e or Decimal("0"),
-        total_emissions_tco2e=imp.total_emissions_tco2e or Decimal("0"),
+        total_emissions_tco2e=imp.total_embedded_emissions_tco2e or Decimal("0"),
         foreign_carbon_price_eur=imp.foreign_carbon_price_eur,
         created_at=imp.created_at,
     )
@@ -708,13 +708,13 @@ async def generate_quarterly_report(
             "summary": {
                 "cn_code": imp.cn_code,
                 "sector": imp.sector.value if imp.sector else "unknown",
-                "mass_tonnes": imp.mass_tonnes,
+                "mass_tonnes": imp.net_mass_tonnes,
                 "country_code": "XX",  # Would come from installation
             },
             "embedded_emissions": {
                 "direct_emissions_tco2e": imp.direct_emissions_tco2e or Decimal("0"),
                 "indirect_emissions_tco2e": imp.indirect_emissions_tco2e or Decimal("0"),
-                "total_emissions_tco2e": imp.total_emissions_tco2e or Decimal("0"),
+                "total_emissions_tco2e": imp.total_embedded_emissions_tco2e or Decimal("0"),
             },
         })
 
@@ -891,7 +891,7 @@ async def generate_annual_declaration(
     for imp in imports:
         calc = calculator.calculate_import_full(
             cn_code=imp.cn_code,
-            mass_tonnes=imp.mass_tonnes,
+            mass_tonnes=imp.net_mass_tonnes,
             country_code="XX",  # Would come from installation
             actual_direct_see=imp.direct_see,
             actual_indirect_see=imp.indirect_see,
@@ -906,7 +906,7 @@ async def generate_annual_declaration(
     if existing:
         # Update existing
         existing.total_imports = len(imports)
-        existing.total_mass_tonnes = sum(imp.mass_tonnes for imp in imports)
+        existing.total_mass_tonnes = sum(imp.net_mass_tonnes for imp in imports)
         existing.gross_emissions_tco2e = aggregated["totals"]["gross_emissions_tco2e"]
         existing.deductions_tco2e = aggregated["totals"]["deductions_tco2e"]
         existing.net_emissions_tco2e = aggregated["totals"]["net_emissions_tco2e"]
@@ -923,7 +923,7 @@ async def generate_annual_declaration(
             year=year,
             status=CBAMReportStatus.DRAFT,
             total_imports=len(imports),
-            total_mass_tonnes=sum(imp.mass_tonnes for imp in imports),
+            total_mass_tonnes=sum(imp.net_mass_tonnes for imp in imports),
             gross_emissions_tco2e=aggregated["totals"]["gross_emissions_tco2e"],
             deductions_tco2e=aggregated["totals"]["deductions_tco2e"],
             net_emissions_tco2e=aggregated["totals"]["net_emissions_tco2e"],
@@ -994,8 +994,8 @@ async def get_cbam_dashboard(
     imports_result = await session.execute(
         select(
             func.count(CBAMImport.id),
-            func.sum(CBAMImport.mass_tonnes),
-            func.sum(CBAMImport.total_emissions_tco2e),
+            func.sum(CBAMImport.net_mass_tonnes),
+            func.sum(CBAMImport.total_embedded_emissions_tco2e),
         ).where(
             CBAMImport.organization_id == org_id,
             func.extract("year", CBAMImport.import_date) == current_year,
@@ -1008,7 +1008,7 @@ async def get_cbam_dashboard(
         select(
             CBAMImport.sector,
             func.count(CBAMImport.id),
-            func.sum(CBAMImport.total_emissions_tco2e),
+            func.sum(CBAMImport.total_embedded_emissions_tco2e),
         ).where(
             CBAMImport.organization_id == org_id,
             func.extract("year", CBAMImport.import_date) == current_year,
@@ -1133,13 +1133,13 @@ async def export_quarterly_report_xml(
             "id": str(imp.id),
             "cn_code": imp.cn_code,
             "product_description": imp.product_description,
-            "mass_tonnes": imp.mass_tonnes,
+            "mass_tonnes": imp.net_mass_tonnes,
             "direct_see": imp.direct_see,
             "indirect_see": imp.indirect_see,
             "total_see": imp.total_see,
             "direct_emissions_tco2e": imp.direct_emissions_tco2e,
             "indirect_emissions_tco2e": imp.indirect_emissions_tco2e,
-            "total_emissions_tco2e": imp.total_emissions_tco2e,
+            "total_emissions_tco2e": imp.total_embedded_emissions_tco2e,
             "calculation_method": imp.calculation_method.value if imp.calculation_method else "default",
             "installation_id": str(imp.installation_id),
             "foreign_carbon_price_eur": imp.foreign_carbon_price_eur,
@@ -1218,13 +1218,13 @@ async def export_quarterly_report_csv(
             "sector": imp.sector.value if imp.sector else "unknown",
             "product_description": imp.product_description,
             "import_date": str(imp.import_date),
-            "mass_tonnes": imp.mass_tonnes,
+            "mass_tonnes": imp.net_mass_tonnes,
             "direct_see": imp.direct_see,
             "indirect_see": imp.indirect_see,
             "total_see": imp.total_see,
             "direct_emissions_tco2e": imp.direct_emissions_tco2e,
             "indirect_emissions_tco2e": imp.indirect_emissions_tco2e,
-            "total_emissions_tco2e": imp.total_emissions_tco2e,
+            "total_emissions_tco2e": imp.total_embedded_emissions_tco2e,
             "calculation_method": imp.calculation_method.value if imp.calculation_method else "default",
             "foreign_carbon_price_eur": imp.foreign_carbon_price_eur,
             "installation_id": str(imp.installation_id),
@@ -1410,8 +1410,8 @@ async def export_annual_declaration_xml(
         {
             "id": str(imp.id),
             "cn_code": imp.cn_code,
-            "mass_tonnes": imp.mass_tonnes,
-            "total_emissions_tco2e": imp.total_emissions_tco2e,
+            "mass_tonnes": imp.net_mass_tonnes,
+            "total_emissions_tco2e": imp.total_embedded_emissions_tco2e,
         }
         for imp in imports
     ]
