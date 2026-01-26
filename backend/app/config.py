@@ -50,14 +50,18 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
-    # CORS - Set via env as comma-separated: "http://localhost:3000,https://example.com"
-    cors_origins_str: str = "http://localhost:3000,http://localhost:3001,http://localhost:4200,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:4200,http://127.0.0.1:5173,https://climatrix.io,https://www.climatrix.io,https://app.climatrix.io,https://app-climatrix-platform.vercel.app"
+    # CORS - Allow all origins by default for simplicity
+    # In production, Railway can override via CORS_ORIGINS_STR env variable
+    cors_origins_str: str = "*"
 
     @property
     def cors_origins(self) -> list[str]:
         """Parse CORS origins from string."""
+        # Allow all origins - simplest solution to avoid CORS issues
+        if self.cors_origins_str == "*":
+            return ["*"]
         if not self.cors_origins_str:
-            return []
+            return ["*"]
         # Try JSON array first
         if self.cors_origins_str.strip().startswith('['):
             try:

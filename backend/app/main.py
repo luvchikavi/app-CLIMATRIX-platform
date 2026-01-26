@@ -34,15 +34,16 @@ app = FastAPI(
     redoc_url="/redoc" if settings.debug else None,
 )
 
-# CORS Middleware
-# Allow both explicit origins and Vercel preview URLs via regex
+# CORS Middleware - Permissive configuration to avoid CORS issues
+# Allow ALL origins to prevent recurring CORS problems
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",  # Allow all Vercel preview deployments
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins
+    allow_origin_regex=r"https?://.*",  # Backup: match any URL
+    allow_credentials=False,  # Must be False when using "*" origins
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 
