@@ -62,7 +62,7 @@ const navigation: NavGroup[] = [
     items: [
       { label: 'GHG Inventory', href: '/modules/ghg', icon: Leaf, badge: 'Active' },
       { label: 'PCAF', href: '/modules/pcaf', icon: Coins, comingSoon: true },
-      { label: 'CBAM', href: '/modules/cbam', icon: Scale, comingSoon: true },
+      { label: 'CBAM', href: '/modules/cbam', icon: Scale, badge: 'Active' },
       { label: 'LCA', href: '/modules/lca', icon: Microscope, comingSoon: true },
       { label: 'EPD/Reports', href: '/modules/epd', icon: FileStack, comingSoon: true },
     ],

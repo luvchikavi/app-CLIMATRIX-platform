@@ -69,7 +69,7 @@ const MODULES: Module[] = [
     icon: Scale,
     color: 'bg-blue-600',
     href: '/modules/cbam',
-    status: 'coming_soon',
+    status: 'active',
     features: [
       'Embedded Emissions',
       'Supplier Data Collection',
