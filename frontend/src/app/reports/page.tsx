@@ -272,25 +272,10 @@ function ReportsPageContent() {
         </div>
       )}
 
-      {/* No Data State */}
-      {!isLoading && (!summary || !activities || activities.length === 0) && activeTab !== 'verification' && (
-        <Card padding="lg">
-          <EmptyState
-            icon={<FileText className="w-12 h-12" />}
-            title="No data to report"
-            description="Add activities to your reporting period to generate reports."
-            action={{
-              label: 'Add Activity',
-              onClick: () => router.push('/dashboard?wizard=true'),
-            }}
-          />
-        </Card>
-      )}
-
-      {/* Report Content */}
-      {(!isLoading && summary && activities && activities.length > 0) || activeTab === 'verification' ? (
+      {/* Report Content - Always show tabs */}
+      {!isLoading && (
         <div className="space-y-6 animate-fade-in">
-          {/* Tab Navigation */}
+          {/* Tab Navigation - Always visible */}
           <div className="flex items-center gap-2 border-b border-border pb-4 overflow-x-auto">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -311,6 +296,22 @@ function ReportsPageContent() {
               );
             })}
           </div>
+
+          {/* No Data State - Show for data-dependent tabs only */}
+          {(!summary || !activities || activities.length === 0) &&
+           !['verification', 'export', 'inventory', 'data-quality', 'audit'].includes(activeTab) && (
+            <Card padding="lg">
+              <EmptyState
+                icon={<FileText className="w-12 h-12" />}
+                title="No data to report"
+                description="Add activities to your reporting period to generate reports."
+                action={{
+                  label: 'Add Activity',
+                  onClick: () => router.push('/dashboard?wizard=true'),
+                }}
+              />
+            </Card>
+          )}
 
           {/* Summary Tab */}
           {activeTab === 'summary' && summary && (
@@ -671,7 +672,7 @@ function ReportsPageContent() {
             />
           )}
         </div>
-      ) : null}
+      )}
     </AppShell>
   );
 }

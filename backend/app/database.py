@@ -163,8 +163,13 @@ async def ensure_team_users(session: AsyncSession) -> None:
         result = await session.execute(
             select(User).where(User.email == user_data["email"])
         )
-        if result.scalar_one_or_none():
-            logger.info(f"User {user_data['email']} already exists")
+        existing_user = result.scalar_one_or_none()
+        if existing_user:
+            # Update password and ensure user is active
+            logger.info(f"Updating user: {user_data['email']}")
+            existing_user.hashed_password = get_password_hash(user_data["password"])
+            existing_user.is_active = True
+            existing_user.role = user_data["role"]
             continue
 
         # Create user
