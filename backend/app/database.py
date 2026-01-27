@@ -60,8 +60,8 @@ async def add_missing_columns() -> None:
         ("reporting_periods", "verification_statement", "ALTER TABLE reporting_periods ADD COLUMN IF NOT EXISTS verification_statement TEXT"),
         # Activity columns for data quality
         ("activities", "data_quality_score", "ALTER TABLE activities ADD COLUMN IF NOT EXISTS data_quality_score INTEGER DEFAULT 5"),
-        ("activities", "data_quality_justification", "ALTER TABLE activities ADD COLUMN IF NOT EXISTS data_quality_justification TEXT"),
-        ("activities", "data_quality_document_url", "ALTER TABLE activities ADD COLUMN IF NOT EXISTS data_quality_document_url VARCHAR(500)"),
+        ("activities", "data_quality_justification", "ALTER TABLE activities ADD COLUMN IF NOT EXISTS data_quality_justification VARCHAR(500)"),
+        ("activities", "supporting_document_url", "ALTER TABLE activities ADD COLUMN IF NOT EXISTS supporting_document_url VARCHAR(500)"),
         # CBAMImport sector column
         ("cbam_imports", "sector", "ALTER TABLE cbam_imports ADD COLUMN IF NOT EXISTS sector VARCHAR(20)"),
     ]
