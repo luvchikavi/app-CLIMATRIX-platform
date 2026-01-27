@@ -139,10 +139,18 @@ async def login(
     """Authenticate user and return JWT tokens with user/org data."""
     from app.models.core import Organization
 
-    # Find user by email
-    # Case-insensitive email lookup for login
-    result = await session.execute(select(User).where(func.lower(User.email) == form_data.username.lower()))
+    # Find user by email - try exact match first, then case-insensitive
+    result = await session.execute(select(User).where(User.email == form_data.username))
     user = result.scalar_one_or_none()
+
+    # If not found, try case-insensitive search
+    if not user:
+        result = await session.execute(select(User))
+        all_users = result.scalars().all()
+        for u in all_users:
+            if u.email.lower() == form_data.username.lower():
+                user = u
+                break
 
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
