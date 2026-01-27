@@ -147,9 +147,7 @@ async def ensure_team_users(session: AsyncSession) -> None:
     # Team users to ensure exist
     TEAM_USERS = [
         {"email": "SivanLa@bdo.co.il", "full_name": "Sivan La", "password": "Climatrix2026!", "role": UserRole.EDITOR},
-        {"email": "sivan@climatrix.io", "full_name": "Sivan", "password": "Climatrix2026!", "role": UserRole.EDITOR},
         {"email": "LihieI@bdo.co.il", "full_name": "Lihi I", "password": "Climatrix2026!", "role": UserRole.EDITOR},
-        {"email": "aviv@climatrix.io", "full_name": "Aviv", "password": "Climatrix2026!", "role": UserRole.ADMIN},
     ]
 
     # Get organization
