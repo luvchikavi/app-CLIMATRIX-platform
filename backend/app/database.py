@@ -7,7 +7,7 @@ import os
 from typing import AsyncGenerator
 from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlmodel import SQLModel, select, func
+from sqlmodel import SQLModel, select
 
 from app.config import settings
 
@@ -161,9 +161,9 @@ async def ensure_team_users(session: AsyncSession) -> None:
         return
 
     for user_data in TEAM_USERS:
-        # Check if user already exists (case-insensitive email)
+        # Check if user already exists
         result = await session.execute(
-            select(User).where(func.lower(User.email) == user_data["email"].lower())
+            select(User).where(User.email == user_data["email"])
         )
         existing_user = result.scalar_one_or_none()
         if existing_user:
