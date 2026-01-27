@@ -50,7 +50,8 @@ async def add_missing_columns() -> None:
     # PostgreSQL syntax with IF NOT EXISTS simulation
     migrations = [
         # ReportingPeriod columns
-        ("reporting_periods", "status", "ALTER TABLE reporting_periods ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'draft'"),
+        ("reporting_periods", "status", "ALTER TABLE reporting_periods ADD COLUMN IF NOT EXISTS status VARCHAR(20)"),
+        ("reporting_periods", "status_fix", "UPDATE reporting_periods SET status = 'DRAFT' WHERE status IS NULL OR status = 'draft'"),
         ("reporting_periods", "assurance_level", "ALTER TABLE reporting_periods ADD COLUMN IF NOT EXISTS assurance_level VARCHAR(20)"),
         ("reporting_periods", "submitted_at", "ALTER TABLE reporting_periods ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP"),
         ("reporting_periods", "submitted_by_id", "ALTER TABLE reporting_periods ADD COLUMN IF NOT EXISTS submitted_by_id UUID"),
