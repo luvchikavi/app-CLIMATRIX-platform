@@ -12,7 +12,7 @@ from jose import JWTError, jwt
 import bcrypt
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select, func
+from sqlmodel import select
 
 from app.config import settings
 from app.database import get_session
@@ -139,18 +139,9 @@ async def login(
     """Authenticate user and return JWT tokens with user/org data."""
     from app.models.core import Organization
 
-    # Find user by email - try exact match first, then case-insensitive
+    # Find user by email
     result = await session.execute(select(User).where(User.email == form_data.username))
     user = result.scalar_one_or_none()
-
-    # If not found, try case-insensitive search
-    if not user:
-        result = await session.execute(select(User))
-        all_users = result.scalars().all()
-        for u in all_users:
-            if u.email.lower() == form_data.username.lower():
-                user = u
-                break
 
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
