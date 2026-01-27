@@ -9,9 +9,9 @@ Usage:
     pipeline = CalculationPipeline(session)
     result = await pipeline.calculate(ActivityInput(...))
 """
-from app.services.calculation.pipeline import CalculationPipeline, ActivityInput
+from app.services.calculation.pipeline import CalculationPipeline, ActivityInput, CalculationError
 from app.services.calculation.normalizer import UnitNormalizer
 from app.services.calculation.resolver import FactorResolver
 from app.services.calculation.result import CalculationResult
 
-__all__ = ["CalculationPipeline", "ActivityInput", "UnitNormalizer", "FactorResolver", "CalculationResult"]
+__all__ = ["CalculationPipeline", "ActivityInput", "CalculationError", "UnitNormalizer", "FactorResolver", "CalculationResult"]

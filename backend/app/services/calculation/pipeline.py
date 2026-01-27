@@ -30,6 +30,11 @@ from app.services.calculation.strategies.refrigerant import RefrigerantCalculato
 from app.services.calculation.wtt import WTTService
 
 
+class CalculationError(Exception):
+    """Raised when emission calculation fails."""
+    pass
+
+
 @dataclass
 class ActivityInput:
     """Input data for calculation pipeline."""
