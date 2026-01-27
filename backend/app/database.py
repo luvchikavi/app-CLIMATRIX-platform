@@ -7,7 +7,7 @@ import os
 from typing import AsyncGenerator
 from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlmodel import SQLModel, select
+from sqlmodel import SQLModel, select, func
 
 from app.config import settings
 
@@ -147,7 +147,9 @@ async def ensure_team_users(session: AsyncSession) -> None:
     # Team users to ensure exist
     TEAM_USERS = [
         {"email": "SivanLa@bdo.co.il", "full_name": "Sivan La", "password": "Climatrix2026!", "role": UserRole.EDITOR},
+        {"email": "sivan@climatrix.io", "full_name": "Sivan", "password": "Climatrix2026!", "role": UserRole.EDITOR},
         {"email": "LihieI@bdo.co.il", "full_name": "Lihi I", "password": "Climatrix2026!", "role": UserRole.EDITOR},
+        {"email": "aviv@climatrix.io", "full_name": "Aviv", "password": "Climatrix2026!", "role": UserRole.ADMIN},
     ]
 
     # Get organization
@@ -159,9 +161,9 @@ async def ensure_team_users(session: AsyncSession) -> None:
         return
 
     for user_data in TEAM_USERS:
-        # Check if user already exists
+        # Check if user already exists (case-insensitive email)
         result = await session.execute(
-            select(User).where(User.email == user_data["email"])
+            select(User).where(func.lower(User.email) == user_data["email"].lower())
         )
         existing_user = result.scalar_one_or_none()
         if existing_user:
