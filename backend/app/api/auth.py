@@ -12,7 +12,7 @@ from jose import JWTError, jwt
 import bcrypt
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import select, func
 
 from app.config import settings
 from app.database import get_session
@@ -140,7 +140,8 @@ async def login(
     from app.models.core import Organization
 
     # Find user by email
-    result = await session.execute(select(User).where(User.email == form_data.username))
+    # Case-insensitive email lookup for login
+    result = await session.execute(select(User).where(func.lower(User.email) == form_data.username.lower()))
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(form_data.password, user.hashed_password):
