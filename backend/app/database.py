@@ -64,6 +64,8 @@ async def add_missing_columns() -> None:
         ("activities", "supporting_document_url", "ALTER TABLE activities ADD COLUMN IF NOT EXISTS supporting_document_url VARCHAR(500)"),
         # CBAMImport sector column
         ("cbam_imports", "sector", "ALTER TABLE cbam_imports ADD COLUMN IF NOT EXISTS sector VARCHAR(20)"),
+        # Make emission_factor_id nullable for supplier-specific factors
+        ("emissions", "emission_factor_id_nullable", "ALTER TABLE emissions ALTER COLUMN emission_factor_id DROP NOT NULL"),
     ]
 
     async with engine.begin() as conn:

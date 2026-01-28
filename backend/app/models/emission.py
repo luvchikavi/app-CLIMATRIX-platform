@@ -315,8 +315,8 @@ class Emission(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     activity_id: UUID = Field(foreign_key="activities.id", unique=True, index=True)
 
-    # Link to Factor Used
-    emission_factor_id: UUID = Field(foreign_key="emission_factors.id")
+    # Link to Factor Used (nullable for supplier-specific factors)
+    emission_factor_id: Optional[UUID] = Field(default=None, foreign_key="emission_factors.id")
 
     # Calculated Values (in kg)
     co2_kg: Optional[Decimal] = Field(default=None)

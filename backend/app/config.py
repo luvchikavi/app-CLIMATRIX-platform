@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # Application
     app_name: str = "CLIMATRIX"
-    app_version: str = "3.0.8"
+    app_version: str = "3.0.9"
     debug: bool = False
     environment: str = "development"  # development, staging, production
 

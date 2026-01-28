@@ -291,6 +291,8 @@ class CalculationPipeline:
         # Mark as supplier-specific with high confidence
         result.resolution_strategy = "supplier_specific"
         result.confidence = "high"
+        # Clear emission_factor_id since this is a virtual factor not in the database
+        result.emission_factor_id = None
         result.warnings.append(
             "Using supplier-provided emission factor. This is the most accurate method."
         )
@@ -340,6 +342,8 @@ class CalculationPipeline:
         # Mark as market-based with high confidence
         result.resolution_strategy = "market_based_supplier"
         result.confidence = "high"
+        # Clear emission_factor_id since this is a virtual factor not in the database
+        result.emission_factor_id = None
         result.warnings.append(
             f"Using supplier-provided emission factor ({input_data.supplier_ef} kg CO2e/kWh). "
             "This is the market-based method per GHG Protocol Scope 2 Guidance."
