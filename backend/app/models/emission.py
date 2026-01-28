@@ -45,6 +45,15 @@ class ImportBatchStatus(str, Enum):
     PARTIAL = "partial"  # Some rows failed
 
 
+class EmissionFactorStatus(str, Enum):
+    """Status of an emission factor in the approval workflow."""
+    DRAFT = "draft"                    # New or edited, not yet submitted
+    PENDING_APPROVAL = "pending"       # Submitted for approval
+    APPROVED = "approved"              # Approved and active for calculations
+    REJECTED = "rejected"              # Rejected by admin
+    ARCHIVED = "archived"              # Replaced by newer version
+
+
 class DataQualityScore(int, Enum):
     """
     Data quality score based on PCAF methodology (1=best, 5=worst).
@@ -141,6 +150,9 @@ class EmissionFactorBase(SQLModel):
     region: str = Field(default="Global", max_length=50, index=True)
     year: int = Field(index=True)
 
+    # Notes (optional documentation)
+    notes: Optional[str] = Field(default=None, max_length=1000)
+
     # Validity
     is_active: bool = Field(default=True)
 
@@ -151,6 +163,9 @@ class EmissionFactor(EmissionFactorBase, table=True):
     Single source of truth for all emission factors.
 
     Uses explicit activity_key instead of fuzzy matching.
+
+    Governance: Only factors with status='approved' are used in calculations.
+    Changes require approval workflow.
     """
     __tablename__ = "emission_factors"
 
@@ -166,8 +181,42 @@ class EmissionFactor(EmissionFactorBase, table=True):
     valid_from: Optional[date] = Field(default=None)
     valid_until: Optional[date] = Field(default=None)
 
-    # Audit
+    # ===========================================
+    # GOVERNANCE FIELDS
+    # ===========================================
+
+    # Approval Status (only 'approved' factors are used in calculations)
+    status: EmissionFactorStatus = Field(
+        default=EmissionFactorStatus.APPROVED,  # Seeded factors start as approved
+        index=True
+    )
+
+    # Version Control (for tracking changes)
+    version: int = Field(default=1)
+    previous_version_id: Optional[UUID] = Field(
+        default=None,
+        foreign_key="emission_factors.id"
+    )
+
+    # Change Tracking
+    change_reason: Optional[str] = Field(default=None, max_length=500)
+
+    # Approval Workflow
+    submitted_at: Optional[datetime] = Field(default=None)
+    submitted_by_id: Optional[UUID] = Field(default=None, foreign_key="users.id")
+    approved_at: Optional[datetime] = Field(default=None)
+    approved_by_id: Optional[UUID] = Field(default=None, foreign_key="users.id")
+    rejected_at: Optional[datetime] = Field(default=None)
+    rejected_by_id: Optional[UUID] = Field(default=None, foreign_key="users.id")
+    rejection_reason: Optional[str] = Field(default=None, max_length=500)
+
+    # ===========================================
+    # AUDIT FIELDS
+    # ===========================================
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by_id: Optional[UUID] = Field(default=None, foreign_key="users.id")
+    updated_at: Optional[datetime] = Field(default=None)
+    updated_by_id: Optional[UUID] = Field(default=None, foreign_key="users.id")
 
     class Config:
         # Ensure unique constraint on (activity_key, region, year)

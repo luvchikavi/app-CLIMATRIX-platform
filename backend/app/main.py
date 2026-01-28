@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import init_db, close_db
-from app.api import auth, activities, periods, reports, reference, organization, import_data, admin, cbam
+from app.api import auth, activities, periods, reports, reference, organization, import_data, admin, cbam, emission_factors
 
 
 @asynccontextmanager
@@ -78,6 +78,7 @@ app.include_router(organization.router, prefix="/api", tags=["Organization"])
 app.include_router(import_data.router, prefix="/api", tags=["Import"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(cbam.router, prefix="/api/cbam", tags=["CBAM"])
+app.include_router(emission_factors.router, prefix="/api", tags=["Emission Factors"])
 
 
 @app.get("/")

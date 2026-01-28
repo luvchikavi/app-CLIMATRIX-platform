@@ -5,6 +5,8 @@ Finds the correct emission factor using ranked fallback strategies:
 1. Exact match: activity_key + region + year
 2. Region specific: activity_key + region (latest year)
 3. Global fallback: activity_key + region='Global'
+
+GOVERNANCE: Only factors with status='approved' are used in calculations.
 """
 from enum import Enum
 from typing import NamedTuple, Optional
@@ -13,7 +15,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.emission import EmissionFactor
+from app.models.emission import EmissionFactor, EmissionFactorStatus
 
 
 class ResolutionStrategy(str, Enum):
@@ -131,6 +133,7 @@ class FactorResolver:
                 EmissionFactor.region == region,
                 EmissionFactor.year == year,
                 EmissionFactor.is_active == True,
+                EmissionFactor.status == EmissionFactorStatus.APPROVED,  # GOVERNANCE
             )
             .limit(1)  # Handle potential duplicates in database
         )
@@ -149,6 +152,7 @@ class FactorResolver:
                 EmissionFactor.activity_key == activity_key,
                 EmissionFactor.region == region,
                 EmissionFactor.is_active == True,
+                EmissionFactor.status == EmissionFactorStatus.APPROVED,  # GOVERNANCE
             )
             .order_by(EmissionFactor.year.desc())
             .limit(1)
@@ -166,6 +170,7 @@ class FactorResolver:
             .where(
                 EmissionFactor.activity_key == activity_key,
                 EmissionFactor.is_active == True,
+                EmissionFactor.status == EmissionFactorStatus.APPROVED,  # GOVERNANCE
             )
             .order_by(EmissionFactor.year.desc())
             .limit(1)

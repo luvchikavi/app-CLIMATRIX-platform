@@ -7,7 +7,7 @@ from app.models.core import (
     UserRole, PeriodStatus, AssuranceLevel,
 )
 from app.models.emission import (
-    EmissionFactor, Activity, Emission, UnitConversion, FuelPrice,
+    EmissionFactor, EmissionFactorStatus, Activity, Emission, UnitConversion, FuelPrice,
     ImportBatch, ImportBatchStatus, DataQualityScore,
     # New Scope 3 Reference Tables
     Airport,
@@ -48,6 +48,7 @@ __all__ = [
     "AssuranceLevel",
     # Emission
     "EmissionFactor",
+    "EmissionFactorStatus",
     "Activity",
     "Emission",
     "UnitConversion",

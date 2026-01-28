@@ -66,6 +66,22 @@ async def add_missing_columns() -> None:
         ("cbam_imports", "sector", "ALTER TABLE cbam_imports ADD COLUMN IF NOT EXISTS sector VARCHAR(20)"),
         # Make emission_factor_id nullable for supplier-specific factors
         ("emissions", "emission_factor_id_nullable", "ALTER TABLE emissions ALTER COLUMN emission_factor_id DROP NOT NULL"),
+        # EmissionFactor governance columns
+        ("emission_factors", "status", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'approved'"),
+        ("emission_factors", "version", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1"),
+        ("emission_factors", "previous_version_id", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS previous_version_id UUID"),
+        ("emission_factors", "change_reason", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS change_reason VARCHAR(500)"),
+        ("emission_factors", "notes", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS notes VARCHAR(1000)"),
+        ("emission_factors", "submitted_at", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP"),
+        ("emission_factors", "submitted_by_id", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS submitted_by_id UUID"),
+        ("emission_factors", "approved_at", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP"),
+        ("emission_factors", "approved_by_id", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS approved_by_id UUID"),
+        ("emission_factors", "rejected_at", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMP"),
+        ("emission_factors", "rejected_by_id", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS rejected_by_id UUID"),
+        ("emission_factors", "rejection_reason", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS rejection_reason VARCHAR(500)"),
+        ("emission_factors", "created_by_id", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS created_by_id UUID"),
+        ("emission_factors", "updated_at", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP"),
+        ("emission_factors", "updated_by_id", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS updated_by_id UUID"),
     ]
 
     async with engine.begin() as conn:
