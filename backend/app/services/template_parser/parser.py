@@ -279,6 +279,9 @@ class TemplateParser:
         for i, header in enumerate(headers):
             if i < len(row_values):
                 row_dict[header] = row_values[i]
+                # Also store with mapped column name for resolver functions
+                if header in config.column_map:
+                    row_dict[config.column_map[header]] = row_values[i]
 
         # Get quantity - check both Physical_Amount and Spend_Amount
         quantity = None

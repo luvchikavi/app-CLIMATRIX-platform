@@ -117,6 +117,31 @@ async def init_db() -> None:
     await seed_if_needed()
 
 
+async def add_missing_emission_factors(session) -> None:
+    """Add any emission factors that are in the code but missing from the database."""
+    from app.models.emission import EmissionFactor
+    from app.data import EMISSION_FACTORS
+
+    # Get all existing activity_keys from the database
+    result = await session.execute(select(EmissionFactor.activity_key))
+    existing_keys = {row[0] for row in result.all()}
+
+    # Add any missing factors
+    added_count = 0
+    for ef_data in EMISSION_FACTORS:
+        if ef_data["activity_key"] not in existing_keys:
+            logger.info(f"Adding missing emission factor: {ef_data['activity_key']}")
+            ef = EmissionFactor(**ef_data)
+            session.add(ef)
+            added_count += 1
+
+    if added_count > 0:
+        await session.commit()
+        logger.info(f"Added {added_count} missing emission factors")
+    else:
+        logger.info("All emission factors already exist")
+
+
 async def seed_if_needed() -> None:
     """Seed database with emission factors if empty."""
     from app.models.emission import EmissionFactor, UnitConversion, FuelPrice
@@ -128,7 +153,9 @@ async def seed_if_needed() -> None:
         # Check if already seeded
         result = await session.execute(select(EmissionFactor).limit(1))
         if result.scalar_one_or_none():
-            logger.info("Database already seeded, skipping...")
+            logger.info("Database already seeded, checking for missing factors...")
+            # Add any missing emission factors
+            await add_missing_emission_factors(session)
             # Still ensure team users exist
             await ensure_team_users(session)
             return
