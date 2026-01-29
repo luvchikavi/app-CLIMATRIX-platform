@@ -1693,6 +1693,44 @@ class ApiClient {
       method: 'DELETE',
     });
   }
+
+  // ============================================================================
+  // Audit Logs
+  // ============================================================================
+
+  async getAuditLogs(params?: {
+    limit?: number;
+    offset?: number;
+    action?: AuditAction;
+    resource_type?: string;
+    user_id?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<AuditLogsResponse> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+    if (params?.offset) queryParams.set('offset', params.offset.toString());
+    if (params?.action) queryParams.set('action', params.action);
+    if (params?.resource_type) queryParams.set('resource_type', params.resource_type);
+    if (params?.user_id) queryParams.set('user_id', params.user_id);
+    if (params?.start_date) queryParams.set('start_date', params.start_date);
+    if (params?.end_date) queryParams.set('end_date', params.end_date);
+
+    const query = queryParams.toString();
+    return this.fetch<AuditLogsResponse>(`/audit/logs${query ? `?${query}` : ''}`);
+  }
+
+  async getAuditStats(): Promise<AuditStatsResponse> {
+    return this.fetch<AuditStatsResponse>('/audit/stats');
+  }
+
+  async getAuditActions(): Promise<{ actions: string[] }> {
+    return this.fetch<{ actions: string[] }>('/audit/actions');
+  }
+
+  async getAuditResourceTypes(): Promise<{ resource_types: string[] }> {
+    return this.fetch<{ resource_types: string[] }>('/audit/resource-types');
+  }
 }
 
 // CBAM Types for API
@@ -1972,6 +2010,38 @@ export interface InvitationCheck {
   role: string;
   organization_name: string;
   expires_at: string;
+}
+
+// ============================================================================
+// Audit Log Types
+// ============================================================================
+
+export type AuditAction = 'create' | 'update' | 'delete' | 'login' | 'logout' | 'import' | 'export' | 'status_change' | 'invite' | 'permission_change';
+
+export interface AuditLogEntry {
+  id: string;
+  action: AuditAction;
+  resource_type: string;
+  resource_id: string | null;
+  description: string;
+  details: string | null;
+  user_email: string | null;
+  ip_address: string | null;
+  created_at: string;
+}
+
+export interface AuditLogsResponse {
+  items: AuditLogEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AuditStatsResponse {
+  total_events: number;
+  events_by_action: Record<string, number>;
+  events_by_resource: Record<string, number>;
+  recent_activity_count: number;
 }
 
 export const api = new ApiClient();

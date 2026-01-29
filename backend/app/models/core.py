@@ -208,3 +208,48 @@ class ReportingPeriod(ReportingPeriodBase, table=True):
     submitted_by: Optional["User"] = Relationship(
         sa_relationship_kwargs={"foreign_keys": "[ReportingPeriod.submitted_by_id]"}
     )
+
+
+class AuditAction(str, Enum):
+    """Types of auditable actions."""
+    CREATE = "create"
+    UPDATE = "update"
+    DELETE = "delete"
+    LOGIN = "login"
+    LOGOUT = "logout"
+    IMPORT = "import"
+    EXPORT = "export"
+    STATUS_CHANGE = "status_change"
+    INVITE = "invite"
+    PERMISSION_CHANGE = "permission_change"
+
+
+class AuditLog(SQLModel, table=True):
+    """
+    Audit log for tracking all significant actions in the system.
+    Used for compliance, debugging, and security monitoring.
+    """
+    __tablename__ = "audit_logs"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+    user_id: Optional[UUID] = Field(default=None, foreign_key="users.id", index=True)
+    user_email: Optional[str] = Field(default=None, max_length=255)
+
+    # Action details
+    action: AuditAction = Field(index=True)
+    resource_type: str = Field(max_length=50, index=True)  # e.g., "activity", "period", "user"
+    resource_id: Optional[str] = Field(default=None, max_length=100)  # ID of affected resource
+
+    # Context
+    description: str = Field(max_length=500)
+    details: Optional[str] = Field(default=None)  # JSON string with additional details
+    ip_address: Optional[str] = Field(default=None, max_length=45)
+    user_agent: Optional[str] = Field(default=None, max_length=500)
+
+    # Timestamp
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+    # Relationships (optional - for eager loading)
+    organization: Organization = Relationship()
+    user: Optional[User] = Relationship()

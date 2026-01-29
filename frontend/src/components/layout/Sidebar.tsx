@@ -23,6 +23,7 @@ import {
   Lock,
   Shield,
   CreditCard,
+  History,
 } from 'lucide-react';
 
 interface NavItem {
@@ -73,6 +74,7 @@ const navigation: NavGroup[] = [
     title: 'Admin',
     items: [
       { label: 'Admin Dashboard', href: '/admin', icon: Shield, badge: 'Super', superAdminOnly: true },
+      { label: 'Audit Trail', href: '/audit', icon: History, superAdminOnly: true },
     ],
   },
 ];

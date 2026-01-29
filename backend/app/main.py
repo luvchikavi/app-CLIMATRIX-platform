@@ -12,7 +12,7 @@ import sentry_sdk
 
 from app.config import settings
 from app.database import init_db, close_db
-from app.api import auth, activities, periods, reports, reference, organization, import_data, admin, cbam, emission_factors, billing
+from app.api import auth, activities, periods, reports, reference, organization, import_data, admin, cbam, emission_factors, billing, audit
 
 # Initialize Sentry for error tracking (only if DSN is configured)
 if settings.sentry_dsn:
@@ -96,6 +96,7 @@ app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(cbam.router, prefix="/api/cbam", tags=["CBAM"])
 app.include_router(emission_factors.router, prefix="/api", tags=["Emission Factors"])
 app.include_router(billing.router, prefix="/api", tags=["Billing"])
+app.include_router(audit.router, prefix="/api", tags=["Audit"])
 
 
 @app.get("/")
