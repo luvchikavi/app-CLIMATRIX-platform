@@ -214,6 +214,80 @@ class EmailService:
 
         return self.send_email(to_email, subject, html_content, text_content)
 
+    async def send_invitation_email(
+        self,
+        to_email: str,
+        invitation_token: str,
+        organization_name: str,
+        inviter_name: str,
+    ) -> bool:
+        """Send invitation email to join an organization."""
+        invite_url = f"{settings.frontend_url}/accept-invitation?token={invitation_token}"
+
+        subject = f"You're invited to join {organization_name} on CLIMATRIX"
+
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: #10b981; color: white; padding: 20px; text-align: center; }}
+                .content {{ padding: 20px; background: #f9fafb; }}
+                .button {{ display: inline-block; background: #10b981; color: white; padding: 12px 24px;
+                          text-decoration: none; border-radius: 6px; margin: 20px 0; }}
+                .footer {{ padding: 20px; text-align: center; color: #666; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>CLIMATRIX</h1>
+                </div>
+                <div class="content">
+                    <h2>You're Invited!</h2>
+                    <p>Hi there,</p>
+                    <p><strong>{inviter_name}</strong> has invited you to join <strong>{organization_name}</strong> on CLIMATRIX.</p>
+                    <p>CLIMATRIX helps organizations track, manage, and report their greenhouse gas emissions
+                       across Scope 1, 2, and 3.</p>
+                    <p style="text-align: center;">
+                        <a href="{invite_url}" class="button">Accept Invitation</a>
+                    </p>
+                    <p>This invitation will expire in 7 days.</p>
+                    <p>If you weren't expecting this invitation, you can safely ignore this email.</p>
+                    <p>Best regards,<br>The CLIMATRIX Team</p>
+                </div>
+                <div class="footer">
+                    <p>This is an automated message from CLIMATRIX. Please do not reply to this email.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        text_content = f"""
+        You're Invited to CLIMATRIX!
+
+        Hi there,
+
+        {inviter_name} has invited you to join {organization_name} on CLIMATRIX.
+
+        CLIMATRIX helps organizations track, manage, and report their greenhouse gas emissions
+        across Scope 1, 2, and 3.
+
+        Accept your invitation: {invite_url}
+
+        This invitation will expire in 7 days.
+
+        If you weren't expecting this invitation, you can safely ignore this email.
+
+        Best regards,
+        The CLIMATRIX Team
+        """
+
+        return self.send_email(to_email, subject, html_content, text_content)
+
 
 # Singleton instance
 email_service = EmailService()

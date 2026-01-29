@@ -443,3 +443,388 @@ async def reset_password(
 
     except JWTError:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+
+# ============================================================================
+# User Invitations
+# ============================================================================
+
+class InviteUserRequest(BaseModel):
+    """Request to invite a user."""
+    email: str
+    role: str = "editor"  # viewer, editor, admin
+
+
+class InvitationResponse(BaseModel):
+    """Invitation response."""
+    id: str
+    email: str
+    role: str
+    status: str
+    invited_by_email: str
+    created_at: str
+    expires_at: str
+
+
+class AcceptInvitationRequest(BaseModel):
+    """Request to accept an invitation."""
+    token: str
+    full_name: str
+    password: str
+
+
+@router.post("/invitations", response_model=InvitationResponse)
+async def invite_user(
+    data: InviteUserRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Invite a new user to the organization.
+    Requires admin role.
+    """
+    from app.models.core import UserRole, Invitation, InvitationStatus, Organization
+    from app.services.email import EmailService
+    import secrets
+
+    # Check if user is admin
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Only admins can invite users")
+
+    # Check if email already exists
+    existing_user = await session.execute(
+        select(User).where(User.email == data.email)
+    )
+    if existing_user.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="A user with this email already exists")
+
+    # Check for existing pending invitation
+    existing_invite = await session.execute(
+        select(Invitation).where(
+            Invitation.email == data.email,
+            Invitation.organization_id == current_user.organization_id,
+            Invitation.status == InvitationStatus.PENDING
+        )
+    )
+    if existing_invite.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="An invitation is already pending for this email")
+
+    # Parse role
+    try:
+        role = UserRole(data.role)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid role: {data.role}")
+
+    # Create invitation token
+    token = secrets.token_urlsafe(32)
+
+    # Create invitation
+    invitation = Invitation(
+        organization_id=current_user.organization_id,
+        email=data.email,
+        role=role,
+        invited_by_id=current_user.id,
+        token=token,
+        expires_at=datetime.utcnow() + timedelta(days=7),  # 7 day expiration
+    )
+    session.add(invitation)
+    await session.commit()
+    await session.refresh(invitation)
+
+    # Get organization name for email
+    org_result = await session.execute(
+        select(Organization).where(Organization.id == current_user.organization_id)
+    )
+    org = org_result.scalar_one()
+
+    # Send invitation email
+    email_service = EmailService()
+    try:
+        await email_service.send_invitation_email(
+            to_email=data.email,
+            invitation_token=token,
+            organization_name=org.name,
+            inviter_name=current_user.full_name or current_user.email,
+        )
+    except Exception as e:
+        # Log error but don't fail - invitation is created
+        print(f"Failed to send invitation email: {e}")
+
+    return InvitationResponse(
+        id=str(invitation.id),
+        email=invitation.email,
+        role=invitation.role.value,
+        status=invitation.status.value,
+        invited_by_email=current_user.email,
+        created_at=invitation.created_at.isoformat(),
+        expires_at=invitation.expires_at.isoformat(),
+    )
+
+
+@router.get("/invitations", response_model=list[InvitationResponse])
+async def list_invitations(
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    List all invitations for the organization.
+    Requires admin role.
+    """
+    from app.models.core import UserRole, Invitation
+
+    # Check if user is admin
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Only admins can view invitations")
+
+    result = await session.execute(
+        select(Invitation).where(
+            Invitation.organization_id == current_user.organization_id
+        ).order_by(Invitation.created_at.desc())
+    )
+    invitations = result.scalars().all()
+
+    responses = []
+    for inv in invitations:
+        # Get inviter email
+        inviter_result = await session.execute(
+            select(User).where(User.id == inv.invited_by_id)
+        )
+        inviter = inviter_result.scalar_one_or_none()
+
+        responses.append(InvitationResponse(
+            id=str(inv.id),
+            email=inv.email,
+            role=inv.role.value,
+            status=inv.status.value,
+            invited_by_email=inviter.email if inviter else "Unknown",
+            created_at=inv.created_at.isoformat(),
+            expires_at=inv.expires_at.isoformat(),
+        ))
+
+    return responses
+
+
+@router.get("/invitations/{invitation_id}/check")
+async def check_invitation(
+    invitation_id: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Check if an invitation token is valid (public endpoint for accept page).
+    """
+    from app.models.core import Invitation, InvitationStatus, Organization
+
+    # Find invitation by token
+    result = await session.execute(
+        select(Invitation).where(Invitation.token == invitation_id)
+    )
+    invitation = result.scalar_one_or_none()
+
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+
+    if invitation.status != InvitationStatus.PENDING:
+        raise HTTPException(status_code=400, detail=f"Invitation is {invitation.status.value}")
+
+    if invitation.expires_at < datetime.utcnow():
+        # Update status to expired
+        invitation.status = InvitationStatus.EXPIRED
+        session.add(invitation)
+        await session.commit()
+        raise HTTPException(status_code=400, detail="Invitation has expired")
+
+    # Get organization
+    org_result = await session.execute(
+        select(Organization).where(Organization.id == invitation.organization_id)
+    )
+    org = org_result.scalar_one()
+
+    return {
+        "email": invitation.email,
+        "role": invitation.role.value,
+        "organization_name": org.name,
+        "expires_at": invitation.expires_at.isoformat(),
+    }
+
+
+@router.post("/invitations/accept", response_model=Token)
+async def accept_invitation(
+    data: AcceptInvitationRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Accept an invitation and create user account.
+    """
+    from app.models.core import Invitation, InvitationStatus, Organization
+
+    # Find invitation
+    result = await session.execute(
+        select(Invitation).where(Invitation.token == data.token)
+    )
+    invitation = result.scalar_one_or_none()
+
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+
+    if invitation.status != InvitationStatus.PENDING:
+        raise HTTPException(status_code=400, detail=f"Invitation is {invitation.status.value}")
+
+    if invitation.expires_at < datetime.utcnow():
+        invitation.status = InvitationStatus.EXPIRED
+        session.add(invitation)
+        await session.commit()
+        raise HTTPException(status_code=400, detail="Invitation has expired")
+
+    # Check email not already registered
+    existing_user = await session.execute(
+        select(User).where(User.email == invitation.email)
+    )
+    if existing_user.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # Create user
+    new_user = User(
+        email=invitation.email,
+        full_name=data.full_name,
+        hashed_password=get_password_hash(data.password),
+        organization_id=invitation.organization_id,
+        role=invitation.role,
+        is_active=True,
+    )
+    session.add(new_user)
+
+    # Update invitation status
+    invitation.status = InvitationStatus.ACCEPTED
+    invitation.accepted_at = datetime.utcnow()
+    session.add(invitation)
+
+    await session.commit()
+    await session.refresh(new_user)
+
+    # Get organization
+    org_result = await session.execute(
+        select(Organization).where(Organization.id == new_user.organization_id)
+    )
+    organization = org_result.scalar_one()
+
+    # Create tokens
+    token_data = {
+        "sub": str(new_user.id),
+        "org_id": str(new_user.organization_id),
+        "role": new_user.role.value,
+    }
+
+    access_token = create_access_token(
+        token_data,
+        expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+    )
+    refresh_token = create_refresh_token(token_data)
+
+    return Token(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=UserResponse(
+            id=str(new_user.id),
+            email=new_user.email,
+            full_name=new_user.full_name,
+            role=new_user.role.value,
+            organization_id=str(new_user.organization_id),
+        ),
+        organization=OrganizationResponse(
+            id=str(organization.id),
+            name=organization.name,
+            country_code=organization.country_code,
+        ),
+    )
+
+
+@router.post("/invitations/{invitation_id}/resend")
+async def resend_invitation(
+    invitation_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Resend an invitation email.
+    """
+    from app.models.core import UserRole, Invitation, InvitationStatus, Organization
+    from app.services.email import EmailService
+    import secrets
+
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Only admins can resend invitations")
+
+    result = await session.execute(
+        select(Invitation).where(
+            Invitation.id == invitation_id,
+            Invitation.organization_id == current_user.organization_id,
+        )
+    )
+    invitation = result.scalar_one_or_none()
+
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+
+    if invitation.status != InvitationStatus.PENDING:
+        raise HTTPException(status_code=400, detail="Can only resend pending invitations")
+
+    # Generate new token and extend expiration
+    invitation.token = secrets.token_urlsafe(32)
+    invitation.expires_at = datetime.utcnow() + timedelta(days=7)
+    session.add(invitation)
+    await session.commit()
+
+    # Get organization
+    org_result = await session.execute(
+        select(Organization).where(Organization.id == current_user.organization_id)
+    )
+    org = org_result.scalar_one()
+
+    # Send email
+    email_service = EmailService()
+    try:
+        await email_service.send_invitation_email(
+            to_email=invitation.email,
+            invitation_token=invitation.token,
+            organization_name=org.name,
+            inviter_name=current_user.full_name or current_user.email,
+        )
+    except Exception as e:
+        print(f"Failed to send invitation email: {e}")
+
+    return {"message": "Invitation resent successfully"}
+
+
+@router.delete("/invitations/{invitation_id}")
+async def cancel_invitation(
+    invitation_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Cancel a pending invitation.
+    """
+    from app.models.core import UserRole, Invitation, InvitationStatus
+
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Only admins can cancel invitations")
+
+    result = await session.execute(
+        select(Invitation).where(
+            Invitation.id == invitation_id,
+            Invitation.organization_id == current_user.organization_id,
+        )
+    )
+    invitation = result.scalar_one_or_none()
+
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+
+    if invitation.status != InvitationStatus.PENDING:
+        raise HTTPException(status_code=400, detail="Can only cancel pending invitations")
+
+    invitation.status = InvitationStatus.CANCELED
+    session.add(invitation)
+    await session.commit()
+
+    return {"message": "Invitation canceled"}

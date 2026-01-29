@@ -20,6 +20,7 @@ interface AuthState {
   // Actions
   login: (email: string, password: string) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
+  setAuth: (token: string, user: User, organization: Organization | null) => void;
   logout: () => void;
   setUser: (user: User | null) => void;
   setOrganization: (org: Organization | null) => void;
@@ -76,6 +77,18 @@ export const useAuthStore = create<AuthState>()(
           });
           throw error;
         }
+      },
+
+      setAuth: (token: string, user: User, organization: Organization | null) => {
+        api.setToken(token);
+        set({
+          user,
+          organization,
+          token,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        });
       },
 
       logout: () => {

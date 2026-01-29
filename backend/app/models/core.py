@@ -55,6 +55,14 @@ class SubscriptionStatus(str, Enum):
     UNPAID = "unpaid"
 
 
+class InvitationStatus(str, Enum):
+    """Status of a user invitation."""
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    EXPIRED = "expired"
+    CANCELED = "canceled"
+
+
 class OrganizationBase(SQLModel):
     """Base fields for Organization."""
     name: str = Field(max_length=255, index=True)
@@ -112,6 +120,29 @@ class User(UserBase, table=True):
 
     # Relationships
     organization: Organization = Relationship(back_populates="users")
+
+
+class Invitation(SQLModel, table=True):
+    """
+    User invitation for team members.
+    Allows admins to invite new users to their organization.
+    """
+    __tablename__ = "invitations"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+    email: str = Field(max_length=255, index=True)
+    role: UserRole = Field(default=UserRole.EDITOR)
+    status: InvitationStatus = Field(default=InvitationStatus.PENDING)
+    invited_by_id: UUID = Field(foreign_key="users.id")
+    token: str = Field(max_length=255, unique=True, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: datetime
+    accepted_at: Optional[datetime] = Field(default=None)
+
+    # Relationships
+    organization: Organization = Relationship()
+    invited_by: User = Relationship()
 
 
 class SiteBase(SQLModel):

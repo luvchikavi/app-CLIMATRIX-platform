@@ -1647,6 +1647,52 @@ class ApiClient {
       method: 'POST',
     });
   }
+
+  // ============================================================================
+  // User Invitations
+  // ============================================================================
+
+  async inviteUser(email: string, role: string = 'editor'): Promise<Invitation> {
+    return this.fetch<Invitation>('/auth/invitations', {
+      method: 'POST',
+      body: JSON.stringify({ email, role }),
+    });
+  }
+
+  async getInvitations(): Promise<Invitation[]> {
+    return this.fetch<Invitation[]>('/auth/invitations');
+  }
+
+  async checkInvitation(token: string): Promise<InvitationCheck> {
+    return this.fetch<InvitationCheck>(`/auth/invitations/${token}/check`);
+  }
+
+  async acceptInvitation(
+    token: string,
+    fullName: string,
+    password: string
+  ): Promise<LoginResponse> {
+    return this.fetch<LoginResponse>('/auth/invitations/accept', {
+      method: 'POST',
+      body: JSON.stringify({
+        token,
+        full_name: fullName,
+        password,
+      }),
+    });
+  }
+
+  async resendInvitation(invitationId: string): Promise<{ message: string }> {
+    return this.fetch<{ message: string }>(`/auth/invitations/${invitationId}/resend`, {
+      method: 'POST',
+    });
+  }
+
+  async cancelInvitation(invitationId: string): Promise<{ message: string }> {
+    return this.fetch<{ message: string }>(`/auth/invitations/${invitationId}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 // CBAM Types for API
@@ -1903,6 +1949,29 @@ export interface CheckoutResponse {
 
 export interface PortalResponse {
   url: string;
+}
+
+// ============================================================================
+// User Invitation Types
+// ============================================================================
+
+export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'canceled';
+
+export interface Invitation {
+  id: string;
+  email: string;
+  role: string;
+  status: InvitationStatus;
+  invited_by_email: string;
+  created_at: string;
+  expires_at: string;
+}
+
+export interface InvitationCheck {
+  email: string;
+  role: string;
+  organization_name: string;
+  expires_at: string;
 }
 
 export const api = new ApiClient();
