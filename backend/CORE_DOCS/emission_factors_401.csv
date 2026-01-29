@@ -1,0 +1,402 @@
+#,Scope,Category,Activity Key,Display Name,CO2e Factor,Unit,Source,Region,Year
+1,1,1.1,biodiesel_liters,Biodiesel (B100),0.17,liters,DEFRA_2024,Global,2024
+2,1,1.1,cng_kg,CNG (Compressed Natural Gas),2.7,kg,DEFRA_2024,Global,2024
+3,1,1.1,coal_kg,Coal (industrial),2.31,kg,DEFRA_2024,Global,2024
+4,1,1.1,diesel_liters,Diesel/Gas Oil,2.68,liters,DEFRA_2024,Global,2024
+5,1,1.1,fuel_oil_liters,Fuel Oil,3.18,liters,DEFRA_2024,Global,2024
+6,1,1.1,hydrogen_kg,Hydrogen (grey/blue),0,kg,DEFRA_2024,Global,2024
+7,1,1.1,kerosene_liters,Kerosene/Paraffin,2.52,liters,DEFRA_2024,Global,2024
+8,1,1.1,lng_liters,LNG (Liquefied Natural Gas),1.23,liters,DEFRA_2024,Global,2024
+9,1,1.1,lpg_kg,LPG (mass),2.94,kg,DEFRA_2024,Global,2024
+10,1,1.1,lpg_liters,LPG (volume),1.52,liters,DEFRA_2024,Global,2024
+11,1,1.1,natural_gas_kwh,Natural Gas (energy),0.183,kWh,DEFRA_2024,Global,2024
+12,1,1.1,natural_gas_mmbtu,Natural Gas (MMBTU),53.63,MMBTU,DEFRA_2024,Global,2024
+13,1,1.1,natural_gas_volume,Natural Gas (volume),2.1,m3,DEFRA_2025,Global,2025
+14,1,1.1,spend_fuel,Fuel Purchases (spend),0.85,USD,USEEIO_2.0,US,2024
+15,1,1.1,spend_natural_gas,Natural Gas (spend),0.72,USD,USEEIO_2.0,US,2024
+16,1,1.2,aviation_fuel_liters,Aviation Fuel (Jet-A/Jet-A1),2.54,liters,DEFRA_2024,Global,2024
+17,1,1.2,bus_diesel_km,Diesel Bus (average),0.82,km,DEFRA_2024,Global,2024
+18,1,1.2,car_diesel_km,Diesel Car (average),0.16,km,DEFRA_2024,Global,2024
+19,1,1.2,car_ev_km,Electric Car (average),0,km,DEFRA_2024,Global,2024
+20,1,1.2,car_hybrid_km,Hybrid Car (average),0.12,km,DEFRA_2024,Global,2024
+21,1,1.2,car_petrol_km,Petrol Car (average),0.17,km,DEFRA_2024,Global,2024
+22,1,1.2,diesel_liters_mobile,Diesel (mobile),2.68,liters,DEFRA_2024,Global,2024
+23,1,1.2,forklift_diesel_hour,Diesel Forklift (per hour),6.7,hours,DEFRA_2024,Global,2024
+24,1,1.2,forklift_lpg_hour,LPG Forklift (per hour),2.5,hours,DEFRA_2024,Global,2024
+25,1,1.2,hgv_diesel_km,HGV Truck (average),0.89,km,DEFRA_2024,Global,2024
+26,1,1.2,marine_fuel_liters,Marine Fuel Oil,3.11,liters,DEFRA_2024,Global,2024
+27,1,1.2,motorcycle_km,Motorcycle (average),0.11,km,DEFRA_2024,Global,2024
+28,1,1.2,petrol_liters,Petrol/Gasoline (fuel),2.31,liters,DEFRA_2024,Global,2024
+29,1,1.2,urea_liters,Urea/AdBlue/DEF (Diesel Exhaust Fluid),1.33,liters,DEFRA_2024,Global,2024
+30,1,1.2,van_diesel_km,Diesel Van (average),0.24,km,DEFRA_2024,Global,2024
+31,1,1.3,refrigerant_halon1211,Halon-1211 (Fire Suppression),1890,kg,IPCC_AR6,Global,2024
+32,1,1.3,refrigerant_hfc125,HFC-125 (C2HF5),3740,kg,IPCC_AR6_GWP100,Global,2024
+33,1,1.3,refrigerant_hfc143a,HFC-143a (C2H3F3),5810,kg,IPCC_AR6_GWP100,Global,2024
+34,1,1.3,refrigerant_hfc152a,HFC-152a (C2H4F2),164,kg,IPCC_AR6_GWP100,Global,2024
+35,1,1.3,refrigerant_hfc227ea,HFC-227ea (C3HF7),3600,kg,IPCC_AR6_GWP100,Global,2024
+36,1,1.3,refrigerant_hfc23,HFC-23 (CHF3),14800,kg,IPCC_AR6_GWP100,Global,2024
+37,1,1.3,refrigerant_hfc236fa,HFC-236fa (C3H2F6),8690,kg,IPCC_AR6_GWP100,Global,2024
+38,1,1.3,refrigerant_hfc245fa,HFC-245fa (C3H3F5),962,kg,IPCC_AR6_GWP100,Global,2024
+39,1,1.3,refrigerant_hfc365mfc,HFC-365mfc (C4H5F5),914,kg,IPCC_AR6_GWP100,Global,2024
+40,1,1.3,refrigerant_hfc4310mee,HFC-43-10mee (C5H2F10),1650,kg,IPCC_AR6_GWP100,Global,2024
+41,1,1.3,refrigerant_nf3,NF3 (Nitrogen Trifluoride),17400,kg,IPCC_AR6_GWP100,Global,2024
+42,1,1.3,refrigerant_pfc116,PFC-116 / C2F6 (Hexafluoroethane),12400,kg,IPCC_AR6_GWP100,Global,2024
+43,1,1.3,refrigerant_pfc14,PFC-14 / CF4 (Carbon Tetrafluoride),7380,kg,IPCC_AR6_GWP100,Global,2024
+44,1,1.3,refrigerant_pfc218,PFC-218 / C3F8 (Perfluoropropane),9290,kg,IPCC_AR6_GWP100,Global,2024
+45,1,1.3,refrigerant_pfc318,PFC-318 / c-C4F8 (Perfluorocyclobutane),10200,kg,IPCC_AR6_GWP100,Global,2024
+46,1,1.3,refrigerant_r123,R-123 / HCFC-123 (Phased Out),77,kg,IPCC_AR6,Global,2024
+47,1,1.3,refrigerant_r1234yf,R-1234yf (HFO - Low GWP),1,kg,IPCC_AR6,Global,2024
+48,1,1.3,refrigerant_r1234yf,R-1234yf (HFO-1234yf),1,kg,IPCC_AR6_GWP100,Global,2024
+49,1,1.3,refrigerant_r1234ze,R-1234ze (HFO-1234ze),1,kg,IPCC_AR6_GWP100,Global,2024
+50,1,1.3,refrigerant_r134a,R-134a Refrigerant,1530,kg,IPCC_AR6,Global,2024
+51,1,1.3,refrigerant_r227ea,FM-200 / R-227ea (Fire Suppression),3220,kg,IPCC_AR6,Global,2024
+52,1,1.3,refrigerant_r290,R-290 (Propane),3,kg,IPCC_AR6_GWP100,Global,2024
+53,1,1.3,refrigerant_r32,R-32 Refrigerant,771,kg,IPCC_AR6,Global,2024
+54,1,1.3,refrigerant_r404a,R-404A Refrigerant,4728,kg,IPCC_AR6,Global,2024
+55,1,1.3,refrigerant_r407a,R-407A Blend,2107,kg,IPCC_AR6_GWP100,Global,2024
+56,1,1.3,refrigerant_r407c,R-407C Refrigerant,1774,kg,IPCC_AR6,Global,2024
+57,1,1.3,refrigerant_r407c,R-407C Blend,1774,kg,IPCC_AR6_GWP100,Global,2024
+58,1,1.3,refrigerant_r407f,R-407F Blend,1825,kg,IPCC_AR6_GWP100,Global,2024
+59,1,1.3,refrigerant_r410a,R-410A Refrigerant,2256,kg,IPCC_AR6,Global,2024
+60,1,1.3,refrigerant_r417a,R-417A Blend,2346,kg,IPCC_AR6_GWP100,Global,2024
+61,1,1.3,refrigerant_r422d,R-422D Blend,2729,kg,IPCC_AR6_GWP100,Global,2024
+62,1,1.3,refrigerant_r507a,R-507A Refrigerant,3985,kg,IPCC_AR6,Global,2024
+63,1,1.3,refrigerant_r507a,R-507A Blend,3985,kg,IPCC_AR6_GWP100,Global,2024
+64,1,1.3,refrigerant_r508b,R-508B Blend,13396,kg,IPCC_AR6_GWP100,Global,2024
+65,1,1.3,refrigerant_r600a,R-600a (Isobutane),3,kg,IPCC_AR6_GWP100,Global,2024
+66,1,1.3,refrigerant_r717,R-717 (Ammonia),0,kg,IPCC_AR6_GWP100,Global,2024
+67,1,1.3,refrigerant_r744,R-744 (CO2),1,kg,IPCC_AR6_GWP100,Global,2024
+68,1,1.3,refrigerant_sf6,SF6 (Switchgear),23500,kg,IPCC_AR6,Global,2024
+69,1,1.3,refrigerant_sf6,SF6 (Sulfur Hexafluoride),25200,kg,IPCC_AR6_GWP100,Global,2024
+70,2,2,district_heat_kwh,District Heating,0.166,kWh,DEFRA_2024,Global,2024
+71,2,2,electricity_ae,UAE Grid Electricity,0.456,kWh,IEA_2024,AE,2024
+72,2,2,electricity_ar,Argentina Grid Electricity,0.315,kWh,IEA_2024,AR,2024
+73,2,2,electricity_at,Austria Grid Electricity,0.087,kWh,IEA_2024,AT,2024
+74,2,2,electricity_au,Australia Grid (National Average),0.68,kWh,DISER_Australia_2024,AU,2024
+75,2,2,electricity_au,Australia Grid Electricity,0.656,kWh,IEA_2024,AU,2024
+76,2,2,electricity_be,Belgium Grid Electricity,0.144,kWh,IEA_2024,BE,2024
+77,2,2,electricity_br,Brazil Grid Electricity,0.074,kWh,IEA_2024,BR,2024
+78,2,2,electricity_ca,Canada Grid (National Average),0.12,kWh,Environment_Canada_2024,CA,2024
+79,2,2,electricity_ca,Canada Grid Electricity,0.12,kWh,IEA_2024,CA,2024
+80,2,2,electricity_ch,Switzerland Grid Electricity,0.012,kWh,IEA_2024,CH,2024
+81,2,2,electricity_cl,Chile Grid Electricity,0.355,kWh,IEA_2024,CL,2024
+82,2,2,electricity_cn,China Grid (National Average),0.555,kWh,NDRC_China_2024,CN,2024
+83,2,2,electricity_cn,China Grid Electricity,0.555,kWh,IEA_2024,CN,2024
+84,2,2,electricity_co,Colombia Grid Electricity,0.126,kWh,IEA_2024,CO,2024
+85,2,2,electricity_custom,Custom Emission Factor,1,kWh,User_Provided,Global,2024
+86,2,2,electricity_cz,Czech Republic Grid Electricity,0.418,kWh,IEA_2024,CZ,2024
+87,2,2,electricity_de,Germany Grid,0.366,kWh,UBA_Germany_2024,DE,2024
+88,2,2,electricity_de,Germany Grid Electricity,0.38,kWh,IEA_2024,DE,2024
+89,2,2,electricity_dk,Denmark Grid Electricity,0.126,kWh,IEA_2024,DK,2024
+90,2,2,electricity_eg,Egypt Grid Electricity,0.448,kWh,IEA_2024,EG,2024
+91,2,2,electricity_es,Spain Grid,0.149,kWh,REE_Spain_2024,ES,2024
+92,2,2,electricity_es,Spain Grid Electricity,0.21,kWh,IEA_2024,ES,2024
+93,2,2,electricity_eu,EU Average Grid,0.23,kWh,EEA_2024,EU,2024
+94,2,2,electricity_fi,Finland Grid Electricity,0.079,kWh,IEA_2024,FI,2024
+95,2,2,electricity_fr,France Grid,0.052,kWh,ADEME_France_2024,FR,2024
+96,2,2,electricity_fr,France Grid Electricity,0.052,kWh,IEA_2024,FR,2024
+97,2,2,electricity_global,Global Average Grid,0.436,kWh,IEA_World_2024,Global,2024
+98,2,2,electricity_gr,Greece Grid Electricity,0.373,kWh,IEA_2024,GR,2024
+99,2,2,electricity_hk,Hong Kong Grid Electricity,0.63,kWh,IEA_2024,HK,2024
+100,2,2,electricity_hu,Hungary Grid Electricity,0.225,kWh,IEA_2024,HU,2024
+101,2,2,electricity_id,Indonesia Grid Electricity,0.722,kWh,IEA_2024,ID,2024
+102,2,2,electricity_ie,Ireland Grid Electricity,0.296,kWh,IEA_2024,IE,2024
+103,2,2,electricity_il,Israel Grid,0.527,kWh,IEC_Israel_2024,IL,2024
+104,2,2,electricity_in,India Grid,0.708,kWh,CEA_India_2024,IN,2024
+105,2,2,electricity_in,India Grid Electricity,0.708,kWh,IEA_2024,IN,2024
+106,2,2,electricity_it,Italy Grid,0.257,kWh,ISPRA_Italy_2024,IT,2024
+107,2,2,electricity_it,Italy Grid Electricity,0.315,kWh,IEA_2024,IT,2024
+108,2,2,electricity_jp,Japan Grid,0.457,kWh,MOE_Japan_2024,JP,2024
+109,2,2,electricity_jp,Japan Grid Electricity,0.453,kWh,IEA_2024,JP,2024
+110,2,2,electricity_ke,Kenya Grid Electricity,0.093,kWh,IEA_2024,KE,2024
+111,2,2,electricity_kr,South Korea Grid,0.417,kWh,KEEI_Korea_2024,KR,2024
+112,2,2,electricity_kr,South Korea Grid Electricity,0.417,kWh,IEA_2024,KR,2024
+113,2,2,electricity_mx,Mexico Grid Electricity,0.435,kWh,IEA_2024,MX,2024
+114,2,2,electricity_my,Malaysia Grid Electricity,0.585,kWh,IEA_2024,MY,2024
+115,2,2,electricity_ng,Nigeria Grid Electricity,0.41,kWh,IEA_2024,NG,2024
+116,2,2,electricity_nl,Netherlands Grid,0.328,kWh,CBS_Netherlands_2024,NL,2024
+117,2,2,electricity_nl,Netherlands Grid Electricity,0.328,kWh,IEA_2024,NL,2024
+118,2,2,electricity_no,Norway Grid Electricity,0.008,kWh,IEA_2024,NO,2024
+119,2,2,electricity_nz,New Zealand Grid Electricity,0.082,kWh,IEA_2024,NZ,2024
+120,2,2,electricity_ph,Philippines Grid Electricity,0.593,kWh,IEA_2024,PH,2024
+121,2,2,electricity_pl,Poland Grid,0.653,kWh,KOBiZE_Poland_2024,PL,2024
+122,2,2,electricity_pl,Poland Grid Electricity,0.706,kWh,IEA_2024,PL,2024
+123,2,2,electricity_pt,Portugal Grid Electricity,0.173,kWh,IEA_2024,PT,2024
+124,2,2,electricity_renewable,100% Renewable (Certified),0,kWh,Market_Based_Renewable,Global,2024
+125,2,2,electricity_residual_mix,Residual Mix (EU Average),0.453,kWh,AIB_Residual_2024,EU,2024
+126,2,2,electricity_ro,Romania Grid Electricity,0.261,kWh,IEA_2024,RO,2024
+127,2,2,electricity_ru,Russia Grid Electricity,0.335,kWh,IEA_2024,RU,2024
+128,2,2,electricity_sa,Saudi Arabia Grid Electricity,0.59,kWh,IEA_2024,SA,2024
+129,2,2,electricity_se,Sweden Grid Electricity,0.013,kWh,IEA_2024,SE,2024
+130,2,2,electricity_sg,Singapore Grid,0.408,kWh,EMA_Singapore_2024,SG,2024
+131,2,2,electricity_sg,Singapore Grid Electricity,0.408,kWh,IEA_2024,SG,2024
+132,2,2,electricity_supplier,Supplier Specific Factor,0,kWh,Supplier_Disclosure,Global,2024
+133,2,2,electricity_th,Thailand Grid Electricity,0.47,kWh,IEA_2024,TH,2024
+134,2,2,electricity_tr,Turkey Grid Electricity,0.378,kWh,IEA_2024,TR,2024
+135,2,2,electricity_tw,Taiwan Grid Electricity,0.509,kWh,IEA_2024,TW,2024
+136,2,2,electricity_uk,United Kingdom Grid,0.207,kWh,DEFRA_2024,UK,2024
+137,2,2,electricity_us,USA Grid (National Average),0.386,kWh,EPA_eGRID_2024,US,2024
+138,2,2,electricity_us_ca,USA - California Grid,0.225,kWh,EPA_eGRID_2024_CAMX,US-CA,2024
+139,2,2,electricity_us_mw,USA - Midwest Grid,0.475,kWh,EPA_eGRID_2024_MROW,US-MW,2024
+140,2,2,electricity_us_ny,USA - New York Grid,0.188,kWh,EPA_eGRID_2024_NYUP,US-NY,2024
+141,2,2,electricity_us_tx,USA - Texas Grid (ERCOT),0.373,kWh,EPA_eGRID_2024_ERCT,US-TX,2024
+142,2,2,electricity_vn,Vietnam Grid Electricity,0.476,kWh,IEA_2024,VN,2024
+143,2,2,electricity_za,South Africa Grid Electricity,0.928,kWh,IEA_2024,ZA,2024
+144,2,2,energy_supplier,Supplier-Specific Energy,1,kWh,User_Provided,Global,2024
+145,2,2,spend_electricity,Electricity (spend),0.45,USD,USEEIO_2.0,US,2024
+146,2,2,spend_heat_steam,District Heat/Steam (spend),0.38,USD,USEEIO_2.0,US,2024
+147,2,2,steam_kwh,Steam,0.191,kWh,DEFRA_2024,Global,2024
+148,2,2.3,district_cooling_kwh,District Cooling,0.166,kWh,DEFRA_2024,Global,2024
+149,3,3.1,aluminum_primary_purchased_kg,Aluminum - Primary (purchased),16.5,kg,IAI_2023,Global,2024
+150,3,3.1,aluminum_recycled_purchased_kg,Aluminum - Recycled (purchased),0.5,kg,IAI_2023,Global,2024
+151,3,3.1,cardboard_purchased_kg,Cardboard (purchased),0.79,kg,DEFRA_2024,Global,2024
+152,3,3.1,concrete_purchased_kg,Concrete (purchased),0.13,kg,DEFRA_2024,Global,2024
+153,3,3.1,electronics_purchased_kg,Electronics (purchased),20,kg,DEFRA_2024,Global,2024
+154,3,3.1,food_dairy_purchased_kg,Food - Dairy (purchased),3.2,kg,DEFRA_2024,Global,2024
+155,3,3.1,food_meat_purchased_kg,Food - Meat (purchased),13,kg,DEFRA_2024,Global,2024
+156,3,3.1,food_vegetables_purchased_kg,Food - Vegetables (purchased),0.5,kg,DEFRA_2024,Global,2024
+157,3,3.1,glass_purchased_kg,Glass (purchased),0.86,kg,DEFRA_2024,Global,2024
+158,3,3.1,paper_recycled_purchased_kg,Paper - Recycled (purchased),0.61,kg,DEFRA_2024,Global,2024
+159,3,3.1,paper_virgin_purchased_kg,Paper - Virgin (purchased),0.92,kg,DEFRA_2024,Global,2024
+160,3,3.1,plastic_generic_purchased_kg,Plastic - Average (purchased),3.1,kg,DEFRA_2024,Global,2024
+161,3,3.1,plastic_hdpe_purchased_kg,Plastic - HDPE (purchased),1.93,kg,DEFRA_2024,Global,2024
+162,3,3.1,plastic_pet_purchased_kg,Plastic - PET (purchased),2.73,kg,DEFRA_2024,Global,2024
+163,3,3.1,spend_banking,Banking & Financial Services (spend),0.1,USD,USEEIO_2.0,US,2024
+164,3,3.1,spend_chemicals,Chemicals (spend),0.55,USD,USEEIO_2.0,US,2024
+165,3,3.1,spend_cleaning_services,Cleaning Services (spend),0.2,USD,USEEIO_2.0,US,2024
+166,3,3.1,spend_food_beverages,Food & Beverages (spend),0.68,USD,USEEIO_2.0,US,2024
+167,3,3.1,spend_furniture,Furniture (spend),0.38,USD,USEEIO_2.0,US,2024
+168,3,3.1,spend_insurance,Insurance Services (spend),0.12,USD,USEEIO_2.0,US,2024
+169,3,3.1,spend_it_equipment,IT Equipment (spend),0.42,USD,USEEIO_2.0,US,2024
+170,3,3.1,spend_it_services,IT Services (spend),0.25,USD,USEEIO_2.0,US,2024
+171,3,3.1,spend_legal_services,Legal Services (spend),0.18,USD,USEEIO_2.0,US,2024
+172,3,3.1,spend_marketing,Marketing & Advertising (spend),0.28,USD,USEEIO_2.0,US,2024
+173,3,3.1,spend_naics_322121,Paper Mills (NAICS 322121),1.25,USD,USEEIO_2.0_NAICS_322121,US,2024
+174,3,3.1,spend_naics_324110,Petroleum Refineries (NAICS 324110),1.45,USD,USEEIO_2.0_NAICS_324110,US,2024
+175,3,3.1,spend_naics_325211,Plastics & Resins Manufacturing (NAICS 325211),1.85,USD,USEEIO_2.0_NAICS_325211,US,2024
+176,3,3.1,spend_naics_325411,Pharmaceutical Manufacturing (NAICS 325411),0.52,USD,USEEIO_2.0_NAICS_325411,US,2024
+177,3,3.1,spend_naics_327310,Cement Manufacturing (NAICS 327310),2.35,USD,USEEIO_2.0_NAICS_327310,US,2024
+178,3,3.1,spend_naics_331110,Iron & Steel Mills (NAICS 331110),1.95,USD,USEEIO_2.0_NAICS_331110,US,2024
+179,3,3.1,spend_naics_334111,Electronic Computer Manufacturing (NAICS 334111),0.45,USD,USEEIO_2.0_NAICS_334111,US,2024
+180,3,3.1,spend_naics_334118,Computer Peripheral Equipment (NAICS 334118),0.38,USD,USEEIO_2.0_NAICS_334118,US,2024
+181,3,3.1,spend_naics_336111,Automobile Manufacturing (NAICS 336111),0.85,USD,USEEIO_2.0_NAICS_336111,US,2024
+182,3,3.1,spend_naics_337211,Office Furniture Manufacturing (NAICS 337211),0.48,USD,USEEIO_2.0_NAICS_337211,US,2024
+183,3,3.1,spend_naics_453210,Office Supplies & Stationery Stores (NAICS 453210),0.32,USD,USEEIO_2.0_NAICS_453210,US,2024
+184,3,3.1,spend_naics_481111,Scheduled Passenger Air Transport (NAICS 481111),0.95,USD,USEEIO_2.0_NAICS_481111,US,2024
+185,3,3.1,spend_naics_484110,General Freight Trucking (NAICS 484110),0.72,USD,USEEIO_2.0_NAICS_484110,US,2024
+186,3,3.1,spend_naics_492110,Couriers & Express Delivery (NAICS 492110),0.55,USD,USEEIO_2.0_NAICS_492110,US,2024
+187,3,3.1,spend_naics_517311,Wired Telecommunications (NAICS 517311),0.18,USD,USEEIO_2.0_NAICS_517311,US,2024
+188,3,3.1,spend_naics_517312,Wireless Telecommunications (NAICS 517312),0.15,USD,USEEIO_2.0_NAICS_517312,US,2024
+189,3,3.1,spend_naics_518210,Data Processing & Hosting (NAICS 518210),0.28,USD,USEEIO_2.0_NAICS_518210,US,2024
+190,3,3.1,spend_naics_522110,Commercial Banking (NAICS 522110),0.08,USD,USEEIO_2.0_NAICS_522110,US,2024
+191,3,3.1,spend_naics_524210,Insurance Agencies (NAICS 524210),0.09,USD,USEEIO_2.0_NAICS_524210,US,2024
+192,3,3.1,spend_naics_531120,Office Building Leasing (NAICS 531120),0.22,USD,USEEIO_2.0_NAICS_531120,US,2024
+193,3,3.1,spend_naics_541110,Legal Services (NAICS 541110),0.18,USD,USEEIO_2.0_NAICS_541110,US,2024
+194,3,3.1,spend_naics_541211,Accounting & Tax Services (NAICS 541211),0.15,USD,USEEIO_2.0_NAICS_541211,US,2024
+195,3,3.1,spend_naics_541310,Architectural Services (NAICS 541310),0.16,USD,USEEIO_2.0_NAICS_541310,US,2024
+196,3,3.1,spend_naics_541330,Engineering Services (NAICS 541330),0.17,USD,USEEIO_2.0_NAICS_541330,US,2024
+197,3,3.1,spend_naics_541511,Custom Computer Programming (NAICS 541511),0.12,USD,USEEIO_2.0_NAICS_541511,US,2024
+198,3,3.1,spend_naics_541611,Management Consulting (NAICS 541611),0.14,USD,USEEIO_2.0_NAICS_541611,US,2024
+199,3,3.1,spend_naics_541810,Advertising Agencies (NAICS 541810),0.19,USD,USEEIO_2.0_NAICS_541810,US,2024
+200,3,3.1,spend_naics_561210,Security Guard Services (NAICS 561210),0.15,USD,USEEIO_2.0_NAICS_561210,US,2024
+201,3,3.1,spend_naics_561720,Janitorial Services (NAICS 561720),0.25,USD,USEEIO_2.0_NAICS_561720,US,2024
+202,3,3.1,spend_naics_621111,Physician Offices (NAICS 621111),0.18,USD,USEEIO_2.0_NAICS_621111,US,2024
+203,3,3.1,spend_naics_722320,Caterers (NAICS 722320),0.65,USD,USEEIO_2.0_NAICS_722320,US,2024
+204,3,3.1,spend_naics_722511,Full-Service Restaurants (NAICS 722511),0.72,USD,USEEIO_2.0_NAICS_722511,US,2024
+205,3,3.1,spend_naics_722513,Limited-Service Restaurants (NAICS 722513),0.68,USD,USEEIO_2.0_NAICS_722513,US,2024
+206,3,3.1,spend_office_supplies,Office Supplies (spend),0.35,USD,USEEIO_2.0,US,2024
+207,3,3.1,spend_other,Other Purchases (spend),0.3,USD,USEEIO_2.0,US,2024
+208,3,3.1,spend_printing,Printing Services (spend),0.45,USD,USEEIO_2.0,US,2024
+209,3,3.1,spend_professional_services,Professional Services (spend),0.22,USD,USEEIO_2.0,US,2024
+210,3,3.1,spend_telecommunications,Telecommunications (spend),0.32,USD,USEEIO_2.0,US,2024
+211,3,3.1,steel_purchased_kg,Steel (purchased),1.85,kg,World_Steel_Association_2023,Global,2024
+212,3,3.1,textiles_cotton_purchased_kg,Textiles - Cotton (purchased),8,kg,DEFRA_2024,Global,2024
+213,3,3.1,textiles_polyester_purchased_kg,Textiles - Polyester (purchased),5.5,kg,DEFRA_2024,Global,2024
+214,3,3.1,processing_aluminum_kg,Processing - Aluminum,8.14,kg,DEFRA_2024,Global,2024
+215,3,3.1,processing_chemical_kg,Processing - Chemical/Petrochemical,2.8,kg,DEFRA_2024,Global,2024
+216,3,3.1,processing_electronics_kg,Processing - Electronics/Components,12.5,kg,DEFRA_2024,Global,2024
+217,3,3.1,processing_energy_kwh,Processing - Energy (site-specific),0.436,kWh,IEA_World_2024,Global,2024
+218,3,3.1,processing_food_kg,Processing - Food/Agricultural,0.75,kg,DEFRA_2024,Global,2024
+219,3,3.1,processing_generic_kg,Processing - Generic/Other,2,kg,DEFRA_2024,Global,2024
+220,3,3.1,processing_glass_kg,Processing - Glass,0.86,kg,DEFRA_2024,Global,2024
+221,3,3.1,processing_metal_kg,Processing - Metal (General),2.5,kg,DEFRA_2024,Global,2024
+222,3,3.1,processing_paper_kg,Processing - Paper/Pulp,0.92,kg,DEFRA_2024,Global,2024
+223,3,3.1,processing_plastic_kg,Processing - Plastic/Polymer,3.1,kg,DEFRA_2024,Global,2024
+224,3,3.1,processing_spend_manufacturing,Processing - Manufacturing (spend),0.38,USD,USEEIO_2.0,US,2024
+225,3,3.1,processing_steel_kg,Processing - Steel/Iron,1.85,kg,DEFRA_2024,Global,2024
+226,3,3.1,processing_textile_kg,Processing - Textile/Fabric,5.5,kg,DEFRA_2024,Global,2024
+227,3,3.1,processing_wood_kg,Processing - Wood/Timber,0.45,kg,DEFRA_2024,Global,2024
+228,3,3.11,use_phase_building_m2_year,Use Phase - Building (per m²-year),45,m2-year,DEFRA_2024,Global,2024
+229,3,3.11,use_phase_diesel_liters,Use Phase - Diesel,2.68,liters,DEFRA_2024,Global,2024
+230,3,3.11,use_phase_electricity_kwh,Use Phase - Electricity Consumption,0.436,kWh,IEA_World_2024,Global,2024
+231,3,3.11,use_phase_lpg_liters,Use Phase - LPG,1.51,liters,DEFRA_2024,Global,2024
+232,3,3.11,use_phase_natural_gas_kwh,Use Phase - Natural Gas,0.184,kWh,DEFRA_2024,Global,2024
+233,3,3.11,use_phase_petrol_liters,Use Phase - Petrol/Gasoline,2.31,liters,DEFRA_2024,Global,2024
+234,3,3.11,use_phase_spend_products,Use Phase - Products (spend),0.25,USD,USEEIO_2.0,US,2024
+235,3,3.11,use_phase_vehicle_km,Use Phase - Vehicle (per km),0.171,km,DEFRA_2024,Global,2024
+236,3,3.12,eol_anaerobic_digestion,Anaerobic Digestion (EOL),0.01,kg,DEFRA_2024,Global,2024
+237,3,3.12,eol_batteries,Batteries EOL Treatment,0.75,kg,EPA_2024,Global,2024
+238,3,3.12,eol_composting,Composting (EOL),0.01,kg,DEFRA_2024,Global,2024
+239,3,3.12,eol_ewaste_mixed,E-Waste Mixed Treatment (EOL),0.5,kg,EPA_2024,Global,2024
+240,3,3.12,eol_hazardous,Hazardous Waste Treatment (EOL),1.2,kg,EPA_2024,Global,2024
+241,3,3.12,eol_incineration,Incineration without Energy Recovery (EOL),0.918,kg,DEFRA_2024,Global,2024
+242,3,3.12,eol_incineration_energy,Incineration with Energy Recovery (EOL),0.429,kg,DEFRA_2024,Global,2024
+243,3,3.12,eol_landfill_mixed,Mixed Waste to Landfill (EOL),0.46,kg,DEFRA_2024,Global,2024
+244,3,3.12,eol_landfill_organic,Organic Waste to Landfill (EOL),0.587,kg,DEFRA_2024,Global,2024
+245,3,3.12,eol_landfill_paper,Paper to Landfill (EOL),1.042,kg,DEFRA_2024,Global,2024
+246,3,3.12,eol_landfill_plastic,Plastic to Landfill (EOL),0.01,kg,DEFRA_2024,Global,2024
+247,3,3.12,eol_landfill_textile,Textile to Landfill (EOL),0.587,kg,DEFRA_2024,Global,2024
+248,3,3.12,eol_landfill_wood,Wood to Landfill (EOL),0.735,kg,DEFRA_2024,Global,2024
+249,3,3.12,eol_recycling_ewaste,E-Waste Recycling (EOL),0.021,kg,DEFRA_2024,Global,2024
+250,3,3.12,eol_recycling_glass,Glass Recycling (EOL),0.021,kg,DEFRA_2024,Global,2024
+251,3,3.12,eol_recycling_metal,Metal Recycling (EOL),0.021,kg,DEFRA_2024,Global,2024
+252,3,3.12,eol_recycling_mixed,Mixed Recycling (EOL),0.021,kg,DEFRA_2024,Global,2024
+253,3,3.12,eol_recycling_paper,Paper/Cardboard Recycling (EOL),0.021,kg,DEFRA_2024,Global,2024
+254,3,3.12,eol_recycling_plastic,Plastic Recycling (EOL),0.021,kg,DEFRA_2024,Global,2024
+255,3,3.12,eol_recycling_textile,Textile Recycling (EOL),0.021,kg,DEFRA_2024,Global,2024
+256,3,3.12,eol_spend_disposal,EOL Treatment (spend),0.4,USD,USEEIO_2.0,US,2024
+257,3,3.13,downstream_leased_datacenter_m2,Leased Data Center (per m2),1.5,m2,DEFRA_2024,Global,2024
+258,3,3.13,downstream_leased_electricity_kwh,Leased Asset Electricity,0.436,kWh,IEA_2024,Global,2024
+259,3,3.13,downstream_leased_equipment_unit,Leased Equipment (per unit),500,unit,EPA_2024,Global,2024
+260,3,3.13,downstream_leased_gas_kwh,Leased Asset Natural Gas,0.184,kWh,DEFRA_2024,Global,2024
+261,3,3.13,downstream_leased_industrial_m2,Leased Industrial Space (per m2),0.12,m2,DEFRA_2024,Global,2024
+262,3,3.13,downstream_leased_office_m2,Leased Office Building (per m2),0.15,m2,DEFRA_2024,Global,2024
+263,3,3.13,downstream_leased_residential_m2,Leased Residential (per m2),0.1,m2,DEFRA_2024,Global,2024
+264,3,3.13,downstream_leased_retail_m2,Leased Retail Space (per m2),0.2,m2,DEFRA_2024,Global,2024
+265,3,3.13,downstream_leased_spend_income,Downstream Leased Assets (spend),0.15,USD,USEEIO_2.0,US,2024
+266,3,3.13,downstream_leased_vehicle_unit,Leased Vehicle (per unit),2500,unit,DEFRA_2024,Global,2024
+267,3,3.13,downstream_leased_warehouse_m2,Leased Warehouse (per m2),0.08,m2,DEFRA_2024,Global,2024
+268,3,3.14,franchise_cafe_unit,Cafe/Coffee Franchise (per unit),20000,unit,EPA_2024,Global,2024
+269,3,3.14,franchise_convenience_unit,Convenience Store Franchise (per unit),25000,unit,EPA_2024,Global,2024
+270,3,3.14,franchise_electricity_kwh,Franchise Electricity,0.436,kWh,IEA_2024,Global,2024
+271,3,3.14,franchise_fastfood_unit,Fast Food Franchise (per unit),35000,unit,EPA_2024,Global,2024
+272,3,3.14,franchise_fuel_liters,Franchise Fuel (Diesel/Petrol),2.68,liters,DEFRA_2024,Global,2024
+273,3,3.14,franchise_gas_kwh,Franchise Natural Gas,0.184,kWh,DEFRA_2024,Global,2024
+274,3,3.14,franchise_gasstation_unit,Gas Station Franchise (per unit),100000,unit,EPA_2024,Global,2024
+275,3,3.14,franchise_generic_unit,Generic Franchise (per unit),30000,unit,EPA_2024,Global,2024
+276,3,3.14,franchise_gym_m2,Gym/Fitness Franchise (per m2),150,m2,DEFRA_2024,Global,2024
+277,3,3.14,franchise_hotel_room,Hotel Franchise (per room),3500,room,DEFRA_2024,Global,2024
+278,3,3.14,franchise_office_m2,Office Franchise (per m2),120,m2,DEFRA_2024,Global,2024
+279,3,3.14,franchise_restaurant_unit,Restaurant Franchise (per unit),50000,unit,EPA_2024,Global,2024
+280,3,3.14,franchise_retail_m2,Retail Franchise (per m2),200,m2,DEFRA_2024,Global,2024
+281,3,3.14,franchise_service_unit,Service Franchise (per unit),15000,unit,EPA_2024,Global,2024
+282,3,3.14,franchise_spend_revenue,Franchises (spend),0.2,USD,USEEIO_2.0,US,2024
+283,3,3.2,capital_building_m2,Building Construction (per m²),500,m2,RICS_CRREM_2023,Global,2024
+284,3,3.2,capital_computer_unit,Computer/Laptop (per unit),300,unit,Industry_LCA_Apple_Dell,Global,2024
+285,3,3.2,capital_server_unit,Server (per unit),1500,unit,Industry_LCA,Global,2024
+286,3,3.2,capital_truck_unit,Vehicle - Truck/HGV (per unit),15000,unit,DEFRA_2024,Global,2024
+287,3,3.2,capital_vehicle_unit,Vehicle - Car (per unit),6000,unit,DEFRA_2024,Global,2024
+288,3,3.2,spend_capital_equipment,Capital Equipment (spend),0.35,USD,USEEIO_2.0,US,2024
+289,3,3.2,spend_construction,Construction (spend),0.45,USD,USEEIO_2.0,US,2024
+290,3,3.3,wtt_aviation_km,WTT - Aviation Fuel,0.012,km,DEFRA_2024,Global,2024
+291,3,3.3,wtt_car_diesel_km,WTT - Diesel Car,0.04,km,DEFRA_2024,Global,2024
+292,3,3.3,wtt_car_petrol_km,WTT - Petrol Car,0.04,km,DEFRA_2024,Global,2024
+293,3,3.3,wtt_coal_kg,WTT - Coal,0.25,kg,DEFRA_2024,Global,2024
+294,3,3.3,wtt_diesel_liters,WTT - Diesel,0.62,liters,DEFRA_2024,Global,2024
+295,3,3.3,wtt_electricity_kwh,WTT - Electricity (T&D losses),0.02,kWh,DEFRA_2024,Global,2024
+296,3,3.3,wtt_fuel_oil_liters,WTT - Fuel Oil,0.62,liters,DEFRA_2024,Global,2024
+297,3,3.3,wtt_hgv_diesel_km,WTT - HGV Diesel,0.22,km,DEFRA_2024,Global,2024
+298,3,3.3,wtt_lpg_liters,WTT - LPG,0.18,liters,DEFRA_2024,Global,2024
+299,3,3.3,wtt_natural_gas_kwh,WTT - Natural Gas (kWh),0.031,kWh,DEFRA_2024,Global,2024
+300,3,3.3,wtt_natural_gas_m3,WTT - Natural Gas,0.34,m3,DEFRA_2024,Global,2024
+301,3,3.3,wtt_petrol_liters,WTT - Petrol,0.59,liters,DEFRA_2024,Global,2024
+302,3,3.3,wtt_rail_km,WTT - Rail,0.008,km,DEFRA_2024,Global,2024
+303,3,3.3,wtt_van_diesel_km,WTT - Diesel Van,0.06,km,DEFRA_2024,Global,2024
+304,3,3.4,air_freight,Air Freight,1.13,tonne-km,DEFRA_2024,Global,2024
+305,3,3.4,freight_spend_air,Air Freight (spend),1.2,USD,USEEIO_2.0,US,2024
+306,3,3.4,freight_spend_courier,Courier/Parcel (spend),0.8,USD,USEEIO_2.0,US,2024
+307,3,3.4,freight_spend_road,Road Freight (spend),0.56,USD,USEEIO_2.0,US,2024
+308,3,3.4,freight_spend_sea,Sea Freight (spend),0.35,USD,USEEIO_2.0,US,2024
+309,3,3.4,rail_freight,Rail Freight,0.028,tonne-km,DEFRA_2024,Global,2024
+310,3,3.4,road_freight_hgv,Road Freight - HGV (average),0.107,tonne-km,DEFRA_2024,Global,2024
+311,3,3.4,road_freight_van,Road Freight - Van,0.605,tonne-km,DEFRA_2024,Global,2024
+312,3,3.4,sea_freight_bulk,Sea Freight - Bulk Carrier,0.004,tonne-km,DEFRA_2024,Global,2024
+313,3,3.4,sea_freight_container,Sea Freight - Container Ship,0.016,tonne-km,DEFRA_2024,Global,2024
+314,3,3.5,waste_aluminum_cans_landfill,Aluminum Cans - Landfill,0.02,kg,EPA_WARM_v16,US,2024
+315,3,3.5,waste_aluminum_cans_recycled,Aluminum Cans - Recycled,-9.13,kg,EPA_WARM_v16,US,2024
+316,3,3.5,waste_anaerobic_food,Food Waste - Anaerobic Digestion,0.01,kg,DEFRA_2024,Global,2024
+317,3,3.5,waste_asphalt_shingles_recycled,Asphalt Shingles - Recycled,-0.22,kg,EPA_WARM_v16,US,2024
+318,3,3.5,waste_cardboard_landfill,Corrugated Cardboard - Landfill,0.46,kg,EPA_WARM_v16,US,2024
+319,3,3.5,waste_cardboard_recycled,Corrugated Cardboard - Recycled,-0.85,kg,EPA_WARM_v16,US,2024
+320,3,3.5,waste_composted_food,Food Waste - Composted,0.01,kg,DEFRA_2024,Global,2024
+321,3,3.5,waste_concrete_landfill,Concrete - Landfill,0.02,kg,EPA_WARM_v16,US,2024
+322,3,3.5,waste_concrete_recycled,Concrete - Recycled,-0.01,kg,EPA_WARM_v16,US,2024
+323,3,3.5,waste_construction,Construction & Demolition Waste,0.01,kg,DEFRA_2024,Global,2024
+324,3,3.5,waste_copper_recycled,Copper Wire - Recycled,-4.49,kg,EPA_WARM_v16,US,2024
+325,3,3.5,waste_crt_monitor_recycled,CRT Monitor - Recycled,-0.45,kg,EPA_WARM_v16,US,2024
+326,3,3.5,waste_desktop_computer_landfill,Desktop Computer - Landfill,0.02,kg,EPA_WARM_v16,US,2024
+327,3,3.5,waste_desktop_computer_recycled,Desktop Computer - Recycled,-0.68,kg,EPA_WARM_v16,US,2024
+328,3,3.5,waste_dimensional_lumber_landfill,Dimensional Lumber - Landfill,0.24,kg,EPA_WARM_v16,US,2024
+329,3,3.5,waste_dimensional_lumber_recycled,Dimensional Lumber - Recycled,-0.85,kg,EPA_WARM_v16,US,2024
+330,3,3.5,waste_disposal_spend,Waste Disposal Services (spend),0.4,USD,USEEIO_2.0,US,2024
+331,3,3.5,waste_drywall_recycled,Drywall - Recycled,-0.08,kg,EPA_WARM_v16,US,2024
+332,3,3.5,waste_ewaste,Electronic Waste (WEEE),0.5,kg,DEFRA_2024,Global,2024
+333,3,3.5,waste_food_anaerobicdigestion,Food Waste - Anaerobic Digestion,-0.35,kg,EPA_WARM_v16,US,2024
+334,3,3.5,waste_food_composted,Food Waste - Composted,-0.18,kg,EPA_WARM_v16,US,2024
+335,3,3.5,waste_food_landfill,Food Waste - Landfill,0.58,kg,EPA_WARM_v16,US,2024
+336,3,3.5,waste_glass_landfill,Glass - Landfill,0.02,kg,EPA_WARM_v16,US,2024
+337,3,3.5,waste_glass_recycled,Glass - Recycled,-0.28,kg,EPA_WARM_v16,US,2024
+338,3,3.5,waste_hdpe_landfill,HDPE Plastic - Landfill,0.02,kg,EPA_WARM_v16,US,2024
+339,3,3.5,waste_hdpe_recycled,HDPE Plastic - Recycled,-0.88,kg,EPA_WARM_v16,US,2024
+340,3,3.5,waste_incineration,Waste Incinerated,0.02,kg,DEFRA_2024,Global,2024
+341,3,3.5,waste_landfill_food,Food Waste - Landfill,0.59,kg,DEFRA_2024,Global,2024
+342,3,3.5,waste_landfill_mixed,Mixed Waste to Landfill,0.58,kg,DEFRA_2024,Global,2024
+343,3,3.5,waste_ldpe_incineration,LDPE Plastic - Incineration,1.42,kg,EPA_WARM_v16,US,2024
+344,3,3.5,waste_ldpe_landfill,LDPE Plastic - Landfill,0.02,kg,EPA_WARM_v16,US,2024
+345,3,3.5,waste_newspaper_landfill,Newspaper - Landfill,0.95,kg,EPA_WARM_v16,US,2024
+346,3,3.5,waste_newspaper_recycled,Newspaper - Recycled,-1.02,kg,EPA_WARM_v16,US,2024
+347,3,3.5,waste_office_paper_landfill,Office Paper - Landfill,1.02,kg,EPA_WARM_v16,US,2024
+348,3,3.5,waste_office_paper_recycled,Office Paper - Recycled,-0.87,kg,EPA_WARM_v16,US,2024
+349,3,3.5,waste_pet_landfill,PET Plastic - Landfill,0.02,kg,EPA_WARM_v16,US,2024
+350,3,3.5,waste_pet_recycled,PET Plastic - Recycled,-1.13,kg,EPA_WARM_v16,US,2024
+351,3,3.5,waste_recycled_glass,Glass Waste - Recycled,0.02,kg,DEFRA_2024,Global,2024
+352,3,3.5,waste_recycled_metal,Metal Waste - Recycled,0.02,kg,DEFRA_2024,Global,2024
+353,3,3.5,waste_recycled_mixed,Mixed Waste Recycled,0.02,kg,DEFRA_2024,Global,2024
+354,3,3.5,waste_recycled_paper,Paper/Cardboard Recycled,0.02,kg,DEFRA_2024,Global,2024
+355,3,3.5,waste_recycled_plastic,Plastic Recycled,0.02,kg,DEFRA_2024,Global,2024
+356,3,3.5,waste_steel_cans_landfill,Steel Cans - Landfill,0.02,kg,EPA_WARM_v16,US,2024
+357,3,3.5,waste_steel_cans_recycled,Steel Cans - Recycled,-1.83,kg,EPA_WARM_v16,US,2024
+358,3,3.5,waste_textiles_landfill,Textiles/Clothing - Landfill,0.02,kg,EPA_WARM_v16,US,2024
+359,3,3.5,waste_textiles_recycled,Textiles/Clothing - Recycled,-3.12,kg,EPA_WARM_v16,US,2024
+360,3,3.5,waste_yard_composted,Yard Trimmings - Composted,-0.15,kg,EPA_WARM_v16,US,2024
+361,3,3.5,waste_yard_landfill,Yard Trimmings - Landfill,0.21,kg,EPA_WARM_v16,US,2024
+362,3,3.6,flight_long_business,Long-haul Flight (Business),0.296,km,DEFRA_2024,Global,2024
+363,3,3.6,flight_long_economy,Long-haul Flight (Economy),0.102,km,DEFRA_2024,Global,2024
+364,3,3.6,flight_long_first,Long-haul Flight (First Class),0.599,km,DEFRA_2024,Global,2024
+365,3,3.6,flight_short_business,Short-haul Flight (Business),0.234,km,DEFRA_2024,Global,2024
+366,3,3.6,flight_short_economy,Short-haul Flight (Economy),0.156,km,DEFRA_2024,Global,2024
+367,3,3.6,hotel_night,Hotel Stay,14.6,nights,DEFRA_2024,Global,2024
+368,3,3.6,rail_domestic_km,Domestic Rail,0.035,km,DEFRA_2024,Global,2024
+369,3,3.6,rail_international_km,International Rail (Eurostar-type),0.006,km,DEFRA_2024,Global,2024
+370,3,3.6,rail_km,Rail Travel,0.035,km,DEFRA_2024,Global,2024
+371,3,3.6,rental_car_km,Rental Car (average),0.17,km,DEFRA_2024,Global,2024
+372,3,3.6,taxi_km,Taxi,0.21,km,DEFRA_2024,Global,2024
+373,3,3.6,travel_spend_air,Air Travel (spend),0.95,USD,USEEIO_2.0,US,2024
+374,3,3.6,travel_spend_car_rental,Car Rental (spend),0.35,USD,USEEIO_2.0,US,2024
+375,3,3.6,travel_spend_general,Business Travel - General (spend),0.5,USD,USEEIO_2.0,US,2024
+376,3,3.6,travel_spend_hotel,Hotel Accommodation (spend),0.25,USD,USEEIO_2.0,US,2024
+377,3,3.6,travel_spend_rail,Rail Travel (spend),0.15,USD,USEEIO_2.0,US,2024
+378,3,3.6,travel_spend_taxi,Taxi/Rideshare (spend),0.4,USD,USEEIO_2.0,US,2024
+379,3,3.7,commute_bicycle,Commute - Bicycle,0,km,DEFRA_2024,Global,2024
+380,3,3.7,commute_bus,Commute - Bus,0.103,km,DEFRA_2024,Global,2024
+381,3,3.7,commute_car_diesel,Commute - Diesel Car,0.16,km,DEFRA_2024,Global,2024
+382,3,3.7,commute_car_electric,Commute - Electric Car,0.05,km,DEFRA_2024,Global,2024
+383,3,3.7,commute_car_hybrid,Commute - Hybrid Car,0.12,km,DEFRA_2024,Global,2024
+384,3,3.7,commute_car_petrol,Commute - Petrol Car,0.17,km,DEFRA_2024,Global,2024
+385,3,3.7,commute_ebike,Commute - E-bike,0.005,km,DEFRA_2024,Global,2024
+386,3,3.7,commute_motorcycle,Commute - Motorcycle,0.11,km,DEFRA_2024,Global,2024
+387,3,3.7,commute_rail,Commute - Rail,0.035,km,DEFRA_2024,Global,2024
+388,3,3.7,commute_spend_general,Commuting Reimbursement (spend),0.35,USD,USEEIO_2.0,US,2024
+389,3,3.7,commute_walk,Commute - Walk,0,km,DEFRA_2024,Global,2024
+390,3,3.7,commute_wfh_day,Work from Home (per day),0.5,day,IEA_Various,Global,2024
+391,3,3.8,leased_datacenter_m2_year,Leased Data Center (per m² per year),1000,m2-year,Industry_Average,Global,2024
+392,3,3.8,leased_electricity_kwh,Leased Assets - Electricity (known),0.436,kWh,IEA_World_2024,Global,2024
+393,3,3.8,leased_office_m2_year,Leased Office Space (per m² per year),50,m2-year,CRREM_2023,Global,2024
+394,3,3.8,leased_retail_m2_year,Leased Retail Space (per m² per year),100,m2-year,CRREM_2023,Global,2024
+395,3,3.8,leased_spend_rent,Leased Property Rent (spend),0.15,USD,USEEIO_2.0,US,2024
+396,3,3.8,leased_warehouse_m2_year,Leased Warehouse (per m² per year),35,m2-year,CRREM_2023,Global,2024
+397,3,3.9,delivery_hgv,Delivery HGV,0.107,tonne-km,DEFRA_2024,Global,2024
+398,3,3.9,delivery_spend_courier,Delivery - Courier/Parcel (spend),0.8,USD,USEEIO_2.0,US,2024
+399,3,3.9,delivery_spend_general,Delivery/Distribution - General (spend),0.6,USD,USEEIO_2.0,US,2024
+400,3,3.9,delivery_spend_road,Delivery - Road (spend),0.56,USD,USEEIO_2.0,US,2024
+401,3,3.9,delivery_van,Delivery Van (last mile),0.605,tonne-km,DEFRA_2024,Global,2024
