@@ -36,6 +36,23 @@ from app.models.cbam import (
     CBAMGridFactor,
     EUETSPrice,
 )
+from app.models.decarbonization import (
+    # Decarbonization Enums
+    TargetType,
+    TargetFramework,
+    InitiativeCategory,
+    ComplexityLevel,
+    ScenarioType,
+    InitiativeStatus,
+    MilestoneStatus,
+    # Decarbonization Models
+    DecarbonizationTarget,
+    Initiative,
+    Scenario,
+    ScenarioInitiative,
+    RoadmapMilestone,
+    EmissionCheckpoint,
+)
 
 __all__ = [
     # Core
@@ -85,4 +102,19 @@ __all__ = [
     "CBAMDefaultValue",
     "CBAMGridFactor",
     "EUETSPrice",
+    # Decarbonization Enums
+    "TargetType",
+    "TargetFramework",
+    "InitiativeCategory",
+    "ComplexityLevel",
+    "ScenarioType",
+    "InitiativeStatus",
+    "MilestoneStatus",
+    # Decarbonization Models
+    "DecarbonizationTarget",
+    "Initiative",
+    "Scenario",
+    "ScenarioInitiative",
+    "RoadmapMilestone",
+    "EmissionCheckpoint",
 ]

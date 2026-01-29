@@ -1,17 +1,28 @@
 # CLIMATRIX Platform - Progress Report
 
-**Version:** 3.1.0
+**Version:** 3.2.0
 **Last Updated:** 2026-01-29
 
 ---
 
-## Current Status: PRODUCTION READY
+## Current Status: P0 PRODUCTION IN PROGRESS
 
-All core features implemented and deployed to Railway.
+Working on critical production features on `feature/p0-production-ready` branch.
 
 ---
 
 ## Completed Features
+
+### Phase 4: P0 Production Ready (In Progress)
+- [x] Error tracking (Sentry) - Backend + Frontend
+- [x] Password reset flow - Backend + Frontend
+- [x] Email service (transactional emails)
+- [ ] Multi-tenancy
+- [ ] Billing (Stripe)
+- [ ] User onboarding wizard
+- [ ] Terms of Service / Privacy Policy
+- [ ] Basic tests
+- [ ] Data backup strategy
 
 ### Phase 1: Core GHG Accounting
 - [x] User authentication (JWT)

@@ -1731,6 +1731,133 @@ class ApiClient {
   async getAuditResourceTypes(): Promise<{ resource_types: string[] }> {
     return this.fetch<{ resource_types: string[] }>('/audit/resource-types');
   }
+
+  // ============================================================================
+  // Decarbonization Pathways
+  // ============================================================================
+
+  // Emission Profile Analysis
+  async getEmissionProfile(periodId: string): Promise<EmissionProfileAnalysis> {
+    return this.fetch<EmissionProfileAnalysis>(`/decarbonization/profile?period_id=${periodId}`);
+  }
+
+  // Personalized Recommendations
+  async getRecommendations(
+    periodId: string,
+    params?: { limit?: number; category?: InitiativeCategory }
+  ): Promise<PersonalizedRecommendation[]> {
+    const queryParams = new URLSearchParams({ period_id: periodId });
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+    if (params?.category) queryParams.set('category', params.category);
+    return this.fetch<PersonalizedRecommendation[]>(`/decarbonization/recommendations?${queryParams}`);
+  }
+
+  // Targets
+  async getDecarbonizationTargets(): Promise<DecarbonizationTarget[]> {
+    return this.fetch<DecarbonizationTarget[]>('/decarbonization/targets');
+  }
+
+  async createDecarbonizationTarget(data: TargetCreateRequest): Promise<DecarbonizationTarget> {
+    return this.fetch<DecarbonizationTarget>('/decarbonization/targets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getDecarbonizationTarget(targetId: string): Promise<DecarbonizationTarget> {
+    return this.fetch<DecarbonizationTarget>(`/decarbonization/targets/${targetId}`);
+  }
+
+  async getTargetTrajectory(targetId: string): Promise<TrajectoryResponse> {
+    return this.fetch<TrajectoryResponse>(`/decarbonization/targets/${targetId}/trajectory`);
+  }
+
+  async deleteDecarbonizationTarget(targetId: string): Promise<{ message: string }> {
+    return this.fetch<{ message: string }>(`/decarbonization/targets/${targetId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Initiative Library
+  async getInitiatives(params?: {
+    category?: InitiativeCategory;
+    scope?: number;
+  }): Promise<Initiative[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.category) queryParams.set('category', params.category);
+    if (params?.scope) queryParams.set('scope', params.scope.toString());
+    const query = queryParams.toString();
+    return this.fetch<Initiative[]>(`/decarbonization/initiatives${query ? `?${query}` : ''}`);
+  }
+
+  async getInitiative(initiativeId: string): Promise<Initiative> {
+    return this.fetch<Initiative>(`/decarbonization/initiatives/${initiativeId}`);
+  }
+
+  // Scenarios
+  async getScenarios(targetId?: string): Promise<Scenario[]> {
+    const query = targetId ? `?target_id=${targetId}` : '';
+    return this.fetch<Scenario[]>(`/decarbonization/scenarios${query}`);
+  }
+
+  async createScenario(data: ScenarioCreateRequest): Promise<Scenario> {
+    return this.fetch<Scenario>('/decarbonization/scenarios', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async activateScenario(scenarioId: string): Promise<{ message: string }> {
+    return this.fetch<{ message: string }>(`/decarbonization/scenarios/${scenarioId}/activate`, {
+      method: 'POST',
+    });
+  }
+
+  async deleteScenario(scenarioId: string): Promise<{ message: string }> {
+    return this.fetch<{ message: string }>(`/decarbonization/scenarios/${scenarioId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Scenario Initiatives
+  async getScenarioInitiatives(scenarioId: string): Promise<ScenarioInitiative[]> {
+    return this.fetch<ScenarioInitiative[]>(`/decarbonization/scenarios/${scenarioId}/initiatives`);
+  }
+
+  async addInitiativeToScenario(
+    scenarioId: string,
+    data: ScenarioInitiativeRequest
+  ): Promise<ScenarioInitiative> {
+    return this.fetch<ScenarioInitiative>(`/decarbonization/scenarios/${scenarioId}/initiatives`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async removeInitiativeFromScenario(
+    scenarioId: string,
+    initiativeId: string
+  ): Promise<{ message: string }> {
+    return this.fetch<{ message: string }>(
+      `/decarbonization/scenarios/${scenarioId}/initiatives/${initiativeId}`,
+      { method: 'DELETE' }
+    );
+  }
+
+  // Progress Tracking
+  async getEmissionCheckpoints(targetId: string): Promise<EmissionCheckpoint[]> {
+    return this.fetch<EmissionCheckpoint[]>(`/decarbonization/progress/checkpoints?target_id=${targetId}`);
+  }
+
+  async createEmissionCheckpoint(
+    targetId: string,
+    periodId: string
+  ): Promise<EmissionCheckpoint> {
+    return this.fetch<EmissionCheckpoint>(
+      `/decarbonization/progress/checkpoints?target_id=${targetId}&period_id=${periodId}`,
+      { method: 'POST' }
+    );
+  }
 }
 
 // CBAM Types for API
@@ -2042,6 +2169,213 @@ export interface AuditStatsResponse {
   events_by_action: Record<string, number>;
   events_by_resource: Record<string, number>;
   recent_activity_count: number;
+}
+
+// ============================================================================
+// Decarbonization Pathways Types
+// ============================================================================
+
+export type TargetType = 'absolute' | 'intensity';
+export type TargetFramework = 'sbti_1_5c' | 'sbti_wb2c' | 'net_zero' | 'custom';
+export type InitiativeCategory = 'energy_efficiency' | 'renewable_energy' | 'fleet_transport' | 'supply_chain' | 'process_change' | 'behavior_change' | 'waste_reduction' | 'carbon_removal';
+export type ComplexityLevel = 'low' | 'medium' | 'high';
+export type ScenarioType = 'aggressive' | 'moderate' | 'conservative' | 'custom';
+export type InitiativeStatus = 'planned' | 'in_progress' | 'completed' | 'cancelled' | 'on_hold';
+
+export interface EmissionSource {
+  activity_key: string;
+  display_name: string;
+  scope: number;
+  category_code: string;
+  total_co2e_kg: number;
+  total_co2e_tonnes: number;
+  percentage_of_total: number;
+  site_id?: string;
+  site_name?: string;
+  activity_count: number;
+  data_quality_avg?: number;
+}
+
+export interface EmissionProfileAnalysis {
+  organization_id: string;
+  period_id: string;
+  period_name: string;
+  analysis_date: string;
+  total_co2e_kg: number;
+  total_co2e_tonnes: number;
+  scope1_co2e_tonnes: number;
+  scope2_co2e_tonnes: number;
+  scope3_co2e_tonnes: number;
+  emissions_by_category: Record<string, number>;
+  emissions_by_activity_key: Record<string, number>;
+  emissions_by_site: Record<string, number>;
+  top_sources: EmissionSource[];
+  yoy_change_percent?: number;
+  trend_direction?: 'increasing' | 'decreasing' | 'stable';
+  previous_period_total_tonnes?: number;
+}
+
+export interface PersonalizedRecommendation {
+  initiative_id: string;
+  initiative_name: string;
+  initiative_category: string;
+  initiative_description: string;
+  target_activity_key: string;
+  target_source_name: string;
+  target_source_emissions_tco2e: number;
+  target_source_percent_of_total: number;
+  potential_reduction_tco2e: number;
+  potential_reduction_low_tco2e: number;
+  potential_reduction_high_tco2e: number;
+  reduction_as_percent_of_total: number;
+  estimated_capex?: number;
+  estimated_annual_savings?: number;
+  payback_years?: number;
+  roi_percent?: number;
+  impact_score: number;
+  feasibility_score: number;
+  priority_score: number;
+  complexity: string;
+  implementation_months_min: number;
+  implementation_months_max: number;
+  co_benefits?: string[];
+  relevance_explanation: string;
+}
+
+export interface DecarbonizationTarget {
+  id: string;
+  name: string;
+  description?: string;
+  target_type: TargetType;
+  framework: TargetFramework;
+  base_year: number;
+  base_year_emissions_tco2e: number;
+  target_year: number;
+  target_reduction_percent: number;
+  target_emissions_tco2e: number;
+  includes_scope1: boolean;
+  includes_scope2: boolean;
+  includes_scope3: boolean;
+  scope3_categories?: string[];
+  is_sbti_validated: boolean;
+  is_public: boolean;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface TargetCreateRequest {
+  name: string;
+  description?: string;
+  target_type?: TargetType;
+  framework?: TargetFramework;
+  base_year: number;
+  base_year_period_id?: string;
+  base_year_emissions_tco2e: number;
+  target_year: number;
+  target_reduction_percent?: number;
+  target_emissions_tco2e?: number;
+  includes_scope1?: boolean;
+  includes_scope2?: boolean;
+  includes_scope3?: boolean;
+  scope3_categories?: string[];
+}
+
+export interface Initiative {
+  id: string;
+  category: InitiativeCategory;
+  subcategory?: string;
+  name: string;
+  short_description: string;
+  detailed_description?: string;
+  applicable_scopes: number[];
+  applicable_category_codes: string[];
+  applicable_activity_keys: string[];
+  typical_reduction_percent_min: number;
+  typical_reduction_percent_max: number;
+  typical_reduction_percent_median: number;
+  typical_capex_per_tco2e_reduced?: number;
+  typical_payback_years_min?: number;
+  typical_payback_years_max?: number;
+  complexity: ComplexityLevel;
+  implementation_time_months_min: number;
+  implementation_time_months_max: number;
+  co_benefits?: string[];
+  common_barriers?: string[];
+}
+
+export interface Scenario {
+  id: string;
+  name: string;
+  description?: string;
+  scenario_type: ScenarioType;
+  is_active: boolean;
+  total_reduction_tco2e: number;
+  total_investment: number;
+  total_annual_savings: number;
+  weighted_payback_years?: number;
+  target_achievement_percent: number;
+  carbon_price_scenario: string;
+  created_at: string;
+  initiatives_count: number;
+}
+
+export interface ScenarioCreateRequest {
+  name: string;
+  description?: string;
+  target_id: string;
+  scenario_type?: ScenarioType;
+  carbon_price_scenario?: string;
+}
+
+export interface ScenarioInitiative {
+  id: string;
+  scenario_id: string;
+  initiative_id: string;
+  initiative_name: string;
+  target_activity_key: string;
+  target_site_id?: string;
+  expected_reduction_tco2e: number;
+  expected_reduction_percent: number;
+  capex: number;
+  annual_savings: number;
+  implementation_start?: string;
+  implementation_end?: string;
+  status: InitiativeStatus;
+  priority_order: number;
+}
+
+export interface ScenarioInitiativeRequest {
+  initiative_id: string;
+  target_activity_key: string;
+  target_site_id?: string;
+  expected_reduction_tco2e: number;
+  expected_reduction_percent: number;
+  capex?: number;
+  annual_opex_change?: number;
+  annual_savings?: number;
+  implementation_start?: string;
+  implementation_end?: string;
+  notes?: string;
+}
+
+export interface TrajectoryResponse {
+  target_id: string;
+  base_year: number;
+  base_year_emissions: number;
+  target_year: number;
+  target_emissions: number;
+  trajectory: Record<number, number>;
+}
+
+export interface EmissionCheckpoint {
+  id: string;
+  checkpoint_year: number;
+  actual_emissions_tco2e: number;
+  planned_emissions_tco2e: number;
+  variance_tco2e: number;
+  variance_percent: number;
+  on_track: boolean;
+  created_at: string;
 }
 
 export const api = new ApiClient();

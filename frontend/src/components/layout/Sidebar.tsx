@@ -24,6 +24,7 @@ import {
   Shield,
   CreditCard,
   History,
+  Target,
 } from 'lucide-react';
 
 interface NavItem {
@@ -64,8 +65,9 @@ const navigation: NavGroup[] = [
     title: 'Modules',
     items: [
       { label: 'GHG Inventory', href: '/modules/ghg', icon: Leaf, badge: 'Active' },
-      { label: 'PCAF', href: '/modules/pcaf', icon: Coins, comingSoon: true },
+      { label: 'Decarbonization', href: '/decarbonization', icon: Target, badge: 'New' },
       { label: 'CBAM', href: '/modules/cbam', icon: Scale, badge: 'Active' },
+      { label: 'PCAF', href: '/modules/pcaf', icon: Coins, comingSoon: true },
       { label: 'LCA', href: '/modules/lca', icon: Microscope, comingSoon: true },
       { label: 'EPD/Reports', href: '/modules/epd', icon: FileStack, comingSoon: true },
     ],
