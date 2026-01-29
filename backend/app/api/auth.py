@@ -346,3 +346,100 @@ async def register(
         user=user_response,
         organization=org_response,
     )
+
+
+# ============================================================================
+# Password Reset
+# ============================================================================
+
+class ForgotPasswordRequest(BaseModel):
+    """Request password reset email."""
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    """Reset password with token."""
+    token: str
+    new_password: str
+
+
+class MessageResponse(BaseModel):
+    """Simple message response."""
+    message: str
+
+
+def create_password_reset_token(user_id: str) -> str:
+    """Create a password reset token."""
+    expire = datetime.utcnow() + timedelta(minutes=settings.password_reset_token_expire_minutes)
+    to_encode = {"sub": user_id, "exp": expire, "type": "password_reset"}
+    return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+async def forgot_password(
+    data: ForgotPasswordRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Request a password reset email.
+
+    Always returns success to prevent email enumeration attacks.
+    """
+    from app.services.email import email_service
+
+    # Find user by email
+    result = await session.execute(select(User).where(User.email == data.email))
+    user = result.scalar_one_or_none()
+
+    if user and user.is_active:
+        # Create reset token
+        reset_token = create_password_reset_token(str(user.id))
+
+        # Send email
+        email_service.send_password_reset_email(
+            to_email=user.email,
+            reset_token=reset_token,
+            user_name=user.full_name or user.email,
+        )
+
+    # Always return success to prevent email enumeration
+    return MessageResponse(message="If an account exists with this email, you will receive a password reset link.")
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(
+    data: ResetPasswordRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Reset password using the token from the email.
+    """
+    try:
+        payload = jwt.decode(data.token, settings.secret_key, algorithms=[settings.algorithm])
+
+        if payload.get("type") != "password_reset":
+            raise HTTPException(status_code=400, detail="Invalid token type")
+
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=400, detail="Invalid token")
+
+        # Find user
+        result = await session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+
+        if not user:
+            raise HTTPException(status_code=400, detail="User not found")
+
+        if not user.is_active:
+            raise HTTPException(status_code=400, detail="User account is inactive")
+
+        # Update password
+        user.hashed_password = get_password_hash(data.new_password)
+        session.add(user)
+        await session.commit()
+
+        return MessageResponse(message="Password has been reset successfully. You can now log in with your new password.")
+
+    except JWTError:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")

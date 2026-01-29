@@ -22,6 +22,7 @@ import {
   FileStack,
   Lock,
   Shield,
+  CreditCard,
 } from 'lucide-react';
 
 interface NavItem {
@@ -53,6 +54,7 @@ const navigation: NavGroup[] = [
     items: [
       { label: 'Sites & Locations', href: '/sites', icon: Building2 },
       { label: 'Reports', href: '/reports', icon: FileText },
+      { label: 'Billing', href: '/billing', icon: CreditCard },
       { label: 'Settings', href: '/settings', icon: Settings },
       { label: 'Roadmap', href: '/roadmap', icon: Map },
     ],

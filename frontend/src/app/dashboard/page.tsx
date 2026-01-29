@@ -30,6 +30,7 @@ import { Scope2Comparison } from '@/components/dashboard/Scope2Comparison';
 import { ScopeDrillDown } from '@/components/dashboard/ScopeDrillDown';
 import { ActivityWizard } from '@/components/wizard';
 import { ImportHistory } from '@/components/ImportHistory';
+import { OnboardingWizard } from '@/components/onboarding';
 import { useWizardStore } from '@/stores/wizard';
 import { cn } from '@/lib/utils';
 import { formatCO2e } from '@/lib/utils';
@@ -76,11 +77,12 @@ function WizardBackButton() {
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, organization } = useAuthStore();
   const { selectedPeriodId } = usePeriodStore();
 
   // All useState hooks at top
   const [showWizard, setShowWizard] = useState(searchParams.get('wizard') === 'true');
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [drillDownCategory, setDrillDownCategory] = useState<CategorySummary | null>(null);
   const [drillDownScope, setDrillDownScope] = useState<1 | 2 | 3 | null>(null);
@@ -146,6 +148,16 @@ function DashboardContent() {
       router.push('/');
     }
   }, [mounted, isAuthenticated, router]);
+
+  // Check if onboarding should be shown (first time user with no periods)
+  useEffect(() => {
+    if (mounted && isAuthenticated && !periodsLoading && periods !== undefined) {
+      const onboardingCompleted = localStorage.getItem('onboarding_completed');
+      if (!onboardingCompleted && periods.length === 0) {
+        setShowOnboarding(true);
+      }
+    }
+  }, [mounted, isAuthenticated, periodsLoading, periods]);
 
   // Conditional return AFTER all hooks
   if (!mounted || !isAuthenticated) {
@@ -214,6 +226,16 @@ function DashboardContent() {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
   };
+
+  // Show onboarding wizard for new users
+  if (showOnboarding) {
+    return (
+      <OnboardingWizard
+        onComplete={() => setShowOnboarding(false)}
+        organizationName={organization?.name}
+      />
+    );
+  }
 
   return (
     <AppShell>

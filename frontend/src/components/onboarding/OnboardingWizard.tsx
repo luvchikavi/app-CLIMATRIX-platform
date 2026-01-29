@@ -1,0 +1,465 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import { useSupportedRegions, useCreatePeriod } from '@/hooks/useEmissions';
+import { Button, Card, Input, Badge } from '@/components/ui';
+import { cn } from '@/lib/utils';
+import {
+  Leaf,
+  Building2,
+  Globe,
+  Calendar,
+  Upload,
+  Check,
+  ChevronRight,
+  ChevronLeft,
+  Loader2,
+  Download,
+  Sparkles,
+} from 'lucide-react';
+
+interface OnboardingWizardProps {
+  onComplete: () => void;
+  organizationName?: string;
+}
+
+type Step = 'welcome' | 'organization' | 'region' | 'period' | 'import' | 'complete';
+
+const STEPS: Step[] = ['welcome', 'organization', 'region', 'period', 'import', 'complete'];
+
+export function OnboardingWizard({ onComplete, organizationName }: OnboardingWizardProps) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [currentStep, setCurrentStep] = useState<Step>('welcome');
+  const [orgDetails, setOrgDetails] = useState({
+    industry_code: '',
+    base_year: new Date().getFullYear() - 1,
+  });
+  const [selectedRegion, setSelectedRegion] = useState<string>('Global');
+  const [periodYear, setPeriodYear] = useState<number>(new Date().getFullYear());
+
+  const { data: regions } = useSupportedRegions();
+  const createPeriod = useCreatePeriod();
+
+  const updateOrg = useMutation({
+    mutationFn: (data: { default_region?: string; industry_code?: string; base_year?: number }) =>
+      api.updateOrganization(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization'] });
+    },
+  });
+
+  const currentStepIndex = STEPS.indexOf(currentStep);
+  const progress = ((currentStepIndex + 1) / STEPS.length) * 100;
+
+  const nextStep = () => {
+    const nextIndex = currentStepIndex + 1;
+    if (nextIndex < STEPS.length) {
+      setCurrentStep(STEPS[nextIndex]);
+    }
+  };
+
+  const prevStep = () => {
+    const prevIndex = currentStepIndex - 1;
+    if (prevIndex >= 0) {
+      setCurrentStep(STEPS[prevIndex]);
+    }
+  };
+
+  const handleSaveOrganization = async () => {
+    await updateOrg.mutateAsync({
+      industry_code: orgDetails.industry_code || undefined,
+      base_year: orgDetails.base_year || undefined,
+    });
+    nextStep();
+  };
+
+  const handleSaveRegion = async () => {
+    await updateOrg.mutateAsync({ default_region: selectedRegion });
+    nextStep();
+  };
+
+  const handleCreatePeriod = async () => {
+    await createPeriod.mutateAsync({
+      name: `FY ${periodYear}`,
+      start_date: `${periodYear}-01-01`,
+      end_date: `${periodYear}-12-31`,
+    });
+    nextStep();
+  };
+
+  const handleDownloadTemplate = async (scope: '1-2' | '3') => {
+    try {
+      await api.downloadTemplate(scope);
+    } catch (error) {
+      console.error('Failed to download template:', error);
+    }
+  };
+
+  const handleComplete = () => {
+    localStorage.setItem('onboarding_completed', 'true');
+    onComplete();
+    router.push('/dashboard');
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background">
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-secondary/5 rounded-full blur-3xl" />
+      </div>
+
+      <div className="relative w-full max-w-2xl">
+        {/* Progress bar */}
+        <div className="mb-8">
+          <div className="h-2 bg-background-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-2 text-sm text-foreground-muted">
+            <span>Step {currentStepIndex + 1} of {STEPS.length}</span>
+            <span>{Math.round(progress)}% complete</span>
+          </div>
+        </div>
+
+        {/* Step Content */}
+        <Card padding="lg" className="animate-fade-in p-8">
+          {/* Welcome Step */}
+          {currentStep === 'welcome' && (
+            <div className="text-center">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-2xl gradient-primary flex items-center justify-center">
+                <Leaf className="w-10 h-10 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-foreground mb-4">
+                Welcome to CLIMATRIX
+              </h1>
+              <p className="text-lg text-foreground-muted mb-8 max-w-md mx-auto">
+                Let's set up your organization for carbon accounting in just a few minutes.
+              </p>
+              {organizationName && (
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-light rounded-full text-primary font-medium mb-8">
+                  <Building2 className="w-4 h-4" />
+                  {organizationName}
+                </div>
+              )}
+              <Button variant="primary" size="lg" onClick={nextStep}>
+                Get Started
+                <ChevronRight className="w-5 h-5 ml-2" />
+              </Button>
+            </div>
+          )}
+
+          {/* Organization Details Step */}
+          {currentStep === 'organization' && (
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 rounded-xl bg-primary-light">
+                  <Building2 className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">Organization Details</h2>
+                  <p className="text-foreground-muted">Help us customize your experience</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Industry / Sector (Optional)
+                  </label>
+                  <select
+                    value={orgDetails.industry_code}
+                    onChange={(e) => setOrgDetails({ ...orgDetails, industry_code: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">Select your industry</option>
+                    <option value="manufacturing">Manufacturing</option>
+                    <option value="technology">Technology</option>
+                    <option value="retail">Retail & Consumer Goods</option>
+                    <option value="finance">Financial Services</option>
+                    <option value="healthcare">Healthcare</option>
+                    <option value="energy">Energy & Utilities</option>
+                    <option value="transportation">Transportation & Logistics</option>
+                    <option value="construction">Construction & Real Estate</option>
+                    <option value="agriculture">Agriculture & Food</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Base Year for Emissions Tracking
+                  </label>
+                  <select
+                    value={orgDetails.base_year}
+                    onChange={(e) => setOrgDetails({ ...orgDetails, base_year: parseInt(e.target.value) })}
+                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-sm text-foreground-muted">
+                    The base year is used to track emissions reductions over time
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-between mt-8">
+                <Button variant="outline" onClick={prevStep}>
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+                <div className="flex gap-3">
+                  <Button variant="ghost" onClick={nextStep}>
+                    Skip
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleSaveOrganization}
+                    disabled={updateOrg.isPending}
+                    isLoading={updateOrg.isPending}
+                  >
+                    Continue
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Region Step */}
+          {currentStep === 'region' && (
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 rounded-xl bg-primary-light">
+                  <Globe className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">Select Your Region</h2>
+                  <p className="text-foreground-muted">For region-specific emission factors</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 max-h-80 overflow-y-auto">
+                {regions?.map((region) => (
+                  <button
+                    key={region.code}
+                    onClick={() => setSelectedRegion(region.code)}
+                    className={cn(
+                      'p-4 rounded-xl border-2 text-left transition-all',
+                      selectedRegion === region.code
+                        ? 'border-primary bg-primary-light'
+                        : 'border-border hover:border-primary/50'
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-foreground">{region.name}</h3>
+                        <p className="text-sm text-foreground-muted mt-0.5">{region.description}</p>
+                      </div>
+                      {selectedRegion === region.code && (
+                        <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex justify-between mt-8">
+                <Button variant="outline" onClick={prevStep}>
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleSaveRegion}
+                  disabled={updateOrg.isPending}
+                  isLoading={updateOrg.isPending}
+                >
+                  Continue
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Period Step */}
+          {currentStep === 'period' && (
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 rounded-xl bg-primary-light">
+                  <Calendar className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">Create Reporting Period</h2>
+                  <p className="text-foreground-muted">Start tracking your emissions</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-3">
+                  Which year do you want to track?
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[new Date().getFullYear() - 2, new Date().getFullYear() - 1, new Date().getFullYear()].map((year) => (
+                    <button
+                      key={year}
+                      onClick={() => setPeriodYear(year)}
+                      className={cn(
+                        'px-6 py-3 rounded-lg border-2 font-medium transition-all',
+                        periodYear === year
+                          ? 'border-primary bg-primary text-white'
+                          : 'border-border hover:border-primary/50 text-foreground'
+                      )}
+                    >
+                      FY {year}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-4 text-sm text-foreground-muted">
+                  This will create a reporting period from January 1 to December 31, {periodYear}.
+                  You can create additional periods later.
+                </p>
+              </div>
+
+              <div className="flex justify-between mt-8">
+                <Button variant="outline" onClick={prevStep}>
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleCreatePeriod}
+                  disabled={createPeriod.isPending}
+                  isLoading={createPeriod.isPending}
+                >
+                  Create Period
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Import Step */}
+          {currentStep === 'import' && (
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 rounded-xl bg-primary-light">
+                  <Upload className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">Import Your Data</h2>
+                  <p className="text-foreground-muted">Get started with our templates</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl border border-border bg-background-muted">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <Download className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-foreground">Scope 1 & 2 Template</h4>
+                        <p className="text-sm text-foreground-muted">Direct emissions and purchased energy</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownloadTemplate('1-2')}
+                    >
+                      Download
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border border-border bg-background-muted">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-secondary/10">
+                        <Download className="w-5 h-5 text-secondary" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-foreground">Scope 3 Template</h4>
+                        <p className="text-sm text-foreground-muted">Value chain emissions</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownloadTemplate('3')}
+                    >
+                      Download
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-primary-light border border-primary/20">
+                  <div className="flex items-start gap-3">
+                    <Sparkles className="w-5 h-5 text-primary mt-0.5" />
+                    <div>
+                      <h4 className="font-semibold text-primary">AI-Powered Import</h4>
+                      <p className="text-sm text-primary/80 mt-1">
+                        Don't have the exact template format? No problem! Our AI can analyze
+                        any Excel or CSV file and automatically map your data to emission factors.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between mt-8">
+                <Button variant="outline" onClick={prevStep}>
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+                <Button variant="primary" onClick={nextStep}>
+                  Continue
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Complete Step */}
+          {currentStep === 'complete' && (
+            <div className="text-center">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-success/10 flex items-center justify-center">
+                <Check className="w-10 h-10 text-success" />
+              </div>
+              <h2 className="text-2xl font-bold text-foreground mb-4">
+                You're All Set!
+              </h2>
+              <p className="text-lg text-foreground-muted mb-8 max-w-md mx-auto">
+                Your organization is ready for carbon accounting. Start by importing your
+                emission data or adding activities manually.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button variant="outline" onClick={() => router.push('/import')}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Import Data
+                </Button>
+                <Button variant="primary" onClick={handleComplete}>
+                  Go to Dashboard
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}

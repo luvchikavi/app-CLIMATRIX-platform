@@ -84,6 +84,32 @@ class Settings(BaseSettings):
     claude_model: str = "claude-sonnet-4-20250514"  # Default model for AI extraction
     ai_extraction_enabled: bool = True  # Enable/disable AI-powered features
 
+    # Monitoring & Error Tracking
+    sentry_dsn: str = ""  # Set SENTRY_DSN in environment for error tracking
+
+    # Email Configuration (for transactional emails)
+    smtp_host: str = ""  # e.g., smtp.sendgrid.net, smtp.gmail.com
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = "noreply@climatrix.io"
+    smtp_from_name: str = "CLIMATRIX"
+    smtp_use_tls: bool = True
+
+    # Frontend URL (for email links)
+    frontend_url: str = "http://localhost:3000"
+
+    # Password Reset
+    password_reset_token_expire_minutes: int = 30
+
+    # Stripe Billing
+    stripe_secret_key: str = ""  # Set STRIPE_SECRET_KEY in environment
+    stripe_publishable_key: str = ""  # Set STRIPE_PUBLISHABLE_KEY
+    stripe_webhook_secret: str = ""  # Set STRIPE_WEBHOOK_SECRET for webhook validation
+    stripe_price_id_starter: str = ""  # Stripe Price ID for Starter plan
+    stripe_price_id_professional: str = ""  # Stripe Price ID for Professional plan
+    stripe_price_id_enterprise: str = ""  # Stripe Price ID for Enterprise plan
+
 
 @lru_cache()
 def get_settings() -> Settings:

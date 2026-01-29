@@ -1607,6 +1607,46 @@ class ApiClient {
   async getCBAMDashboard(): Promise<CBAMDashboard> {
     return this.fetch<CBAMDashboard>('/cbam/dashboard');
   }
+
+  // ============================================================================
+  // Billing
+  // ============================================================================
+
+  async getSubscription(): Promise<SubscriptionInfo> {
+    return this.fetch<SubscriptionInfo>('/billing/subscription');
+  }
+
+  async getPlans(): Promise<PlansResponse> {
+    return this.fetch<PlansResponse>('/billing/plans');
+  }
+
+  async createCheckout(
+    plan: SubscriptionPlan,
+    successUrl: string,
+    cancelUrl: string
+  ): Promise<CheckoutResponse> {
+    return this.fetch<CheckoutResponse>('/billing/checkout', {
+      method: 'POST',
+      body: JSON.stringify({
+        plan,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      }),
+    });
+  }
+
+  async createPortal(returnUrl: string): Promise<PortalResponse> {
+    return this.fetch<PortalResponse>('/billing/portal', {
+      method: 'POST',
+      body: JSON.stringify({ return_url: returnUrl }),
+    });
+  }
+
+  async cancelSubscription(): Promise<{ message: string }> {
+    return this.fetch<{ message: string }>('/billing/cancel', {
+      method: 'POST',
+    });
+  }
 }
 
 // CBAM Types for API
@@ -1819,6 +1859,50 @@ export interface AdminOrgReport {
     scope_2: { total_co2e_kg: number; activity_count: number; activities: any[] };
     scope_3: { total_co2e_kg: number; activity_count: number; activities: any[] };
   };
+}
+
+// ============================================================================
+// Billing Types
+// ============================================================================
+
+export type SubscriptionPlan = 'free' | 'starter' | 'professional' | 'enterprise';
+export type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete' | 'unpaid';
+
+export interface PlanLimits {
+  activities_per_month: number;
+  users: number;
+  periods: number;
+  sites: number;
+  ai_extractions: number;
+  export_formats: string[];
+}
+
+export interface SubscriptionInfo {
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus | null;
+  current_period_end: string | null;
+  is_trialing: boolean;
+  plan_limits: PlanLimits;
+}
+
+export interface PlanInfo {
+  id: SubscriptionPlan;
+  name: string;
+  limits: PlanLimits;
+  price_monthly: number | null;
+  features: string[];
+}
+
+export interface PlansResponse {
+  plans: PlanInfo[];
+}
+
+export interface CheckoutResponse {
+  url: string;
+}
+
+export interface PortalResponse {
+  url: string;
 }
 
 export const api = new ApiClient();

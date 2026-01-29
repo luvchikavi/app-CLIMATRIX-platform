@@ -37,6 +37,24 @@ class AssuranceLevel(str, Enum):
     REASONABLE = "reasonable"
 
 
+class SubscriptionPlan(str, Enum):
+    """Subscription plans for billing."""
+    FREE = "free"
+    STARTER = "starter"
+    PROFESSIONAL = "professional"
+    ENTERPRISE = "enterprise"
+
+
+class SubscriptionStatus(str, Enum):
+    """Subscription status from Stripe."""
+    ACTIVE = "active"
+    TRIALING = "trialing"
+    PAST_DUE = "past_due"
+    CANCELED = "canceled"
+    INCOMPLETE = "incomplete"
+    UNPAID = "unpaid"
+
+
 class OrganizationBase(SQLModel):
     """Base fields for Organization."""
     name: str = Field(max_length=255, index=True)
@@ -57,6 +75,14 @@ class Organization(OrganizationBase, table=True):
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default=None)
+
+    # Subscription/Billing fields
+    stripe_customer_id: Optional[str] = Field(default=None, max_length=255, index=True)
+    stripe_subscription_id: Optional[str] = Field(default=None, max_length=255)
+    subscription_plan: SubscriptionPlan = Field(default=SubscriptionPlan.FREE)
+    subscription_status: Optional[SubscriptionStatus] = Field(default=None)
+    subscription_current_period_end: Optional[datetime] = Field(default=None)
+    trial_ends_at: Optional[datetime] = Field(default=None)
 
     # Relationships
     users: list["User"] = Relationship(back_populates="organization")

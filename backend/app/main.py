@@ -8,10 +8,22 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import sentry_sdk
 
 from app.config import settings
 from app.database import init_db, close_db
-from app.api import auth, activities, periods, reports, reference, organization, import_data, admin, cbam, emission_factors
+from app.api import auth, activities, periods, reports, reference, organization, import_data, admin, cbam, emission_factors, billing
+
+# Initialize Sentry for error tracking (only if DSN is configured)
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.environment,
+        release=f"climatrix@{settings.app_version}",
+        traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
+        profiles_sample_rate=0.1,  # 10% for profiling
+        send_default_pii=False,  # Don't send personally identifiable information
+    )
 
 
 @asynccontextmanager
@@ -59,6 +71,10 @@ async def global_exception_handler(request: Request, exc: Exception):
     print(f"[ERROR] Unhandled exception: {error_detail}")
     print(f"[ERROR] Traceback: {tb}")
 
+    # Capture exception in Sentry
+    if settings.sentry_dsn:
+        sentry_sdk.capture_exception(exc)
+
     return JSONResponse(
         status_code=500,
         content={
@@ -79,6 +95,7 @@ app.include_router(import_data.router, prefix="/api", tags=["Import"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(cbam.router, prefix="/api/cbam", tags=["CBAM"])
 app.include_router(emission_factors.router, prefix="/api", tags=["Emission Factors"])
+app.include_router(billing.router, prefix="/api", tags=["Billing"])
 
 
 @app.get("/")

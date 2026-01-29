@@ -129,6 +129,7 @@ function LandingPageContent() {
   const [fullName, setFullName] = useState('');
   const [organizationName, setOrganizationName] = useState('');
   const [countryCode, setCountryCode] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const { login, register, isLoading, error, clearError, isAuthenticated, logout } = useAuthStore();
   const router = useRouter();
 
@@ -178,6 +179,7 @@ function LandingPageContent() {
     setFullName('');
     setOrganizationName('');
     setCountryCode('');
+    setTermsAccepted(false);
     clearError();
   };
 
@@ -455,8 +457,8 @@ function LandingPageContent() {
               <span className="text-lg font-semibold text-white">CLIMATRIX</span>
             </div>
             <div className="flex items-center gap-8 text-sm text-gray-500">
-              <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
+              <a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a>
+              <a href="/terms" className="hover:text-white transition-colors">Terms of Service</a>
               <a href="mailto:contact@climatrix.io" className="hover:text-white transition-colors">Contact</a>
             </div>
             <p className="text-sm text-gray-600">
@@ -577,10 +579,41 @@ function LandingPageContent() {
                   minLength={isRegistering ? 6 : undefined}
                   className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
                 />
-                {isRegistering && (
+                {isRegistering ? (
                   <p className="text-xs text-gray-600 mt-1">Minimum 6 characters</p>
+                ) : (
+                  <div className="flex justify-end mt-2">
+                    <a
+                      href="/forgot-password"
+                      className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                    >
+                      Forgot password?
+                    </a>
+                  </div>
                 )}
               </div>
+
+              {isRegistering && (
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="terms"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="mt-1 w-4 h-4 rounded border-white/20 bg-white/5 text-emerald-500 focus:ring-emerald-500/50"
+                  />
+                  <label htmlFor="terms" className="text-sm text-gray-400">
+                    I agree to the{' '}
+                    <a href="/terms" target="_blank" className="text-emerald-400 hover:underline">
+                      Terms of Service
+                    </a>{' '}
+                    and{' '}
+                    <a href="/privacy" target="_blank" className="text-emerald-400 hover:underline">
+                      Privacy Policy
+                    </a>
+                  </label>
+                </div>
+              )}
 
               {error && (
                 <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
@@ -590,7 +623,7 @@ function LandingPageContent() {
 
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || (isRegistering && !termsAccepted)}
                 className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-emerald-500/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5"
               >
                 {isLoading ? (
