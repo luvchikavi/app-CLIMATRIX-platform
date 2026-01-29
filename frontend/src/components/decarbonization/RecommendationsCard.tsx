@@ -137,24 +137,24 @@ export function RecommendationsCard({
                       <div className="flex items-center gap-1 text-sm">
                         <TrendingDown className="w-4 h-4 text-success" />
                         <span className="font-medium text-success">
-                          -{rec.potential_reduction_tco2e.toLocaleString()} tCO2e
+                          -{Number(rec.potential_reduction_tco2e || 0).toLocaleString()} tCO2e
                         </span>
                         <span className="text-foreground-muted">
-                          ({rec.reduction_as_percent_of_total.toFixed(1)}%)
+                          ({Number(rec.reduction_as_percent_of_total || 0).toFixed(1)}%)
                         </span>
                       </div>
 
                       {rec.estimated_capex && (
                         <div className="flex items-center gap-1 text-sm text-foreground-muted">
                           <DollarSign className="w-4 h-4" />
-                          <span>${(rec.estimated_capex / 1000).toFixed(0)}K investment</span>
+                          <span>${(Number(rec.estimated_capex || 0) / 1000).toFixed(0)}K investment</span>
                         </div>
                       )}
 
                       {rec.payback_years && (
                         <div className="flex items-center gap-1 text-sm text-foreground-muted">
                           <Clock className="w-4 h-4" />
-                          <span>{rec.payback_years.toFixed(1)} yr payback</span>
+                          <span>{Number(rec.payback_years || 0).toFixed(1)} yr payback</span>
                         </div>
                       )}
                     </div>

@@ -89,7 +89,7 @@ export function EmissionProfileCard({ profile, isLoading }: EmissionProfileCardP
                 )}>
                   <Icon className="w-6 h-6" />
                 </div>
-                <p className="text-lg font-bold text-foreground">{tonnes.toLocaleString()}</p>
+                <p className="text-lg font-bold text-foreground">{Number(tonnes || 0).toLocaleString()}</p>
                 <p className="text-sm text-foreground-muted">Scope {scope} ({pct}%)</p>
               </div>
             );
@@ -109,7 +109,7 @@ export function EmissionProfileCard({ profile, isLoading }: EmissionProfileCardP
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-foreground">{source.display_name}</span>
                     <span className="text-sm font-medium text-foreground">
-                      {source.total_co2e_tonnes.toLocaleString()} tCO2e
+                      {Number(source.total_co2e_tonnes || 0).toLocaleString()} tCO2e
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mt-1">
@@ -119,11 +119,11 @@ export function EmissionProfileCard({ profile, isLoading }: EmissionProfileCardP
                           "h-full rounded-full",
                           scopeColors[source.scope as 1 | 2 | 3].split(' ')[0].replace('/10', '')
                         )}
-                        style={{ width: `${source.percentage_of_total}%` }}
+                        style={{ width: `${Number(source.percentage_of_total || 0)}%` }}
                       />
                     </div>
                     <span className="text-xs text-foreground-muted w-12 text-right">
-                      {source.percentage_of_total.toFixed(1)}%
+                      {Number(source.percentage_of_total || 0).toFixed(1)}%
                     </span>
                   </div>
                 </div>

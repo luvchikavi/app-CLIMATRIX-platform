@@ -52,16 +52,6 @@ const navigation: NavGroup[] = [
     ],
   },
   {
-    title: 'Organization',
-    items: [
-      { label: 'Sites & Locations', href: '/sites', icon: Building2 },
-      { label: 'Reports', href: '/reports', icon: FileText },
-      { label: 'Billing', href: '/billing', icon: CreditCard },
-      { label: 'Settings', href: '/settings', icon: Settings },
-      { label: 'Roadmap', href: '/roadmap', icon: Map },
-    ],
-  },
-  {
     title: 'Modules',
     items: [
       { label: 'GHG Inventory', href: '/modules/ghg', icon: Leaf, badge: 'Active' },
@@ -70,6 +60,16 @@ const navigation: NavGroup[] = [
       { label: 'PCAF', href: '/modules/pcaf', icon: Coins, comingSoon: true },
       { label: 'LCA', href: '/modules/lca', icon: Microscope, comingSoon: true },
       { label: 'EPD/Reports', href: '/modules/epd', icon: FileStack, comingSoon: true },
+    ],
+  },
+  {
+    title: 'Organization',
+    items: [
+      { label: 'Sites & Locations', href: '/sites', icon: Building2 },
+      { label: 'Reports', href: '/reports', icon: FileText },
+      { label: 'Billing', href: '/billing', icon: CreditCard },
+      { label: 'Settings', href: '/settings', icon: Settings },
+      { label: 'Roadmap', href: '/roadmap', icon: Map },
     ],
   },
   {

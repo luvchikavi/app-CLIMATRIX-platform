@@ -148,7 +148,7 @@ export function TargetProgressCard({
             <div>
               <p className="text-sm text-foreground-muted">Target ({target.target_year})</p>
               <p className="text-lg font-bold text-foreground">
-                {target.target_emissions_tco2e.toLocaleString()} tCO2e
+                {Number(target.target_emissions_tco2e || 0).toLocaleString()} tCO2e
               </p>
             </div>
           </div>
@@ -159,7 +159,7 @@ export function TargetProgressCard({
               <TrendingDown className="w-5 h-5 text-success" />
               <span className="text-sm font-medium text-success">Reduction Goal</span>
             </div>
-            <span className="font-bold text-success">-{target.target_reduction_percent}%</span>
+            <span className="font-bold text-success">-{Number(target.target_reduction_percent || 0).toFixed(1)}%</span>
           </div>
 
           {/* Scope Coverage */}
