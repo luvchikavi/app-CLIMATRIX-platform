@@ -26,7 +26,6 @@ import {
 } from '@/components/ui';
 import { ScopePieChart } from '@/components/dashboard/ScopePieChart';
 import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
-import { Scope2Comparison } from '@/components/dashboard/Scope2Comparison';
 import { ScopeDrillDown } from '@/components/dashboard/ScopeDrillDown';
 import { ActivityWizard } from '@/components/wizard';
 import { ImportHistory } from '@/components/ImportHistory';
@@ -485,24 +484,6 @@ function DashboardContent() {
               onClick={() => scope3Activities > 0 && setDrillDownScope(3)}
             />
           </div>
-
-          {/* WTT Notice (if applicable) */}
-          {summary.scope_3_wtt_co2e_kg > 0 && (
-            <Card padding="sm" className="bg-info-50 border-info/20">
-              <div className="flex items-center gap-3">
-                <Activity className="w-5 h-5 text-info" />
-                <p className="text-sm text-info-700">
-                  <span className="font-medium">Category 3.3 (WTT):</span>{' '}
-                  {formatCO2e(summary.scope_3_wtt_co2e_kg)} auto-calculated from Scope 1 & 2 activities
-                </p>
-              </div>
-            </Card>
-          )}
-
-          {/* Scope 2 Location vs Market Comparison */}
-          {summary.scope_2_co2e_kg > 0 && activePeriodId && (
-            <Scope2Comparison periodId={activePeriodId} />
-          )}
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

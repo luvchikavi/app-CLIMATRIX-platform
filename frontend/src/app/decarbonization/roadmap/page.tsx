@@ -211,42 +211,40 @@ export default function RoadmapPage() {
             </CardContent>
           </Card>
 
-          {/* Active Scenario Initiatives */}
-          {activeScenario && activeScenario.initiatives && activeScenario.initiatives.length > 0 && (
+          {/* Active Scenario Summary */}
+          {activeScenario && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <TrendingDown className="w-5 h-5 text-success" />
-                    Planned Initiatives
+                    Active Scenario
                   </div>
                   <Badge variant="secondary">{activeScenario.name}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {activeScenario.initiatives.map((init, index) => (
-                    <div
-                      key={init.id || index}
-                      className="flex items-center justify-between p-4 rounded-lg border border-border"
-                    >
-                      <div>
-                        <h4 className="font-medium text-foreground">{init.initiative?.name || 'Initiative'}</h4>
-                        <p className="text-sm text-foreground-muted">
-                          Year {init.planned_start_year || 'TBD'} - {init.planned_end_year || 'TBD'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium text-success">
-                          -{Number(init.expected_reduction_tco2e || 0).toLocaleString()} tCO2e
-                        </p>
-                        <Badge variant={init.status === 'completed' ? 'success' : init.status === 'in_progress' ? 'warning' : 'secondary'}>
-                          {init.status || 'planned'}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                  <div>
+                    <p className="text-sm text-foreground-muted">Total Initiatives</p>
+                    <p className="text-xl font-bold text-foreground">{activeScenario.initiatives_count || 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-foreground-muted">Expected Reduction</p>
+                    <p className="text-xl font-bold text-success">
+                      -{Number(activeScenario.total_reduction_tco2e || 0).toLocaleString()} tCO2e
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-foreground-muted">Total Investment</p>
+                    <p className="text-xl font-bold text-foreground">
+                      ${(Number(activeScenario.total_investment || 0) / 1000).toFixed(0)}K
+                    </p>
+                  </div>
                 </div>
+                {activeScenario.description && (
+                  <p className="text-foreground-muted mt-4">{activeScenario.description}</p>
+                )}
               </CardContent>
             </Card>
           )}

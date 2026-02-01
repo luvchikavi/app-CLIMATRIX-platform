@@ -126,9 +126,9 @@ export default function ScenariosPage() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-foreground">
-                      {scenarios.filter(s => s.status === 'draft').length}
+                      {scenarios.filter(s => !s.is_active).length}
                     </p>
-                    <p className="text-sm text-foreground-muted">In Draft</p>
+                    <p className="text-sm text-foreground-muted">Inactive</p>
                   </div>
                 </div>
               </CardContent>
@@ -177,9 +177,9 @@ export default function ScenariosPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-foreground-muted">Net Savings</p>
+                    <p className="text-sm text-foreground-muted">Annual Savings</p>
                     <p className="text-xl font-bold text-success">
-                      ${(Number(scenario.net_annual_savings || 0) / 1000).toFixed(0)}K/yr
+                      ${(Number(scenario.total_annual_savings || 0) / 1000).toFixed(0)}K/yr
                     </p>
                   </div>
                   <div>
@@ -194,7 +194,7 @@ export default function ScenariosPage() {
                   <div className="flex items-center gap-2">
                     <Target className="w-4 h-4 text-foreground-muted" />
                     <span className="text-sm text-foreground-muted">
-                      {scenario.initiatives?.length || 0} initiatives
+                      {scenario.initiatives_count || 0} initiatives
                     </span>
                   </div>
                   <div className="flex items-center gap-2">

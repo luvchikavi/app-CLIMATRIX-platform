@@ -508,357 +508,147 @@ function ImportContent() {
 
   return (
     <AppShell>
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push('/dashboard')}
-          leftIcon={<ArrowLeft className="w-4 h-4" />}
-        >
-          Back
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Import Activities</h1>
-          <div className="flex items-center gap-4 mt-1">
+      {/* Compact Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/dashboard')}
+            leftIcon={<ArrowLeft className="w-4 h-4" />}
+          >
+            Back
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Import Activities</h1>
+          </div>
+        </div>
+
+        {/* Compact Info Bar */}
+        {step === 'upload' && (
+          <div className="flex items-center gap-4">
+            {/* Organization */}
             {organization && (
               <div className="flex items-center gap-1.5 text-foreground-muted">
                 <Building2 className="w-4 h-4" />
                 <span className="text-sm font-medium">{organization.name}</span>
               </div>
             )}
-            <span className="text-foreground-muted text-sm">
-              {currentPeriod?.name || 'Loading...'}
-            </span>
+
+            {/* Period Selector */}
+            {periods && periods.length > 0 && (
+              <select
+                value={periodId || ''}
+                onChange={(e) => setSelectedPeriodId(e.target.value)}
+                className="h-9 px-3 text-sm font-medium border border-primary/30 rounded-lg bg-primary/5 text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {periods.map((period) => (
+                  <option key={period.id} value={period.id}>
+                    {period.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Activity Count */}
+            {!activitiesLoading && activities && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-background-muted rounded-lg">
+                <Activity className="w-4 h-4 text-foreground-muted" />
+                <span className="text-sm font-medium text-foreground">
+                  {activities.length} activities
+                </span>
+              </div>
+            )}
+
+            {/* Site Selector (if available) */}
+            {sites && sites.length > 0 && (
+              <select
+                value={selectedSiteId || ''}
+                onChange={(e) => setSelectedSiteId(e.target.value || null)}
+                className="h-9 px-3 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">All Sites</option>
+                {sites.filter(s => s.is_active).map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
-        </div>
+        )}
       </div>
 
       {/* Error Banner */}
       {error && (
-        <div className="mb-6 p-4 bg-error/10 border border-error/20 rounded-xl flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-error flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-medium text-error">Error</p>
-            <p className="text-error/80 text-sm mt-1">{error}</p>
-          </div>
-          <button
-            onClick={() => setError(null)}
-            className="ml-auto text-error/60 hover:text-error"
-          >
-            <XCircle className="w-5 h-5" />
+        <div className="mb-4 p-3 bg-error/10 border border-error/20 rounded-lg flex items-center gap-3">
+          <AlertTriangle className="w-4 h-4 text-error flex-shrink-0" />
+          <p className="text-sm text-error flex-1">{error}</p>
+          <button onClick={() => setError(null)} className="text-error/60 hover:text-error">
+            <XCircle className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Step 1: Select Reporting Period - Prominent */}
-      {step === 'upload' && periods && periods.length > 0 && (
-        <Card padding="lg" className="mb-6 bg-primary/5 border-primary/30 border-2">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-primary/20">
-                <Calendar className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-foreground">Step 1: Select Reporting Period</h3>
-                <p className="text-sm text-foreground-muted">
-                  Choose which year/period this data belongs to
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              {periods.map((period) => (
-                <button
-                  key={period.id}
-                  onClick={() => setSelectedPeriodId(period.id)}
-                  className={cn(
-                    'px-4 py-2 rounded-lg border-2 transition-all font-medium',
-                    periodId === period.id
-                      ? 'border-primary bg-primary text-white'
-                      : 'border-border bg-background hover:border-primary/50 text-foreground'
-                  )}
-                >
-                  {period.name}
-                </button>
-              ))}
+      {/* Upload Step - Clean Design */}
+      {step === 'upload' && (
+        <div className="max-w-3xl mx-auto">
+          <Card>
+            {/* Import Mode Tabs */}
+            <div className="flex border-b border-border">
               <button
-                onClick={() => router.push('/settings?tab=periods')}
-                className="px-4 py-2 rounded-lg border-2 border-dashed border-border hover:border-primary text-foreground-muted hover:text-primary transition-all"
+                onClick={() => setImportMode('standard')}
+                className={cn(
+                  'flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors',
+                  importMode === 'standard'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-foreground-muted hover:text-foreground'
+                )}
               >
-                + New Period
+                <FileSpreadsheet className="w-4 h-4" />
+                Standard
+              </button>
+              <button
+                onClick={() => setImportMode('unified')}
+                className={cn(
+                  'flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors',
+                  importMode === 'unified'
+                    ? 'border-emerald-500 text-emerald-600'
+                    : 'border-transparent text-foreground-muted hover:text-foreground'
+                )}
+              >
+                <Layers className="w-4 h-4" />
+                Universal AI
+              </button>
+              <button
+                onClick={() => setImportMode('smart')}
+                className={cn(
+                  'flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors',
+                  importMode === 'smart'
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-foreground-muted hover:text-foreground'
+                )}
+              >
+                <Sparkles className="w-4 h-4" />
+                Quick AI
               </button>
             </div>
 
-            {currentPeriod && (
-              <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                <p className="text-sm text-primary font-medium">
-                  Data will be imported to: <span className="font-bold">{currentPeriod.name}</span>
-                  <span className="text-primary/70 ml-2">
-                    ({new Date(currentPeriod.start_date).toLocaleDateString()} - {new Date(currentPeriod.end_date).toLocaleDateString()})
-                  </span>
-                </p>
-              </div>
-            )}
-          </div>
-        </Card>
-      )}
+            <CardContent className="p-6">
+              {/* Mode Description - Compact */}
+              <p className="text-sm text-foreground-muted mb-4">
+                {importMode === 'standard' && 'For CLIMATRIX templates with structured sheets (1.1 Stationary, 2.1 Electricity, etc.)'}
+                {importMode === 'unified' && 'AI-powered import for any file format - handles multi-sheet Excel, messy headers, any structure'}
+                {importMode === 'smart' && 'Quick import for simple files - AI auto-detects columns and maps to emission factors'}
+              </p>
 
-      {/* Step 2: Organization & Site */}
-      {step === 'upload' && organization && (
-        <Card padding="md" className="mb-6 bg-info/5 border-info/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-2 rounded-lg bg-info/10">
-                <Building2 className="w-6 h-6 text-info" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Step 2: Confirm Organization</h3>
-                <p className="text-sm text-foreground-muted">
-                  Importing to <span className="font-medium text-info">{organization.name}</span>
-                </p>
-              </div>
-            </div>
-
-            {/* Site Selector */}
-            {sites && sites.length > 0 && (
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-foreground-muted" />
-                <select
-                  value={selectedSiteId || ''}
-                  onChange={(e) => setSelectedSiteId(e.target.value || null)}
-                  className="h-9 px-3 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-info"
-                >
-                  <option value="">All Sites (no filter)</option>
-                  {sites.filter(s => s.is_active).map((site) => (
-                    <option key={site.id} value={site.id}>
-                      {site.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-          {selectedSiteId && (
-            <p className="mt-2 text-xs text-info">
-              Activities will be associated with the selected site. Leave blank to import without site association.
-            </p>
-          )}
-        </Card>
-      )}
-
-      {/* Current Data Status - Always Visible */}
-      {step === 'upload' && (
-        <Card padding="md" className="mb-6 bg-gradient-to-r from-gray-500/5 to-gray-600/5 border-gray-500/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Activity className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Current Data Status</h3>
-                <p className="text-sm text-foreground-muted">
-                  {activitiesLoading ? (
-                    'Loading...'
-                  ) : activities && activities.length > 0 ? (
-                    <>
-                      <span className="text-primary font-semibold">{activities.length}</span> activities in {currentPeriod?.name || 'this period'}
-                    </>
-                  ) : (
-                    'No activities yet. Upload a file to get started.'
-                  )}
-                </p>
-              </div>
-            </div>
-            {activities && activities.length > 0 && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push('/dashboard')}
-                  leftIcon={<BarChart3 className="w-4 h-4" />}
-                >
-                  View Dashboard
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-warning border-warning/50 hover:bg-warning/10"
-                  onClick={handleClearPeriodData}
-                  disabled={isClearing}
-                  leftIcon={isClearing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                >
-                  {isClearing ? 'Clearing...' : 'Clear Period Data'}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-error border-error/50 hover:bg-error/10"
-                  onClick={handleClearAllData}
-                  disabled={isClearing}
-                  leftIcon={isClearing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                >
-                  Clear ALL Data
-                </Button>
-              </div>
-            )}
-          </div>
-        </Card>
-      )}
-
-      {/* Upload Step */}
-      {step === 'upload' && (
-        <div className="max-w-2xl mx-auto">
-          {/* Import Mode Toggle */}
-          <div className="flex items-center gap-2 mb-6">
-            <Button
-              variant={importMode === 'standard' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => setImportMode('standard')}
-              leftIcon={<FileSpreadsheet className="w-4 h-4" />}
-            >
-              Standard Import
-            </Button>
-            <Button
-              variant={importMode === 'unified' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => setImportMode('unified')}
-              leftIcon={<Layers className="w-4 h-4" />}
-            >
-              Universal Import (AI)
-            </Button>
-            <Button
-              variant={importMode === 'smart' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => setImportMode('smart')}
-              leftIcon={<Sparkles className="w-4 h-4" />}
-            >
-              Quick Import (AI)
-            </Button>
-          </div>
-
-          {/* Standard Import Info */}
-          {importMode === 'standard' && (
-            <Card padding="md" className="mb-6 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-500/20">
-              <div className="flex items-start gap-4">
-                <div className="p-2 rounded-lg bg-blue-500/20">
-                  <FileSpreadsheet className="w-6 h-6 text-blue-500" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground flex items-center gap-2">
-                    Standard Template Import
-                    <span className="px-2 py-0.5 text-xs rounded-full bg-blue-500/20 text-blue-600">Recommended</span>
-                  </h3>
-                  <p className="text-sm text-foreground-muted mt-1">
-                    Use this mode for CLIMATRIX Excel templates with sheets like &quot;1.1 Stationary&quot;, &quot;1.2 Mobile&quot;, &quot;2.1 Electricity&quot;, etc.
-                    Supports both Physical and Spend-based calculation methods.
-                  </p>
-                  <div className="flex items-center gap-4 mt-3 text-xs text-foreground-muted">
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3 h-3" /> Scope 1, 2, 3 sheets
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3 h-3" /> Auto unit conversion
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3 h-3" /> Physical &amp; Spend methods
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Unified AI Import Info */}
-          {importMode === 'unified' && (
-            <Card padding="md" className="mb-6 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border-emerald-500/20">
-              <div className="flex items-start gap-4">
-                <div className="p-2 rounded-lg bg-emerald-500/20">
-                  <Layers className="w-6 h-6 text-emerald-500" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground flex items-center gap-2">
-                    Universal AI Import
-                    <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/20 text-emerald-600">Recommended</span>
-                  </h3>
-                  <p className="text-sm text-foreground-muted mt-1">
-                    Handles ANY file type - simple CSVs, complex multi-sheet Excel templates (like iMDsoft with 19 sheets),
-                    files with headers not in row 1, and multi-language files.
-                  </p>
-                  <div className="flex items-center gap-4 mt-3 text-xs text-foreground-muted">
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3 h-3" /> Multi-sheet Excel
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3 h-3" /> Auto header detection
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3 h-3" /> Sheet-by-sheet preview
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3 h-3" /> AI column mapping
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Smart Import Info */}
-          {importMode === 'smart' && (
-            <Card padding="md" className="mb-6 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/20">
-              <div className="flex items-start gap-4">
-                <div className="p-2 rounded-lg bg-purple-500/20">
-                  <Brain className="w-6 h-6 text-purple-500" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground flex items-center gap-2">
-                    Quick AI Import
-                    <span className="px-2 py-0.5 text-xs rounded-full bg-purple-500/20 text-purple-600">Beta</span>
-                  </h3>
-                  <p className="text-sm text-foreground-muted mt-1">
-                    Quick import for simple messy CSV files - our AI will automatically detect columns and map to emission factors.
-                  </p>
-                  <div className="flex items-center gap-4 mt-3 text-xs text-foreground-muted">
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3 h-3" /> Auto column detection
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3 h-3" /> Multi-language support
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3 h-3" /> Messy data handling
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          <Card padding="lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {importMode === 'smart' ? (
-                  <>
-                    <Sparkles className="w-5 h-5 text-purple-500" />
-                    Upload Any File
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-5 h-5" />
-                    Upload File
-                  </>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Drop Zone */}
+              {/* Drop Zone - Compact */}
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 className={cn(
-                  'relative border-2 border-dashed rounded-xl p-12 text-center transition-all',
+                  'relative border-2 border-dashed rounded-xl p-8 text-center transition-all',
                   isDragging
                     ? importMode === 'unified' ? 'border-emerald-500 bg-emerald-500/5'
                     : importMode === 'smart' ? 'border-purple-500 bg-purple-500/5'
@@ -870,38 +660,26 @@ function ImportContent() {
                 {isLoading ? (
                   <div className="flex flex-col items-center">
                     {importMode === 'unified' ? (
-                      <>
-                        <Layers className="w-12 h-12 text-emerald-500 animate-pulse" />
-                        <p className="mt-4 text-foreground-muted">AI is analyzing your file structure...</p>
-                        <p className="text-xs text-foreground-muted mt-1">Detecting sheets, headers & mapping columns</p>
-                      </>
+                      <Layers className="w-10 h-10 text-emerald-500 animate-pulse" />
                     ) : importMode === 'smart' ? (
-                      <>
-                        <Brain className="w-12 h-12 text-purple-500 animate-pulse" />
-                        <p className="mt-4 text-foreground-muted">AI is analyzing your file...</p>
-                        <p className="text-xs text-foreground-muted mt-1">Detecting columns & mapping data</p>
-                      </>
+                      <Brain className="w-10 h-10 text-purple-500 animate-pulse" />
                     ) : (
-                      <>
-                        <Loader2 className="w-12 h-12 text-primary animate-spin" />
-                        <p className="mt-4 text-foreground-muted">Analyzing file...</p>
-                      </>
+                      <Loader2 className="w-10 h-10 text-primary animate-spin" />
                     )}
+                    <p className="mt-3 text-sm text-foreground-muted">Analyzing file...</p>
                   </div>
                 ) : (
                   <>
-                    {importMode === 'unified' ? (
-                      <Layers className="w-12 h-12 text-emerald-400 mx-auto" />
-                    ) : importMode === 'smart' ? (
-                      <Sparkles className="w-12 h-12 text-purple-400 mx-auto" />
-                    ) : (
-                      <FileSpreadsheet className="w-12 h-12 text-foreground-muted mx-auto" />
-                    )}
-                    <p className="mt-4 text-lg font-medium text-foreground">
-                      Drop your file here
+                    <Upload className={cn(
+                      "w-10 h-10 mx-auto",
+                      importMode === 'unified' ? 'text-emerald-400' :
+                      importMode === 'smart' ? 'text-purple-400' : 'text-foreground-muted'
+                    )} />
+                    <p className="mt-3 text-base font-medium text-foreground">
+                      Drop your file here or click to browse
                     </p>
-                    <p className="text-foreground-muted mt-2">
-                      or click to browse
+                    <p className="text-xs text-foreground-muted mt-1">
+                      CSV or Excel (.xlsx) files
                     </p>
                     <input
                       type="file"
@@ -920,71 +698,86 @@ function ImportContent() {
                       }}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
-                    <p className="text-sm text-foreground-muted mt-4">
-                      {importMode === 'unified'
-                        ? 'Upload any CSV or Excel file - supports multi-sheet templates'
-                        : importMode === 'smart'
-                        ? 'Upload any CSV or Excel file - AI will figure it out'
-                        : 'Supports CSV and Excel (.xlsx) files'}
-                    </p>
                   </>
                 )}
               </div>
 
-              {/* Actions */}
-              <div className="mt-6 flex items-center justify-between">
-                <div className="flex gap-2">
+              {/* Footer - Templates & Info */}
+              <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                <div className="flex items-center gap-3">
                   <Button
-                    variant="outline"
-                    onClick={() => downloadTemplate('1-2')}
-                    leftIcon={<Download className="w-4 h-4" />}
+                    variant="ghost"
                     size="sm"
+                    onClick={() => downloadTemplate('1-2')}
+                    leftIcon={<Download className="w-3 h-3" />}
+                    className="text-xs"
                   >
-                    Scope 1 & 2 Template
+                    Scope 1&2 Template
                   </Button>
                   <Button
-                    variant="outline"
-                    onClick={() => downloadTemplate('3')}
-                    leftIcon={<Download className="w-4 h-4" />}
+                    variant="ghost"
                     size="sm"
+                    onClick={() => downloadTemplate('3')}
+                    leftIcon={<Download className="w-3 h-3" />}
+                    className="text-xs"
                   >
                     Scope 3 Template
                   </Button>
                 </div>
-                <div className="text-sm text-foreground-muted">
-                  Need help?{' '}
-                  <span className="text-primary">
-                    View import guide
-                  </span>
+                <div className="text-xs text-foreground-muted">
+                  Required: <code className="bg-background-muted px-1 rounded">scope</code>,{' '}
+                  <code className="bg-background-muted px-1 rounded">category_code</code>,{' '}
+                  <code className="bg-background-muted px-1 rounded">activity_key</code>,{' '}
+                  <code className="bg-background-muted px-1 rounded">quantity</code>,{' '}
+                  <code className="bg-background-muted px-1 rounded">unit</code>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Template Info */}
-          <Card padding="md" className="mt-6">
-            <div className="flex items-start gap-4">
-              <FileText className="w-8 h-8 text-info flex-shrink-0" />
-              <div>
-                <h3 className="font-semibold text-foreground">Required Columns</h3>
-                <p className="text-sm text-foreground-muted mt-1">
-                  Your file should include: <code className="bg-background-muted px-1 rounded">scope</code>,{' '}
-                  <code className="bg-background-muted px-1 rounded">category_code</code>,{' '}
-                  <code className="bg-background-muted px-1 rounded">activity_key</code>,{' '}
-                  <code className="bg-background-muted px-1 rounded">quantity</code>,{' '}
-                  <code className="bg-background-muted px-1 rounded">unit</code>
-                </p>
-                <p className="text-sm text-foreground-muted mt-2">
-                  Optional: <code className="bg-background-muted px-1 rounded">description</code>,{' '}
-                  <code className="bg-background-muted px-1 rounded">activity_date</code>
-                </p>
+          {/* Data Management - Compact */}
+          {activities && activities.length > 0 && (
+            <div className="mt-4 flex items-center justify-between p-3 bg-background-muted rounded-lg">
+              <span className="text-sm text-foreground-muted">
+                Manage existing data:
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push('/dashboard')}
+                  leftIcon={<BarChart3 className="w-3 h-3" />}
+                  className="text-xs"
+                >
+                  Dashboard
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-warning hover:bg-warning/10"
+                  onClick={handleClearPeriodData}
+                  disabled={isClearing}
+                  leftIcon={isClearing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                >
+                  Clear Period
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-error hover:bg-error/10"
+                  onClick={handleClearAllData}
+                  disabled={isClearing}
+                  leftIcon={<Trash2 className="w-3 h-3" />}
+                >
+                  Clear All
+                </Button>
               </div>
             </div>
-          </Card>
+          )}
 
-          {/* Import History */}
+          {/* Import History - Compact */}
           <div className="mt-6">
-            <ImportHistory periodId={periodId} limit={5} />
+            <ImportHistory periodId={periodId} limit={3} />
           </div>
         </div>
       )}

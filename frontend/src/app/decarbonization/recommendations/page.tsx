@@ -1,7 +1,8 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api, PersonalizedRecommendation } from '@/lib/api';
+import { api, InitiativeCategory } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -22,7 +23,6 @@ import {
   Plus,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
 
 const categoryIcons: Record<string, React.ElementType> = {
   energy_efficiency: Zap,
@@ -60,11 +60,29 @@ const categoryColors: Record<string, string> = {
 export default function RecommendationsPage() {
   const { user } = useAuthStore();
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
+
+  // Fetch periods
+  const { data: periods } = useQuery({
+    queryKey: ['periods'],
+    queryFn: () => api.getPeriods(),
+    enabled: !!user?.organization_id,
+  });
+
+  // Set default period
+  useEffect(() => {
+    if (periods && periods.length > 0 && !selectedPeriodId) {
+      setSelectedPeriodId(periods[0].id);
+    }
+  }, [periods, selectedPeriodId]);
 
   const { data: recommendations, isLoading } = useQuery({
-    queryKey: ['all-recommendations', user?.active_period_id, categoryFilter],
-    queryFn: () => api.getRecommendations(user?.active_period_id || '', 50, categoryFilter || undefined),
-    enabled: !!user?.active_period_id,
+    queryKey: ['all-recommendations', selectedPeriodId, categoryFilter],
+    queryFn: () => api.getRecommendations(selectedPeriodId || '', {
+      limit: 50,
+      category: categoryFilter as InitiativeCategory | undefined
+    }),
+    enabled: !!selectedPeriodId,
   });
 
   const categories = Object.keys(categoryLabels);
@@ -94,7 +112,7 @@ export default function RecommendationsPage() {
             <Filter className="w-4 h-4 text-foreground-muted" />
             <span className="text-sm text-foreground-muted mr-2">Filter by category:</span>
             <Button
-              variant={categoryFilter === null ? 'default' : 'ghost'}
+              variant={categoryFilter === null ? 'primary' : 'ghost'}
               size="sm"
               onClick={() => setCategoryFilter(null)}
             >
@@ -103,7 +121,7 @@ export default function RecommendationsPage() {
             {categories.map((cat) => (
               <Button
                 key={cat}
-                variant={categoryFilter === cat ? 'default' : 'ghost'}
+                variant={categoryFilter === cat ? 'primary' : 'ghost'}
                 size="sm"
                 onClick={() => setCategoryFilter(cat)}
               >
