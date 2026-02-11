@@ -22,40 +22,43 @@ from app.services.calculation.strategies.base import BaseCalculator
 
 # GWP fallback values - MUST match the database emission_factors.py values.
 # The database is the primary source; these are ONLY used if DB lookup fails.
-# Source: Currently IPCC_AR6 as labeled in DB (see GWP consistency notes in docs).
-# WARNING: Some DB values may not match actual AR6 tables - see EMISSION_FACTOR_REFERENCE.md
+# Source: DEFRA 2024 v1.1 - Refrigerant & other (AR5 GWP basis).
+# All values verified against DEFRA 2024 flat file spreadsheet.
 GWP_FALLBACK = {
-    # HFCs (values must match emission_factors.py)
-    "R-134a": Decimal("1530"),     # DB: refrigerant_r134a
-    "R-410A": Decimal("2256"),     # DB: refrigerant_r410a (NOTE: not standard AR6 value of 2088)
-    "R-407C": Decimal("1774"),     # DB: refrigerant_r407c
-    "R-404A": Decimal("4728"),     # DB: refrigerant_r404a
-    "R-507A": Decimal("3985"),     # DB: refrigerant_r507a
-    "R-32": Decimal("771"),        # DB: refrigerant_r32
+    # HFCs - Kyoto Protocol (DEFRA 2024, AR5 GWP)
+    "R-134a": Decimal("1300"),     # DEFRA 2024: Kyoto > HFC-134a
+    "R-32": Decimal("677"),        # DEFRA 2024: Kyoto > HFC-32
     "R-125": Decimal("3170"),      # DEFRA 2024: Kyoto > HFC-125
     "R-143a": Decimal("4800"),     # DEFRA 2024: Kyoto > HFC-143a
-    "R-227ea": Decimal("3220"),    # DB: refrigerant_r227ea (NOTE: DEFRA 2024 says 3350)
+    "R-227ea": Decimal("3350"),    # DEFRA 2024: Kyoto > HFC-227ea
+    "HFC-23": Decimal("12400"),    # DEFRA 2024: Kyoto > HFC-23
+    "HFC-152a": Decimal("138"),    # DEFRA 2024: Kyoto > HFC-152a
 
-    # HCFCs (being phased out)
+    # Blends (DEFRA 2024, AR5 GWP)
+    "R-410A": Decimal("1924"),     # DEFRA 2024: Blends > R410A
+    "R-407C": Decimal("1624"),     # DEFRA 2024: Blends > R407C
+    "R-404A": Decimal("3943"),     # DEFRA 2024: Blends > R404A
+    "R-507A": Decimal("3985"),     # DEFRA 2024: Blends > R507A
+
+    # HCFCs - Montreal Protocol (DEFRA 2024, AR5 GWP)
     "R-22": Decimal("1760"),       # DEFRA 2024: Montreal > HCFC-22
-    "R-123": Decimal("77"),        # DB: refrigerant_r123 (NOTE: DEFRA 2024 says 79)
+    "R-123": Decimal("79"),        # DEFRA 2024: Montreal > HCFC-123
 
-    # Natural refrigerants (low GWP)
-    "R-290": Decimal("0.06"),      # DEFRA 2024: propane
-    "R-600a": Decimal("3"),        # DEFRA 2024: isobutane
-    "R-717": Decimal("0"),         # Ammonia
+    # Natural refrigerants (DEFRA 2024: Other products)
+    "R-290": Decimal("0.06"),      # DEFRA 2024: Other > propane
+    "R-600a": Decimal("3"),        # DEFRA 2024: Other > isobutane
+    "R-717": Decimal("0"),         # Ammonia (not in DEFRA, negligible GWP)
     "R-744": Decimal("1"),         # CO2
 
-    # Other gases
-    "SF6": Decimal("23500"),       # DB: refrigerant_sf6 (matches DEFRA 2024)
-    "NF3": Decimal("16100"),       # DEFRA 2024: Nitrogen trifluoride
-    "PFCs": Decimal("9200"),       # Average PFC
+    # Other gases (DEFRA 2024: Kyoto)
+    "SF6": Decimal("23500"),       # DEFRA 2024: Kyoto > SF6
+    "NF3": Decimal("16100"),       # DEFRA 2024: Kyoto > Nitrogen trifluoride
+    "PFCs": Decimal("9200"),       # DEFRA 2024: Kyoto > Perfluorocyclopropane (representative)
 
-    # Fire suppression
-    "HFC-23": Decimal("12400"),    # DEFRA 2024: Kyoto > HFC-23
-    "Halon-1211": Decimal("1890"), # DB: refrigerant_halon1211 (NOTE: DEFRA 2024 says 1750)
-    "FK-5-1-12": Decimal("1"),     # Novec 1230
-    "R-1234yf": Decimal("1"),      # DB: refrigerant_r1234yf
+    # Fire suppression (DEFRA 2024: Montreal + Other)
+    "Halon-1211": Decimal("1750"), # DEFRA 2024: Montreal > Halon-1211
+    "FK-5-1-12": Decimal("1"),     # Novec 1230 (negligible GWP)
+    "R-1234yf": Decimal("1"),      # DEFRA 2024: Other > R1234yf
 }
 
 
