@@ -29,6 +29,7 @@ WTT_MAPPING = {
 
     # Diesel (Scope 1.1, 1.2)
     ("diesel_liters", "liters"): "wtt_diesel_liters",
+    ("diesel_liters_mobile", "liters"): "wtt_diesel_liters",
     ("diesel_volume", "liters"): "wtt_diesel_liters",
     ("diesel_kg", "kg"): "wtt_diesel_kg",
 
@@ -42,6 +43,10 @@ WTT_MAPPING = {
     ("lpg_liters", "liters"): "wtt_lpg_liters",
     ("lpg_volume", "liters"): "wtt_lpg_liters",
     ("lpg_kg", "kg"): "wtt_lpg_kg",
+
+    # LNG (Scope 1.1)
+    ("lng_liters", "liters"): "wtt_lng_liters",
+    ("lng_volume", "liters"): "wtt_lng_liters",
 
     # Coal (Scope 1.1)
     ("coal_kg", "kg"): "wtt_coal_kg",
