@@ -784,19 +784,20 @@ EMISSION_FACTORS = [
     # -------------------------------------------------------------------------
     # NORTH AMERICA
     # -------------------------------------------------------------------------
-    # USA - National Average
+    # USA - National Average (eGRID 2022, published Jan 2024)
     {
         "scope": 2,
         "category_code": "2",
         "subcategory": "electricity",
         "activity_key": "electricity_us",
         "display_name": "USA Grid (National Average)",
-        "co2e_factor": Decimal("0.386"),
+        "co2e_factor": Decimal("0.375"),  # eGRID 2022: 827.5 lb CO2e/MWh
         "activity_unit": "kWh",
         "factor_unit": "kg CO2e/kWh",
-        "source": "EPA_eGRID_2024",
+        "source": "EPA_eGRID_2022",
         "region": "US",
         "year": 2024,
+        "notes": "eGRID 2022 Summary Tables: U.S. total output CO2e rate 827.5 lb/MWh = 0.3754 kg/kWh",
     },
     # USA - California (CAMX)
     {
@@ -804,13 +805,14 @@ EMISSION_FACTORS = [
         "category_code": "2",
         "subcategory": "electricity",
         "activity_key": "electricity_us_ca",
-        "display_name": "USA - California Grid",
-        "co2e_factor": Decimal("0.225"),
+        "display_name": "USA - California Grid (CAMX)",
+        "co2e_factor": Decimal("0.227"),  # eGRID 2022: 499.3 lb CO2e/MWh
         "activity_unit": "kWh",
         "factor_unit": "kg CO2e/kWh",
-        "source": "EPA_eGRID_2024_CAMX",
+        "source": "EPA_eGRID_2022_CAMX",
         "region": "US-CA",
         "year": 2024,
+        "notes": "eGRID 2022: WECC California subregion, 499.3 lb CO2e/MWh = 0.2265 kg/kWh",
     },
     # USA - Texas (ERCT)
     {
@@ -819,26 +821,28 @@ EMISSION_FACTORS = [
         "subcategory": "electricity",
         "activity_key": "electricity_us_tx",
         "display_name": "USA - Texas Grid (ERCOT)",
-        "co2e_factor": Decimal("0.373"),
+        "co2e_factor": Decimal("0.351"),  # eGRID 2022: 774.3 lb CO2e/MWh
         "activity_unit": "kWh",
         "factor_unit": "kg CO2e/kWh",
-        "source": "EPA_eGRID_2024_ERCT",
+        "source": "EPA_eGRID_2022_ERCT",
         "region": "US-TX",
         "year": 2024,
+        "notes": "eGRID 2022: ERCOT All subregion, 774.3 lb CO2e/MWh = 0.3512 kg/kWh",
     },
-    # USA - New York (NYUP)
+    # USA - New York Upstate (NYUP)
     {
         "scope": 2,
         "category_code": "2",
         "subcategory": "electricity",
         "activity_key": "electricity_us_ny",
-        "display_name": "USA - New York Grid",
-        "co2e_factor": Decimal("0.188"),
+        "display_name": "USA - New York Grid (Upstate)",
+        "co2e_factor": Decimal("0.125"),  # eGRID 2022: 275.4 lb CO2e/MWh
         "activity_unit": "kWh",
         "factor_unit": "kg CO2e/kWh",
-        "source": "EPA_eGRID_2024_NYUP",
+        "source": "EPA_eGRID_2022_NYUP",
         "region": "US-NY",
         "year": 2024,
+        "notes": "eGRID 2022: NPCC Upstate NY subregion, 275.4 lb CO2e/MWh = 0.1249 kg/kWh. Note: NYC/Westchester (NYCW) is 0.402.",
     },
     # USA - Midwest (MROW)
     {
@@ -846,13 +850,14 @@ EMISSION_FACTORS = [
         "category_code": "2",
         "subcategory": "electricity",
         "activity_key": "electricity_us_mw",
-        "display_name": "USA - Midwest Grid",
-        "co2e_factor": Decimal("0.475"),
+        "display_name": "USA - Midwest Grid (MRO West)",
+        "co2e_factor": Decimal("0.428"),  # eGRID 2022: 943.4 lb CO2e/MWh
         "activity_unit": "kWh",
         "factor_unit": "kg CO2e/kWh",
-        "source": "EPA_eGRID_2024_MROW",
+        "source": "EPA_eGRID_2022_MROW",
         "region": "US-MW",
         "year": 2024,
+        "notes": "eGRID 2022: MRO West subregion, 943.4 lb CO2e/MWh = 0.4279 kg/kWh",
     },
     # Canada
     {
