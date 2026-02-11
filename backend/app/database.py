@@ -66,6 +66,13 @@ async def add_missing_columns() -> None:
         ("cbam_imports", "sector", "ALTER TABLE cbam_imports ADD COLUMN IF NOT EXISTS sector VARCHAR(20)"),
         # Make emission_factor_id nullable for supplier-specific factors
         ("emissions", "emission_factor_id_nullable", "ALTER TABLE emissions ALTER COLUMN emission_factor_id DROP NOT NULL"),
+        # Organization subscription/billing columns
+        ("organizations", "stripe_customer_id", "ALTER TABLE organizations ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255)"),
+        ("organizations", "stripe_subscription_id", "ALTER TABLE organizations ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255)"),
+        ("organizations", "subscription_plan", "ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(20) DEFAULT 'free'"),
+        ("organizations", "subscription_status", "ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(20)"),
+        ("organizations", "subscription_current_period_end", "ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subscription_current_period_end TIMESTAMP"),
+        ("organizations", "trial_ends_at", "ALTER TABLE organizations ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP"),
         # EmissionFactor governance columns
         ("emission_factors", "status", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'approved'"),
         ("emission_factors", "version", "ALTER TABLE emission_factors ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1"),

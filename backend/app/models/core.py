@@ -7,6 +7,7 @@ from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from sqlalchemy import String as SAString, Column as SAColumn
 from sqlmodel import SQLModel, Field, Relationship
 
 if TYPE_CHECKING:
@@ -87,8 +88,15 @@ class Organization(OrganizationBase, table=True):
     # Subscription/Billing fields
     stripe_customer_id: Optional[str] = Field(default=None, max_length=255, index=True)
     stripe_subscription_id: Optional[str] = Field(default=None, max_length=255)
-    subscription_plan: SubscriptionPlan = Field(default=SubscriptionPlan.FREE)
-    subscription_status: Optional[SubscriptionStatus] = Field(default=None)
+    # Use sa_column with String to avoid native PostgreSQL ENUM type mismatch
+    subscription_plan: str = Field(
+        default="free",
+        sa_column=SAColumn("subscription_plan", SAString(20), default="free"),
+    )
+    subscription_status: Optional[str] = Field(
+        default=None,
+        sa_column=SAColumn("subscription_status", SAString(20), nullable=True),
+    )
     subscription_current_period_end: Optional[datetime] = Field(default=None)
     trial_ends_at: Optional[datetime] = Field(default=None)
 
