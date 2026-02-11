@@ -8,6 +8,7 @@ from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from sqlalchemy import String as SAString
 from sqlmodel import SQLModel, Field, Relationship, Column, JSON
 
 if TYPE_CHECKING:
@@ -186,9 +187,10 @@ class EmissionFactor(EmissionFactorBase, table=True):
     # ===========================================
 
     # Approval Status (only 'approved' factors are used in calculations)
-    status: EmissionFactorStatus = Field(
-        default=EmissionFactorStatus.APPROVED,  # Seeded factors start as approved
-        index=True
+    # Use sa_column with String to avoid native PostgreSQL ENUM type mismatch
+    status: str = Field(
+        default="approved",
+        sa_column=Column("status", SAString(20), default="approved", index=True),
     )
 
     # Version Control (for tracking changes)
