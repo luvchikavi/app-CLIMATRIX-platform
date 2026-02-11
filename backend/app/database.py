@@ -158,6 +158,49 @@ async def add_missing_emission_factors(session) -> None:
         logger.info("All emission factors already exist")
 
 
+async def update_existing_emission_factors(session) -> None:
+    """Update existing emission factors when code values have changed."""
+    from app.models.emission import EmissionFactor
+    from app.data import EMISSION_FACTORS
+
+    # Build lookup from code: activity_key -> factor data
+    code_factors = {ef["activity_key"]: ef for ef in EMISSION_FACTORS}
+
+    # Fetch all existing factors from DB
+    result = await session.execute(select(EmissionFactor))
+    db_factors = result.scalars().all()
+
+    updated_count = 0
+    fields_to_check = [
+        "co2_factor", "ch4_factor", "n2o_factor", "co2e_factor",
+        "display_name", "source", "activity_unit", "factor_unit",
+        "region", "year", "notes",
+    ]
+
+    for db_ef in db_factors:
+        code_ef = code_factors.get(db_ef.activity_key)
+        if not code_ef:
+            continue
+
+        changed = False
+        for field in fields_to_check:
+            code_val = code_ef.get(field)
+            db_val = getattr(db_ef, field, None)
+            if code_val is not None and db_val != code_val:
+                setattr(db_ef, field, code_val)
+                changed = True
+
+        if changed:
+            updated_count += 1
+            logger.info(f"Updated emission factor: {db_ef.activity_key}")
+
+    if updated_count > 0:
+        await session.commit()
+        logger.info(f"Updated {updated_count} emission factors to match code values")
+    else:
+        logger.info("All emission factors already up to date")
+
+
 async def seed_if_needed() -> None:
     """Seed database with emission factors if empty."""
     from app.models.emission import EmissionFactor, UnitConversion, FuelPrice
@@ -169,9 +212,11 @@ async def seed_if_needed() -> None:
         # Check if already seeded
         result = await session.execute(select(EmissionFactor).limit(1))
         if result.scalar_one_or_none():
-            logger.info("Database already seeded, checking for missing factors...")
+            logger.info("Database already seeded, checking for missing/outdated factors...")
             # Add any missing emission factors
             await add_missing_emission_factors(session)
+            # Update existing factors if code values have changed
+            await update_existing_emission_factors(session)
             # Still ensure team users exist
             await ensure_team_users(session)
             return
