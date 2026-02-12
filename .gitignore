@@ -105,3 +105,4 @@ media/
 *.bak
 *.backup
 .vercel
+.env*.local
