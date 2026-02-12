@@ -280,8 +280,9 @@ async def ensure_team_users(session: AsyncSession) -> None:
     from app.models.core import Organization, User, UserRole
     from app.api.auth import get_password_hash
 
-    # Team users to ensure exist
+    # Team users to ensure exist (passwords reset on every deploy)
     TEAM_USERS = [
+        {"email": "avi@drishti.com", "full_name": "Avi Luvchik", "password": "Luvchik!2030", "role": UserRole.SUPER_ADMIN},
         {"email": "SivanLa@bdo.co.il", "full_name": "Sivan La", "password": "Climatrix2026", "role": UserRole.EDITOR},
         {"email": "LihieI@bdo.co.il", "full_name": "Lihi I", "password": "Climatrix2026", "role": UserRole.EDITOR},
     ]
