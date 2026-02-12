@@ -46,16 +46,17 @@ app = FastAPI(
     redoc_url="/redoc" if settings.debug else None,
 )
 
-# CORS Middleware - Permissive configuration to avoid CORS issues
-# Allow ALL origins to prevent recurring CORS problems
+# CORS Middleware - Uses CORS_ORIGINS_STR from environment
+# In production: set to specific domains (e.g., "https://app.climatrix.io")
+# In development: defaults to "*" for convenience
+_origins = settings.cors_origins
+_use_wildcard = _origins == ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
-    allow_origin_regex=r"https?://.*",  # Backup: match any URL
-    allow_credentials=False,  # Must be False when using "*" origins
+    allow_origins=_origins,
+    allow_credentials=not _use_wildcard,  # credentials require specific origins
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
 )
 
 
