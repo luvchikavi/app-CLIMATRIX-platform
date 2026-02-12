@@ -139,10 +139,18 @@ class FlightCalculator(BaseCalculator):
     @staticmethod
     def estimate_distance(origin: str, destination: str) -> Optional[Decimal]:
         """
-        Estimate great-circle distance between airports.
+        Estimate great-circle distance between airports using Haversine formula.
 
-        TODO: Implement airport coordinate lookup.
-        For now, this would require airport database integration.
+        Args:
+            origin: IATA code (e.g., "TLV")
+            destination: IATA code (e.g., "LHR")
+
+        Returns:
+            Distance in km as Decimal, or None if airport not found.
         """
-        # Placeholder - would need airport coordinates database
-        return None
+        from app.data.airports import calculate_flight_distance
+
+        distance = calculate_flight_distance(origin.upper(), destination.upper())
+        if distance is None:
+            return None
+        return Decimal(str(round(distance, 1)))

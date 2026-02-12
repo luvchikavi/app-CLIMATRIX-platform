@@ -1,9 +1,8 @@
 """
 Pytest configuration and fixtures for CLIMATRIX tests.
 """
-import asyncio
 import pytest
-from typing import AsyncGenerator, Generator
+from typing import AsyncGenerator
 from uuid import uuid4
 
 from httpx import AsyncClient, ASGITransport
@@ -18,14 +17,6 @@ from app.api.auth import get_password_hash
 
 # Use in-memory SQLite for tests
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
-
-
-@pytest.fixture(scope="session")
-def event_loop() -> Generator:
-    """Create event loop for async tests."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest.fixture(scope="function")

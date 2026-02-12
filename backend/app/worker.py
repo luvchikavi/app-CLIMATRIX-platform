@@ -12,6 +12,7 @@ Or with more workers:
 import asyncio
 import csv
 import io
+import os
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -196,6 +197,14 @@ async def process_import_job(ctx: dict, job_id: str) -> dict:
             job.mark_failed(str(e))
             await session.commit()
             return {"error": str(e)}
+
+        finally:
+            # Clean up uploaded file after processing
+            if job.file_path and os.path.exists(job.file_path):
+                try:
+                    os.remove(job.file_path)
+                except OSError:
+                    pass
 
 
 def parse_import_row(row: dict, org_id: UUID, period_id: UUID) -> dict:
@@ -544,6 +553,14 @@ async def smart_import_job(ctx: dict, job_id: str) -> dict:
             job.mark_failed(str(e))
             await session.commit()
             return {"error": str(e)}
+
+        finally:
+            # Clean up uploaded file after processing
+            if job.file_path and os.path.exists(job.file_path):
+                try:
+                    os.remove(job.file_path)
+                except OSError:
+                    pass
 
 
 # =============================================================================

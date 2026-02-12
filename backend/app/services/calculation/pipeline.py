@@ -361,22 +361,76 @@ class CalculationPipeline:
 
         Returns summary of recalculated emissions.
         """
-        # TODO: Implement batch recalculation
-        pass
+        from uuid import UUID
+        from datetime import datetime
+        from sqlmodel import select
+        from app.models.emission import Activity, Emission
 
-    async def aggregate_wtt_for_period(self, period_id: str) -> Decimal:
+        uid = UUID(period_id)
+        query = select(Activity).where(Activity.reporting_period_id == uid)
+        result = await self.session.execute(query)
+        activities = result.scalars().all()
+
+        updated = 0
+        failed = 0
+        errors = []
+
+        for act in activities:
+            try:
+                input_data = ActivityInput(
+                    activity_key=act.activity_key,
+                    quantity=act.quantity,
+                    unit=act.unit,
+                    scope=act.scope,
+                    category_code=act.category_code,
+                    region="Global",
+                    year=2024,
+                )
+                calc_result = await self.calculate(input_data)
+
+                # Update existing emission record
+                em_query = select(Emission).where(Emission.activity_id == act.id)
+                em_result = await self.session.execute(em_query)
+                emission = em_result.scalar_one_or_none()
+
+                if emission:
+                    emission.co2e_kg = calc_result.co2e_kg
+                    emission.co2_kg = calc_result.co2_kg
+                    emission.ch4_kg = calc_result.ch4_kg
+                    emission.n2o_kg = calc_result.n2o_kg
+                    emission.wtt_co2e_kg = calc_result.wtt_co2e_kg
+                    emission.emission_factor_id = calc_result.emission_factor_id
+                    emission.formula = calc_result.formula
+                    emission.confidence = calc_result.confidence
+                    emission.resolution_strategy = calc_result.resolution_strategy
+                    emission.warnings = calc_result.warnings or None
+                    emission.recalculated_at = datetime.utcnow()
+                    updated += 1
+                else:
+                    failed += 1
+                    errors.append({"activity_id": str(act.id), "error": "No emission record found"})
+            except Exception as e:
+                failed += 1
+                errors.append({"activity_id": str(act.id), "error": str(e)})
+
+        await self.session.commit()
+
+        return {
+            "period_id": period_id,
+            "total_activities": len(activities),
+            "updated": updated,
+            "failed": failed,
+            "errors": errors[:20],
+        }
+
+    async def aggregate_wtt_for_period(self, period_id: str) -> dict:
         """
         Sum all WTT emissions for a period to populate Scope 3.3.
 
         WTT (Well-to-Tank) emissions from Scope 1 and 2 activities
         are automatically tracked and aggregated into Category 3.3.
 
-        Returns total WTT emissions in kg CO2e.
+        Returns dict with total_wtt_co2e_kg, by_source breakdown, and activity_count.
         """
-        # TODO: Implement WTT aggregation
-        pass
-
-
-class CalculationError(Exception):
-    """Raised when calculation fails."""
-    pass
+        from uuid import UUID
+        return await self.wtt_service.aggregate_wtt_for_period(UUID(period_id))
