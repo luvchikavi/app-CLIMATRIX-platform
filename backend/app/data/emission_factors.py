@@ -884,12 +884,16 @@ EMISSION_FACTORS = [
         "subcategory": "electricity",
         "activity_key": "electricity_il",
         "display_name": "Israel Grid",
-        "co2e_factor": Decimal("0.527"),
+        "co2e_factor": Decimal("0.502"),
         "activity_unit": "kWh",
         "factor_unit": "kg CO2e/kWh",
-        "source": "IEC_Israel_2024",
+        "source": "BDO_IEC_Israel_2023",
         "region": "IL",
-        "year": 2024,
+        "year": 2023,
+        "notes": "Whole-grid EF (IEC + IPPs) for 2023: 502 gCO2eq/kWh. "
+                 "IEC-only Scope 1 intensity: 0.586 kg CO2e/kWh. "
+                 "BDO integrative emissions model accounts for IPP market share (~50%). "
+                 "Ref: LowCarbonPower 2023, IEC Environmental Report 2023.",
     },
 
     # -------------------------------------------------------------------------
