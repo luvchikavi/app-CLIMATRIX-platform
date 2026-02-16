@@ -495,10 +495,12 @@ async def get_scope2_comparison(
         raise HTTPException(status_code=404, detail="Reporting period not found")
 
     # Get all Scope 2 activities with their emissions and factors
+    # Use LEFT JOIN on EmissionFactor to include supplier-provided EF activities
+    # (where emission_factor_id is NULL because the factor was user-provided, not from DB)
     query = (
         select(Activity, Emission, EmissionFactor)
         .join(Emission, Activity.id == Emission.activity_id)
-        .join(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
+        .outerjoin(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
         .where(
             Activity.reporting_period_id == period_id,
             Activity.organization_id == current_user.organization_id,
@@ -516,8 +518,9 @@ async def get_scope2_comparison(
     has_any_market_factor = False
 
     for activity, emission, factor in rows:
-        # Get country code from activity_key or factor region
-        country_code = _extract_country_code(activity.activity_key, factor.region)
+        # Get country code from activity_key or factor region (factor may be None for supplier-provided)
+        factor_region = factor.region if factor else None
+        country_code = _extract_country_code(activity.activity_key, factor_region)
 
         # Get grid factors for this country
         grid_factor = GRID_EMISSION_FACTORS.get(country_code) if country_code else None
@@ -533,15 +536,25 @@ async def get_scope2_comparison(
         else:
             country_name = grid_factor.get("country_name", country_code)
 
-        location_factor = grid_factor.get("location_factor", factor.co2e_factor)
-        market_factor = grid_factor.get("market_factor")
+        location_factor_val = grid_factor.get("location_factor", factor.co2e_factor if factor else Decimal("0.436"))
+        market_factor_val = grid_factor.get("market_factor")
 
         # Calculate quantity in kWh (may already be in kWh)
         quantity_kwh = float(activity.quantity)
 
-        # Calculate emissions with both methods
-        location_co2e = quantity_kwh * float(location_factor)
-        market_co2e = quantity_kwh * float(market_factor) if market_factor else None
+        # Calculate location-based emissions using grid average
+        location_co2e = quantity_kwh * float(location_factor_val)
+
+        # For market-based: if this activity was calculated with a supplier EF,
+        # use the actual stored emission value as market-based
+        is_supplier_provided = (emission.resolution_strategy == "market_based_supplier" or
+                                emission.resolution_strategy == "supplier_provided")
+        if is_supplier_provided:
+            market_co2e = float(emission.co2e_kg)
+        elif market_factor_val:
+            market_co2e = quantity_kwh * float(market_factor_val)
+        else:
+            market_co2e = None
 
         # Track totals
         total_location += Decimal(str(location_co2e))
@@ -564,8 +577,8 @@ async def get_scope2_comparison(
             country_code=country_code or "GLOBAL",
             country_name=country_name,
             quantity_kwh=quantity_kwh,
-            location_factor=float(location_factor),
-            market_factor=float(market_factor) if market_factor else None,
+            location_factor=float(location_factor_val),
+            market_factor=float(market_factor_val) if market_factor_val else (float(emission.co2e_kg) / quantity_kwh if is_supplier_provided and quantity_kwh > 0 else None),
             location_co2e_kg=location_co2e,
             market_co2e_kg=market_co2e,
             difference_kg=difference_kg,
@@ -798,7 +811,7 @@ async def get_ghg_inventory_report(
     activities_query = (
         select(Activity, Emission, EmissionFactor)
         .join(Emission, Activity.id == Emission.activity_id)
-        .join(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
+        .outerjoin(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
         .where(
             Activity.reporting_period_id == period_id,
             Activity.organization_id == current_user.organization_id,
@@ -822,15 +835,15 @@ async def get_ghg_inventory_report(
 
         if key not in scope_data[scope]:
             scope_data[scope][key] = {
-                "display_name": factor.display_name,
+                "display_name": factor.display_name if factor else activity.activity_key,
                 "category_code": activity.category_code,
                 "count": 0,
                 "total_quantity": Decimal(0),
                 "unit": activity.unit,
                 "total_co2e_kg": Decimal(0),
-                "emission_factor": factor.co2e_factor,
-                "factor_source": factor.source,
-                "factor_unit": factor.factor_unit,
+                "emission_factor": factor.co2e_factor if factor else None,
+                "factor_source": factor.source if factor else "Supplier-Provided",
+                "factor_unit": factor.factor_unit if factor else None,
                 "quality_sum": Decimal(0),
             }
 
@@ -1223,7 +1236,7 @@ async def get_audit_package(
     activities_query = (
         select(Activity, Emission, EmissionFactor)
         .join(Emission, Activity.id == Emission.activity_id)
-        .join(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
+        .outerjoin(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
         .where(
             Activity.reporting_period_id == period_id,
             Activity.organization_id == current_user.organization_id,
@@ -1278,7 +1291,7 @@ async def get_audit_package(
             category_code=activity.category_code,
             category_name=CATEGORY_NAMES.get(activity.category_code, activity.category_code),
             activity_key=activity.activity_key,
-            display_name=factor.display_name,
+            display_name=factor.display_name if factor else activity.activity_key,
             description=activity.description or "",
             quantity=float(activity.quantity),
             unit=activity.unit,
@@ -1297,9 +1310,9 @@ async def get_audit_package(
             ch4_kg=float(emission.ch4_kg) if emission.ch4_kg else None,
             n2o_kg=float(emission.n2o_kg) if emission.n2o_kg else None,
             wtt_co2e_kg=float(emission.wtt_co2e_kg) if emission.wtt_co2e_kg else None,
-            emission_factor_id=str(emission.emission_factor_id),
-            emission_factor_value=float(factor.co2e_factor),
-            emission_factor_unit=factor.factor_unit,
+            emission_factor_id=str(emission.emission_factor_id) if emission.emission_factor_id else None,
+            emission_factor_value=float(factor.co2e_factor) if factor else None,
+            emission_factor_unit=factor.factor_unit if factor else None,
             converted_quantity=float(emission.converted_quantity) if emission.converted_quantity else None,
             converted_unit=emission.converted_unit,
             calculation_formula=emission.formula,
@@ -1308,16 +1321,17 @@ async def get_audit_package(
             created_by=str(activity.created_by) if activity.created_by else None,
         ))
 
-        # Track factor usage
-        factor_id = str(factor.id)
-        if factor_id not in factor_usage:
-            factor_usage[factor_id] = {
-                "factor": factor,
-                "count": 0,
-                "total_co2e_kg": Decimal(0),
-            }
-        factor_usage[factor_id]["count"] += 1
-        factor_usage[factor_id]["total_co2e_kg"] += emission.co2e_kg
+        # Track factor usage (skip if no factor - supplier-provided)
+        if factor:
+            factor_id = str(factor.id)
+            if factor_id not in factor_usage:
+                factor_usage[factor_id] = {
+                    "factor": factor,
+                    "count": 0,
+                    "total_co2e_kg": Decimal(0),
+                }
+            factor_usage[factor_id]["count"] += 1
+            factor_usage[factor_id]["total_co2e_kg"] += emission.co2e_kg
 
         # Track totals
         total_co2e += emission.co2e_kg
@@ -1665,7 +1679,7 @@ async def export_cdp_format(
     activities_query = (
         select(Activity, Emission, EmissionFactor)
         .join(Emission, Activity.id == Emission.activity_id)
-        .join(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
+        .outerjoin(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
         .where(
             Activity.reporting_period_id == period_id,
             Activity.organization_id == current_user.organization_id,
@@ -1687,7 +1701,10 @@ async def export_cdp_format(
     for activity, emission, factor in rows:
         total_activities += 1
         scope_totals[activity.scope] += emission.co2e_kg
-        factor_sources.add(factor.source)
+        if factor:
+            factor_sources.add(factor.source)
+        else:
+            factor_sources.add("Supplier-Provided")
         quality_counts[activity.data_quality_score or 5] += 1
 
         if activity.scope == 1:
@@ -1698,10 +1715,10 @@ async def export_cdp_format(
                     "sources": set(),
                 }
             scope1_by_category[cat]["emissions"] += emission.co2e_kg
-            scope1_by_category[cat]["sources"].add(factor.source)
+            scope1_by_category[cat]["sources"].add(factor.source if factor else "Supplier-Provided")
 
         elif activity.scope == 2:
-            country = factor.region or "Global"
+            country = (factor.region if factor else None) or "Global"
             if country not in scope2_by_country:
                 scope2_by_country[country] = {
                     "quantity_kwh": Decimal(0),
@@ -1947,7 +1964,7 @@ async def export_esrs_e1_format(
     activities_query = (
         select(Activity, Emission, EmissionFactor)
         .join(Emission, Activity.id == Emission.activity_id)
-        .join(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
+        .outerjoin(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
         .where(
             Activity.reporting_period_id == period_id,
             Activity.organization_id == current_user.organization_id,
@@ -1966,7 +1983,10 @@ async def export_esrs_e1_format(
     for activity, emission, factor in rows:
         total_count += 1
         scope_totals[activity.scope] += emission.co2e_kg
-        factor_sources.add(factor.source)
+        if factor:
+            factor_sources.add(factor.source)
+        else:
+            factor_sources.add("Supplier-Provided")
 
         if (activity.data_quality_score or 5) >= 4:
             estimated_count += 1

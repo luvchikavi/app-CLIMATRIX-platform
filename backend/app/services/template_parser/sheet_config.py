@@ -33,8 +33,28 @@ class SheetConfig:
 # Activity Key Resolvers
 # =============================================================================
 
+def _extract_supplier_ef(row: dict) -> None:
+    """
+    Extract supplier emission factor from row if provided.
+
+    Stores the parsed value in row['_supplier_ef'] for the calculation pipeline to use.
+    Works for any scope - Scope 1 (fuels, refrigerants) and Scope 2 (electricity, heat).
+    """
+    supplier_ef = row.get('supplier_ef') or row.get('Supplier Emission Factor') or row.get('Supplier EF (kg CO2e/unit)') or row.get('Supplier EF (kg CO2e/kg)')
+    if supplier_ef is not None and supplier_ef != '':
+        try:
+            ef_value = float(supplier_ef)
+            if ef_value > 0:
+                row['_supplier_ef'] = ef_value
+        except (ValueError, TypeError):
+            pass
+
+
 def resolve_stationary_fuel(row: dict) -> tuple[str, str]:
     """Resolve activity_key for stationary combustion fuels."""
+    # Extract supplier EF if provided (optional override for default DEFRA factor)
+    _extract_supplier_ef(row)
+
     # Support both legacy and generated template column names
     fuel_type = (row.get('Fuel_Type') or row.get('Fuel Type') or '').lower().strip()
     calc_type = (row.get('Calc_Type') or row.get('Method') or '').lower().strip()
@@ -83,6 +103,9 @@ def resolve_stationary_fuel(row: dict) -> tuple[str, str]:
 
 def resolve_mobile_fuel(row: dict) -> tuple[str, str]:
     """Resolve activity_key for mobile combustion."""
+    # Extract supplier EF if provided (e.g., for Urea/AdBlue where DEFRA has no standard factor)
+    _extract_supplier_ef(row)
+
     # Support both legacy and generated template column names
     # After column mapping, values are stored with mapped names (vehicle_type, fuel_type, etc.)
     vehicle_type = (row.get('vehicle_type') or row.get('Vehicle_Type') or row.get('Vehicle Type') or '').lower().strip()
@@ -154,28 +177,92 @@ def resolve_mobile_fuel(row: dict) -> tuple[str, str]:
 
 def resolve_refrigerant(row: dict) -> tuple[str, str]:
     """Resolve activity_key for fugitive emissions."""
+    # Extract supplier EF if provided (optional override for default GWP value)
+    _extract_supplier_ef(row)
+
     # Support both legacy and generated template column names
     gas_type = (row.get('Gas_Type') or row.get('Refrigerant Type') or '').upper().strip()
 
-    # Map common refrigerants (using existing activity_keys from emission_factors)
+    # Map all refrigerants to their correct activity_keys from emission_factors
     refrigerant_map = {
-        'R-410A': 'refrigerant_r410a',
-        'R410A': 'refrigerant_r410a',
+        # HFCs (individual)
         'R-134A': 'refrigerant_r134a',
         'R134A': 'refrigerant_r134a',
         'R-32': 'refrigerant_r32',
         'R32': 'refrigerant_r32',
+        'HFC-23': 'refrigerant_hfc23',
+        'HFC23': 'refrigerant_hfc23',
+        'HFC-125': 'refrigerant_hfc125',
+        'R-125': 'refrigerant_hfc125',
+        'HFC-143A': 'refrigerant_hfc143a',
+        'R-143A': 'refrigerant_hfc143a',
+        'HFC-152A': 'refrigerant_hfc152a',
+        'R-152A': 'refrigerant_hfc152a',
+        'HFC-227EA': 'refrigerant_r227ea',
+        'R-227EA': 'refrigerant_r227ea',
+        'FM-200': 'refrigerant_r227ea',
+
+        # Blends
+        'R-410A': 'refrigerant_r410a',
+        'R410A': 'refrigerant_r410a',
         'R-404A': 'refrigerant_r404a',
         'R404A': 'refrigerant_r404a',
-        'R-407C': 'refrigerant_r410a',  # Use R-410A as proxy (similar GWP)
-        'R-22': 'refrigerant_r134a',  # Use R-134a as proxy
+        'R-407A': 'refrigerant_r407a',
+        'R407A': 'refrigerant_r407a',
+        'R-407C': 'refrigerant_r407c',
+        'R407C': 'refrigerant_r407c',
+        'R-407F': 'refrigerant_r407f',
+        'R407F': 'refrigerant_r407f',
+        'R-417A': 'refrigerant_r417a',
+        'R417A': 'refrigerant_r417a',
+        'R-422D': 'refrigerant_r422d',
+        'R422D': 'refrigerant_r422d',
+        'R-507A': 'refrigerant_r507a',
+        'R507A': 'refrigerant_r507a',
+        'R-507': 'refrigerant_r507a',
+        'R507': 'refrigerant_r507a',
+        'R-508B': 'refrigerant_r508b',
+        'R508B': 'refrigerant_r508b',
+
+        # HCFCs (phased out)
+        'R-22': 'refrigerant_r123',  # Use R-123 as HCFC proxy
+        'R22': 'refrigerant_r123',
+        'R-123': 'refrigerant_r123',
+        'R123': 'refrigerant_r123',
+        'HCFC-123': 'refrigerant_r123',
+        'HCFC-22': 'refrigerant_r123',
+
+        # HFOs (low GWP)
+        'R-1234YF': 'refrigerant_r1234yf',
+        'R1234YF': 'refrigerant_r1234yf',
+        'R-1234ZE': 'refrigerant_r1234ze',
+        'R1234ZE': 'refrigerant_r1234ze',
+
+        # Natural refrigerants
+        'R-290': 'refrigerant_r290',
+        'R290': 'refrigerant_r290',
+        'PROPANE': 'refrigerant_r290',
+        'R-600A': 'refrigerant_r600a',
+        'R600A': 'refrigerant_r600a',
+        'ISOBUTANE': 'refrigerant_r600a',
+        'R-717': 'refrigerant_r717',
+        'R717': 'refrigerant_r717',
+        'AMMONIA': 'refrigerant_r717',
+        'R-744': 'refrigerant_r744',
+        'R744': 'refrigerant_r744',
+
+        # Other gases
+        'SF6': 'refrigerant_sf6',
+        'NF3': 'refrigerant_nf3',
+        'HALON-1211': 'refrigerant_halon1211',
+        'HALON1211': 'refrigerant_halon1211',
     }
 
     for key, activity_key in refrigerant_map.items():
         if key in gas_type:
             return activity_key, 'kg'
 
-    # Default
+    # Default - return generic key; the resolver will try to find the best match
     return 'refrigerant_r410a', 'kg'
 
 
@@ -193,18 +280,8 @@ def resolve_electricity(row: dict) -> tuple[str, str]:
     country = (row.get('country_code') or row.get('Country') or row.get('Country/Region') or '').upper().strip()
     electricity_type = (row.get('electricity_type') or row.get('Electricity Type') or row.get('Type') or '').lower().strip()
 
-    # Check for Supplier Emission Factor (new column in v1.0.1)
-    supplier_ef = row.get('supplier_ef') or row.get('Supplier Emission Factor')
-
-    # Try to parse supplier EF as a number
-    if supplier_ef is not None and supplier_ef != '':
-        try:
-            ef_value = float(supplier_ef)
-            if ef_value > 0:
-                # Store supplier EF for calculation engine to use
-                row['_supplier_ef'] = ef_value
-        except (ValueError, TypeError):
-            pass
+    # Extract supplier EF if provided (for market-based Scope 2)
+    _extract_supplier_ef(row)
 
     # Spend-based - use spend_other as generic spend factor
     if calc_type == 'spend':
@@ -213,10 +290,6 @@ def resolve_electricity(row: dict) -> tuple[str, str]:
     # Check for renewable electricity (100% Renewable)
     if '100%' in electricity_type and 'renewable' in electricity_type:
         return 'electricity_renewable', 'kWh'  # Zero emission certified renewable
-
-    # If supplier EF is provided, use custom calculation
-    if row.get('_supplier_ef'):
-        return 'electricity_supplier', 'kWh'  # Use supplier-specific factor
 
     # Extract country code from Country column or electricity type
     if not country and ' - ' in str(row.get('electricity_type') or row.get('Type') or ''):
@@ -246,6 +319,17 @@ def resolve_electricity(row: dict) -> tuple[str, str]:
         'SG': 'electricity_sg',
     }
 
+    # If supplier EF is provided but we have a country, keep the country-specific key
+    # This preserves the country info for dual reporting (location vs market)
+    # The pipeline will use supplier_ef for the calculation when present
+    if row.get('_supplier_ef') and country:
+        activity_key = country_map.get(country, 'electricity_supplier')
+        return activity_key, 'kWh'
+
+    # If supplier EF but no country, fall back to generic supplier key
+    if row.get('_supplier_ef'):
+        return 'electricity_supplier', 'kWh'
+
     activity_key = country_map.get(country, 'electricity_il')  # Default to Israel
     return activity_key, 'kWh'
 
@@ -267,18 +351,8 @@ def resolve_heat_steam(row: dict) -> tuple[str, str]:
     cooling_type = (row.get('cooling_type') or row.get('Cooling Type') or '').lower().strip()
     calc_type = (row.get('calc_type') or row.get('Calc_Type') or row.get('Method') or '').lower().strip()
 
-    # Check for Supplier Emission Factor (new column in v1.0.1)
-    supplier_ef = row.get('supplier_ef') or row.get('Supplier Emission Factor')
-
-    # Try to parse supplier EF as a number
-    if supplier_ef is not None and supplier_ef != '':
-        try:
-            ef_value = float(supplier_ef)
-            if ef_value > 0:
-                # Store supplier EF for calculation engine to use
-                row['_supplier_ef'] = ef_value
-        except (ValueError, TypeError):
-            pass
+    # Extract supplier EF if provided (for market-based Scope 2)
+    _extract_supplier_ef(row)
 
     # Spend-based - use spend_other as generic spend factor
     if calc_type == 'spend':
@@ -672,7 +746,7 @@ def resolve_downstream_transport(row: dict) -> tuple[str, str]:
 # =============================================================================
 
 GENERATED_TEMPLATE_COLUMN_MAP_STATIONARY = {
-    # Template v1.0.1: Fuel Type | Method | Description | Quantity/Amount | Unit/Currency | Date | Site (Optional) | Comments
+    # Template v1.0.1: Fuel Type | Method | Description | Quantity/Amount | Unit/Currency | Date | Site (Optional) | Supplier EF | Comments
     'Fuel Type': 'fuel_type',
     'Method': 'calc_type',
     'Description': 'description',
@@ -681,11 +755,13 @@ GENERATED_TEMPLATE_COLUMN_MAP_STATIONARY = {
     'Date': 'activity_date',
     'Site (Optional)': 'site',
     'Site': 'site',
+    'Supplier EF (kg CO2e/unit)': 'supplier_ef',
+    'Supplier Emission Factor': 'supplier_ef',
     'Comments': 'comments',
 }
 
 GENERATED_TEMPLATE_COLUMN_MAP_MOBILE = {
-    # Template v1.0.1: Type | Phyiscal | Spent base | Description | Quantity/Amount | Unit/Currency | Date | Comments
+    # Template v1.0.1: Type | Phyiscal | Spent base | Description | Quantity/Amount | Unit/Currency | Date | Supplier EF | Comments
     # Note: "Phyiscal" is intentionally misspelled in template, contains fuel type (Petrol, Diesel, Urea, etc.)
     # Note: "Spent base" = Physical or Spend method
     'Type': 'vehicle_type',           # Vehicle type: Car, Van, LGV, HGV, Motorcycle, Bus, (Fuel Only)
@@ -696,6 +772,8 @@ GENERATED_TEMPLATE_COLUMN_MAP_MOBILE = {
     'Quantity/Amount': 'quantity',
     'Unit/Currency': 'unit',
     'Date': 'activity_date',
+    'Supplier EF (kg CO2e/unit)': 'supplier_ef',
+    'Supplier Emission Factor': 'supplier_ef',
     'Comments': 'comments',
     # Legacy column names (for backwards compatibility)
     'Vehicle Type': 'vehicle_type',
@@ -704,7 +782,7 @@ GENERATED_TEMPLATE_COLUMN_MAP_MOBILE = {
 }
 
 GENERATED_TEMPLATE_COLUMN_MAP_FUGITIVE = {
-    # Template v1.0.1: Type | Method | Description | Quantity/Amount | Unit/Currency | Date | Comments
+    # Template v1.0.1: Type | Method | Description | Quantity/Amount | Unit/Currency | Date | Supplier EF | Comments
     'Type': 'gas_type',               # Refrigerant type: R-134a, R-410A, R-32, etc.
     'Refrigerant Type': 'gas_type',   # Legacy column name
     'Method': 'calc_type',
@@ -712,6 +790,8 @@ GENERATED_TEMPLATE_COLUMN_MAP_FUGITIVE = {
     'Quantity/Amount': 'quantity',
     'Unit/Currency': 'unit',
     'Date': 'activity_date',
+    'Supplier EF (kg CO2e/kg)': 'supplier_ef',
+    'Supplier Emission Factor': 'supplier_ef',
     'Comments': 'comments',
 }
 

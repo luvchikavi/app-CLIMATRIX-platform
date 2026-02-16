@@ -158,12 +158,24 @@ class CalculationPipeline:
             return await self._calculate_supplier_specific(input_data)
 
         # =================================================================
-        # SPECIAL CASE: Supplier EF for electricity/energy
-        # When user provides supplier emission factor for Scope 2
+        # SPECIAL CASE: Supplier EF for electricity/energy (Scope 2)
+        # When user provides supplier emission factor for Scope 2.
+        # Works with any electricity activity_key (electricity_il, electricity_supplier, etc.)
+        # This enables market-based calculation while preserving country info for dual reporting.
         # =================================================================
-        if (input_data.activity_key in ('electricity_supplier', 'energy_supplier') and
-            input_data.supplier_ef is not None):
+        if (input_data.scope == 2 and
+            input_data.supplier_ef is not None and
+            input_data.activity_key.startswith('electricity')):
             return await self._calculate_supplier_ef(input_data)
+
+        # =================================================================
+        # SPECIAL CASE: Supplier EF for Scope 1 (fuels, refrigerants)
+        # When user provides their own emission factor (e.g., Urea with no DEFRA factor)
+        # Overrides the standard database factor with the supplier-provided value
+        # =================================================================
+        if (input_data.supplier_ef is not None and
+            input_data.scope == 1):
+            return await self._calculate_scope1_supplier_ef(input_data)
 
         # =================================================================
         # STANDARD FLOW: Lookup factor from database
@@ -295,6 +307,61 @@ class CalculationPipeline:
         result.emission_factor_id = None
         result.warnings.append(
             "Using supplier-provided emission factor. This is the most accurate method."
+        )
+
+        return result
+
+    async def _calculate_scope1_supplier_ef(self, input_data: ActivityInput) -> CalculationResult:
+        """
+        Calculate Scope 1 emissions using a supplier-provided emission factor.
+
+        Used when the standard DEFRA/IPCC factor doesn't exist or the user has a more
+        accurate supplier-specific factor (e.g., Urea/AdBlue, custom fuel blends,
+        or supplier-provided refrigerant GWP).
+
+        The supplier EF overrides the database lookup entirely.
+        """
+        if input_data.supplier_ef is None:
+            raise CalculationError(
+                "Supplier emission factor required but not provided"
+            )
+
+        # Create a "virtual" emission factor from user input
+        factor = EmissionFactor(
+            scope=input_data.scope,
+            category_code=input_data.category_code,
+            activity_key=input_data.activity_key,
+            display_name=f"{input_data.activity_key} (Supplier-Provided)",
+            co2e_factor=input_data.supplier_ef,
+            activity_unit=input_data.unit,
+            factor_unit=f"kg CO2e/{input_data.unit}",
+            source="Supplier-Provided",
+            region="Supplier",
+            year=input_data.year,
+        )
+
+        # Normalize (usually identity for Scope 1 since units match)
+        normalized = self.normalizer.normalize(
+            quantity=input_data.quantity,
+            input_unit=input_data.unit,
+            target_unit=input_data.unit,
+        )
+
+        # Calculate using the appropriate strategy for the category
+        calculator_class = self.CALCULATORS.get(
+            input_data.category_code,
+            self.DEFAULT_CALCULATOR
+        )
+        calculator = calculator_class()
+        result = calculator.calculate(normalized, factor, wtt_factor=None)
+
+        # Mark as supplier-provided with high confidence
+        result.resolution_strategy = "supplier_provided"
+        result.confidence = "high"
+        result.emission_factor_id = None
+        result.warnings.append(
+            f"Using supplier-provided emission factor ({input_data.supplier_ef} kg CO2e/{input_data.unit}). "
+            "This overrides the standard DEFRA/IPCC factor."
         )
 
         return result

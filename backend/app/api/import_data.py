@@ -1646,7 +1646,7 @@ async def import_template(
             continue
 
         try:
-            # Extract supplier EF if provided (for market-based Scope 2)
+            # Extract supplier EF if provided (Scope 1: overrides DEFRA factor, Scope 2: market-based)
             supplier_ef = None
             if activity_data.raw_data:
                 supplier_ef_val = activity_data.raw_data.get('_supplier_ef')
