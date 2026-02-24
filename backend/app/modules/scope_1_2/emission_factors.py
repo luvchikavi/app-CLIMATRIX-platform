@@ -4,7 +4,8 @@ CLIMATERIX - Scope 1 & 2 Emission Factors
 Verified emission factors from authoritative sources:
 - DEFRA 2024 (UK Department for Environment, Food & Rural Affairs)
 - EPA eGRID 2024 (US Environmental Protection Agency)
-- IEA 2024 (International Energy Agency)
+- EEA 2024 (European Environment Agency) for EU country electricity
+- IEA 2024 (International Energy Agency) for non-EU countries
 - IPCC AR6 (GWP100 values)
 - Industry-specific sources (World Steel, International Aluminium Institute, etc.)
 
@@ -532,10 +533,10 @@ SCOPE_2_FACTORS = {
         },
         "electricity_eu": {
             "display_name": "EU Grid Electricity (average)",
-            "co2e_factor": Decimal("0.23"),
+            "co2e_factor": Decimal("0.255"),
             "activity_unit": "kWh",
             "factor_unit": "kg CO2e/kWh",
-            "source": "IEA_2024",
+            "source": "EEA_2024",
             "region": "EU",
         },
         "electricity_renewable": {
@@ -560,21 +561,25 @@ SCOPE_2_FACTORS = {
         "electricity_at": {"display_name": "Austria Grid Electricity", "co2e_factor": Decimal("0.084"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "AT"},
         "electricity_au": {"display_name": "Australia Grid Electricity", "co2e_factor": Decimal("0.656"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "AU"},
         "electricity_be": {"display_name": "Belgium Grid Electricity", "co2e_factor": Decimal("0.137"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "BE"},
+        "electricity_bg": {"display_name": "Bulgaria Grid Electricity", "co2e_factor": Decimal("0.533"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "BG"},
         "electricity_br": {"display_name": "Brazil Grid Electricity", "co2e_factor": Decimal("0.074"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "BR"},
         "electricity_ca": {"display_name": "Canada Grid Electricity", "co2e_factor": Decimal("0.12"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "CA"},
         "electricity_ch": {"display_name": "Switzerland Grid Electricity", "co2e_factor": Decimal("0.012"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "CH"},
         "electricity_cl": {"display_name": "Chile Grid Electricity", "co2e_factor": Decimal("0.355"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "CL"},
         "electricity_cn": {"display_name": "China Grid Electricity", "co2e_factor": Decimal("0.555"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "CN"},
+        "electricity_cy": {"display_name": "Cyprus Grid Electricity", "co2e_factor": Decimal("0.700"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "CY"},
         "electricity_co": {"display_name": "Colombia Grid Electricity", "co2e_factor": Decimal("0.126"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "CO"},
         "electricity_cz": {"display_name": "Czech Republic Grid Electricity", "co2e_factor": Decimal("0.395"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "CZ"},
         "electricity_de": {"display_name": "Germany Grid Electricity", "co2e_factor": Decimal("0.377"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "DE"},
         "electricity_dk": {"display_name": "Denmark Grid Electricity", "co2e_factor": Decimal("0.116"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "DK"},
+        "electricity_ee": {"display_name": "Estonia Grid Electricity", "co2e_factor": Decimal("0.722"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "EE"},
         "electricity_eg": {"display_name": "Egypt Grid Electricity", "co2e_factor": Decimal("0.448"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "EG"},
         "electricity_es": {"display_name": "Spain Grid Electricity", "co2e_factor": Decimal("0.186"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "ES"},
         "electricity_fi": {"display_name": "Finland Grid Electricity", "co2e_factor": Decimal("0.073"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "FI"},
         "electricity_fr": {"display_name": "France Grid Electricity", "co2e_factor": Decimal("0.056"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "FR"},
         "electricity_gr": {"display_name": "Greece Grid Electricity", "co2e_factor": Decimal("0.337"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "GR"},
         "electricity_hk": {"display_name": "Hong Kong Grid Electricity", "co2e_factor": Decimal("0.63"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "HK"},
+        "electricity_hr": {"display_name": "Croatia Grid Electricity", "co2e_factor": Decimal("0.271"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "HR"},
         "electricity_hu": {"display_name": "Hungary Grid Electricity", "co2e_factor": Decimal("0.218"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "HU"},
         "electricity_id": {"display_name": "Indonesia Grid Electricity", "co2e_factor": Decimal("0.722"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "ID"},
         "electricity_ie": {"display_name": "Ireland Grid Electricity", "co2e_factor": Decimal("0.272"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "IE"},
@@ -584,8 +589,12 @@ SCOPE_2_FACTORS = {
         "electricity_jp": {"display_name": "Japan Grid Electricity", "co2e_factor": Decimal("0.453"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "JP"},
         "electricity_ke": {"display_name": "Kenya Grid Electricity", "co2e_factor": Decimal("0.093"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "KE"},
         "electricity_kr": {"display_name": "South Korea Grid Electricity", "co2e_factor": Decimal("0.417"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "KR"},
+        "electricity_lt": {"display_name": "Lithuania Grid Electricity", "co2e_factor": Decimal("0.187"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "LT"},
+        "electricity_lu": {"display_name": "Luxembourg Grid Electricity", "co2e_factor": Decimal("0.137"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "LU"},
+        "electricity_lv": {"display_name": "Latvia Grid Electricity", "co2e_factor": Decimal("0.161"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "LV"},
         "electricity_mx": {"display_name": "Mexico Grid Electricity", "co2e_factor": Decimal("0.435"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "MX"},
         "electricity_my": {"display_name": "Malaysia Grid Electricity", "co2e_factor": Decimal("0.585"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "MY"},
+        "electricity_mt": {"display_name": "Malta Grid Electricity", "co2e_factor": Decimal("0.479"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "MT"},
         "electricity_ng": {"display_name": "Nigeria Grid Electricity", "co2e_factor": Decimal("0.41"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "IEA_2024", "region": "NG"},
         "electricity_nl": {"display_name": "Netherlands Grid Electricity", "co2e_factor": Decimal("0.312"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "NL"},
         "electricity_no": {"display_name": "Norway Grid Electricity", "co2e_factor": Decimal("0.008"), "activity_unit": "kWh", "factor_unit": "kg CO2e/kWh", "source": "EEA_2024", "region": "NO"},
