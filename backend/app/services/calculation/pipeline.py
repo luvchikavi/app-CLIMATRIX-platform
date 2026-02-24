@@ -27,6 +27,7 @@ from app.services.calculation.strategies.flight import FlightCalculator
 from app.services.calculation.strategies.transport import TransportCalculator
 from app.services.calculation.strategies.waste import WasteCalculator
 from app.services.calculation.strategies.refrigerant import RefrigerantCalculator
+from app.services.calculation.strategies.leased_assets import LeasedAssetsCalculator
 from app.services.calculation.wtt import WTTService
 
 
@@ -119,8 +120,11 @@ class CalculationPipeline:
         "3.5": WasteCalculator,     # Waste Generated in Operations
         "3.6": FlightCalculator,    # Business Travel
         "3.7": FuelCalculator,      # Employee Commuting (distance-based)
+        "3.8": LeasedAssetsCalculator,   # Upstream Leased Assets
         "3.9": TransportCalculator, # Downstream Transportation
         "3.12": WasteCalculator,    # End-of-Life Treatment
+        "3.13": LeasedAssetsCalculator,  # Downstream Leased Assets
+        "3.14": LeasedAssetsCalculator,  # Franchises
     }
 
     # Default calculator for categories without specific strategy

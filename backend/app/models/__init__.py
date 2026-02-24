@@ -18,6 +18,8 @@ from app.models.emission import (
     GridEmissionFactor,
     RefrigerantGWP,
     WasteDisposalFactor,
+    # Market-Based Scope 2
+    PowerProducer,
 )
 from app.models.jobs import ImportJob, JobStatus, JobType
 from app.models.cbam import (
@@ -88,6 +90,8 @@ __all__ = [
     "GridEmissionFactor",
     "RefrigerantGWP",
     "WasteDisposalFactor",
+    # Market-Based Scope 2
+    "PowerProducer",
     # CBAM Enums
     "CBAMSector",
     "CBAMCalculationMethod",

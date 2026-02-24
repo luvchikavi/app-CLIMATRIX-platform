@@ -763,3 +763,54 @@ class WasteDisposalFactor(SQLModel, table=True):
 
     # Status
     is_active: bool = Field(default=True)
+
+
+# ============================================================================
+# POWER PRODUCER (For Market-Based Scope 2)
+# ============================================================================
+
+class PowerProducer(SQLModel, table=True):
+    """
+    Power producer emission factors for market-based Scope 2 calculations.
+
+    Used for:
+    - Israel: BDO יח"פית (individual power producer) coefficients
+    - EU: AIB residual mix per country
+    - USA: GreenE residual mix per state
+    - Other: iREC country averages
+
+    Sources:
+    - BDO Israel power producer data
+    - AIB European Residual Mixes
+    - GreenE Residual Mix
+    - iREC registries
+    """
+    __tablename__ = "power_producers"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+
+    # Producer identification
+    producer_name_he: Optional[str] = Field(default=None, max_length=255)  # Hebrew name (יח"פית)
+    producer_name_en: str = Field(max_length=255)  # English name
+
+    # Location
+    country_code: str = Field(max_length=2, index=True)  # IL, DE, US, etc.
+    region: Optional[str] = Field(default=None, max_length=100)  # US state, EU country, etc.
+
+    # Emission factor
+    co2e_per_kwh: Decimal  # kg CO2e per kWh
+    co2_per_kwh: Optional[Decimal] = Field(default=None)
+    ch4_per_kwh: Optional[Decimal] = Field(default=None)
+    n2o_per_kwh: Optional[Decimal] = Field(default=None)
+
+    # Source and year
+    source: str = Field(max_length=100)  # "BDO_2024", "AIB_2024", "GreenE_2024", "iREC_2024"
+    source_type: str = Field(default="residual_mix", max_length=50)  # "producer_specific", "residual_mix", "irec"
+    year: int = Field(index=True)
+
+    # Validity
+    is_active: bool = Field(default=True)
+
+    # Audit
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(default=None)
