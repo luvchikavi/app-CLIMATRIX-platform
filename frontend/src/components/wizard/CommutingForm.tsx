@@ -9,7 +9,7 @@
  * 3. Spend - Based on commuting reimbursement costs
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
@@ -96,6 +96,54 @@ export function CommutingForm({ periodId, onSuccess }: CommutingFormProps) {
   const [avgDistanceOneWay, setAvgDistanceOneWay] = useState<number | null>(null);
   const [workingDays, setWorkingDays] = useState(220);
   const [remoteWorkPct, setRemoteWorkPct] = useState(0);
+
+  // Israel city lookup
+  const [isIsrael, setIsIsrael] = useState(true);
+  const [selectedCity, setSelectedCity] = useState('');
+  const [israelCities, setIsraelCities] = useState<Array<{key: string; name_en: string; name_he: string; distance_to_tel_aviv: number | null; distance_to_jerusalem: number | null; distance_to_haifa: number | null; distance_to_beer_sheva: number | null}>>([]);
+  const [officeCity, setOfficeCity] = useState('tel_aviv');
+  const [citySearchQuery, setCitySearchQuery] = useState('');
+  const [cityLoading, setCityLoading] = useState(false);
+
+  // Fetch Israel cities on mount
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/reference/israel-cities`)
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setIsraelCities(data))
+      .catch(() => {});
+  }, []);
+
+  const handleCitySelect = (cityKey: string) => {
+    setSelectedCity(cityKey);
+    const city = israelCities.find(c => c.key === cityKey);
+    if (city) {
+      const distanceKey = `distance_to_${officeCity}` as keyof typeof city;
+      const distance = city[distanceKey] as number | null;
+      if (distance !== null) {
+        setAvgDistanceOneWay(distance);
+      }
+    }
+  };
+
+  const handleOfficeCityChange = (newOfficeCity: string) => {
+    setOfficeCity(newOfficeCity);
+    if (selectedCity) {
+      const city = israelCities.find(c => c.key === selectedCity);
+      if (city) {
+        const distanceKey = `distance_to_${newOfficeCity}` as keyof typeof city;
+        const distance = city[distanceKey] as number | null;
+        if (distance !== null) {
+          setAvgDistanceOneWay(distance);
+        }
+      }
+    }
+  };
+
+  const filteredCities = israelCities.filter(c => {
+    if (!citySearchQuery) return true;
+    const q = citySearchQuery.toLowerCase();
+    return c.name_en.toLowerCase().includes(q) || c.name_he.includes(citySearchQuery) || c.key.includes(q);
+  });
 
   // Average method fields
   const [country, setCountry] = useState('IL');
@@ -368,15 +416,97 @@ export function CommutingForm({ periodId, onSuccess }: CommutingFormProps) {
 
           {/* Distance (not for WFH) */}
           {transportMode !== 'wfh' && (
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Average Distance One-Way (km)</label>
-              <Input
-                type="number"
-                value={avgDistanceOneWay || ''}
-                onChange={(e) => setAvgDistanceOneWay(e.target.value ? Number(e.target.value) : null)}
-                placeholder="e.g., 25"
-                min={0}
-              />
+            <div className="space-y-3">
+              {/* Israel toggle */}
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium text-foreground">Country:</label>
+                <button
+                  onClick={() => setIsIsrael(true)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    isIsrael ? 'bg-blue-100 text-blue-700 border border-blue-300' : 'bg-background border border-border text-foreground hover:border-blue-300'
+                  }`}
+                >
+                  Israel
+                </button>
+                <button
+                  onClick={() => { setIsIsrael(false); setSelectedCity(''); }}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    !isIsrael ? 'bg-blue-100 text-blue-700 border border-blue-300' : 'bg-background border border-border text-foreground hover:border-blue-300'
+                  }`}
+                >
+                  Other
+                </button>
+              </div>
+
+              {/* Israel city selector */}
+              {isIsrael && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-foreground mb-1">Employee City</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={citySearchQuery}
+                          onChange={(e) => setCitySearchQuery(e.target.value)}
+                          placeholder="Search city..."
+                          className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
+                        />
+                        {citySearchQuery && filteredCities.length > 0 && (
+                          <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-background border border-border rounded-lg shadow-lg">
+                            {filteredCities.map(city => (
+                              <button
+                                key={city.key}
+                                onClick={() => {
+                                  handleCitySelect(city.key);
+                                  setCitySearchQuery(city.name_en);
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm hover:bg-primary/5 flex justify-between"
+                              >
+                                <span>{city.name_en}</span>
+                                <span className="text-foreground-muted text-xs">{city.name_he}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-foreground mb-1">Office Location</label>
+                      <select
+                        value={officeCity}
+                        onChange={(e) => handleOfficeCityChange(e.target.value)}
+                        className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
+                      >
+                        <option value="tel_aviv">Tel Aviv</option>
+                        <option value="jerusalem">Jerusalem</option>
+                        <option value="haifa">Haifa</option>
+                        <option value="beer_sheva">Beer Sheva</option>
+                      </select>
+                    </div>
+                  </div>
+                  {selectedCity && avgDistanceOneWay && (
+                    <p className="text-xs text-green-600">
+                      Auto-filled: {israelCities.find(c => c.key === selectedCity)?.name_en} → {officeCity.replace('_', ' ')} = {avgDistanceOneWay} km
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Distance input */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Average Distance One-Way (km)
+                  {isIsrael && <span className="text-xs text-foreground-muted ml-1">(auto-filled from city, or enter manually)</span>}
+                </label>
+                <Input
+                  type="number"
+                  value={avgDistanceOneWay || ''}
+                  onChange={(e) => setAvgDistanceOneWay(e.target.value ? Number(e.target.value) : null)}
+                  placeholder="e.g., 25"
+                  min={0}
+                />
+              </div>
             </div>
           )}
 
