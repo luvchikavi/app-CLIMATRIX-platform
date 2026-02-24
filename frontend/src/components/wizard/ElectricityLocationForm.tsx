@@ -82,6 +82,7 @@ export function ElectricityLocationForm({ periodId, onSuccess }: ElectricityLoca
   const groupOptions = (options: EmissionFactor[]) => {
     const groups: Record<string, EmissionFactor[]> = {
       'USA - States': [],
+      'USA - eGRID Subregions': [],
       'Europe': [],
       'Asia Pacific': [],
       'Middle East': [],
@@ -93,7 +94,9 @@ export function ElectricityLocationForm({ periodId, onSuccess }: ElectricityLoca
       const name = opt.display_name?.toLowerCase() || '';
       const region = opt.region?.toUpperCase() || '';
 
-      if (region.startsWith('US-') || name.includes('usa -')) {
+      if (opt.activity_key?.includes('egrid')) {
+        groups['USA - eGRID Subregions'].push(opt);
+      } else if (region.startsWith('US-') || name.includes('usa -')) {
         groups['USA - States'].push(opt);
       } else if (['UK', 'DE', 'FR', 'ES', 'IT', 'NL', 'PL', 'SE', 'NO', 'DK', 'FI', 'PT', 'GR', 'IE', 'CZ', 'HU', 'RO', 'BE', 'AT', 'CH'].includes(region) || name.includes('europe') || name.includes('eu ')) {
         groups['Europe'].push(opt);

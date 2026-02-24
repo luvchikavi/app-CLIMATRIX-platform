@@ -542,7 +542,11 @@ export function BusinessTravelForm({ periodId, onSuccess }: BusinessTravelFormPr
                       <p className="mt-2">
                         <span className="text-lg font-bold text-primary">{distanceCalcResult.distance.toLocaleString()} km</span>
                         <span className="text-xs text-foreground-muted ml-2">
-                          ({distanceCalcResult.haulType}-haul)
+                          {distanceCalcResult.haulType === 'domestic' ? (
+                            <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">Domestic</span>
+                          ) : (
+                            <span>({distanceCalcResult.haulType}-haul)</span>
+                          )}
                         </span>
                       </p>
                     </div>

@@ -38,7 +38,7 @@ import {
 // DOWNSTREAM LEASED ASSETS DATA DEFINITIONS
 // =============================================================================
 
-type LeasedMethod = 'average' | 'asset-specific' | 'spend';
+type LeasedMethod = 'average' | 'asset-specific' | 'spend' | 'tenant';
 
 // Asset Types with emission factor estimates
 const BUILDING_TYPES = [
@@ -103,6 +103,11 @@ export function DownstreamLeasedAssetsForm({ periodId, onSuccess }: DownstreamLe
   const [tenant, setTenant] = useState('');
   const [location, setLocation] = useState('');
   const [activityDate, setActivityDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Tenant emissions method fields
+  const [tenantScope1, setTenantScope1] = useState('');
+  const [tenantScope2, setTenantScope2] = useState('');
+  const [tenantSource, setTenantSource] = useState('');
 
   // Get current asset type data
   const currentAssetType = useMemo(() => {
@@ -181,8 +186,23 @@ export function DownstreamLeasedAssetsForm({ periodId, onSuccess }: DownstreamLe
       };
     }
 
+    if (method === 'tenant') {
+      const s1 = parseFloat(tenantScope1) || 0;
+      const s2 = parseFloat(tenantScope2) || 0;
+      const total = s1 + s2;
+      if (!total) return null;
+      return {
+        activityKey: 'downstream_leased_tenant_emissions',
+        quantity: total,
+        unit: 'kg CO2e',
+        co2e: total,
+        formula: `Scope 1: ${s1.toLocaleString()} kg + Scope 2: ${s2.toLocaleString()} kg = ${total.toLocaleString()} kg CO2e`,
+        efSource: 'Tenant reported (direct)',
+      };
+    }
+
     return null;
-  }, [method, assetCategory, assetType, floorArea, numUnits, energyType, energyConsumption, rentalIncome, currency]);
+  }, [method, assetCategory, assetType, floorArea, numUnits, energyType, energyConsumption, rentalIncome, currency, tenantScope1, tenantScope2]);
 
   // Handle save
   const handleSave = async (addAnother: boolean = false) => {
@@ -207,6 +227,9 @@ export function DownstreamLeasedAssetsForm({ periodId, onSuccess }: DownstreamLe
         setNumUnits('');
         setEnergyConsumption('');
         setRentalIncome('');
+        setTenantScope1('');
+        setTenantScope2('');
+        setTenantSource('');
         setDescription('');
         setTenant('');
         setLocation('');
@@ -261,11 +284,12 @@ export function DownstreamLeasedAssetsForm({ periodId, onSuccess }: DownstreamLe
       {/* Method Selection */}
       <div className="space-y-3">
         <label className="block text-sm font-medium">Step 1: Select Calculation Method</label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           {[
             { value: 'average' as LeasedMethod, label: 'Average', desc: 'Area/Units', icon: <Building className="w-6 h-6" />, color: 'border-green-500 bg-green-50' },
             { value: 'asset-specific' as LeasedMethod, label: 'Asset-Specific', desc: 'Energy data', icon: <Zap className="w-6 h-6" />, color: 'border-amber-500 bg-amber-50' },
             { value: 'spend' as LeasedMethod, label: 'Spend', desc: 'Rental income', icon: <span className="text-2xl">$</span>, color: 'border-blue-500 bg-blue-50' },
+            { value: 'tenant' as LeasedMethod, label: 'Tenant', desc: 'Reported emissions', icon: <Building className="w-6 h-6" />, color: 'border-indigo-500 bg-indigo-50' },
           ].map((m) => (
             <button
               key={m.value}
@@ -490,6 +514,59 @@ export function DownstreamLeasedAssetsForm({ periodId, onSuccess }: DownstreamLe
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g., Total rental income from all leased properties"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Tenant Emissions Method */}
+      {method === 'tenant' && (
+        <div className="space-y-4 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+          <div className="p-3 bg-white rounded-lg border border-indigo-200">
+            <p className="text-sm text-indigo-700">
+              <strong>Most accurate method.</strong> Enter tenant/lessee reported Scope 1 and Scope 2 emissions directly.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Tenant Scope 1 Emissions (kg CO2e)
+              </label>
+              <input
+                type="number"
+                value={tenantScope1}
+                onChange={(e) => setTenantScope1(e.target.value)}
+                className="w-full h-10 px-3 border border-border rounded-lg bg-background text-foreground"
+                placeholder="e.g., 15000"
+                min="0"
+                step="0.01"
+              />
+              <p className="mt-1 text-xs text-foreground-muted">Direct emissions from tenant operations</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Tenant Scope 2 Emissions (kg CO2e)
+              </label>
+              <input
+                type="number"
+                value={tenantScope2}
+                onChange={(e) => setTenantScope2(e.target.value)}
+                className="w-full h-10 px-3 border border-border rounded-lg bg-background text-foreground"
+                placeholder="e.g., 25000"
+                min="0"
+                step="0.01"
+              />
+              <p className="mt-1 text-xs text-foreground-muted">Purchased electricity, heating, cooling</p>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Source Documentation</label>
+            <input
+              type="text"
+              value={tenantSource}
+              onChange={(e) => setTenantSource(e.target.value)}
+              className="w-full h-10 px-3 border border-border rounded-lg bg-background text-foreground"
+              placeholder="e.g., Tenant sustainability report 2024"
             />
           </div>
         </div>
