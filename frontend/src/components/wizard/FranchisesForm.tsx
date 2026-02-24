@@ -36,7 +36,7 @@ import {
 // FRANCHISES DATA DEFINITIONS
 // =============================================================================
 
-type FranchiseMethod = 'average' | 'franchise-specific' | 'spend';
+type FranchiseMethod = 'average' | 'franchise-specific' | 'spend' | 'tenant';
 
 // Franchise Types with emission factor estimates
 const FRANCHISE_TYPES = [
@@ -99,6 +99,11 @@ export function FranchisesForm({ periodId, onSuccess }: FranchisesFormProps) {
   const [description, setDescription] = useState('');
   const [franchiseeName, setFranchiseeName] = useState('');
   const [activityDate, setActivityDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Tenant emissions method fields
+  const [tenantScope1, setTenantScope1] = useState('');
+  const [tenantScope2, setTenantScope2] = useState('');
+  const [tenantSource, setTenantSource] = useState('');
 
   // Get current franchise type data
   const currentFranchiseType = useMemo(() => {
@@ -186,8 +191,23 @@ export function FranchisesForm({ periodId, onSuccess }: FranchisesFormProps) {
       };
     }
 
+    if (method === 'tenant') {
+      const s1 = parseFloat(tenantScope1) || 0;
+      const s2 = parseFloat(tenantScope2) || 0;
+      const total = s1 + s2;
+      if (!total) return null;
+      return {
+        activityKey: 'franchise_tenant_emissions',
+        quantity: total,
+        unit: 'kg CO2e',
+        co2e: total,
+        formula: `Scope 1: ${s1.toLocaleString()} kg + Scope 2: ${s2.toLocaleString()} kg = ${total.toLocaleString()} kg CO2e`,
+        efSource: 'Franchisee reported (direct)',
+      };
+    }
+
     return null;
-  }, [method, franchiseType, numLocations, floorArea, numRooms, energyType, energyConsumption, franchiseRevenue, currency]);
+  }, [method, franchiseType, numLocations, floorArea, numRooms, energyType, energyConsumption, franchiseRevenue, currency, tenantScope1, tenantScope2]);
 
   // Handle save
   const handleSave = async (addAnother: boolean = false) => {
@@ -213,6 +233,9 @@ export function FranchisesForm({ periodId, onSuccess }: FranchisesFormProps) {
         setNumRooms('');
         setEnergyConsumption('');
         setFranchiseRevenue('');
+        setTenantScope1('');
+        setTenantScope2('');
+        setTenantSource('');
         setDescription('');
         setFranchiseeName('');
       } else {
@@ -266,11 +289,12 @@ export function FranchisesForm({ periodId, onSuccess }: FranchisesFormProps) {
       {/* Method Selection */}
       <div className="space-y-3">
         <label className="block text-sm font-medium">Step 1: Select Calculation Method</label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           {[
             { value: 'average' as FranchiseMethod, label: 'Average', desc: 'Type & count', icon: <Store className="w-6 h-6" />, color: 'border-green-500 bg-green-50' },
             { value: 'franchise-specific' as FranchiseMethod, label: 'Specific', desc: 'Energy data', icon: <Zap className="w-6 h-6" />, color: 'border-amber-500 bg-amber-50' },
             { value: 'spend' as FranchiseMethod, label: 'Spend', desc: 'Revenue', icon: <span className="text-2xl">$</span>, color: 'border-blue-500 bg-blue-50' },
+            { value: 'tenant' as FranchiseMethod, label: 'Tenant', desc: 'Reported emissions', icon: <Building className="w-6 h-6" />, color: 'border-indigo-500 bg-indigo-50' },
           ].map((m) => (
             <button
               key={m.value}
@@ -472,6 +496,59 @@ export function FranchisesForm({ periodId, onSuccess }: FranchisesFormProps) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g., Total revenue from all franchise operations"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Tenant Emissions Method */}
+      {method === 'tenant' && (
+        <div className="space-y-4 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+          <div className="p-3 bg-white rounded-lg border border-indigo-200">
+            <p className="text-sm text-indigo-700">
+              <strong>Most accurate method.</strong> Enter franchisee reported Scope 1 and Scope 2 emissions directly.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Franchisee Scope 1 Emissions (kg CO2e)
+              </label>
+              <input
+                type="number"
+                value={tenantScope1}
+                onChange={(e) => setTenantScope1(e.target.value)}
+                className="w-full h-10 px-3 border border-border rounded-lg bg-background text-foreground"
+                placeholder="e.g., 15000"
+                min="0"
+                step="0.01"
+              />
+              <p className="mt-1 text-xs text-foreground-muted">Direct emissions from franchise operations</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Franchisee Scope 2 Emissions (kg CO2e)
+              </label>
+              <input
+                type="number"
+                value={tenantScope2}
+                onChange={(e) => setTenantScope2(e.target.value)}
+                className="w-full h-10 px-3 border border-border rounded-lg bg-background text-foreground"
+                placeholder="e.g., 25000"
+                min="0"
+                step="0.01"
+              />
+              <p className="mt-1 text-xs text-foreground-muted">Purchased electricity, heating, cooling</p>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Source Documentation</label>
+            <input
+              type="text"
+              value={tenantSource}
+              onChange={(e) => setTenantSource(e.target.value)}
+              className="w-full h-10 px-3 border border-border rounded-lg bg-background text-foreground"
+              placeholder="e.g., Franchisee sustainability report 2024"
             />
           </div>
         </div>

@@ -46,12 +46,42 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
   const [supplierEF, setSupplierEF] = useState<number>(0);
   const [supplierName, setSupplierName] = useState('');
 
+  // Region-based market factor state
+  const [marketRegion, setMarketRegion] = useState<'israel' | 'europe' | 'usa' | 'other'>('israel');
+  const [selectedCountry, setSelectedCountry] = useState('');
+  const [selectedSubregion, setSelectedSubregion] = useState('');
+  const [marketFactorLoading, setMarketFactorLoading] = useState(false);
+  const [autoFilledFactor, setAutoFilledFactor] = useState<number | null>(null);
+  const [marketFactorSource, setMarketFactorSource] = useState('');
+
   // UI state
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const createActivity = useCreateActivity(periodId);
+
+  const fetchMarketFactor = async (country: string, subregion?: string) => {
+    setMarketFactorLoading(true);
+    try {
+      const params = new URLSearchParams({ country });
+      if (subregion) params.append('subregion', subregion);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/reference/market-factor?${params}`);
+      if (response.ok) {
+        const data = await response.json();
+        setAutoFilledFactor(data.market_factor_co2e_per_kwh);
+        setMarketFactorSource(`${data.source} (${data.source_type})`);
+        if (data.warning) {
+          // Display warning to user
+          console.warn('Market factor warning:', data.warning);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch market factor:', error);
+    } finally {
+      setMarketFactorLoading(false);
+    }
+  };
 
   // Get emission factor based on method
   const getEmissionFactor = (): number => {
@@ -61,7 +91,7 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
       case 'supplier':
         return supplierEF;
       case 'residual':
-        return 0.453; // EU average residual mix (AIB 2024)
+        return autoFilledFactor ?? 0.453; // Use auto-filled factor or EU average fallback (AIB 2024)
       default:
         return 0;
     }
@@ -146,6 +176,10 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
       setQuantity(0);
       setSupplierEF(0);
       setSupplierName('');
+      setAutoFilledFactor(null);
+      setMarketFactorSource('');
+      setSelectedCountry('');
+      setSelectedSubregion('');
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to save activity');
     } finally {
@@ -298,6 +332,189 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
               Find this on your electricity bill or contact your supplier
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Region-based Residual Mix Selector */}
+      {method === 'residual' && (
+        <div className="space-y-4">
+          <label className="block text-sm font-medium text-gray-700">
+            Region
+          </label>
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { key: 'israel', label: 'Israel' },
+              { key: 'europe', label: 'Europe' },
+              { key: 'usa', label: 'USA' },
+              { key: 'other', label: 'Other' },
+            ].map((r) => (
+              <button
+                key={r.key}
+                type="button"
+                onClick={() => {
+                  setMarketRegion(r.key as typeof marketRegion);
+                  setAutoFilledFactor(null);
+                  setSelectedCountry('');
+                  setSelectedSubregion('');
+                }}
+                className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
+                  marketRegion === r.key
+                    ? 'bg-blue-50 border-blue-500 text-blue-700'
+                    : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Region-specific selectors */}
+          {marketRegion === 'europe' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                EU Country (AIB Residual Mix)
+              </label>
+              <select
+                value={selectedCountry}
+                onChange={(e) => {
+                  setSelectedCountry(e.target.value);
+                  if (e.target.value) fetchMarketFactor(e.target.value);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              >
+                <option value="">Select country...</option>
+                <option value="AT">Austria</option>
+                <option value="BE">Belgium</option>
+                <option value="BG">Bulgaria</option>
+                <option value="HR">Croatia</option>
+                <option value="CY">Cyprus</option>
+                <option value="CZ">Czech Republic</option>
+                <option value="DK">Denmark</option>
+                <option value="EE">Estonia</option>
+                <option value="FI">Finland</option>
+                <option value="FR">France</option>
+                <option value="DE">Germany</option>
+                <option value="GR">Greece</option>
+                <option value="HU">Hungary</option>
+                <option value="IE">Ireland</option>
+                <option value="IT">Italy</option>
+                <option value="LV">Latvia</option>
+                <option value="LT">Lithuania</option>
+                <option value="LU">Luxembourg</option>
+                <option value="MT">Malta</option>
+                <option value="NL">Netherlands</option>
+                <option value="NO">Norway</option>
+                <option value="PL">Poland</option>
+                <option value="PT">Portugal</option>
+                <option value="RO">Romania</option>
+                <option value="SK">Slovakia</option>
+                <option value="SI">Slovenia</option>
+                <option value="ES">Spain</option>
+                <option value="SE">Sweden</option>
+                <option value="CH">Switzerland</option>
+                <option value="GB">United Kingdom</option>
+              </select>
+            </div>
+          )}
+
+          {marketRegion === 'usa' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                eGRID Subregion (Green-e Residual Mix)
+              </label>
+              <select
+                value={selectedSubregion}
+                onChange={(e) => {
+                  setSelectedSubregion(e.target.value);
+                  if (e.target.value) fetchMarketFactor('US', e.target.value);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              >
+                <option value="">Select subregion...</option>
+                <option value="CAMX">CAMX - WECC California</option>
+                <option value="ERCT">ERCT - ERCOT Texas</option>
+                <option value="FRCC">FRCC - Florida</option>
+                <option value="MROW">MROW - MRO West (Midwest)</option>
+                <option value="NEWE">NEWE - New England</option>
+                <option value="NWPP">NWPP - WECC Northwest</option>
+                <option value="NYCW">NYCW - NYC/Westchester</option>
+                <option value="NYUP">NYUP - Upstate New York</option>
+                <option value="RFCE">RFCE - PJM East</option>
+                <option value="RFCM">RFCM - Michigan</option>
+                <option value="RFCW">RFCW - PJM West</option>
+                <option value="RMPA">RMPA - Rockies</option>
+                <option value="SRSO">SRSO - SERC South</option>
+                <option value="SRVC">SRVC - Virginia/Carolina</option>
+                <option value="SRTV">SRTV - Tennessee Valley</option>
+                <option value="SRMW">SRMW - SERC Midwest</option>
+                <option value="SPNO">SPNO - SPP North</option>
+                <option value="SPSO">SPSO - SPP South</option>
+                <option value="AZNM">AZNM - Southwest</option>
+              </select>
+            </div>
+          )}
+
+          {marketRegion === 'other' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Country (iREC / Grid Average)
+              </label>
+              <select
+                value={selectedCountry}
+                onChange={(e) => {
+                  setSelectedCountry(e.target.value);
+                  if (e.target.value) fetchMarketFactor(e.target.value);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              >
+                <option value="">Select country...</option>
+                <option value="AU">Australia</option>
+                <option value="BR">Brazil</option>
+                <option value="CN">China</option>
+                <option value="IN">India</option>
+                <option value="JP">Japan</option>
+                <option value="KR">South Korea</option>
+                <option value="SG">Singapore</option>
+                <option value="ZA">South Africa</option>
+                <option value="TH">Thailand</option>
+                <option value="TR">Turkey</option>
+                <option value="AE">UAE</option>
+                <option value="SA">Saudi Arabia</option>
+              </select>
+            </div>
+          )}
+
+          {marketRegion === 'israel' && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-700">
+                Israel power producer data (BDO יח&quot;פית) will be available once the dataset is provided.
+                Currently using IEC grid average as fallback.
+              </p>
+              <button
+                type="button"
+                onClick={() => fetchMarketFactor('IL')}
+                className="mt-2 text-sm text-amber-600 underline"
+              >
+                Use Israel grid average →
+              </button>
+            </div>
+          )}
+
+          {/* Auto-filled factor display */}
+          {autoFilledFactor !== null && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm font-medium text-green-800">
+                Market-based factor: {autoFilledFactor} kg CO2e/kWh
+              </p>
+              <p className="text-xs text-green-600 mt-1">
+                Source: {marketFactorSource}
+              </p>
+            </div>
+          )}
+
+          {marketFactorLoading && (
+            <p className="text-sm text-gray-500 animate-pulse">Loading market factor...</p>
+          )}
         </div>
       )}
 

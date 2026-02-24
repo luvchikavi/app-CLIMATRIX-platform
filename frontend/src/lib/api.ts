@@ -163,6 +163,54 @@ export interface EmissionFactor {
   year?: number;
 }
 
+// Power Producer (for market-based Scope 2)
+export interface PowerProducer {
+  id: string;
+  producer_name_he: string | null;
+  producer_name_en: string;
+  country_code: string;
+  region: string | null;
+  co2e_per_kwh: number;
+  source: string;
+  source_type: string;
+  year: number;
+  is_active: boolean;
+}
+
+// Market Factor Response (for Scope 2 market-based)
+export interface MarketFactorResponse {
+  country: string;
+  subregion: string | null;
+  factor: number;
+  source: string;
+  source_type: string;
+  year: number;
+}
+
+// Transport Route (for Cat 3.4/3.9)
+export interface TransportRoute {
+  origin: string;
+  destination: string;
+  origin_land_km: number;
+  sea_distance_km: number;
+  destination_land_km: number;
+  total_distance_km: number;
+  transport_mode: string;
+  source: string;
+}
+
+// Transport Distance Response
+export interface TransportDistanceResponse {
+  origin: string;
+  destination: string;
+  origin_land_km: number;
+  sea_distance_km: number;
+  destination_land_km: number;
+  total_distance_km: number;
+  transport_mode: string;
+  source: string;
+}
+
 // Fuel Prices (for spend-to-quantity conversion)
 export interface FuelPrice {
   id: string;

@@ -223,6 +223,52 @@ EMPLOYEE_RANGES = [
     "5000+",
 ]
 
+# Market methods for Scope 2 electricity
+MARKET_METHODS = [
+    "location_based",
+    "market_based_supplier",
+    "market_based_residual",
+    "rec_ppa",
+]
+
+# Transport modes for Scope 3.4/3.9
+TRANSPORT_MODES = [
+    "Road - HGV",
+    "Road - Van",
+    "Road - Average",
+    "Sea - Container",
+    "Sea - Bulk",
+    "Air Freight",
+    "Rail Freight",
+]
+
+# Commuting transport modes for Scope 3.7
+COMMUTING_MODES = [
+    "Car - Petrol",
+    "Car - Diesel",
+    "Car - Hybrid",
+    "Car - Electric",
+    "Car - Average",
+    "Bus",
+    "Rail / Train",
+    "Tram / Light Rail",
+    "Motorcycle",
+    "Bicycle",
+    "Walking",
+    "Work from Home",
+]
+
+# Leased asset building types for Scope 3.8
+LEASED_BUILDING_TYPES = [
+    "Office",
+    "Retail",
+    "Warehouse",
+    "Industrial",
+    "Data Center",
+    "Mixed Use",
+    "Other",
+]
+
 # Calculation methods
 CALCULATION_METHODS = [
     "Physical",  # liters, kWh, km, kg, etc.
@@ -302,9 +348,14 @@ def create_introduction_sheet(ws):
         "   - 1.3 Fugitive: Refrigerant leaks and top-ups",
         "",
         "   SCOPE 2 - INDIRECT ENERGY EMISSIONS:",
-        "   - 2.1 Electricity: Purchased grid electricity (56 countries supported)",
+        "   - 2.1 Electricity: Purchased grid electricity (56 countries, market-based supported)",
         "   - 2.2 Heat/Steam: District heating, industrial steam",
         "   - 2.3 Cooling: Chilled water, district cooling",
+        "",
+        "   SCOPE 3 - VALUE CHAIN EMISSIONS:",
+        "   - 3.4 Upstream Transport: Freight & distribution (auto-distance from origin/destination)",
+        "   - 3.7 Commuting: Employee travel to work (Israel city/zone supported)",
+        "   - 3.8 Leased Assets: Upstream leased buildings (tenant data supported)",
         "",
         "Step 3: Choose Calculation Method",
         "   - PHYSICAL: Enter actual consumption (liters, kWh, km, kg)",
@@ -740,22 +791,28 @@ def create_scope_2_1_sheet(ws):
     ws.column_dimensions['A'].width = 30
     ws.column_dimensions['B'].width = 12
     ws.column_dimensions['C'].width = 15
-    ws.column_dimensions['D'].width = 35
-    ws.column_dimensions['E'].width = 15
-    ws.column_dimensions['F'].width = 12
-    ws.column_dimensions['G'].width = 12
+    ws.column_dimensions['D'].width = 25
+    ws.column_dimensions['E'].width = 20
+    ws.column_dimensions['F'].width = 35
+    ws.column_dimensions['G'].width = 15
+    ws.column_dimensions['H'].width = 12
+    ws.column_dimensions['I'].width = 12
 
     # Title
     ws['A1'] = "Scope 2.1 - Purchased Electricity"
     ws['A1'].font = TITLE_FONT
-    ws.merge_cells('A1:G1')
+    ws.merge_cells('A1:I1')
 
-    ws['A2'] = "Grid electricity. Use Physical (kWh) OR Spend (electricity bill amount). Select country for correct grid factor."
+    ws['A2'] = "Grid electricity. Use Physical (kWh) OR Spend (electricity bill amount). Select country for correct grid factor. For market-based, select a power producer or method."
     ws['A2'].font = Font(italic=True, size=10, color="666666")
-    ws.merge_cells('A2:G2')
+    ws.merge_cells('A2:I2')
 
     # Headers
-    headers = ["Electricity Type", "Method", "Country/Region", "Description", "Quantity/Amount", "Unit/Currency", "Date"]
+    headers = [
+        "Electricity Type", "Method", "Country/Region",
+        "Power Producer", "Market Method",
+        "Description", "Quantity/Amount", "Unit/Currency", "Date",
+    ]
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=4, column=col, value=header)
         cell.font = HEADER_FONT
@@ -763,20 +820,35 @@ def create_scope_2_1_sheet(ws):
         cell.border = THIN_BORDER
         cell.alignment = Alignment(horizontal='center')
 
+    # Add comments for new columns
+    ws.cell(row=4, column=4).comment = Comment(
+        "Optional. For Israel market-based: select the BDO power producer name. Leave blank for location-based.",
+        "CLIMATRIX",
+    )
+    ws.cell(row=4, column=5).comment = Comment(
+        "Optional. Choose: location_based (default), market_based_supplier (producer-specific), market_based_residual (residual mix), rec_ppa (REC/PPA instrument).",
+        "CLIMATRIX",
+    )
+
     # Indicators
-    indicators = ["[Dropdown]", "[Dropdown]", "[Dropdown: 56]", "[Paste/Type]", "[Paste/Type]", "[Dropdown]", "[Paste/Type]"]
+    indicators = [
+        "[Dropdown]", "[Dropdown]", "[Dropdown: 56]",
+        "[Paste/Type]", "[Dropdown]",
+        "[Paste/Type]", "[Paste/Type]", "[Dropdown]", "[Paste/Type]",
+    ]
     for col, ind in enumerate(indicators, 1):
         cell = ws.cell(row=5, column=col, value=ind)
         cell.font = Font(italic=True, size=9, color="666666")
         cell.alignment = Alignment(horizontal='center')
 
-    # Examples - Physical AND Spend
+    # Examples - Physical AND Spend, including market-based examples
     examples = [
-        ["Grid Electricity (Location-based)", "Physical", "IL", "Main office - Tel Aviv", "45000", "kWh", "2024-01"],
-        ["Grid Electricity (Location-based)", "Physical", "US", "US subsidiary", "28000", "kWh", "2024-01"],
-        ["Grid Electricity (Location-based)", "Spend", "DE", "Germany office - bill", "3500", "EUR", "2024-02"],
-        ["Supplier Specific (Market-based)", "Physical", "UK", "UK - green tariff", "22000", "kWh", "2024-01"],
-        ["100% Renewable (Certified)", "Physical", "Global", "Data center - RECs", "180000", "kWh", "2024-Q1"],
+        ["Grid Electricity (Location-based)", "Physical", "IL", "", "location_based", "Main office - Tel Aviv", "45000", "kWh", "2024-01"],
+        ["Grid Electricity (Location-based)", "Physical", "US", "", "location_based", "US subsidiary", "28000", "kWh", "2024-01"],
+        ["Grid Electricity (Location-based)", "Spend", "DE", "", "location_based", "Germany office - bill", "3500", "EUR", "2024-02"],
+        ["Supplier Specific (Market-based)", "Physical", "IL", "OPC Energy", "market_based_supplier", "IL - OPC power producer", "22000", "kWh", "2024-01"],
+        ["Supplier Specific (Market-based)", "Physical", "UK", "", "market_based_residual", "UK - residual mix", "15000", "kWh", "2024-01"],
+        ["100% Renewable (Certified)", "Physical", "Global", "", "rec_ppa", "Data center - RECs", "180000", "kWh", "2024-Q1"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -785,30 +857,36 @@ def create_scope_2_1_sheet(ws):
             cell.border = THIN_BORDER
 
     # Data rows
-    for row in range(11, 111):  # 100 rows
-        for col in range(1, 8):
+    for row in range(12, 112):  # 100 rows
+        for col in range(1, 10):
             cell = ws.cell(row=row, column=col)
             cell.border = THIN_BORDER
-            if col in [1, 2, 3, 6]:
+            if col in [1, 2, 3, 5, 8]:  # Dropdown columns
                 cell.fill = DROPDOWN_FILL
 
     # Dropdowns
     dv_type = DataValidation(type="list", formula1='"' + ','.join(ELECTRICITY_TYPES) + '"', allow_blank=True)
     ws.add_data_validation(dv_type)
-    dv_type.add('A6:A110')
+    dv_type.add('A6:A111')
 
     dv_method = DataValidation(type="list", formula1='"' + ','.join(CALCULATION_METHODS) + '"', allow_blank=True)
     ws.add_data_validation(dv_method)
-    dv_method.add('B6:B110')
+    dv_method.add('B6:B111')
 
     country_codes = [c.split(' - ')[0] for c in COUNTRIES]
     dv_country = DataValidation(type="list", formula1='"' + ','.join(country_codes) + '"', allow_blank=True)
     ws.add_data_validation(dv_country)
-    dv_country.add('C6:C110')
+    dv_country.add('C6:C111')
+
+    dv_market_method = DataValidation(type="list", formula1='"' + ','.join(MARKET_METHODS) + '"', allow_blank=True)
+    dv_market_method.error = "Select a valid market method"
+    dv_market_method.errorTitle = "Invalid Market Method"
+    ws.add_data_validation(dv_market_method)
+    dv_market_method.add('E6:E111')
 
     dv_unit = DataValidation(type="list", formula1='"kWh,' + ','.join(CURRENCIES) + '"', allow_blank=True)
     ws.add_data_validation(dv_unit)
-    dv_unit.add('F6:F110')
+    dv_unit.add('H6:H111')
 
 
 def create_scope_2_2_sheet(ws):
@@ -953,6 +1031,317 @@ def create_scope_2_3_sheet(ws):
     dv_unit.add('E6:E58')
 
 
+def create_scope_3_4_sheet(ws):
+    """Create Scope 3.4 Upstream Transport sheet."""
+    ws.title = "3.4 Upstream Transport"
+
+    # Column widths
+    ws.column_dimensions['A'].width = 15
+    ws.column_dimensions['B'].width = 20
+    ws.column_dimensions['C'].width = 35
+    ws.column_dimensions['D'].width = 15
+    ws.column_dimensions['E'].width = 18
+    ws.column_dimensions['F'].width = 18
+    ws.column_dimensions['G'].width = 18
+    ws.column_dimensions['H'].width = 15
+    ws.column_dimensions['I'].width = 12
+    ws.column_dimensions['J'].width = 12
+
+    # Title
+    ws['A1'] = "Scope 3.4 - Upstream Transportation & Distribution"
+    ws['A1'].font = TITLE_FONT
+    ws.merge_cells('A1:J1')
+
+    ws['A2'] = "Transport of purchased goods. Enter origin/destination countries and distance will be auto-calculated if left blank."
+    ws['A2'].font = Font(italic=True, size=10, color="666666")
+    ws.merge_cells('A2:J2')
+
+    ws['A3'] = "If Distance (km) is blank, origin + destination countries are used to look up a default route distance."
+    ws['A3'].font = Font(italic=True, size=10, color="336699")
+    ws.merge_cells('A3:J3')
+
+    # Headers
+    headers = [
+        "Method", "Transport Mode", "Description", "Weight (tonnes)",
+        "Origin Country", "Destination Country", "Distance (km)",
+        "Spend Amount", "Currency", "Date",
+    ]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=5, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal='center')
+
+    # Add comment on Distance (km) column
+    ws.cell(row=5, column=7).comment = Comment(
+        "Optional. If left blank the system will auto-calculate distance from the origin/destination countries using the built-in transport distance matrix.",
+        "CLIMATRIX",
+    )
+
+    # Indicators
+    indicators = [
+        "[Dropdown]", "[Dropdown]", "[Paste/Type]", "[Paste/Type]",
+        "[Dropdown]", "[Dropdown]", "[Optional]",
+        "[Paste/Type]", "[Dropdown]", "[Paste/Type]",
+    ]
+    for col, ind in enumerate(indicators, 1):
+        cell = ws.cell(row=6, column=col, value=ind)
+        cell.font = Font(italic=True, size=9, color="666666")
+        cell.alignment = Alignment(horizontal='center')
+
+    # Examples
+    examples = [
+        ["Physical", "Sea - Container", "Raw materials from China", "120", "CN", "IL", "", "", "", "2024-Q1"],
+        ["Physical", "Road - HGV", "Components from Germany", "25", "DE", "IL", "4200", "", "", "2024-02"],
+        ["Physical", "Air Freight", "Urgent parts from US", "2.5", "US", "IL", "11000", "", "", "2024-03"],
+        ["Spend", "Road - Average", "Local delivery (spend)", "", "", "", "", "15000", "USD", "2024-Q1"],
+    ]
+    for row_offset, example in enumerate(examples):
+        for col, val in enumerate(example, 1):
+            cell = ws.cell(row=7+row_offset, column=col, value=val)
+            cell.fill = EXAMPLE_FILL
+            cell.border = THIN_BORDER
+
+    # Data rows
+    for row in range(11, 111):  # 100 rows
+        for col in range(1, 11):
+            cell = ws.cell(row=row, column=col)
+            cell.border = THIN_BORDER
+            if col in [1, 2, 5, 6, 9]:
+                cell.fill = DROPDOWN_FILL
+
+    # Dropdowns
+    dv_method = DataValidation(type="list", formula1='"Physical,Spend"', allow_blank=True)
+    ws.add_data_validation(dv_method)
+    dv_method.add('A7:A110')
+
+    dv_mode = DataValidation(type="list", formula1='"' + ','.join(TRANSPORT_MODES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_mode)
+    dv_mode.add('B7:B110')
+
+    country_codes = [c.split(' - ')[0] for c in COUNTRIES]
+    dv_origin = DataValidation(type="list", formula1='"' + ','.join(country_codes) + '"', allow_blank=True)
+    ws.add_data_validation(dv_origin)
+    dv_origin.add('E7:E110')
+
+    dv_dest = DataValidation(type="list", formula1='"' + ','.join(country_codes) + '"', allow_blank=True)
+    ws.add_data_validation(dv_dest)
+    dv_dest.add('F7:F110')
+
+    dv_currency = DataValidation(type="list", formula1='"' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_currency)
+    dv_currency.add('I7:I110')
+
+
+def create_scope_3_7_sheet(ws):
+    """Create Scope 3.7 Employee Commuting sheet."""
+    ws.title = "3.7 Commuting"
+
+    # Column widths
+    ws.column_dimensions['A'].width = 15
+    ws.column_dimensions['B'].width = 20
+    ws.column_dimensions['C'].width = 18
+    ws.column_dimensions['D'].width = 22
+    ws.column_dimensions['E'].width = 18
+    ws.column_dimensions['F'].width = 15
+    ws.column_dimensions['G'].width = 20
+    ws.column_dimensions['H'].width = 15
+    ws.column_dimensions['I'].width = 12
+    ws.column_dimensions['J'].width = 20
+    ws.column_dimensions['K'].width = 12
+
+    # Title
+    ws['A1'] = "Scope 3.7 - Employee Commuting"
+    ws['A1'].font = TITLE_FONT
+    ws.merge_cells('A1:K1')
+
+    ws['A2'] = "Employee travel between home and work. Enter per group/mode or per site."
+    ws['A2'].font = Font(italic=True, size=10, color="666666")
+    ws.merge_cells('A2:K2')
+
+    # Headers
+    headers = [
+        "Method", "Transport Mode", "Number of Employees",
+        "Avg Distance One-Way (km)", "Working Days/Year",
+        "Country", "City/Zone (Israel)",
+        "% Remote Work", "Spend Amount", "Currency", "Site/Department",
+    ]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal='center')
+
+    # Add comment for City/Zone column
+    ws.cell(row=4, column=7).comment = Comment(
+        "Optional. For Israel employees: enter city or zone name to use Israel-specific commuting factors (e.g., Tel Aviv, Haifa, Jerusalem, Gush Dan, Peripheral).",
+        "CLIMATRIX",
+    )
+
+    # Indicators
+    indicators = [
+        "[Dropdown]", "[Dropdown]", "[Paste/Type]",
+        "[Paste/Type]", "[Paste/Type]",
+        "[Dropdown]", "[Paste/Type]",
+        "[Paste/Type]", "[Paste/Type]", "[Dropdown]", "[Paste/Type]",
+    ]
+    for col, ind in enumerate(indicators, 1):
+        cell = ws.cell(row=5, column=col, value=ind)
+        cell.font = Font(italic=True, size=9, color="666666")
+        cell.alignment = Alignment(horizontal='center')
+
+    # Examples
+    examples = [
+        ["Physical", "Car - Petrol", "45", "25", "220", "IL", "Tel Aviv", "20", "", "", "R&D"],
+        ["Physical", "Bus", "30", "18", "220", "IL", "Jerusalem", "10", "", "", "Operations"],
+        ["Physical", "Rail / Train", "20", "35", "220", "UK", "", "15", "", "", "London Office"],
+        ["Physical", "Work from Home", "15", "", "220", "IL", "Gush Dan", "100", "", "", "Support"],
+        ["Spend", "Car - Average", "", "", "", "US", "", "", "45000", "USD", "US Subsidiary"],
+    ]
+    for row_offset, example in enumerate(examples):
+        for col, val in enumerate(example, 1):
+            cell = ws.cell(row=6+row_offset, column=col, value=val)
+            cell.fill = EXAMPLE_FILL
+            cell.border = THIN_BORDER
+
+    # Data rows
+    for row in range(11, 61):  # 50 rows
+        for col in range(1, 12):
+            cell = ws.cell(row=row, column=col)
+            cell.border = THIN_BORDER
+            if col in [1, 2, 6, 10]:
+                cell.fill = DROPDOWN_FILL
+
+    # Dropdowns
+    dv_method = DataValidation(type="list", formula1='"Physical,Spend"', allow_blank=True)
+    ws.add_data_validation(dv_method)
+    dv_method.add('A6:A60')
+
+    dv_mode = DataValidation(type="list", formula1='"' + ','.join(COMMUTING_MODES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_mode)
+    dv_mode.add('B6:B60')
+
+    country_codes = [c.split(' - ')[0] for c in COUNTRIES]
+    dv_country = DataValidation(type="list", formula1='"' + ','.join(country_codes) + '"', allow_blank=True)
+    ws.add_data_validation(dv_country)
+    dv_country.add('F6:F60')
+
+    dv_currency = DataValidation(type="list", formula1='"' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_currency)
+    dv_currency.add('J6:J60')
+
+
+def create_scope_3_8_sheet(ws):
+    """Create Scope 3.8 Upstream Leased Assets sheet."""
+    ws.title = "3.8 Leased Assets"
+
+    # Column widths
+    ws.column_dimensions['A'].width = 15
+    ws.column_dimensions['B'].width = 18
+    ws.column_dimensions['C'].width = 35
+    ws.column_dimensions['D'].width = 18
+    ws.column_dimensions['E'].width = 18
+    ws.column_dimensions['F'].width = 15
+    ws.column_dimensions['G'].width = 15
+    ws.column_dimensions['H'].width = 25
+    ws.column_dimensions['I'].width = 25
+    ws.column_dimensions['J'].width = 15
+    ws.column_dimensions['K'].width = 12
+    ws.column_dimensions['L'].width = 12
+
+    # Title
+    ws['A1'] = "Scope 3.8 - Upstream Leased Assets"
+    ws['A1'].font = TITLE_FONT
+    ws.merge_cells('A1:L1')
+
+    ws['A2'] = "Emissions from leased buildings/assets not in Scopes 1 & 2. Use asset-specific data or spend-based method."
+    ws['A2'].font = Font(italic=True, size=10, color="666666")
+    ws.merge_cells('A2:L2')
+
+    ws['A3'] = "If tenant-specific Scope 1 & 2 data is available, enter it in the dedicated columns for more accurate calculations."
+    ws['A3'].font = Font(italic=True, size=10, color="336699")
+    ws.merge_cells('A3:L3')
+
+    # Headers
+    headers = [
+        "Method", "Building Type", "Description",
+        "Floor Area (m2)", "Electricity (kWh)", "Gas (kWh)",
+        "Country",
+        "Tenant Scope 1 CO2e (kg)", "Tenant Scope 2 CO2e (kg)",
+        "Spend Amount", "Currency", "Year",
+    ]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=5, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal='center')
+
+    # Add comments for tenant columns
+    ws.cell(row=5, column=8).comment = Comment(
+        "Optional. If the tenant provides their own Scope 1 emissions data (direct emissions from fuel combustion, refrigerants, etc.), enter the total in kg CO2e.",
+        "CLIMATRIX",
+    )
+    ws.cell(row=5, column=9).comment = Comment(
+        "Optional. If the tenant provides their own Scope 2 emissions data (purchased electricity, heat, cooling), enter the total in kg CO2e.",
+        "CLIMATRIX",
+    )
+
+    # Indicators
+    indicators = [
+        "[Dropdown]", "[Dropdown]", "[Paste/Type]",
+        "[Paste/Type]", "[Paste/Type]", "[Paste/Type]",
+        "[Dropdown]",
+        "[Paste/Type]", "[Paste/Type]",
+        "[Paste/Type]", "[Dropdown]", "[Paste/Type]",
+    ]
+    for col, ind in enumerate(indicators, 1):
+        cell = ws.cell(row=6, column=col, value=ind)
+        cell.font = Font(italic=True, size=9, color="666666")
+        cell.alignment = Alignment(horizontal='center')
+
+    # Examples
+    examples = [
+        ["Physical", "Office", "Leased HQ - Tel Aviv", "2500", "120000", "35000", "IL", "", "", "", "", "2024"],
+        ["Physical", "Warehouse", "Distribution center", "5000", "85000", "", "IL", "4500", "18000", "", "", "2024"],
+        ["Physical", "Data Center", "Cloud hosting facility", "800", "450000", "", "US", "12000", "95000", "", "", "2024"],
+        ["Spend", "Office", "Small satellite office", "", "", "", "UK", "", "", "48000", "GBP", "2024"],
+    ]
+    for row_offset, example in enumerate(examples):
+        for col, val in enumerate(example, 1):
+            cell = ws.cell(row=7+row_offset, column=col, value=val)
+            cell.fill = EXAMPLE_FILL
+            cell.border = THIN_BORDER
+
+    # Data rows
+    for row in range(11, 61):  # 50 rows
+        for col in range(1, 13):
+            cell = ws.cell(row=row, column=col)
+            cell.border = THIN_BORDER
+            if col in [1, 2, 7, 11]:
+                cell.fill = DROPDOWN_FILL
+
+    # Dropdowns
+    dv_method = DataValidation(type="list", formula1='"Physical,Spend"', allow_blank=True)
+    ws.add_data_validation(dv_method)
+    dv_method.add('A7:A60')
+
+    dv_building = DataValidation(type="list", formula1='"' + ','.join(LEASED_BUILDING_TYPES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_building)
+    dv_building.add('B7:B60')
+
+    country_codes = [c.split(' - ')[0] for c in COUNTRIES]
+    dv_country = DataValidation(type="list", formula1='"' + ','.join(country_codes) + '"', allow_blank=True)
+    ws.add_data_validation(dv_country)
+    dv_country.add('G7:G60')
+
+    dv_currency = DataValidation(type="list", formula1='"' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_currency)
+    dv_currency.add('K7:K60')
+
+
 def create_reference_sheet(ws):
     """Create reference sheet with all valid values."""
     ws.title = "Reference"
@@ -985,11 +1374,21 @@ def create_reference_sheet(ws):
         "Refrigerants (1.3)",
         "Countries (2.1)",
         "Electricity Types (2.1)",
+        "Market Methods (2.1)",
         "Heat/Steam (2.2)",
         "Cooling (2.3)",
+        "Transport Modes (3.4)",
+        "Commuting Modes (3.7)",
+        "Building Types (3.8)",
         "Calc Method",
-        "Currencies"
+        "Currencies",
     ]
+
+    # Extend column widths for new columns
+    ws.column_dimensions['K'].width = 25
+    ws.column_dimensions['L'].width = 20
+    ws.column_dimensions['M'].width = 15
+
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=4, column=col, value=header)
         cell.font = HEADER_FONT
@@ -1003,10 +1402,14 @@ def create_reference_sheet(ws):
         REFRIGERANT_TYPES,
         COUNTRIES,
         ELECTRICITY_TYPES,
+        MARKET_METHODS,
         HEAT_STEAM_TYPES,
         COOLING_TYPES,
+        TRANSPORT_MODES,
+        COMMUTING_MODES,
+        LEASED_BUILDING_TYPES,
         CALCULATION_METHODS,
-        CURRENCIES
+        CURRENCIES,
     ]
 
     max_len = max(len(lst) for lst in lists)
@@ -1059,6 +1462,15 @@ def generate(
 
     create_scope_2_3_sheet(wb.create_sheet())
     typer.echo("  + Scope 2.3 Cooling sheet")
+
+    create_scope_3_4_sheet(wb.create_sheet())
+    typer.echo("  + Scope 3.4 Upstream Transport sheet")
+
+    create_scope_3_7_sheet(wb.create_sheet())
+    typer.echo("  + Scope 3.7 Commuting sheet")
+
+    create_scope_3_8_sheet(wb.create_sheet())
+    typer.echo("  + Scope 3.8 Leased Assets sheet")
 
     create_reference_sheet(wb.create_sheet())
     typer.echo("  + Reference sheet")

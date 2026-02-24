@@ -346,6 +346,9 @@ class TemplateParser:
                     if unit_idx is not None and unit_idx < len(row_values):
                         unit = str(row_values[unit_idx] or '').strip()
 
+        # Initialize warnings list early (needed by transport auto-lookup)
+        activity_warnings = []
+
         # Special case: Cat7_Commuting - calculate from Employees × Working_Days × Avg_Distance × 2
         if config.sheet_name == 'Cat7_Commuting' and quantity is None:
             employees = self._parse_decimal(row_dict.get('Employees'))
@@ -373,6 +376,22 @@ class TemplateParser:
             weight = self._parse_decimal(row_dict.get('Weight (tonnes)'))
             distance = self._parse_decimal(row_dict.get('Distance (km)'))
             method = (row_dict.get('Method') or '').lower().strip()
+
+            # Auto-lookup distance from origin/destination countries if distance not provided
+            if distance is None:
+                origin_country = (row_dict.get('Origin Country') or row_dict.get('origin_country') or '').strip().upper()
+                dest_country = (row_dict.get('Destination Country') or row_dict.get('destination_country') or '').strip().upper()
+                if origin_country and dest_country:
+                    auto_distance = self._get_transport_distance(origin_country, dest_country)
+                    if auto_distance is not None:
+                        distance = Decimal(str(auto_distance))
+                        activity_warnings.append(
+                            f"Distance auto-calculated from {origin_country}→{dest_country}: {auto_distance} km"
+                        )
+                    else:
+                        activity_warnings.append(
+                            f"No route found for {origin_country}→{dest_country}. Please provide distance manually."
+                        )
 
             if method != 'spend' and weight and distance:
                 quantity = weight * distance
@@ -502,8 +521,7 @@ class TemplateParser:
         
         activity_date = f"{year}-06-30"  # Middle of year as default
         
-        # Build warnings
-        activity_warnings = []
+        # Build warnings (activity_warnings already initialized before special cases)
         if is_spend:
             activity_warnings.append("Converted from spend-based calculation")
         
@@ -609,4 +627,17 @@ class TemplateParser:
             pass
 
         # Fallback: return None if airports not found
+        return None
+
+    def _get_transport_distance(self, origin: str, destination: str) -> int | None:
+        """
+        Get transport distance between two countries using the transport distances database.
+        """
+        try:
+            from app.data.transport_distances import get_transport_distance
+            route = get_transport_distance(origin, destination)
+            if route:
+                return int(route['total_distance_km'])
+        except ImportError:
+            pass
         return None

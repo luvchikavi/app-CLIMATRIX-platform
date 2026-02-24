@@ -79,52 +79,75 @@ GRID_EMISSION_FACTORS = {
     },
     "DE": {
         "country_name": "Germany",
-        "location_factor": Decimal("0.364"),
+        "location_factor": Decimal("0.377"),
         "market_factor": Decimal("0.453"),
         "td_loss_percentage": Decimal("4.5"),
-        "source": "AIB 2024",
+        "source": "EEA 2024",
         "year": 2024,
     },
     "FR": {
         "country_name": "France",
-        "location_factor": Decimal("0.052"),
-        "market_factor": Decimal("0.453"),  # EU residual
+        "location_factor": Decimal("0.056"),
+        "market_factor": Decimal("0.069"),
         "td_loss_percentage": Decimal("6.0"),
-        "source": "IEA 2024",
+        "source": "EEA 2024",
         "year": 2024,
     },
     "ES": {
         "country_name": "Spain",
-        "location_factor": Decimal("0.162"),
-        "market_factor": Decimal("0.453"),
+        "location_factor": Decimal("0.186"),
+        "market_factor": Decimal("0.316"),
         "td_loss_percentage": Decimal("9.0"),
-        "source": "IEA 2024",
+        "source": "EEA 2024",
         "year": 2024,
     },
     "IT": {
         "country_name": "Italy",
-        "location_factor": Decimal("0.316"),
-        "market_factor": Decimal("0.453"),
+        "location_factor": Decimal("0.315"),
+        "market_factor": Decimal("0.457"),
         "td_loss_percentage": Decimal("6.5"),
-        "source": "IEA 2024",
+        "source": "EEA 2024",
         "year": 2024,
     },
     "NL": {
         "country_name": "Netherlands",
-        "location_factor": Decimal("0.328"),
-        "market_factor": Decimal("0.453"),
+        "location_factor": Decimal("0.312"),
+        "market_factor": Decimal("0.477"),
         "td_loss_percentage": Decimal("4.0"),
-        "source": "IEA 2024",
+        "source": "EEA 2024",
         "year": 2024,
     },
     "PL": {
         "country_name": "Poland",
         "location_factor": Decimal("0.635"),
-        "market_factor": Decimal("0.453"),
+        "market_factor": Decimal("0.789"),
         "td_loss_percentage": Decimal("7.5"),
-        "source": "IEA 2024",
+        "source": "EEA 2024",
         "year": 2024,
     },
+    # Additional EU countries (EEA 2024)
+    "AT": {"country_name": "Austria", "location_factor": Decimal("0.084"), "market_factor": Decimal("0.227"), "td_loss_percentage": Decimal("5.0"), "source": "EEA 2024", "year": 2024},
+    "BE": {"country_name": "Belgium", "location_factor": Decimal("0.137"), "market_factor": Decimal("0.260"), "td_loss_percentage": Decimal("5.0"), "source": "EEA 2024", "year": 2024},
+    "BG": {"country_name": "Bulgaria", "location_factor": Decimal("0.533"), "market_factor": Decimal("0.533"), "td_loss_percentage": Decimal("9.0"), "source": "EEA 2024", "year": 2024},
+    "HR": {"country_name": "Croatia", "location_factor": Decimal("0.271"), "market_factor": Decimal("0.271"), "td_loss_percentage": Decimal("7.0"), "source": "EEA 2024", "year": 2024},
+    "CY": {"country_name": "Cyprus", "location_factor": Decimal("0.700"), "market_factor": Decimal("0.700"), "td_loss_percentage": Decimal("4.0"), "source": "EEA 2024", "year": 2024},
+    "CZ": {"country_name": "Czech Republic", "location_factor": Decimal("0.395"), "market_factor": Decimal("0.561"), "td_loss_percentage": Decimal("6.0"), "source": "EEA 2024", "year": 2024},
+    "DK": {"country_name": "Denmark", "location_factor": Decimal("0.116"), "market_factor": Decimal("0.247"), "td_loss_percentage": Decimal("5.0"), "source": "EEA 2024", "year": 2024},
+    "EE": {"country_name": "Estonia", "location_factor": Decimal("0.722"), "market_factor": Decimal("0.722"), "td_loss_percentage": Decimal("6.0"), "source": "EEA 2024", "year": 2024},
+    "FI": {"country_name": "Finland", "location_factor": Decimal("0.073"), "market_factor": Decimal("0.170"), "td_loss_percentage": Decimal("3.5"), "source": "EEA 2024", "year": 2024},
+    "GR": {"country_name": "Greece", "location_factor": Decimal("0.337"), "market_factor": Decimal("0.481"), "td_loss_percentage": Decimal("7.0"), "source": "EEA 2024", "year": 2024},
+    "HU": {"country_name": "Hungary", "location_factor": Decimal("0.218"), "market_factor": Decimal("0.311"), "td_loss_percentage": Decimal("8.0"), "source": "EEA 2024", "year": 2024},
+    "IE": {"country_name": "Ireland", "location_factor": Decimal("0.272"), "market_factor": Decimal("0.432"), "td_loss_percentage": Decimal("8.0"), "source": "EEA 2024", "year": 2024},
+    "LV": {"country_name": "Latvia", "location_factor": Decimal("0.161"), "market_factor": Decimal("0.161"), "td_loss_percentage": Decimal("6.0"), "source": "EEA 2024", "year": 2024},
+    "LT": {"country_name": "Lithuania", "location_factor": Decimal("0.187"), "market_factor": Decimal("0.218"), "td_loss_percentage": Decimal("6.0"), "source": "EEA 2024", "year": 2024},
+    "LU": {"country_name": "Luxembourg", "location_factor": Decimal("0.137"), "market_factor": Decimal("0.291"), "td_loss_percentage": Decimal("3.0"), "source": "EEA 2024", "year": 2024},
+    "MT": {"country_name": "Malta", "location_factor": Decimal("0.479"), "market_factor": Decimal("0.499"), "td_loss_percentage": Decimal("4.0"), "source": "EEA 2024", "year": 2024},
+    "NO": {"country_name": "Norway", "location_factor": Decimal("0.008"), "market_factor": Decimal("0.420"), "td_loss_percentage": Decimal("6.0"), "source": "EEA 2024", "year": 2024},
+    "PT": {"country_name": "Portugal", "location_factor": Decimal("0.175"), "market_factor": Decimal("0.296"), "td_loss_percentage": Decimal("8.0"), "source": "EEA 2024", "year": 2024},
+    "RO": {"country_name": "Romania", "location_factor": Decimal("0.258"), "market_factor": Decimal("0.363"), "td_loss_percentage": Decimal("10.0"), "source": "EEA 2024", "year": 2024},
+    "SE": {"country_name": "Sweden", "location_factor": Decimal("0.009"), "market_factor": Decimal("0.036"), "td_loss_percentage": Decimal("6.0"), "source": "EEA 2024", "year": 2024},
+    "SK": {"country_name": "Slovakia", "location_factor": Decimal("0.113"), "market_factor": Decimal("0.164"), "td_loss_percentage": Decimal("5.0"), "source": "EEA 2024", "year": 2024},
+    "SI": {"country_name": "Slovenia", "location_factor": Decimal("0.234"), "market_factor": Decimal("0.367"), "td_loss_percentage": Decimal("5.0"), "source": "EEA 2024", "year": 2024},
 
     # North America
     "US": {
@@ -143,6 +166,20 @@ GRID_EMISSION_FACTORS = {
         "source": "Environment Canada 2024",
         "year": 2024,
     },
+
+    # US eGRID Subregions (EPA eGRID 2024)
+    "US-CAMX": {"country_name": "USA - CAMX (California)", "location_factor": Decimal("0.225"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-ERCT": {"country_name": "USA - ERCT (Texas)", "location_factor": Decimal("0.373"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-FRCC": {"country_name": "USA - FRCC (Florida)", "location_factor": Decimal("0.391"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-NEWE": {"country_name": "USA - NEWE (New England)", "location_factor": Decimal("0.227"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-NWPP": {"country_name": "USA - NWPP (Northwest)", "location_factor": Decimal("0.118"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-RFCE": {"country_name": "USA - RFCE (PJM East)", "location_factor": Decimal("0.297"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-RFCM": {"country_name": "USA - RFCM (Michigan)", "location_factor": Decimal("0.443"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-RFCW": {"country_name": "USA - RFCW (PJM West)", "location_factor": Decimal("0.497"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-RMPA": {"country_name": "USA - RMPA (Rockies)", "location_factor": Decimal("0.525"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-SRSO": {"country_name": "USA - SRSO (SERC South)", "location_factor": Decimal("0.383"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-SRVC": {"country_name": "USA - SRVC (Virginia/Carolina)", "location_factor": Decimal("0.347"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-MROW": {"country_name": "USA - MROW (MRO West)", "location_factor": Decimal("0.475"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
 
     # Middle East
     "IL": {
@@ -245,6 +282,137 @@ GRID_EMISSION_FACTORS = {
 def get_grid_factor(country_code: str) -> dict | None:
     """Get grid emission factor for a country."""
     return GRID_EMISSION_FACTORS.get(country_code.upper()) or GRID_EMISSION_FACTORS.get("GLOBAL")
+
+
+# =============================================================================
+# AIB RESIDUAL MIX — EU Market-Based Factors
+# Source: AIB (Association of Issuing Bodies) European Residual Mixes 2024
+# Used for Scope 2 market-based method in EU countries
+# =============================================================================
+
+AIB_RESIDUAL_MIX = {
+    # Country code -> kg CO2e per kWh (residual mix after GO/certificates removed)
+    "AT": {"co2e_per_kwh": Decimal("0.227"), "country_name": "Austria", "year": 2024},
+    "BE": {"co2e_per_kwh": Decimal("0.260"), "country_name": "Belgium", "year": 2024},
+    "BG": {"co2e_per_kwh": Decimal("0.533"), "country_name": "Bulgaria", "year": 2024},
+    "HR": {"co2e_per_kwh": Decimal("0.271"), "country_name": "Croatia", "year": 2024},
+    "CY": {"co2e_per_kwh": Decimal("0.700"), "country_name": "Cyprus", "year": 2024},
+    "CZ": {"co2e_per_kwh": Decimal("0.561"), "country_name": "Czech Republic", "year": 2024},
+    "DK": {"co2e_per_kwh": Decimal("0.247"), "country_name": "Denmark", "year": 2024},
+    "EE": {"co2e_per_kwh": Decimal("0.722"), "country_name": "Estonia", "year": 2024},
+    "FI": {"co2e_per_kwh": Decimal("0.170"), "country_name": "Finland", "year": 2024},
+    "FR": {"co2e_per_kwh": Decimal("0.069"), "country_name": "France", "year": 2024},
+    "DE": {"co2e_per_kwh": Decimal("0.453"), "country_name": "Germany", "year": 2024},
+    "GR": {"co2e_per_kwh": Decimal("0.481"), "country_name": "Greece", "year": 2024},
+    "HU": {"co2e_per_kwh": Decimal("0.311"), "country_name": "Hungary", "year": 2024},
+    "IE": {"co2e_per_kwh": Decimal("0.432"), "country_name": "Ireland", "year": 2024},
+    "IT": {"co2e_per_kwh": Decimal("0.457"), "country_name": "Italy", "year": 2024},
+    "LV": {"co2e_per_kwh": Decimal("0.161"), "country_name": "Latvia", "year": 2024},
+    "LT": {"co2e_per_kwh": Decimal("0.218"), "country_name": "Lithuania", "year": 2024},
+    "LU": {"co2e_per_kwh": Decimal("0.291"), "country_name": "Luxembourg", "year": 2024},
+    "MT": {"co2e_per_kwh": Decimal("0.499"), "country_name": "Malta", "year": 2024},
+    "NL": {"co2e_per_kwh": Decimal("0.477"), "country_name": "Netherlands", "year": 2024},
+    "NO": {"co2e_per_kwh": Decimal("0.420"), "country_name": "Norway", "year": 2024},
+    "PL": {"co2e_per_kwh": Decimal("0.789"), "country_name": "Poland", "year": 2024},
+    "PT": {"co2e_per_kwh": Decimal("0.296"), "country_name": "Portugal", "year": 2024},
+    "RO": {"co2e_per_kwh": Decimal("0.363"), "country_name": "Romania", "year": 2024},
+    "SK": {"co2e_per_kwh": Decimal("0.164"), "country_name": "Slovakia", "year": 2024},
+    "SI": {"co2e_per_kwh": Decimal("0.367"), "country_name": "Slovenia", "year": 2024},
+    "ES": {"co2e_per_kwh": Decimal("0.316"), "country_name": "Spain", "year": 2024},
+    "SE": {"co2e_per_kwh": Decimal("0.036"), "country_name": "Sweden", "year": 2024},
+    "CH": {"co2e_per_kwh": Decimal("0.128"), "country_name": "Switzerland", "year": 2024},
+    "GB": {"co2e_per_kwh": Decimal("0.312"), "country_name": "United Kingdom", "year": 2024},
+    # EU-27 average residual mix (fallback)
+    "EU": {"co2e_per_kwh": Decimal("0.453"), "country_name": "EU-27 Average", "year": 2024},
+}
+
+
+def get_aib_residual_mix(country_code: str) -> Decimal | None:
+    """Get AIB residual mix factor for a country (market-based Scope 2)."""
+    data = AIB_RESIDUAL_MIX.get(country_code.upper())
+    if data:
+        return data["co2e_per_kwh"]
+    # Fall back to EU average for unlisted EU countries
+    eu_data = AIB_RESIDUAL_MIX.get("EU")
+    return eu_data["co2e_per_kwh"] if eu_data else None
+
+
+# =============================================================================
+# GREEN-E RESIDUAL MIX — US Market-Based Factors
+# Source: Green-e Energy Residual Mix (2024)
+# Used for Scope 2 market-based method in US states/regions
+# =============================================================================
+
+GREENE_RESIDUAL_MIX = {
+    # eGRID subregion code -> kg CO2e per kWh (residual after RECs removed)
+    "CAMX": {"co2e_per_kwh": Decimal("0.282"), "region_name": "WECC California", "year": 2024},
+    "ERCT": {"co2e_per_kwh": Decimal("0.415"), "region_name": "ERCOT Texas", "year": 2024},
+    "FRCC": {"co2e_per_kwh": Decimal("0.422"), "region_name": "FRCC Florida", "year": 2024},
+    "MROE": {"co2e_per_kwh": Decimal("0.612"), "region_name": "MRO East", "year": 2024},
+    "MROW": {"co2e_per_kwh": Decimal("0.528"), "region_name": "MRO West", "year": 2024},
+    "NEWE": {"co2e_per_kwh": Decimal("0.251"), "region_name": "NPCC New England", "year": 2024},
+    "NWPP": {"co2e_per_kwh": Decimal("0.175"), "region_name": "WECC Northwest", "year": 2024},
+    "NYCW": {"co2e_per_kwh": Decimal("0.263"), "region_name": "NPCC NYC/Westchester", "year": 2024},
+    "NYLI": {"co2e_per_kwh": Decimal("0.468"), "region_name": "NPCC Long Island", "year": 2024},
+    "NYUP": {"co2e_per_kwh": Decimal("0.112"), "region_name": "NPCC Upstate NY", "year": 2024},
+    "RFCE": {"co2e_per_kwh": Decimal("0.341"), "region_name": "RFC East", "year": 2024},
+    "RFCM": {"co2e_per_kwh": Decimal("0.492"), "region_name": "RFC Michigan", "year": 2024},
+    "RFCW": {"co2e_per_kwh": Decimal("0.546"), "region_name": "RFC West", "year": 2024},
+    "RMPA": {"co2e_per_kwh": Decimal("0.578"), "region_name": "WECC Rockies", "year": 2024},
+    "SPNO": {"co2e_per_kwh": Decimal("0.541"), "region_name": "SPP North", "year": 2024},
+    "SPSO": {"co2e_per_kwh": Decimal("0.498"), "region_name": "SPP South", "year": 2024},
+    "SRMV": {"co2e_per_kwh": Decimal("0.398"), "region_name": "SERC Mississippi Valley", "year": 2024},
+    "SRMW": {"co2e_per_kwh": Decimal("0.672"), "region_name": "SERC Midwest", "year": 2024},
+    "SRSO": {"co2e_per_kwh": Decimal("0.425"), "region_name": "SERC South", "year": 2024},
+    "SRTV": {"co2e_per_kwh": Decimal("0.420"), "region_name": "SERC Tennessee Valley", "year": 2024},
+    "SRVC": {"co2e_per_kwh": Decimal("0.385"), "region_name": "SERC Virginia/Carolina", "year": 2024},
+    "AZNM": {"co2e_per_kwh": Decimal("0.392"), "region_name": "WECC Southwest", "year": 2024},
+    # US national average residual (fallback)
+    "US": {"co2e_per_kwh": Decimal("0.429"), "region_name": "US National Average", "year": 2024},
+}
+
+
+def get_greene_residual_mix(subregion_or_state: str) -> Decimal | None:
+    """Get Green-e residual mix factor (market-based Scope 2 for US)."""
+    data = GREENE_RESIDUAL_MIX.get(subregion_or_state.upper())
+    if data:
+        return data["co2e_per_kwh"]
+    # Fall back to US national average
+    us_data = GREENE_RESIDUAL_MIX.get("US")
+    return us_data["co2e_per_kwh"] if us_data else None
+
+
+# =============================================================================
+# iREC COUNTRY AVERAGES — Other Countries Market-Based
+# Source: iREC Standard, various national registries
+# Used as fallback market-based factor for non-EU, non-US countries
+# =============================================================================
+
+IREC_RESIDUAL_MIX = {
+    # Country code -> kg CO2e per kWh
+    # For countries without formal residual mix, use grid average as proxy
+    "IL": {"co2e_per_kwh": Decimal("0.527"), "country_name": "Israel", "year": 2024, "notes": "Grid average (no formal iREC market)"},
+    "AE": {"co2e_per_kwh": Decimal("0.456"), "country_name": "UAE", "year": 2024},
+    "SA": {"co2e_per_kwh": Decimal("0.590"), "country_name": "Saudi Arabia", "year": 2024},
+    "CN": {"co2e_per_kwh": Decimal("0.555"), "country_name": "China", "year": 2024},
+    "IN": {"co2e_per_kwh": Decimal("0.708"), "country_name": "India", "year": 2024},
+    "JP": {"co2e_per_kwh": Decimal("0.453"), "country_name": "Japan", "year": 2024},
+    "KR": {"co2e_per_kwh": Decimal("0.417"), "country_name": "South Korea", "year": 2024},
+    "AU": {"co2e_per_kwh": Decimal("0.656"), "country_name": "Australia", "year": 2024},
+    "BR": {"co2e_per_kwh": Decimal("0.074"), "country_name": "Brazil", "year": 2024},
+    "ZA": {"co2e_per_kwh": Decimal("0.928"), "country_name": "South Africa", "year": 2024},
+    "SG": {"co2e_per_kwh": Decimal("0.408"), "country_name": "Singapore", "year": 2024},
+    "TH": {"co2e_per_kwh": Decimal("0.470"), "country_name": "Thailand", "year": 2024},
+    "TR": {"co2e_per_kwh": Decimal("0.378"), "country_name": "Turkey", "year": 2024},
+}
+
+
+def get_irec_factor(country_code: str) -> Decimal | None:
+    """Get iREC/national average factor for market-based Scope 2."""
+    data = IREC_RESIDUAL_MIX.get(country_code.upper())
+    if data:
+        return data["co2e_per_kwh"]
+    return None
 
 
 # =============================================================================

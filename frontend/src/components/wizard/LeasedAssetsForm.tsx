@@ -33,7 +33,7 @@ import {
 // LEASED ASSETS DATA DEFINITIONS
 // =============================================================================
 
-type LeasedMethod = 'area' | 'energy' | 'spend';
+type LeasedMethod = 'area' | 'energy' | 'spend' | 'tenant';
 
 // Building Types with emission factor estimates (kg CO2e per m² per year)
 const BUILDING_TYPES = [
@@ -100,6 +100,11 @@ export function LeasedAssetsForm({ periodId, onSuccess }: LeasedAssetsFormProps)
   const [spendAmount, setSpendAmount] = useState<number | null>(null);
   const [currency, setCurrency] = useState('USD');
 
+  // Tenant emissions method fields
+  const [tenantScope1, setTenantScope1] = useState('');
+  const [tenantScope2, setTenantScope2] = useState('');
+  const [tenantSource, setTenantSource] = useState('');
+
   // Common fields
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
@@ -135,8 +140,15 @@ export function LeasedAssetsForm({ periodId, onSuccess }: LeasedAssetsFormProps)
       return amountInUSD * EF_ESTIMATES.spend_per_usd;
     }
 
+    if (method === 'tenant') {
+      const s1 = parseFloat(tenantScope1) || 0;
+      const s2 = parseFloat(tenantScope2) || 0;
+      const total = s1 + s2;
+      return total > 0 ? total : null;
+    }
+
     return null;
-  }, [method, buildingType, floorArea, electricityKwh, gasKwh, country, spendAmount, currency]);
+  }, [method, buildingType, floorArea, electricityKwh, gasKwh, country, spendAmount, currency, tenantScope1, tenantScope2]);
 
   // Build activity payload
   const buildPayload = () => {
@@ -145,6 +157,17 @@ export function LeasedAssetsForm({ periodId, onSuccess }: LeasedAssetsFormProps)
       category_code: '3.8',
       activity_date: `${reportingYear}-06-30`, // Mid-year as default
     };
+
+    if (method === 'tenant') {
+      const totalEmissions = (parseFloat(tenantScope1) || 0) + (parseFloat(tenantScope2) || 0);
+      return {
+        ...basePayload,
+        activity_key: 'leased_tenant_emissions',
+        quantity: totalEmissions,
+        unit: 'kg CO2e',
+        description: description || `Tenant reported emissions - S1: ${tenantScope1} kg, S2: ${tenantScope2} kg${tenantSource ? ` (${tenantSource})` : ''}`,
+      };
+    }
 
     if (method === 'spend') {
       return {
@@ -190,6 +213,11 @@ export function LeasedAssetsForm({ periodId, onSuccess }: LeasedAssetsFormProps)
   };
 
   const isValid = () => {
+    if (method === 'tenant') {
+      const s1 = parseFloat(tenantScope1) || 0;
+      const s2 = parseFloat(tenantScope2) || 0;
+      return (s1 + s2) > 0;
+    }
     if (method === 'spend') {
       return spendAmount && spendAmount > 0;
     }
@@ -214,6 +242,9 @@ export function LeasedAssetsForm({ periodId, onSuccess }: LeasedAssetsFormProps)
       setElectricityKwh(null);
       setGasKwh(null);
       setSpendAmount(null);
+      setTenantScope1('');
+      setTenantScope2('');
+      setTenantSource('');
     } else {
       resetWizard();
       onSuccess?.();
@@ -243,7 +274,7 @@ export function LeasedAssetsForm({ periodId, onSuccess }: LeasedAssetsFormProps)
       {/* Method Selection */}
       <div>
         <label className="block text-sm font-medium text-foreground mb-2">Calculation Method</label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           <button
             onClick={() => setMethod('area')}
             className={`p-3 rounded-lg border text-sm font-medium transition-colors ${
@@ -279,6 +310,18 @@ export function LeasedAssetsForm({ periodId, onSuccess }: LeasedAssetsFormProps)
             <Calculator className="w-5 h-5 mx-auto mb-1" />
             Spend
             <span className="block text-xs text-foreground-muted mt-1">Rent payments</span>
+          </button>
+          <button
+            onClick={() => setMethod('tenant')}
+            className={`p-3 rounded-lg border text-sm font-medium transition-colors ${
+              method === 'tenant'
+                ? 'bg-primary/10 border-primary text-primary'
+                : 'bg-background border-border text-foreground hover:border-primary/50'
+            }`}
+          >
+            <Building className="w-5 h-5 mx-auto mb-1" />
+            Tenant
+            <span className="block text-xs text-foreground-muted mt-1">Reported emissions</span>
           </button>
         </div>
       </div>
@@ -403,6 +446,80 @@ export function LeasedAssetsForm({ periodId, onSuccess }: LeasedAssetsFormProps)
         </div>
       )}
 
+      {/* Tenant Emissions Method */}
+      {method === 'tenant' && (
+        <div className="space-y-4">
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-700">
+              <strong>Most accurate method.</strong> Enter tenant/lessee reported Scope 1 and Scope 2 emissions directly.
+              This is the preferred approach per GHG Protocol.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tenant Scope 1 Emissions (kg CO2e)
+            </label>
+            <input
+              type="number"
+              value={tenantScope1}
+              onChange={(e) => setTenantScope1(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              placeholder="e.g., 15000"
+              min="0"
+              step="0.01"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Direct emissions from tenant operations (heating, vehicles, etc.)
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tenant Scope 2 Emissions (kg CO2e)
+            </label>
+            <input
+              type="number"
+              value={tenantScope2}
+              onChange={(e) => setTenantScope2(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              placeholder="e.g., 25000"
+              min="0"
+              step="0.01"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Purchased electricity, heating, cooling emissions
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Source Documentation
+            </label>
+            <input
+              type="text"
+              value={tenantSource}
+              onChange={(e) => setTenantSource(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              placeholder="e.g., Tenant sustainability report 2024"
+            />
+          </div>
+
+          {tenantScope1 && tenantScope2 && (
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-700">
+                <span className="font-medium">Estimated emissions:</span>{' '}
+                {((parseFloat(tenantScope1) || 0) + (parseFloat(tenantScope2) || 0)).toLocaleString()} kg CO2e
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Scope 1: {parseFloat(tenantScope1 || '0').toLocaleString()} kg +
+                Scope 2: {parseFloat(tenantScope2 || '0').toLocaleString()} kg
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Common Fields */}
       <div className="space-y-4 border-t border-border pt-4">
         <div className="grid grid-cols-2 gap-4">
@@ -464,6 +581,12 @@ export function LeasedAssetsForm({ periodId, onSuccess }: LeasedAssetsFormProps)
                 {method === 'spend' && spendAmount && (
                   <>
                     {currency} {spendAmount.toLocaleString()} × EEIO factor
+                  </>
+                )}
+                {method === 'tenant' && (
+                  <>
+                    Scope 1: {parseFloat(tenantScope1 || '0').toLocaleString()} kg +
+                    Scope 2: {parseFloat(tenantScope2 || '0').toLocaleString()} kg (tenant reported)
                   </>
                 )}
               </p>

@@ -49,6 +49,17 @@ class CalculationResult:
     formula: str = ""
     warnings: List[str] = field(default_factory=list)
 
+    # Metadata (Phase 9 - Source Documentation)
+    factor_year: Optional[int] = None
+    factor_region: str = ""
+    method_hierarchy: Optional[str] = None  # "supplier", "ecoinvent", "defra_physical", "eeio_spend"
+    fallback_used: bool = False
+    fallback_reason: str = ""
+
+    # T&D fields (Phase 3 - for future Carbon Footprint doc data)
+    td_co2e_kg: Optional[Decimal] = None
+    td_wtt_co2e_kg: Optional[Decimal] = None
+
     def to_dict(self) -> dict:
         """Convert to dictionary for API response."""
         return {
@@ -65,4 +76,11 @@ class CalculationResult:
             "confidence": self.confidence,
             "resolution_strategy": self.resolution_strategy,
             "warnings": self.warnings,
+            "factor_year": self.factor_year,
+            "factor_region": self.factor_region,
+            "method_hierarchy": self.method_hierarchy,
+            "fallback_used": self.fallback_used,
+            "fallback_reason": self.fallback_reason,
+            "td_co2e_kg": float(self.td_co2e_kg) if self.td_co2e_kg else None,
+            "td_wtt_co2e_kg": float(self.td_wtt_co2e_kg) if self.td_wtt_co2e_kg else None,
         }

@@ -90,6 +90,10 @@ class EmissionResponse(BaseModel):
     factor_value: float | None = None
     factor_unit: str | None = None
     warnings: list[str] = []
+    # Calculation metadata (Phase 9B)
+    factor_year: int | None = None
+    factor_region: str | None = None
+    method_hierarchy: str | None = None
 
 
 class ActivityWithEmissionResponse(BaseModel):
@@ -161,6 +165,10 @@ async def list_activities(
                 factor_value=float(factor.co2e_factor) if factor and factor.co2e_factor else None,
                 factor_unit=factor.factor_unit if factor else None,
                 warnings=[],
+                # Calculation metadata (Phase 9B)
+                factor_year=emission.factor_year,
+                factor_region=emission.factor_region,
+                method_hierarchy=emission.method_hierarchy,
             )
 
         responses.append(ActivityWithEmissionResponse(
@@ -280,6 +288,10 @@ async def create_activity(
         formula=calc_result.formula,
         confidence=ConfidenceLevel(calc_result.confidence),
         resolution_strategy=calc_result.resolution_strategy,
+        # Calculation metadata (Phase 9B)
+        factor_year=calc_result.factor_year,
+        factor_region=calc_result.factor_region,
+        method_hierarchy=calc_result.method_hierarchy,
     )
     session.add(emission)
     await session.commit()
@@ -321,6 +333,10 @@ async def create_activity(
             factor_value=float(calc_result.factor_value) if calc_result.factor_value else None,
             factor_unit=calc_result.factor_unit,
             warnings=calc_result.warnings,
+            # Calculation metadata (Phase 9B)
+            factor_year=calc_result.factor_year,
+            factor_region=calc_result.factor_region,
+            method_hierarchy=calc_result.method_hierarchy,
         ),
     )
 
@@ -440,6 +456,10 @@ async def recalculate_period_emissions(
                 emission.confidence = ConfidenceLevel(calc_result.confidence)
                 emission.resolution_strategy = calc_result.resolution_strategy
                 emission.recalculated_at = datetime.utcnow()
+                # Calculation metadata (Phase 9B)
+                emission.factor_year = calc_result.factor_year
+                emission.factor_region = calc_result.factor_region
+                emission.method_hierarchy = calc_result.method_hierarchy
             else:
                 # Create new emission
                 emission = Emission(
@@ -455,6 +475,10 @@ async def recalculate_period_emissions(
                     formula=calc_result.formula,
                     confidence=ConfidenceLevel(calc_result.confidence),
                     resolution_strategy=calc_result.resolution_strategy,
+                    # Calculation metadata (Phase 9B)
+                    factor_year=calc_result.factor_year,
+                    factor_region=calc_result.factor_region,
+                    method_hierarchy=calc_result.method_hierarchy,
                 )
                 session.add(emission)
 

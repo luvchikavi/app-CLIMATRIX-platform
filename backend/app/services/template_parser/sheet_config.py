@@ -804,6 +804,8 @@ GENERATED_TEMPLATE_COLUMN_MAP_ELECTRICITY = {
     'Country/Region': 'country_code', # Legacy column name
     'Description': 'description',
     'Supplier Name': 'supplier_name', # Electricity supplier name (IEC, Dorad, OPC, etc.)
+    'Power Producer': 'power_producer',  # Specific power producer (Phase 2 market-based)
+    'Market Method': 'market_method',    # Market-based method: residual_mix, supplier_specific, ppa, rec
     'Supplier Emission Factor': 'supplier_ef',  # Custom emission factor (kg CO2e/kWh)
     'Quantity/Amount': 'quantity',
     'Unit/Currency': 'unit',
@@ -1245,6 +1247,9 @@ SHEET_CONFIGS = {
             'Method': 'calc_type',
             'Weight (tonnes)': 'weight',
             'Distance (km)': 'distance',
+            'Origin Country': 'origin_country',
+            'Destination Country': 'destination_country',
+            'International Mode': 'international_mode',
             'Spend Amount': 'spend_amount',
             'Currency': 'currency',
             'Date': 'activity_date',
@@ -1313,6 +1318,7 @@ SHEET_CONFIGS = {
             'Transport Mode': 'transport_mode',
             'Number of Employees': 'employees',
             'Avg Distance (km one-way)': 'avg_distance_km',
+            'City/Zone (Israel)': 'city_zone',
             'Working Days/Year': 'working_days',
             'Year': 'year',
             'Comments': 'comment',
@@ -1332,6 +1338,8 @@ SHEET_CONFIGS = {
             'Quantity': 'quantity',
             'Unit': 'unit',
             'Country/Region': 'country',
+            'Tenant Scope 1 CO2e (kg)': 'tenant_scope1_co2e',
+            'Tenant Scope 2 CO2e (kg)': 'tenant_scope2_co2e',
             'Year': 'year',
         },
         activity_key_resolver=resolve_leased_assets,
@@ -1348,6 +1356,9 @@ SHEET_CONFIGS = {
             'Method': 'calc_type',
             'Weight (tonnes)': 'weight',
             'Distance (km)': 'distance',
+            'Origin Country': 'origin_country',
+            'Destination Country': 'destination_country',
+            'International Mode': 'international_mode',
             'Spend Amount': 'spend_amount',
             'Currency': 'currency',
             'Date': 'activity_date',
@@ -2896,6 +2907,7 @@ V4_SHEET_CONFIGS = {
             'Transport Mode': 'transport_mode',
             'Number of Employees': 'num_employees',
             'Avg Distance One-Way (km)': 'avg_distance_km',
+            'City/Zone (Israel)': 'city_zone',
             'Working Days/Year': 'working_days',
             'Country': 'country',
             '% Remote Work': 'remote_work_pct',
@@ -2921,6 +2933,8 @@ V4_SHEET_CONFIGS = {
             'Electricity (kWh)': 'electricity_kwh',
             'Gas (kWh)': 'gas_kwh',
             'Country': 'country',
+            'Tenant Scope 1 CO2e (kg)': 'tenant_scope1_co2e',
+            'Tenant Scope 2 CO2e (kg)': 'tenant_scope2_co2e',
             'Spend Amount': 'spend_amount',
             'Currency': 'currency',
             'Year': 'year',
@@ -3059,6 +3073,9 @@ V4_SHEET_CONFIGS = {
             # Spend method fields (rental income)
             'Rental Income': 'rental_income',
             'Currency': 'currency',
+            # Tenant emissions pass-through
+            'Tenant Scope 1 CO2e (kg)': 'tenant_scope1_co2e',
+            'Tenant Scope 2 CO2e (kg)': 'tenant_scope2_co2e',
             # Optional
             'Tenant': 'tenant',
             'Location': 'location',
@@ -3091,6 +3108,9 @@ V4_SHEET_CONFIGS = {
             # Spend method fields (franchise revenue)
             'Franchise Revenue': 'franchise_revenue',
             'Currency': 'currency',
+            # Tenant/franchisee emissions pass-through
+            'Tenant Scope 1 CO2e (kg)': 'tenant_scope1_co2e',
+            'Tenant Scope 2 CO2e (kg)': 'tenant_scope2_co2e',
             # Optional
             'Franchisee Name': 'franchisee_name',
             'Location': 'location',

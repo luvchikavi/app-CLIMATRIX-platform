@@ -50,7 +50,7 @@ class ElectricityCalculator(BaseCalculator):
         # Electricity-specific context
         if "il" in factor.activity_key.lower() or factor.region == "IL":
             result.warnings.append(
-                "Using Israel Electric Corporation grid factor"
+                "Using Noga voluntary mechanism grid factor (Israel)"
             )
         elif "uk" in factor.activity_key.lower() or factor.region == "UK":
             result.warnings.append(

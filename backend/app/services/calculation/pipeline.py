@@ -27,6 +27,7 @@ from app.services.calculation.strategies.flight import FlightCalculator
 from app.services.calculation.strategies.transport import TransportCalculator
 from app.services.calculation.strategies.waste import WasteCalculator
 from app.services.calculation.strategies.refrigerant import RefrigerantCalculator
+from app.services.calculation.strategies.leased_assets import LeasedAssetsCalculator
 from app.services.calculation.wtt import WTTService
 
 
@@ -45,6 +46,7 @@ class ActivityInput:
     category_code: str
     region: str = "Global"
     year: int = 2024
+    material_key: str | None = None  # For Cat 3.1 DEFRA physical factor hierarchy
     # For Supplier-Specific method (3.1, 3.2): user provides their own EF
     supplier_ef: Decimal | None = None
     supplier_ef_unit: str | None = None  # e.g., "kg CO2e/kg"
@@ -119,8 +121,11 @@ class CalculationPipeline:
         "3.5": WasteCalculator,     # Waste Generated in Operations
         "3.6": FlightCalculator,    # Business Travel
         "3.7": FuelCalculator,      # Employee Commuting (distance-based)
+        "3.8": LeasedAssetsCalculator,   # Upstream Leased Assets
         "3.9": TransportCalculator, # Downstream Transportation
         "3.12": WasteCalculator,    # End-of-Life Treatment
+        "3.13": LeasedAssetsCalculator,  # Downstream Leased Assets
+        "3.14": LeasedAssetsCalculator,  # Franchises
     }
 
     # Default calculator for categories without specific strategy
@@ -249,6 +254,14 @@ class CalculationPipeline:
 
         # Add resolution metadata
         result.resolution_strategy = resolution.strategy.value
+
+        # Populate factor metadata (Phase 9)
+        result.factor_year = factor.year
+        result.factor_region = factor.region
+        if resolution.strategy == ResolutionStrategy.GLOBAL:
+            result.fallback_used = True
+            result.fallback_reason = resolution.message
+
         if resolution.strategy == ResolutionStrategy.GLOBAL:
             result.confidence = "medium"
             result.warnings.append(resolution.message)
