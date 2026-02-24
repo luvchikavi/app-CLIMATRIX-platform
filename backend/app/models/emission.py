@@ -389,6 +389,11 @@ class Emission(SQLModel, table=True):
     needs_review: bool = Field(default=False)
     warnings: Optional[list] = Field(default=None, sa_column=Column(JSON))
 
+    # Calculation Metadata (Phase 9)
+    factor_year: Optional[int] = Field(default=None)
+    factor_region: Optional[str] = Field(default=None, max_length=50)
+    method_hierarchy: Optional[str] = Field(default=None, max_length=50)  # supplier, ecoinvent, defra_physical, eeio_spend
+
     # Audit
     calculated_at: datetime = Field(default_factory=datetime.utcnow)
     recalculated_at: Optional[datetime] = Field(default=None)

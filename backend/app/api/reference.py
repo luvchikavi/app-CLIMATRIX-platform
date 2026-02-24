@@ -651,3 +651,258 @@ async def convert_spend_to_quantity(
         quantity_unit=price.unit,
         formula=f"{request.spend_amount} {request.currency} ÷ {price.price_per_unit} {price.currency}/{price.unit} = {round(calculated_quantity, 2)} {price.unit}",
     )
+
+
+# ============================================================================
+# Market-Based Scope 2 Endpoints
+# ============================================================================
+
+class PowerProducerResponse(BaseModel):
+    """Power producer for market-based Scope 2."""
+    id: str
+    producer_name_en: str
+    producer_name_he: str | None = None
+    country_code: str
+    region: str | None = None
+    co2e_per_kwh: float
+    source: str
+    source_type: str
+    year: int
+
+
+class MarketFactorResponse(BaseModel):
+    """Market-based emission factor response."""
+    country_code: str
+    country_name: str
+    market_factor_co2e_per_kwh: float
+    source: str
+    source_type: str  # "aib", "greene", "irec", "location_fallback"
+    year: int
+    warning: str | None = None
+
+
+class TransportRouteResponse(BaseModel):
+    """Transport route with distance breakdown."""
+    origin_country: str
+    destination_country: str
+    sea_distance_km: int
+    origin_land_km: int
+    destination_land_km: int
+    total_distance_km: int
+    transport_mode: str
+    air_distance_km: int | None = None
+    rail_distance_km: int | None = None
+    source: str
+
+
+@router.get("/power-producers", response_model=list[PowerProducerResponse])
+async def list_power_producers(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    country: str = Query(..., min_length=2, max_length=2, description="2-letter country code"),
+):
+    """
+    List power producers for a country (market-based Scope 2).
+
+    For Israel: Returns BDO יח"פית power producers
+    For other countries: Returns available producer-specific data
+
+    Example: GET /reference/power-producers?country=IL
+    """
+    from app.models.emission import PowerProducer
+
+    query = (
+        select(PowerProducer)
+        .where(
+            PowerProducer.country_code == country.upper(),
+            PowerProducer.is_active == True,
+        )
+        .order_by(PowerProducer.producer_name_en)
+    )
+
+    result = await session.execute(query)
+    producers = result.scalars().all()
+
+    return [
+        PowerProducerResponse(
+            id=str(p.id),
+            producer_name_en=p.producer_name_en,
+            producer_name_he=p.producer_name_he,
+            country_code=p.country_code,
+            region=p.region,
+            co2e_per_kwh=float(p.co2e_per_kwh),
+            source=p.source,
+            source_type=p.source_type,
+            year=p.year,
+        )
+        for p in producers
+    ]
+
+
+@router.get("/market-factor", response_model=MarketFactorResponse)
+async def get_market_factor(
+    country: str = Query(..., min_length=2, max_length=2, description="2-letter country code"),
+    subregion: str | None = Query(None, description="eGRID subregion for US (e.g., CAMX, ERCT)"),
+):
+    """
+    Get market-based emission factor for a country/region.
+
+    Resolution hierarchy:
+    1. EU country -> AIB residual mix
+    2. US state/subregion -> Green-e residual mix
+    3. Other country -> iREC or grid average fallback
+
+    Example: GET /reference/market-factor?country=DE
+    Example: GET /reference/market-factor?country=US&subregion=CAMX
+    """
+    from app.data.reference_data import (
+        AIB_RESIDUAL_MIX,
+        GREENE_RESIDUAL_MIX,
+        IREC_RESIDUAL_MIX,
+        GRID_EMISSION_FACTORS,
+    )
+
+    country_upper = country.upper()
+
+    # Try AIB (EU countries)
+    if country_upper in AIB_RESIDUAL_MIX:
+        data = AIB_RESIDUAL_MIX[country_upper]
+        return MarketFactorResponse(
+            country_code=country_upper,
+            country_name=data["country_name"],
+            market_factor_co2e_per_kwh=float(data["co2e_per_kwh"]),
+            source="AIB European Residual Mixes 2024",
+            source_type="aib",
+            year=data["year"],
+        )
+
+    # Try Green-e (US)
+    if country_upper == "US" and subregion:
+        subregion_upper = subregion.upper()
+        if subregion_upper in GREENE_RESIDUAL_MIX:
+            data = GREENE_RESIDUAL_MIX[subregion_upper]
+            return MarketFactorResponse(
+                country_code=country_upper,
+                country_name=f"USA - {data['region_name']}",
+                market_factor_co2e_per_kwh=float(data["co2e_per_kwh"]),
+                source="Green-e Energy Residual Mix 2024",
+                source_type="greene",
+                year=data["year"],
+            )
+
+    # Try Green-e US national average
+    if country_upper == "US":
+        data = GREENE_RESIDUAL_MIX.get("US")
+        if data:
+            return MarketFactorResponse(
+                country_code=country_upper,
+                country_name="USA - National Average",
+                market_factor_co2e_per_kwh=float(data["co2e_per_kwh"]),
+                source="Green-e Energy Residual Mix 2024",
+                source_type="greene",
+                year=data["year"],
+                warning="Using US national average. Specify subregion for more accuracy.",
+            )
+
+    # Try iREC
+    if country_upper in IREC_RESIDUAL_MIX:
+        data = IREC_RESIDUAL_MIX[country_upper]
+        return MarketFactorResponse(
+            country_code=country_upper,
+            country_name=data["country_name"],
+            market_factor_co2e_per_kwh=float(data["co2e_per_kwh"]),
+            source="iREC / National Grid Average",
+            source_type="irec",
+            year=data["year"],
+            warning=data.get("notes"),
+        )
+
+    # Fall back to location-based
+    grid_data = GRID_EMISSION_FACTORS.get(country_upper)
+    if grid_data:
+        return MarketFactorResponse(
+            country_code=country_upper,
+            country_name=grid_data["country_name"],
+            market_factor_co2e_per_kwh=float(grid_data["location_factor"]),
+            source=grid_data["source"],
+            source_type="location_fallback",
+            year=grid_data["year"],
+            warning="No market-based data available. Using location-based factor as proxy.",
+        )
+
+    from fastapi import HTTPException
+    raise HTTPException(
+        status_code=404,
+        detail=f"No market-based or location-based factor found for country '{country_upper}'"
+    )
+
+
+@router.get("/transport-routes", response_model=list[TransportRouteResponse])
+async def list_transport_routes(
+    origin: str | None = Query(None, description="Filter by origin country code"),
+    destination: str | None = Query(None, description="Filter by destination country code"),
+):
+    """
+    List available transport routes with distance breakdowns.
+
+    Example: GET /reference/transport-routes?origin=CN
+    Example: GET /reference/transport-routes?destination=IL
+    """
+    from app.data.transport_distances import TRANSPORT_DISTANCES
+
+    results = []
+    for (orig, dest), data in TRANSPORT_DISTANCES.items():
+        if origin and orig != origin.upper():
+            continue
+        if destination and dest != destination.upper():
+            continue
+        results.append(TransportRouteResponse(
+            origin_country=orig,
+            destination_country=dest,
+            sea_distance_km=data["sea_distance_km"],
+            origin_land_km=data["origin_land_km"],
+            destination_land_km=data["destination_land_km"],
+            total_distance_km=data["total_distance_km"],
+            transport_mode=data["transport_mode"],
+            air_distance_km=data.get("air_distance_km"),
+            rail_distance_km=data.get("rail_distance_km"),
+            source=data.get("source", "Default matrix"),
+        ))
+
+    return results
+
+
+@router.get("/transport-distance", response_model=TransportRouteResponse)
+async def get_transport_distance(
+    origin: str = Query(..., min_length=2, max_length=2, description="Origin country code"),
+    destination: str = Query(..., min_length=2, max_length=2, description="Destination country code"),
+):
+    """
+    Get transport distance between two countries.
+
+    Returns distance breakdown: origin land + international + destination land.
+
+    Example: GET /reference/transport-distance?origin=CN&destination=IL
+    """
+    from app.data.transport_distances import get_transport_distance
+    from fastapi import HTTPException
+
+    data = get_transport_distance(origin, destination)
+    if not data:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No transport route found for {origin.upper()} -> {destination.upper()}. "
+                   "Use GET /reference/transport-routes for available pairs."
+        )
+
+    return TransportRouteResponse(
+        origin_country=origin.upper(),
+        destination_country=destination.upper(),
+        sea_distance_km=data["sea_distance_km"],
+        origin_land_km=data["origin_land_km"],
+        destination_land_km=data["destination_land_km"],
+        total_distance_km=data["total_distance_km"],
+        transport_mode=data["transport_mode"],
+        air_distance_km=data.get("air_distance_km"),
+        rail_distance_km=data.get("rail_distance_km"),
+        source=data.get("source", "Default matrix"),
+    )
