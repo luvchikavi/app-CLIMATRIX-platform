@@ -141,6 +141,9 @@ AIRPORTS: dict[str, Tuple[str, str, str, float, float]] = {
     # MIDDLE EAST
     # ==========================================================================
     "TLV": ("Ben Gurion International", "Tel Aviv", "IL", 32.0114, 34.8867),
+    "ETM": ("Ramon Airport", "Eilat", "IL", 29.7268, 35.0114),
+    "VDA": ("Ovda Airport", "Ovda", "IL", 29.9403, 34.9358),
+    "HFA": ("Haifa Airport", "Haifa", "IL", 32.8094, 35.0431),
     "DXB": ("Dubai International", "Dubai", "AE", 25.2532, 55.3657),
     "AUH": ("Abu Dhabi International", "Abu Dhabi", "AE", 24.4330, 54.6511),
     "DOH": ("Hamad International", "Doha", "QA", 25.2609, 51.6138),
@@ -296,21 +299,52 @@ def calculate_flight_distance(origin: str, destination: str) -> Optional[float]:
     )
 
 
-def classify_flight_distance(distance_km: float) -> str:
-    """
-    Classify flight distance as short, medium, or long haul.
+# Israel airport IATA codes
+ISRAEL_AIRPORTS = {"TLV", "ETM", "VDA", "HFA", "SDV"}
 
-    Based on DEFRA definitions:
+
+def classify_flight_distance(distance_km: float, origin: str = None, destination: str = None) -> str:
+    """
+    Classify flight distance as domestic, short, medium, or long haul.
+
+    Israel-specific rules:
+    - Israel domestic (any IL airport <-> any IL airport) -> "domestic"
+    - Israel international (IL <-> non-IL) -> always "long" (DEFRA SHORT is UK-specific)
+
+    Standard DEFRA rules (non-Israel):
     - Short-haul: < 785 km (e.g., domestic UK, Europe regional)
     - Medium-haul: 785-3700 km (e.g., UK to Middle East, intra-Europe)
     - Long-haul: > 3700 km (e.g., intercontinental)
 
     Args:
         distance_km: Flight distance in kilometers
+        origin: IATA code of origin airport (optional, for Israel logic)
+        destination: IATA code of destination airport (optional, for Israel logic)
 
     Returns:
-        Classification string: "short", "medium", or "long"
+        Classification: "domestic", "short", "medium", or "long"
+
+    Note:
+        When Israel domestic flights return "domestic", the emission factor key will be
+        "flight_domestic_economy" (or other cabin class). Ensure that a corresponding
+        emission factor (e.g., flight_domestic_economy) exists in the database/seed data.
     """
+    # Israel-specific classification
+    if origin and destination:
+        origin_upper = origin.upper()
+        dest_upper = destination.upper()
+        origin_is_il = origin_upper in ISRAEL_AIRPORTS
+        dest_is_il = dest_upper in ISRAEL_AIRPORTS
+
+        if origin_is_il and dest_is_il:
+            return "domestic"
+
+        if origin_is_il or dest_is_il:
+            # Israel international flights are always classified as long-haul
+            # DEFRA short-haul category is UK-specific
+            return "long"
+
+    # Standard DEFRA thresholds for non-Israel flights
     if distance_km < 785:
         return "short"
     elif distance_km < 3700:
@@ -335,9 +369,8 @@ def get_flight_emission_key(origin: str, destination: str, cabin_class: str = "e
     if distance is None:
         return None
 
-    haul_type = classify_flight_distance(distance)
+    haul_type = classify_flight_distance(distance, origin, destination)
 
-    # Map cabin class to factor suffix
     cabin_map = {
         "economy": "economy",
         "premium_economy": "premium_economy",
@@ -414,6 +447,16 @@ if __name__ == "__main__":
     print("\nSearch for 'london':")
     for airport in search_airports("london", limit=5):
         print(f"  {airport['iata_code']}: {airport['name']}")
+
+    # Test Israel flight classification
+    tlv_to_etm = calculate_flight_distance("TLV", "ETM")
+    print(f"\nTLV → ETM: {tlv_to_etm:.0f} km ({classify_flight_distance(tlv_to_etm, 'TLV', 'ETM')} haul)")
+
+    tlv_to_lhr_haul = classify_flight_distance(tlv_to_lhr, "TLV", "LHR")
+    print(f"TLV → LHR: {tlv_to_lhr:.0f} km ({tlv_to_lhr_haul} haul - Israel international = always long)")
+
+    lhr_to_cdg = calculate_flight_distance("LHR", "CDG")
+    print(f"LHR → CDG: {lhr_to_cdg:.0f} km ({classify_flight_distance(lhr_to_cdg, 'LHR', 'CDG')} haul)")
 
     # Stats
     stats = get_airport_stats()

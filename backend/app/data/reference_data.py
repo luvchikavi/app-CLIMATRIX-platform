@@ -144,6 +144,20 @@ GRID_EMISSION_FACTORS = {
         "year": 2024,
     },
 
+    # US eGRID Subregions (EPA eGRID 2024)
+    "US-CAMX": {"country_name": "USA - CAMX (California)", "location_factor": Decimal("0.225"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-ERCT": {"country_name": "USA - ERCT (Texas)", "location_factor": Decimal("0.373"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-FRCC": {"country_name": "USA - FRCC (Florida)", "location_factor": Decimal("0.391"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-NEWE": {"country_name": "USA - NEWE (New England)", "location_factor": Decimal("0.227"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-NWPP": {"country_name": "USA - NWPP (Northwest)", "location_factor": Decimal("0.118"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-RFCE": {"country_name": "USA - RFCE (PJM East)", "location_factor": Decimal("0.297"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-RFCM": {"country_name": "USA - RFCM (Michigan)", "location_factor": Decimal("0.443"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-RFCW": {"country_name": "USA - RFCW (PJM West)", "location_factor": Decimal("0.497"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-RMPA": {"country_name": "USA - RMPA (Rockies)", "location_factor": Decimal("0.525"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-SRSO": {"country_name": "USA - SRSO (SERC South)", "location_factor": Decimal("0.383"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-SRVC": {"country_name": "USA - SRVC (Virginia/Carolina)", "location_factor": Decimal("0.347"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+    "US-MROW": {"country_name": "USA - MROW (MRO West)", "location_factor": Decimal("0.475"), "market_factor": None, "td_loss_percentage": Decimal("5.0"), "source": "EPA eGRID 2024", "year": 2024},
+
     # Middle East
     "IL": {
         "country_name": "Israel",
