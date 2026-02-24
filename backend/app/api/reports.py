@@ -95,6 +95,10 @@ class EmissionSourceDetail(BaseModel):
     factor_source: str
     factor_unit: str
     avg_data_quality: float
+    # Source documentation metadata (Phase 9B)
+    factor_year: Optional[int] = None
+    factor_region: Optional[str] = None
+    method_hierarchy: Optional[str] = None
 
 
 class ScopeDetail(BaseModel):
@@ -845,6 +849,10 @@ async def get_ghg_inventory_report(
                 "factor_source": factor.source if factor else "Supplier-Provided",
                 "factor_unit": factor.factor_unit if factor else None,
                 "quality_sum": Decimal(0),
+                # Source documentation metadata (Phase 9B) - use first emission's values
+                "factor_year": emission.factor_year if hasattr(emission, 'factor_year') else None,
+                "factor_region": emission.factor_region if hasattr(emission, 'factor_region') else None,
+                "method_hierarchy": emission.method_hierarchy if hasattr(emission, 'method_hierarchy') else None,
             }
 
         scope_data[scope][key]["count"] += 1
@@ -877,6 +885,10 @@ async def get_ghg_inventory_report(
                 factor_source=data["factor_source"],
                 factor_unit=data["factor_unit"],
                 avg_data_quality=round(avg_quality, 1),
+                # Source documentation metadata (Phase 9B)
+                factor_year=data.get("factor_year"),
+                factor_region=data.get("factor_region"),
+                method_hierarchy=data.get("method_hierarchy"),
             ))
 
         # Sort by emissions (highest first)
@@ -1053,6 +1065,11 @@ class ActivityAuditRecord(BaseModel):
     converted_unit: Optional[str]
     calculation_formula: Optional[str]
     confidence_level: str
+
+    # Source documentation metadata (Phase 9B)
+    factor_year: Optional[int] = None
+    factor_region: Optional[str] = None
+    method_hierarchy: Optional[str] = None
 
     # Timestamps
     created_at: str
@@ -1317,6 +1334,10 @@ async def get_audit_package(
             converted_unit=emission.converted_unit,
             calculation_formula=emission.formula,
             confidence_level=emission.confidence.value if emission.confidence else "high",
+            # Source documentation metadata (Phase 9B)
+            factor_year=emission.factor_year,
+            factor_region=emission.factor_region,
+            method_hierarchy=emission.method_hierarchy,
             created_at=activity.created_at.isoformat() if activity.created_at else "",
             created_by=str(activity.created_by) if activity.created_by else None,
         ))

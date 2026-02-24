@@ -407,7 +407,7 @@ async def calculate_flight_distance(
         raise HTTPException(status_code=404, detail=f"Destination airport not found: '{destination}'")
 
     distance = do_calc_distance(origin, destination)
-    haul_type = classify_flight_distance(distance)
+    haul_type = classify_flight_distance(distance, origin, destination)
     activity_key = get_flight_emission_key(origin, destination, cabin_class)
 
     origin_name, origin_city, origin_country, origin_lat, origin_lon = origin_data

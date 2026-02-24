@@ -804,6 +804,8 @@ GENERATED_TEMPLATE_COLUMN_MAP_ELECTRICITY = {
     'Country/Region': 'country_code', # Legacy column name
     'Description': 'description',
     'Supplier Name': 'supplier_name', # Electricity supplier name (IEC, Dorad, OPC, etc.)
+    'Power Producer': 'power_producer',  # Specific power producer (Phase 2 market-based)
+    'Market Method': 'market_method',    # Market-based method: residual_mix, supplier_specific, ppa, rec
     'Supplier Emission Factor': 'supplier_ef',  # Custom emission factor (kg CO2e/kWh)
     'Quantity/Amount': 'quantity',
     'Unit/Currency': 'unit',
@@ -1245,6 +1247,9 @@ SHEET_CONFIGS = {
             'Method': 'calc_type',
             'Weight (tonnes)': 'weight',
             'Distance (km)': 'distance',
+            'Origin Country': 'origin_country',
+            'Destination Country': 'destination_country',
+            'International Mode': 'international_mode',
             'Spend Amount': 'spend_amount',
             'Currency': 'currency',
             'Date': 'activity_date',
@@ -1348,6 +1353,9 @@ SHEET_CONFIGS = {
             'Method': 'calc_type',
             'Weight (tonnes)': 'weight',
             'Distance (km)': 'distance',
+            'Origin Country': 'origin_country',
+            'Destination Country': 'destination_country',
+            'International Mode': 'international_mode',
             'Spend Amount': 'spend_amount',
             'Currency': 'currency',
             'Date': 'activity_date',

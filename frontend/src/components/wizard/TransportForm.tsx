@@ -91,6 +91,17 @@ export function TransportForm({ periodId, onSuccess }: TransportFormProps) {
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
   const [activityDate, setActivityDate] = useState(new Date().toISOString().split('T')[0]);
+  const [originCountry, setOriginCountry] = useState('');
+  const [destinationCountry, setDestinationCountry] = useState('');
+  const [autoDistanceLoading, setAutoDistanceLoading] = useState(false);
+  const [autoDistanceResult, setAutoDistanceResult] = useState<{
+    total_distance_km: number;
+    origin_land_km: number;
+    sea_distance_km: number;
+    destination_land_km: number;
+    transport_mode: string;
+    source: string;
+  } | null>(null);
 
   // Get selected mode details
   const selectedDistanceMode = useMemo(() =>
@@ -102,6 +113,32 @@ export function TransportForm({ periodId, onSuccess }: TransportFormProps) {
     SPEND_MODES.find(m => m.key === transportMode),
     [transportMode]
   );
+
+  const autoCalculateDistance = async () => {
+    if (!originCountry || !destinationCountry) return;
+    setAutoDistanceLoading(true);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/reference/transport-distance?origin=${originCountry}&destination=${destinationCountry}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setAutoDistanceResult(data);
+        setDistanceKm(data.total_distance_km.toString());
+        // Also set the transport mode if available
+        if (data.transport_mode) {
+          setTransportMode(data.transport_mode);
+        }
+      } else {
+        setAutoDistanceResult(null);
+        alert('No route found for this country pair. Please enter distance manually.');
+      }
+    } catch (error) {
+      console.error('Failed to auto-calculate distance:', error);
+    } finally {
+      setAutoDistanceLoading(false);
+    }
+  };
 
   // Calculate tonne-km for distance method
   const tonneKm = useMemo(() => {
@@ -306,6 +343,102 @@ export function TransportForm({ periodId, onSuccess }: TransportFormProps) {
               </optgroup>
             </select>
           </div>
+
+          {/* Origin/Destination Country Selection */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Origin Country
+              </label>
+              <select
+                value={originCountry}
+                onChange={(e) => {
+                  setOriginCountry(e.target.value);
+                  setAutoDistanceResult(null);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              >
+                <option value="">Select origin...</option>
+                <option value="CN">China</option>
+                <option value="IN">India</option>
+                <option value="TR">Turkey</option>
+                <option value="DE">Germany</option>
+                <option value="NL">Netherlands</option>
+                <option value="US">United States</option>
+                <option value="IL">Israel</option>
+                <option value="VN">Vietnam</option>
+                <option value="KR">South Korea</option>
+                <option value="TW">Taiwan</option>
+                <option value="IT">Italy</option>
+                <option value="ES">Spain</option>
+                <option value="BR">Brazil</option>
+                <option value="JP">Japan</option>
+                <option value="ZA">South Africa</option>
+                <option value="TH">Thailand</option>
+                <option value="ID">Indonesia</option>
+                <option value="MY">Malaysia</option>
+                <option value="PL">Poland</option>
+                <option value="CZ">Czech Republic</option>
+                <option value="RO">Romania</option>
+                <option value="FR">France</option>
+                <option value="GB">United Kingdom</option>
+                <option value="EG">Egypt</option>
+                <option value="JO">Jordan</option>
+                <option value="AE">UAE</option>
+                <option value="SA">Saudi Arabia</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Destination Country
+              </label>
+              <select
+                value={destinationCountry}
+                onChange={(e) => {
+                  setDestinationCountry(e.target.value);
+                  setAutoDistanceResult(null);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              >
+                <option value="">Select destination...</option>
+                <option value="IL">Israel</option>
+                <option value="GB">United Kingdom</option>
+                <option value="US">United States</option>
+                <option value="DE">Germany</option>
+                <option value="NL">Netherlands</option>
+                <option value="FR">France</option>
+                <option value="CN">China</option>
+                <option value="JP">Japan</option>
+                <option value="AU">Australia</option>
+                <option value="IN">India</option>
+              </select>
+            </div>
+          </div>
+
+          {originCountry && destinationCountry && (
+            <button
+              type="button"
+              onClick={autoCalculateDistance}
+              disabled={autoDistanceLoading}
+              className="w-full px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+            >
+              {autoDistanceLoading ? 'Calculating...' : 'Auto-calculate distance →'}
+            </button>
+          )}
+
+          {autoDistanceResult && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm">
+              <p className="font-medium text-green-800">
+                Distance breakdown ({autoDistanceResult.source}):
+              </p>
+              <ul className="mt-1 space-y-1 text-green-700">
+                <li>Origin land: {autoDistanceResult.origin_land_km} km (road)</li>
+                <li>International: {autoDistanceResult.sea_distance_km} km ({autoDistanceResult.transport_mode})</li>
+                <li>Destination land: {autoDistanceResult.destination_land_km} km (road)</li>
+                <li className="font-semibold">Total: {autoDistanceResult.total_distance_km} km</li>
+              </ul>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <Input
