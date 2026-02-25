@@ -402,6 +402,19 @@ class TemplateParser:
                     quantity = spend
                     unit = 'USD'
 
+        # Auto-fill commuting distance from Israel city lookup
+        if config.category_code == '3.7':
+            city_zone = row_dict.get('city_zone') or row_dict.get('City/Zone (Israel)')
+            distance = row_dict.get('avg_distance_km') or row_dict.get('Avg Distance One-Way (km)') or row_dict.get('Avg Distance (km one-way)')
+
+            if city_zone and not distance:
+                auto_distance = self._get_commuting_distance(city_zone)
+                if auto_distance:
+                    row_dict['avg_distance_km'] = auto_distance
+                    activity_warnings.append(f"Distance auto-filled from Israel city lookup: {city_zone} → {auto_distance} km to Tel Aviv")
+                else:
+                    activity_warnings.append(f"City '{city_zone}' not recognized for auto-distance. Please provide distance manually.")
+
         # Special case: 3.6 Hotels - multiply nights × rooms
         if config.sheet_name == '3.6 Hotels':
             nights = self._parse_decimal(row_dict.get('Number of Nights'))
@@ -638,6 +651,15 @@ class TemplateParser:
             route = get_transport_distance(origin, destination)
             if route:
                 return int(route['total_distance_km'])
+        except ImportError:
+            pass
+        return None
+
+    def _get_commuting_distance(self, city: str, office_city: str = "tel_aviv") -> int | None:
+        """Get commuting distance for an Israeli city."""
+        try:
+            from app.data.israel_commuting import get_commuting_distance
+            return get_commuting_distance(city, office_city)
         except ImportError:
             pass
         return None

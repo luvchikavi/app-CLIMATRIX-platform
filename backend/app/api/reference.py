@@ -4,7 +4,7 @@ Provides emission factors, activity options, and unit information.
 """
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -905,4 +905,97 @@ async def get_transport_distance(
         air_distance_km=data.get("air_distance_km"),
         rail_distance_km=data.get("rail_distance_km"),
         source=data.get("source", "Default matrix"),
+    )
+
+
+# =============================================================================
+# Israel Commuting City Distance Lookup
+# =============================================================================
+
+class IsraelCityResponse(BaseModel):
+    """Israel city with commuting distances."""
+    key: str
+    name_en: str
+    name_he: str
+    distance_to_tel_aviv: int | None
+    distance_to_jerusalem: int | None
+    distance_to_haifa: int | None
+    distance_to_beer_sheva: int | None
+
+
+class CommutingDistanceResponse(BaseModel):
+    """Commuting distance result."""
+    city: str
+    office_city: str
+    distance_km: int
+    source: str = "Israel CBS / driving distance estimates"
+
+
+@router.get("/israel-cities", response_model=list[IsraelCityResponse])
+async def search_israel_cities(
+    search: str = Query(default="", description="Search query (Hebrew or English)"),
+):
+    """
+    Search Israeli cities for commuting distance lookup.
+
+    Example: GET /reference/israel-cities?search=haifa
+    Example: GET /reference/israel-cities?search=חיפה
+    """
+    from app.data.israel_commuting import search_cities, ISRAEL_CITIES
+
+    if not search.strip():
+        # Return all cities
+        return [
+            IsraelCityResponse(
+                key=key,
+                name_en=data["name_en"],
+                name_he=data["name_he"],
+                distance_to_tel_aviv=data.get("distance_to_tel_aviv"),
+                distance_to_jerusalem=data.get("distance_to_jerusalem"),
+                distance_to_haifa=data.get("distance_to_haifa"),
+                distance_to_beer_sheva=data.get("distance_to_beer_sheva"),
+            )
+            for key, data in ISRAEL_CITIES.items()
+        ]
+
+    results = search_cities(search)
+    return [
+        IsraelCityResponse(
+            key=r["key"],
+            name_en=r["name_en"],
+            name_he=r["name_he"],
+            distance_to_tel_aviv=r.get("distance_to_tel_aviv"),
+            distance_to_jerusalem=r.get("distance_to_jerusalem"),
+            distance_to_haifa=r.get("distance_to_haifa"),
+            distance_to_beer_sheva=r.get("distance_to_beer_sheva"),
+        )
+        for r in results
+    ]
+
+
+@router.get("/commuting-distance", response_model=CommutingDistanceResponse)
+async def get_commuting_distance(
+    city: str = Query(..., description="City name (Hebrew or English)"),
+    office_city: str = Query(default="tel_aviv", description="Office city: tel_aviv, jerusalem, haifa, beer_sheva"),
+):
+    """
+    Get commuting distance for an Israeli city to an office location.
+
+    Example: GET /reference/commuting-distance?city=haifa&office_city=tel_aviv
+    Example: GET /reference/commuting-distance?city=חיפה&office_city=tel_aviv
+    """
+    from app.data.israel_commuting import get_commuting_distance
+
+    distance = get_commuting_distance(city, office_city)
+    if distance is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"City '{city}' not found or no distance data for office city '{office_city}'. "
+                   "Use GET /reference/israel-cities to search available cities."
+        )
+
+    return CommutingDistanceResponse(
+        city=city,
+        office_city=office_city,
+        distance_km=distance,
     )

@@ -285,6 +285,55 @@ def get_grid_factor(country_code: str) -> dict | None:
 
 
 # =============================================================================
+# ELECTRICITY WTT & T&D EMISSION FACTORS
+# Source: UK DESNZ/DEFRA GHG Conversion Factors 2024 (overseas electricity)
+# WTT = Well-to-Tank (upstream fuel extraction/processing for electricity generation)
+# T&D = Transmission & Distribution losses (electricity lost in grid delivery)
+# T&D WTT = WTT emissions for the electricity lost in T&D
+# All values in kg CO2e per kWh consumed
+# =============================================================================
+
+ELECTRICITY_WTT_TD_FACTORS = {
+    # Source: UK DESNZ/DEFRA GHG Conversion Factors 2024 (overseas electricity)
+    # WTT = Well-to-Tank (upstream fuel extraction/processing for electricity generation)
+    # T&D = Transmission & Distribution losses (electricity lost in grid delivery)
+    # T&D WTT = WTT emissions for the electricity lost in T&D
+    # All values in kg CO2e per kWh consumed
+
+    "UK": {"wtt_generation": Decimal("0.04625"), "td_loss": Decimal("0.01830"), "td_wtt": Decimal("0.00400"), "source": "DESNZ_2024", "year": 2024},
+    "DE": {"wtt_generation": Decimal("0.10427"), "td_loss": Decimal("0.01800"), "td_wtt": Decimal("0.00542"), "source": "BEIS_2021", "year": 2021},
+    "FR": {"wtt_generation": Decimal("0.00765"), "td_loss": Decimal("0.00400"), "td_wtt": Decimal("0.00067"), "source": "BEIS_2021", "year": 2021},
+    "IL": {"wtt_generation": Decimal("0.09500"), "td_loss": Decimal("0.02000"), "td_wtt": Decimal("0.00701"), "source": "BEIS_2021", "year": 2021},
+    "IT": {"wtt_generation": Decimal("0.06800"), "td_loss": Decimal("0.01700"), "td_wtt": Decimal("0.00537"), "source": "BEIS_2021", "year": 2021},
+    "NL": {"wtt_generation": Decimal("0.07200"), "td_loss": Decimal("0.01200"), "td_wtt": Decimal("0.00389"), "source": "BEIS_2021", "year": 2021},
+    "PL": {"wtt_generation": Decimal("0.14500"), "td_loss": Decimal("0.02200"), "td_wtt": Decimal("0.01082"), "source": "BEIS_2021", "year": 2021},
+    "ES": {"wtt_generation": Decimal("0.05100"), "td_loss": Decimal("0.01500"), "td_wtt": Decimal("0.00480"), "source": "BEIS_2021", "year": 2021},
+    "US": {"wtt_generation": Decimal("0.08900"), "td_loss": Decimal("0.02100"), "td_wtt": Decimal("0.00650"), "source": "BEIS_2021", "year": 2021},
+    "CN": {"wtt_generation": Decimal("0.13500"), "td_loss": Decimal("0.02400"), "td_wtt": Decimal("0.00912"), "source": "BEIS_2021", "year": 2021},
+    "IN": {"wtt_generation": Decimal("0.16748"), "td_loss": Decimal("0.04200"), "td_wtt": Decimal("0.01100"), "source": "BEIS_2021", "year": 2021},
+    "AU": {"wtt_generation": Decimal("0.17557"), "td_loss": Decimal("0.02000"), "td_wtt": Decimal("0.00800"), "source": "BEIS_2021", "year": 2021},
+    "JP": {"wtt_generation": Decimal("0.10200"), "td_loss": Decimal("0.01800"), "td_wtt": Decimal("0.00580"), "source": "BEIS_2021", "year": 2021},
+    "KR": {"wtt_generation": Decimal("0.09800"), "td_loss": Decimal("0.01500"), "td_wtt": Decimal("0.00520"), "source": "BEIS_2021", "year": 2021},
+    "CA": {"wtt_generation": Decimal("0.03200"), "td_loss": Decimal("0.01300"), "td_wtt": Decimal("0.00213"), "source": "BEIS_2021", "year": 2021},
+    "BR": {"wtt_generation": Decimal("0.01800"), "td_loss": Decimal("0.01600"), "td_wtt": Decimal("0.00150"), "source": "BEIS_2021", "year": 2021},
+    "EU": {"wtt_generation": Decimal("0.07500"), "td_loss": Decimal("0.01500"), "td_wtt": Decimal("0.00564"), "source": "BEIS_2021", "year": 2021},
+    "Global": {"wtt_generation": Decimal("0.10000"), "td_loss": Decimal("0.02000"), "td_wtt": Decimal("0.00700"), "source": "BEIS_2021", "year": 2021},
+}
+
+
+def get_wtt_td_factors(country_code: str) -> dict | None:
+    """Get WTT and T&D factors for a country. Falls back to EU average, then Global."""
+    factors = ELECTRICITY_WTT_TD_FACTORS.get(country_code.upper())
+    if factors:
+        return factors
+    # Try EU fallback for European countries
+    eu_countries = {"AT", "BE", "BG", "CY", "CZ", "DK", "EE", "FI", "GR", "HR", "HU", "IE", "LT", "LU", "LV", "MT", "NO", "PT", "RO", "SE", "SI", "SK"}
+    if country_code.upper() in eu_countries:
+        return ELECTRICITY_WTT_TD_FACTORS.get("EU")
+    return ELECTRICITY_WTT_TD_FACTORS.get("Global")
+
+
+# =============================================================================
 # AIB RESIDUAL MIX — EU Market-Based Factors
 # Source: AIB (Association of Issuing Bodies) European Residual Mixes 2024
 # Used for Scope 2 market-based method in EU countries
