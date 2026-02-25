@@ -53,6 +53,18 @@ class ActivityCreate(BaseModel):
     supporting_document_url: str | None = None
 
 
+class UpdateActivityRequest(BaseModel):
+    """Update activity request. All fields are optional."""
+    description: str | None = None
+    quantity: Decimal | None = None
+    unit: str | None = None
+    activity_key: str | None = None
+    site_id: str | None = None
+    data_quality_score: int | None = None
+    data_quality_justification: str | None = None
+    supporting_document_url: str | None = None
+
+
 class ActivityResponse(BaseModel):
     """Activity response."""
     id: str
@@ -368,6 +380,170 @@ async def delete_activity(
     await session.commit()
 
     return {"status": "deleted", "id": str(activity_id)}
+
+
+@router.patch("/activities/{activity_id}", response_model=ActivityWithEmissionResponse)
+async def update_activity(
+    activity_id: UUID,
+    data: UpdateActivityRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Update an activity and recalculate its emissions.
+
+    Only the provided fields are updated. Emissions are always
+    recalculated after an update to keep them consistent.
+    """
+    # --- HTTP CONCERN: Validate activity access ---
+    query = select(Activity).where(
+        Activity.id == activity_id,
+        Activity.organization_id == current_user.organization_id,
+    )
+    result = await session.execute(query)
+    activity = result.scalar_one_or_none()
+
+    if not activity:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    # --- Update only the provided fields ---
+    if data.description is not None:
+        activity.description = data.description
+    if data.quantity is not None:
+        activity.quantity = data.quantity
+    if data.unit is not None:
+        activity.unit = data.unit
+    if data.activity_key is not None:
+        activity.activity_key = data.activity_key
+    if data.site_id is not None:
+        activity.site_id = UUID(data.site_id)
+    if data.data_quality_score is not None:
+        activity.data_quality_score = data.data_quality_score
+    if data.data_quality_justification is not None:
+        activity.data_quality_justification = data.data_quality_justification
+    if data.supporting_document_url is not None:
+        activity.supporting_document_url = data.supporting_document_url
+
+    # --- BUSINESS LOGIC: Recalculate emissions ---
+    # Get organization's region for factor resolution
+    org_query = select(Organization).where(Organization.id == current_user.organization_id)
+    org_result = await session.execute(org_query)
+    org = org_result.scalar_one_or_none()
+    org_region = org.default_region if org and org.default_region else "Global"
+
+    pipeline = CalculationPipeline(session)
+
+    try:
+        calc_result = await pipeline.calculate(ActivityInput(
+            activity_key=activity.activity_key,
+            quantity=activity.quantity,
+            unit=activity.unit,
+            scope=activity.scope,
+            category_code=activity.category_code,
+            region=org_region,
+            year=2024,
+        ))
+    except FactorNotFoundError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No emission factor found for activity_key='{activity.activity_key}'. "
+                   f"Please select a valid activity type.",
+        )
+    except UnitConversionError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except CalculationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # --- Update or create emission record ---
+    emission_query = select(Emission).where(Emission.activity_id == activity.id)
+    emission_result = await session.execute(emission_query)
+    emission = emission_result.scalar_one_or_none()
+
+    if emission:
+        emission.emission_factor_id = calc_result.emission_factor_id
+        emission.co2e_kg = calc_result.co2e_kg
+        emission.co2_kg = calc_result.co2_kg
+        emission.ch4_kg = calc_result.ch4_kg
+        emission.n2o_kg = calc_result.n2o_kg
+        emission.wtt_co2e_kg = calc_result.wtt_co2e_kg
+        emission.converted_quantity = calc_result.converted_quantity
+        emission.converted_unit = calc_result.converted_unit
+        emission.formula = calc_result.formula
+        emission.confidence = ConfidenceLevel(calc_result.confidence)
+        emission.resolution_strategy = calc_result.resolution_strategy
+        emission.recalculated_at = datetime.utcnow()
+        emission.factor_year = calc_result.factor_year
+        emission.factor_region = calc_result.factor_region
+        emission.method_hierarchy = calc_result.method_hierarchy
+    else:
+        emission = Emission(
+            activity_id=activity.id,
+            emission_factor_id=calc_result.emission_factor_id,
+            co2e_kg=calc_result.co2e_kg,
+            co2_kg=calc_result.co2_kg,
+            ch4_kg=calc_result.ch4_kg,
+            n2o_kg=calc_result.n2o_kg,
+            wtt_co2e_kg=calc_result.wtt_co2e_kg,
+            converted_quantity=calc_result.converted_quantity,
+            converted_unit=calc_result.converted_unit,
+            formula=calc_result.formula,
+            confidence=ConfidenceLevel(calc_result.confidence),
+            resolution_strategy=calc_result.resolution_strategy,
+            factor_year=calc_result.factor_year,
+            factor_region=calc_result.factor_region,
+            method_hierarchy=calc_result.method_hierarchy,
+        )
+        session.add(emission)
+
+    await session.commit()
+    await session.refresh(activity)
+    await session.refresh(emission)
+
+    # --- Fetch factor for response ---
+    factor_query = select(EmissionFactor).where(EmissionFactor.id == emission.emission_factor_id)
+    factor_result = await session.execute(factor_query)
+    factor = factor_result.scalar_one_or_none()
+
+    # --- HTTP CONCERN: Format response ---
+    return ActivityWithEmissionResponse(
+        activity=ActivityResponse(
+            id=str(activity.id),
+            scope=activity.scope,
+            category_code=activity.category_code,
+            activity_key=activity.activity_key,
+            description=activity.description,
+            quantity=float(activity.quantity),
+            unit=activity.unit,
+            activity_date=activity.activity_date,
+            site_id=str(activity.site_id) if activity.site_id else None,
+            created_at=activity.created_at,
+            data_source=activity.data_source.value if activity.data_source else None,
+            import_batch_id=str(activity.import_batch_id) if activity.import_batch_id else None,
+            data_quality_score=activity.data_quality_score,
+            data_quality_justification=activity.data_quality_justification,
+            supporting_document_url=activity.supporting_document_url,
+        ),
+        emission=EmissionResponse(
+            id=str(emission.id),
+            activity_id=str(emission.activity_id),
+            co2e_kg=float(emission.co2e_kg),
+            co2_kg=float(emission.co2_kg) if emission.co2_kg else None,
+            ch4_kg=float(emission.ch4_kg) if emission.ch4_kg else None,
+            n2o_kg=float(emission.n2o_kg) if emission.n2o_kg else None,
+            wtt_co2e_kg=float(emission.wtt_co2e_kg) if emission.wtt_co2e_kg else None,
+            formula=emission.formula,
+            confidence=emission.confidence.value,
+            resolution_strategy=emission.resolution_strategy or "exact",
+            factor_used=factor.display_name if factor else "Unknown",
+            factor_source=factor.source if factor else "Unknown",
+            factor_value=float(factor.co2e_factor) if factor and factor.co2e_factor else None,
+            factor_unit=factor.factor_unit if factor else None,
+            warnings=[],
+            factor_year=emission.factor_year,
+            factor_region=emission.factor_region,
+            method_hierarchy=emission.method_hierarchy,
+        ),
+    )
 
 
 class RecalculateResponse(BaseModel):

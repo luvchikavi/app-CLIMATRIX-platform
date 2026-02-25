@@ -33,6 +33,7 @@ from app.services.calculation.pipeline import CalculationError
 from app.services.calculation.resolver import FactorNotFoundError
 from app.services.calculation.normalizer import UnitConversionError
 from app.services.ai import ColumnMapper, DataValidator
+from app.services.storage import storage
 
 router = APIRouter()
 
@@ -925,12 +926,15 @@ async def import_activities_async(
     content = await file.read()
     file_size = len(content)
 
-    # Save file to disk for async processing
+    # Save file for async processing (S3 or local via storage service)
     job_id = uuid4()
     file_ext = '.xlsx' if filename_lower.endswith('.xlsx') else '.csv'
-    file_path = os.path.join(UPLOAD_DIR, f"{job_id}{file_ext}")
-    with open(file_path, 'wb') as f:
-        f.write(content)
+    storage_key = f"uploads/{job_id}{file_ext}"
+    content_type = (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        if file_ext == '.xlsx' else "text/csv"
+    )
+    await storage.upload_file(content, storage_key, content_type=content_type)
 
     # Count rows for progress tracking
     if filename_lower.endswith('.xlsx'):
@@ -954,7 +958,7 @@ async def import_activities_async(
         job_type=JobType.IMPORT_CSV,
         status=JobStatus.PENDING,
         original_filename=file.filename,
-        file_path=file_path,
+        file_path=storage_key,
         file_size_bytes=file_size,
         total_rows=row_count,
         metadata={"site_id": str(site_id)} if site_id else None,
@@ -1088,9 +1092,8 @@ async def cancel_import_job(
     job.completed_at = datetime.utcnow()
     await session.commit()
 
-    # Clean up file
-    if os.path.exists(job.file_path):
-        os.remove(job.file_path)
+    # Clean up file from storage
+    await storage.delete_file(job.file_path)
 
     return {"message": "Job cancelled", "job_id": str(job_id)}
 
@@ -1299,11 +1302,15 @@ async def smart_import_activities(
                    "Please use the standard import template or rename columns."
         )
 
-    # Save file for async processing
+    # Save file for async processing (S3 or local via storage service)
     job_id = uuid4()
-    file_path = os.path.join(UPLOAD_DIR, f"{job_id}.csv")
-    with open(file_path, 'wb') as f:
-        f.write(content)
+    smart_ext = '.xlsx' if filename_lower.endswith('.xlsx') else '.csv'
+    smart_storage_key = f"uploads/{job_id}{smart_ext}"
+    smart_content_type = (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        if smart_ext == '.xlsx' else "text/csv"
+    )
+    await storage.upload_file(content, smart_storage_key, content_type=smart_content_type)
 
     # Create job record
     job = ImportJob(
@@ -1314,7 +1321,7 @@ async def smart_import_activities(
         job_type=JobType.IMPORT_CSV,
         status=JobStatus.PENDING,
         original_filename=file.filename,
-        file_path=file_path,
+        file_path=smart_storage_key,
         file_size_bytes=file_size,
         total_rows=row_count,
         metadata={

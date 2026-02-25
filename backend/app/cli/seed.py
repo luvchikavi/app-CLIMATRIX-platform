@@ -2,11 +2,13 @@
 Database seeding CLI.
 
 Usage:
-    python -m app.cli.seed                  # Seed if empty
-    python -m app.cli.seed --force          # Force re-seed
-    python -m app.cli.seed --check-only     # Check if seeding needed
+    python -m app.cli db seed                       # Seed reference data
+    python -m app.cli db seed --force               # Force re-seed
+    python -m app.cli db create-superuser --email X --password Y
+    python -m app.cli db create-user EMAIL PASSWORD
 """
 import asyncio
+import os
 from uuid import uuid4
 
 import typer
@@ -32,115 +34,9 @@ from app.api.auth import get_password_hash
 app = typer.Typer()
 
 
-async def ensure_super_admin(session: AsyncSession) -> bool:
-    """
-    Ensure the super admin user exists with the correct credentials.
-    This user is non-changeable and always has these credentials.
-
-    Returns True if super admin was created, False if already exists.
-    """
-    SUPER_ADMIN_EMAIL = "avi@drishti.com"
-    SUPER_ADMIN_PASSWORD = "Luvchik!2030"
-    SUPER_ADMIN_NAME = "Avi Luvchik"
-
-    # Check if super admin already exists
-    result = await session.execute(
-        select(User).where(User.email == SUPER_ADMIN_EMAIL)
-    )
-    existing_user = result.scalar_one_or_none()
-
-    if existing_user:
-        # Update password to ensure it's correct (in case it was changed)
-        existing_user.hashed_password = get_password_hash(SUPER_ADMIN_PASSWORD)
-        existing_user.role = UserRole.SUPER_ADMIN
-        existing_user.full_name = SUPER_ADMIN_NAME
-        existing_user.is_active = True
-        await session.commit()
-        return False
-
-    # Need to find or create an organization for the super admin
-    result = await session.execute(select(Organization).limit(1))
-    org = result.scalar_one_or_none()
-
-    if not org:
-        # Create a default organization
-        org = Organization(
-            id=uuid4(),
-            name="Drishti",
-            country_code="IL",
-            industry_code="541611",
-            base_year=2024,
-            default_region="IL",
-        )
-        session.add(org)
-        await session.flush()
-
-    # Create super admin user
-    super_admin = User(
-        id=uuid4(),
-        organization_id=org.id,
-        email=SUPER_ADMIN_EMAIL,
-        full_name=SUPER_ADMIN_NAME,
-        hashed_password=get_password_hash(SUPER_ADMIN_PASSWORD),
-        role=UserRole.SUPER_ADMIN,
-        is_active=True,
-    )
-    session.add(super_admin)
-    await session.commit()
-    return True
-
-
-async def ensure_team_users(session: AsyncSession) -> int:
-    """
-    Ensure team users exist with their credentials.
-    Creates users if they don't exist. Does not update existing users.
-
-    Returns count of users created.
-    """
-    # Team users to ensure exist
-    TEAM_USERS = [
-        {"email": "SivanLa@bdo.co.il", "full_name": "Sivan La", "password": "Climatrix2026!", "role": UserRole.EDITOR},
-        {"email": "LihieI@bdo.co.il", "full_name": "Lihi I", "password": "Climatrix2026!", "role": UserRole.EDITOR},
-    ]
-
-    # Get organization (should exist from super admin setup)
-    result = await session.execute(select(Organization).limit(1))
-    org = result.scalar_one_or_none()
-
-    if not org:
-        return 0
-
-    created_count = 0
-    for user_data in TEAM_USERS:
-        # Check if user already exists
-        result = await session.execute(
-            select(User).where(User.email == user_data["email"])
-        )
-        if result.scalar_one_or_none():
-            continue
-
-        # Create user
-        new_user = User(
-            id=uuid4(),
-            organization_id=org.id,
-            email=user_data["email"],
-            full_name=user_data["full_name"],
-            hashed_password=get_password_hash(user_data["password"]),
-            role=user_data["role"],
-            is_active=True,
-        )
-        session.add(new_user)
-        created_count += 1
-
-    if created_count > 0:
-        await session.commit()
-
-    return created_count
-
-
 async def seed_database(session: AsyncSession, force: bool = False) -> dict:
-    """Seed the database with reference data."""
-    stats = {"emission_factors": 0, "unit_conversions": 0, "fuel_prices": 0, "organizations": 0, "users": 0}
+    """Seed the database with reference data (no user/org creation)."""
+    stats = {"emission_factors": 0, "unit_conversions": 0, "fuel_prices": 0}
 
     # Check if already seeded
     result = await session.execute(select(EmissionFactor).limit(1))
@@ -148,21 +44,16 @@ async def seed_database(session: AsyncSession, force: bool = False) -> dict:
 
     if existing and not force:
         typer.echo("Database already seeded. Use --force to re-seed.")
-        # Still ensure super admin exists
-        created = await ensure_super_admin(session)
-        if created:
-            typer.echo("Super admin user created.")
-        # Ensure team users exist
-        team_created = await ensure_team_users(session)
-        if team_created > 0:
-            typer.echo(f"Created {team_created} team user(s).")
         return stats
 
     # Clear existing data if force
     if force:
         typer.echo("Clearing existing data...")
-        await session.execute(select(EmissionFactor).execution_options(synchronize_session=False))
-        # Note: In production, use proper DELETE statements
+        from sqlalchemy import delete
+        await session.execute(delete(EmissionFactor))
+        await session.execute(delete(UnitConversion))
+        await session.execute(delete(FuelPrice))
+        await session.commit()
 
     # Seed emission factors
     typer.echo("Seeding emission factors...")
@@ -185,33 +76,6 @@ async def seed_database(session: AsyncSession, force: bool = False) -> dict:
         session.add(fp)
         stats["fuel_prices"] += 1
 
-    # Create default organization (Drishti)
-    typer.echo("Creating default organization...")
-    org = Organization(
-        id=uuid4(),
-        name="Drishti",
-        country_code="IL",
-        industry_code="541611",  # Management Consulting
-        base_year=2024,
-        default_region="IL",
-    )
-    session.add(org)
-    stats["organizations"] += 1
-
-    # Create super admin user
-    typer.echo("Creating super admin user...")
-    super_admin = User(
-        id=uuid4(),
-        organization_id=org.id,
-        email="avi@drishti.com",
-        full_name="Avi Luvchik",
-        hashed_password=get_password_hash("Luvchik!2030"),
-        role=UserRole.SUPER_ADMIN,
-        is_active=True,
-    )
-    session.add(super_admin)
-    stats["users"] += 1
-
     await session.commit()
 
     return stats
@@ -225,7 +89,7 @@ def seed(
     """Seed emission factors and reference data."""
 
     async def run():
-        engine = create_async_engine(settings.database_url)
+        engine = create_async_engine(settings.async_database_url)
         async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
         async with async_session() as session:
@@ -245,11 +109,78 @@ def seed(
             typer.echo(f"Emission Factors: {stats['emission_factors']}")
             typer.echo(f"Unit Conversions: {stats['unit_conversions']}")
             typer.echo(f"Fuel Prices:      {stats['fuel_prices']}")
-            typer.echo(f"Organizations:    {stats['organizations']}")
-            typer.echo(f"Users:            {stats['users']}")
-            typer.echo("\nSuper Admin credentials:")
-            typer.echo("  Email:    avi@drishti.com")
-            typer.echo("  Password: Luvchik!2030")
+
+        await engine.dispose()
+
+    asyncio.run(run())
+
+
+@app.command()
+def create_superuser(
+    email: str = typer.Option(..., "--email", "-e", help="Super admin email", prompt=True),
+    password: str = typer.Option(..., "--password", "-p", help="Super admin password", prompt=True, hide_input=True),
+    name: str = typer.Option("", "--name", "-n", help="Full name"),
+    org_name: str = typer.Option("", "--org-name", help="Organization name (created if no org exists)"),
+):
+    """Create or update a super admin user.
+
+    If the user exists, their password and role are updated.
+    If no organization exists, one is created with --org-name.
+
+    Example:
+        python -m app.cli db create-superuser --email admin@example.com --password secret123
+    """
+
+    async def run():
+        engine = create_async_engine(settings.async_database_url)
+        async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+        async with async_session() as session:
+            # Check if user already exists
+            result = await session.execute(
+                select(User).where(User.email == email)
+            )
+            existing_user = result.scalar_one_or_none()
+
+            if existing_user:
+                existing_user.hashed_password = get_password_hash(password)
+                existing_user.role = UserRole.SUPER_ADMIN
+                if name:
+                    existing_user.full_name = name
+                existing_user.is_active = True
+                await session.commit()
+                typer.echo(f"Updated super admin: {email}")
+                await engine.dispose()
+                return
+
+            # Need an organization
+            result = await session.execute(select(Organization).limit(1))
+            org = result.scalar_one_or_none()
+
+            if not org:
+                organization_name = org_name or typer.prompt("Organization name")
+                org = Organization(
+                    id=uuid4(),
+                    name=organization_name,
+                    default_region="Global",
+                )
+                session.add(org)
+                await session.flush()
+                typer.echo(f"Created organization: {organization_name}")
+
+            # Create super admin user
+            super_admin = User(
+                id=uuid4(),
+                organization_id=org.id,
+                email=email,
+                full_name=name or email.split("@")[0],
+                hashed_password=get_password_hash(password),
+                role=UserRole.SUPER_ADMIN,
+                is_active=True,
+            )
+            session.add(super_admin)
+            await session.commit()
+            typer.echo(f"Created super admin: {email}")
 
         await engine.dispose()
 
@@ -267,10 +198,18 @@ def create_user(
     """Create a new user."""
 
     async def run():
-        engine = create_async_engine(settings.database_url)
+        engine = create_async_engine(settings.async_database_url)
         async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
         async with async_session() as session:
+            # Check if user already exists
+            result = await session.execute(
+                select(User).where(User.email == email)
+            )
+            if result.scalar_one_or_none():
+                typer.echo(f"User {email} already exists.")
+                raise typer.Exit(code=1)
+
             # Get organization
             if org_id:
                 from uuid import UUID
@@ -280,7 +219,7 @@ def create_user(
 
             org = result.scalar_one_or_none()
             if not org:
-                typer.echo("No organization found. Run 'seed' first.")
+                typer.echo("No organization found. Run 'seed' first or create a superuser.")
                 raise typer.Exit(code=1)
 
             # Create user
@@ -290,11 +229,12 @@ def create_user(
                 full_name=name or email.split("@")[0],
                 hashed_password=get_password_hash(password),
                 role=UserRole(role),
+                is_active=True,
             )
             session.add(user)
             await session.commit()
 
-            typer.echo(f"Created user: {email} (role: {role})")
+            typer.echo(f"Created user: {email} (role: {role}, org: {org.name})")
 
         await engine.dispose()
 
@@ -308,7 +248,7 @@ def seed_fuel_prices(
     """Seed fuel prices only (for existing databases)."""
 
     async def run():
-        engine = create_async_engine(settings.database_url)
+        engine = create_async_engine(settings.async_database_url)
         async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
         async with async_session() as session:
@@ -343,57 +283,15 @@ def seed_fuel_prices(
 
 
 @app.command()
-def ensure_admin():
-    """
-    Ensure the super admin user exists with correct credentials.
-
-    This creates or updates the super admin user:
-    - Email: avi@drishti.com
-    - Password: Luvchik!2030
-    - Role: super_admin
-    """
-
-    async def run():
-        engine = create_async_engine(settings.database_url)
-        async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
-        async with async_session() as session:
-            created = await ensure_super_admin(session)
-            if created:
-                typer.echo("Super admin user created.")
-            else:
-                typer.echo("Super admin user updated/verified.")
-
-            typer.echo("\nSuper Admin credentials:")
-            typer.echo("  Email:    avi@drishti.com")
-            typer.echo("  Password: Luvchik!2030")
-
-        await engine.dispose()
-
-    asyncio.run(run())
-
-
-@app.command()
 def seed_scope3_reference(
     force: bool = typer.Option(False, "--force", help="Force re-seed even if data exists"),
 ):
-    """
-    Seed Scope 3 reference data tables:
-    - Airports (for flight distance calculations)
-    - Transport distance matrix (for default shipping distances)
-    - Currency conversion rates (for spend-based calculations)
-    - Grid emission factors (by country)
-    - Hotel emission factors (by country)
-    - Refrigerant GWP values
-    - Waste disposal factors
-
-    This is a separate command since these are new tables added for enhanced Scope 3 support.
-    """
+    """Seed Scope 3 reference data tables."""
     from datetime import date
     from decimal import Decimal
 
     async def run():
-        engine = create_async_engine(settings.database_url)
+        engine = create_async_engine(settings.async_database_url)
         async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
         async with async_session() as session:
@@ -407,7 +305,6 @@ def seed_scope3_reference(
                 "waste_factors": 0,
             }
 
-            # Check if already seeded (check airports as indicator)
             result = await session.execute(select(Airport).limit(1))
             existing = result.scalar_one_or_none()
 
@@ -415,7 +312,6 @@ def seed_scope3_reference(
                 typer.echo("Scope 3 reference data already seeded. Use --force to re-seed.")
                 raise typer.Exit(code=0)
 
-            # Clear existing data if force
             if force:
                 typer.echo("Clearing existing Scope 3 reference data...")
                 from sqlalchemy import delete
@@ -426,10 +322,8 @@ def seed_scope3_reference(
                 await session.execute(delete(CurrencyConversion))
                 await session.execute(delete(TransportDistanceMatrix))
                 await session.execute(delete(Airport))
-                await session.commit()  # Commit deletes before inserting
+                await session.commit()
 
-            # 1. Seed Airports
-            # AIRPORTS format: {IATA_CODE: (name, city, country_code, latitude, longitude)}
             typer.echo("Seeding airports...")
             for iata_code, airport_data in AIRPORTS.items():
                 name, city, country_code, latitude, longitude = airport_data
@@ -439,7 +333,7 @@ def seed_scope3_reference(
                     name=name,
                     city=city,
                     country_code=country_code,
-                    country_name=country_code,  # Use country code as name for now
+                    country_name=country_code,
                     latitude=Decimal(str(latitude)),
                     longitude=Decimal(str(longitude)),
                     is_active=True,
@@ -447,7 +341,6 @@ def seed_scope3_reference(
                 session.add(airport)
                 stats["airports"] += 1
 
-            # 2. Seed Transport Distance Matrix
             typer.echo("Seeding transport distance matrix...")
             from datetime import datetime
             for route_key, route_data in TRANSPORT_DISTANCES.items():
@@ -469,11 +362,10 @@ def seed_scope3_reference(
                 session.add(transport)
                 stats["transport_routes"] += 1
 
-            # 3. Seed Currency Conversion Rates
             typer.echo("Seeding currency conversion rates...")
             for currency, rate in CURRENCY_RATES.items():
                 if currency == "USD":
-                    continue  # Skip USD to USD
+                    continue
                 currency_conv = CurrencyConversion(
                     id=uuid4(),
                     from_currency=currency,
@@ -487,13 +379,12 @@ def seed_scope3_reference(
                 session.add(currency_conv)
                 stats["currencies"] += 1
 
-            # 4. Seed Grid Emission Factors
             typer.echo("Seeding grid emission factors...")
             for country_code, data in GRID_EMISSION_FACTORS.items():
                 grid_factor = GridEmissionFactor(
                     id=uuid4(),
                     country_code=country_code,
-                    country_name=country_code,  # Will be updated with proper names
+                    country_name=country_code,
                     location_factor=data["location_factor"],
                     market_factor=data.get("market_factor"),
                     td_loss_factor=data.get("td_loss_factor"),
@@ -505,7 +396,6 @@ def seed_scope3_reference(
                 session.add(grid_factor)
                 stats["grid_factors"] += 1
 
-            # 5. Seed Hotel Emission Factors
             typer.echo("Seeding hotel emission factors...")
             for country_code, data in HOTEL_EMISSION_FACTORS.items():
                 hotel_factor = HotelEmissionFactor(
@@ -520,7 +410,6 @@ def seed_scope3_reference(
                 session.add(hotel_factor)
                 stats["hotel_factors"] += 1
 
-            # 6. Seed Refrigerant GWP Values
             typer.echo("Seeding refrigerant GWP values...")
             for name, data in REFRIGERANT_GWP.items():
                 refrigerant = RefrigerantGWP(
@@ -534,8 +423,6 @@ def seed_scope3_reference(
                 session.add(refrigerant)
                 stats["refrigerants"] += 1
 
-            # 7. Seed Waste Disposal Factors
-            # WASTE_DISPOSAL_FACTORS format: {(waste_type, method): {co2e_per_kg, source}}
             typer.echo("Seeding waste disposal factors...")
             for (waste_type, method), factor_data in WASTE_DISPOSAL_FACTORS.items():
                 waste_factor = WasteDisposalFactor(

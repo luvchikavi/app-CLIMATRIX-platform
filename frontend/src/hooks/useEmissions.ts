@@ -108,6 +108,34 @@ export function useCreateActivity(periodId: string) {
 }
 
 /**
+ * Update an activity
+ */
+export function useUpdateActivity(periodId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ activityId, data }: {
+      activityId: string;
+      data: {
+        description?: string;
+        quantity?: number;
+        unit?: string;
+        activity_key?: string;
+        data_quality_score?: number;
+      };
+    }) => api.updateActivity(activityId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['activities', periodId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.reportSummary(periodId),
+      });
+    },
+  });
+}
+
+/**
  * Delete an activity
  */
 export function useDeleteActivity(periodId: string) {

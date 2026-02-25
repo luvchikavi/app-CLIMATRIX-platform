@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useState, useEffect, ReactNode } from 'react';
 import { useAuthStore } from '@/stores/auth';
 import { api } from '@/lib/api';
+import { ToastContainer } from '@/components/ui/Toast';
 
 /**
  * Token sync component - ensures ApiClient has the token on mount
@@ -45,6 +46,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <TokenSync />
       {children}
+      <ToastContainer />
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );

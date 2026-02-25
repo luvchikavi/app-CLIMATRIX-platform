@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { useSupportedRegions, useCreatePeriod } from '@/hooks/useEmissions';
-import { Button, Card, Input, Badge } from '@/components/ui';
+import { useSupportedRegions, useCreatePeriod, useCreateSite } from '@/hooks/useEmissions';
+import { Button, Card, Input, Badge, toast } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { COUNTRY_OPTIONS } from '@/lib/countries';
 import {
   Leaf,
   Building2,
@@ -19,6 +20,7 @@ import {
   Loader2,
   Download,
   Sparkles,
+  MapPin,
 } from 'lucide-react';
 
 interface OnboardingWizardProps {
@@ -26,9 +28,26 @@ interface OnboardingWizardProps {
   organizationName?: string;
 }
 
-type Step = 'welcome' | 'organization' | 'region' | 'period' | 'import' | 'complete';
+type Step = 'welcome' | 'organization' | 'region' | 'site' | 'period' | 'import' | 'complete';
 
-const STEPS: Step[] = ['welcome', 'organization', 'region', 'period', 'import', 'complete'];
+const STEPS: Step[] = ['welcome', 'organization', 'region', 'site', 'period', 'import', 'complete'];
+
+/** Steps that can be skipped without filling in data */
+const OPTIONAL_STEPS: Step[] = ['organization', 'site', 'import'];
+
+const STORAGE_KEY = 'onboarding_wizard_state';
+
+interface WizardPersistedState {
+  currentStep: Step;
+  orgDetails: { industry_code: string; base_year: number };
+  selectedRegion: string;
+  siteDetails: { name: string; country_code: string; address: string; grid_region: string };
+  periodYear: number;
+}
+
+interface FieldErrors {
+  [field: string]: string;
+}
 
 export function OnboardingWizard({ onComplete, organizationName }: OnboardingWizardProps) {
   const router = useRouter();
@@ -39,10 +58,18 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
     base_year: new Date().getFullYear() - 1,
   });
   const [selectedRegion, setSelectedRegion] = useState<string>('Global');
+  const [siteDetails, setSiteDetails] = useState({
+    name: '',
+    country_code: '',
+    address: '',
+    grid_region: '',
+  });
   const [periodYear, setPeriodYear] = useState<number>(new Date().getFullYear());
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   const { data: regions } = useSupportedRegions();
   const createPeriod = useCreatePeriod();
+  const createSite = useCreateSite();
 
   const updateOrg = useMutation({
     mutationFn: (data: { default_region?: string; industry_code?: string; base_year?: number }) =>
@@ -52,12 +79,65 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
     },
   });
 
+  // ---- Persistence helpers ----
+  const saveProgress = useCallback(
+    (step: Step) => {
+      const state: WizardPersistedState = {
+        currentStep: step,
+        orgDetails,
+        selectedRegion,
+        siteDetails,
+        periodYear,
+      };
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch {
+        // Storage full or unavailable -- silently ignore
+      }
+    },
+    [orgDetails, selectedRegion, siteDetails, periodYear],
+  );
+
+  const clearProgress = () => {
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+  };
+
+  // Restore persisted state on mount
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved: WizardPersistedState = JSON.parse(raw);
+        if (saved.currentStep && STEPS.includes(saved.currentStep)) {
+          setCurrentStep(saved.currentStep);
+        }
+        if (saved.orgDetails) setOrgDetails(saved.orgDetails);
+        if (saved.selectedRegion) setSelectedRegion(saved.selectedRegion);
+        if (saved.siteDetails) setSiteDetails(saved.siteDetails);
+        if (saved.periodYear) setPeriodYear(saved.periodYear);
+      }
+    } catch {
+      // Corrupt data -- start fresh
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist whenever the step changes
+  useEffect(() => {
+    saveProgress(currentStep);
+  }, [currentStep, saveProgress]);
+
   const currentStepIndex = STEPS.indexOf(currentStep);
   const progress = ((currentStepIndex + 1) / STEPS.length) * 100;
-
   const nextStep = () => {
     const nextIndex = currentStepIndex + 1;
     if (nextIndex < STEPS.length) {
+      setFieldErrors({});
       setCurrentStep(STEPS[nextIndex]);
     }
   };
@@ -65,30 +145,85 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
   const prevStep = () => {
     const prevIndex = currentStepIndex - 1;
     if (prevIndex >= 0) {
+      setFieldErrors({});
       setCurrentStep(STEPS[prevIndex]);
     }
   };
 
-  const handleSaveOrganization = async () => {
-    await updateOrg.mutateAsync({
-      industry_code: orgDetails.industry_code || undefined,
-      base_year: orgDetails.base_year || undefined,
-    });
+  const skipStep = () => {
+    setFieldErrors({});
     nextStep();
+  };
+
+  // ---- Validation helpers ----
+  const clearError = (field: string) => {
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const handleSaveOrganization = async () => {
+    try {
+      await updateOrg.mutateAsync({
+        industry_code: orgDetails.industry_code || undefined,
+        base_year: orgDetails.base_year || undefined,
+      });
+      toast.success('Organization details saved');
+      nextStep();
+    } catch {
+      toast.error('Failed to save organization details');
+    }
   };
 
   const handleSaveRegion = async () => {
-    await updateOrg.mutateAsync({ default_region: selectedRegion });
-    nextStep();
+    try {
+      await updateOrg.mutateAsync({ default_region: selectedRegion });
+      toast.success('Region saved');
+      nextStep();
+    } catch {
+      toast.error('Failed to save region');
+    }
+  };
+
+  const handleCreateSite = async () => {
+    // Validate required fields
+    const errors: FieldErrors = {};
+    if (!siteDetails.name.trim()) {
+      errors.site_name = 'Site name is required';
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
+    try {
+      await createSite.mutateAsync({
+        name: siteDetails.name.trim(),
+        country_code: siteDetails.country_code || undefined,
+        address: siteDetails.address.trim() || undefined,
+        grid_region: siteDetails.grid_region || undefined,
+      });
+      toast.success('Site created successfully');
+      nextStep();
+    } catch {
+      toast.error('Failed to create site');
+    }
   };
 
   const handleCreatePeriod = async () => {
-    await createPeriod.mutateAsync({
-      name: `FY ${periodYear}`,
-      start_date: `${periodYear}-01-01`,
-      end_date: `${periodYear}-12-31`,
-    });
-    nextStep();
+    try {
+      await createPeriod.mutateAsync({
+        name: `FY ${periodYear}`,
+        start_date: `${periodYear}-01-01`,
+        end_date: `${periodYear}-12-31`,
+      });
+      toast.success('Reporting period created');
+      nextStep();
+    } catch {
+      toast.error('Failed to create reporting period');
+    }
   };
 
   const handleDownloadTemplate = async (scope: '1-2' | '3') => {
@@ -96,10 +231,12 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
       await api.downloadTemplate(scope);
     } catch (error) {
       console.error('Failed to download template:', error);
+      toast.error('Failed to download template');
     }
   };
 
   const handleComplete = () => {
+    clearProgress();
     localStorage.setItem('onboarding_completed', 'true');
     onComplete();
     router.push('/dashboard');
@@ -217,7 +354,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                   Back
                 </Button>
                 <div className="flex gap-3">
-                  <Button variant="ghost" onClick={nextStep}>
+                  <Button variant="ghost" onClick={skipStep}>
                     Skip
                   </Button>
                   <Button
@@ -288,6 +425,133 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                   Continue
                   <ChevronRight className="w-4 h-4 ml-2" />
                 </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Site Creation Step */}
+          {currentStep === 'site' && (
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 rounded-xl bg-primary-light">
+                  <MapPin className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">Add Your First Site</h2>
+                  <p className="text-foreground-muted">Where does your organization operate?</p>
+                </div>
+              </div>
+
+              <div className="space-y-5">
+                {/* Site Name (required) */}
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Site Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Headquarters, Main Office, Factory A"
+                    value={siteDetails.name}
+                    onChange={(e) => {
+                      setSiteDetails({ ...siteDetails, name: e.target.value });
+                      if (fieldErrors.site_name) clearError('site_name');
+                    }}
+                    className={cn(
+                      'w-full px-4 py-2.5 rounded-lg border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary',
+                      fieldErrors.site_name
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
+                        : 'border-border'
+                    )}
+                  />
+                  {fieldErrors.site_name && (
+                    <p className="mt-1.5 text-sm text-red-500">{fieldErrors.site_name}</p>
+                  )}
+                </div>
+
+                {/* Country */}
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Country
+                  </label>
+                  <select
+                    value={siteDetails.country_code}
+                    onChange={(e) => setSiteDetails({ ...siteDetails, country_code: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    {COUNTRY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Address (optional) */}
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Address (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Street address, city, postal code"
+                    value={siteDetails.address}
+                    onChange={(e) => setSiteDetails({ ...siteDetails, address: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+
+                {/* Grid Region */}
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Grid Region
+                  </label>
+                  {regions && regions.length > 0 ? (
+                    <select
+                      value={siteDetails.grid_region}
+                      onChange={(e) => setSiteDetails({ ...siteDetails, grid_region: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      <option value="">Select grid region...</option>
+                      {regions.map((r) => (
+                        <option key={r.code} value={r.code}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="e.g. ERCOT, PJM, CAISO"
+                      value={siteDetails.grid_region}
+                      onChange={(e) => setSiteDetails({ ...siteDetails, grid_region: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  )}
+                  <p className="mt-1.5 text-sm text-foreground-muted">
+                    Used to determine electricity emission factors for this site
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-between mt-8">
+                <Button variant="outline" onClick={prevStep}>
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+                <div className="flex gap-3">
+                  <Button variant="ghost" onClick={skipStep}>
+                    Skip
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleCreateSite}
+                    disabled={createSite.isPending}
+                    isLoading={createSite.isPending}
+                  >
+                    Create Site
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -424,10 +688,15 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Back
                 </Button>
-                <Button variant="primary" onClick={nextStep}>
-                  Continue
-                  <ChevronRight className="w-4 h-4 ml-2" />
-                </Button>
+                <div className="flex gap-3">
+                  <Button variant="ghost" onClick={skipStep}>
+                    Skip
+                  </Button>
+                  <Button variant="primary" onClick={nextStep}>
+                    Continue
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
               </div>
             </div>
           )}

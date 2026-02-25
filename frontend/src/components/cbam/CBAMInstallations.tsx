@@ -14,6 +14,7 @@ import {
   TableEmpty,
 } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
+import { ConfirmDialog, toast } from '@/components/ui';
 import { api } from '@/lib/api';
 import type { CBAMInstallation, CBAMInstallationCreate, CBAMSector } from '@/lib/types';
 import { Plus, Factory, Trash2, Edit, X, Check, Globe } from 'lucide-react';
@@ -48,6 +49,7 @@ export function CBAMInstallations() {
     sectors: [],
   });
   const [saving, setSaving] = useState(false);
+  const [confirmState, setConfirmState] = useState<{open: boolean; onConfirm: () => void; title: string; message: string}>({open: false, onConfirm: () => {}, title: '', message: ''});
 
   useEffect(() => {
     loadInstallations();
@@ -98,16 +100,22 @@ export function CBAMInstallations() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this installation?')) return;
-
-    try {
-      await api.deleteCBAMInstallation(id);
-      await loadInstallations();
-    } catch (err) {
-      console.error('Failed to delete installation:', err);
-      alert('Cannot delete installation with linked imports');
-    }
+  const handleDelete = (id: string) => {
+    setConfirmState({
+      open: true,
+      onConfirm: async () => {
+        setConfirmState(s => ({...s, open: false}));
+        try {
+          await api.deleteCBAMInstallation(id);
+          await loadInstallations();
+        } catch (err) {
+          console.error('Failed to delete installation:', err);
+          toast.error('Cannot delete installation with linked imports');
+        }
+      },
+      title: 'Delete Installation',
+      message: 'Are you sure you want to delete this installation?',
+    });
   };
 
   const resetForm = () => {
@@ -307,6 +315,15 @@ export function CBAMInstallations() {
           </TableBody>
         </Table>
       </Card>
+      <ConfirmDialog
+        isOpen={confirmState.open}
+        onClose={() => setConfirmState(s => ({...s, open: false}))}
+        onConfirm={confirmState.onConfirm}
+        title={confirmState.title}
+        message={confirmState.message}
+        variant="danger"
+        confirmLabel="Delete"
+      />
     </div>
   );
 }

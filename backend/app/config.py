@@ -50,14 +50,17 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
-    # CORS - Allow all origins by default for simplicity
-    # In production, Railway can override via CORS_ORIGINS_STR env variable
+    # CORS - In production set to specific domains via CORS_ORIGINS_STR
+    # e.g. "https://climatrix.io,https://app.climatrix.io"
     cors_origins_str: str = "*"
+    cors_allow_vercel_previews: bool = True  # Allow *.vercel.app preview deploys
+
+    # Google OAuth
+    google_client_id: str = ""  # Set GOOGLE_CLIENT_ID in environment
 
     @property
     def cors_origins(self) -> list[str]:
         """Parse CORS origins from string."""
-        # Allow all origins - simplest solution to avoid CORS issues
         if self.cors_origins_str == "*":
             return ["*"]
         if not self.cors_origins_str:
@@ -101,6 +104,14 @@ class Settings(BaseSettings):
 
     # Password Reset
     password_reset_token_expire_minutes: int = 30
+
+    # File Storage (S3-compatible: AWS S3 or Cloudflare R2)
+    storage_backend: str = "local"  # "local" or "s3"
+    s3_bucket_name: str = ""
+    s3_region: str = "auto"  # "auto" for R2
+    s3_endpoint_url: str = ""  # e.g., https://<account_id>.r2.cloudflarestorage.com
+    s3_access_key_id: str = ""
+    s3_secret_access_key: str = ""
 
     # Stripe Billing
     stripe_secret_key: str = ""  # Set STRIPE_SECRET_KEY in environment

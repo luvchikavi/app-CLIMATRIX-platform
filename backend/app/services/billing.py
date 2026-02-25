@@ -3,7 +3,7 @@ Stripe billing service for subscription management.
 Handles customer creation, subscription management, and webhook processing.
 """
 import stripe
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -97,6 +97,17 @@ class BillingService:
         return customer.id
 
     @staticmethod
+    async def start_free_trial(
+        session: AsyncSession,
+        organization: Organization,
+    ) -> None:
+        """Start a 14-day free trial for a new organization without requiring Stripe."""
+        organization.trial_ends_at = datetime.utcnow() + timedelta(days=14)
+        organization.subscription_status = SubscriptionStatus.TRIALING.value
+        session.add(organization)
+        await session.commit()
+
+    @staticmethod
     async def create_checkout_session(
         session: AsyncSession,
         organization: Organization,
@@ -121,6 +132,7 @@ class BillingService:
                     "quantity": 1,
                 }
             ],
+            subscription_data={"trial_period_days": 14},
             success_url=success_url,
             cancel_url=cancel_url,
             metadata={

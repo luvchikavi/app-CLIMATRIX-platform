@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { useAuthStore } from '@/stores/auth';
+import { LockedModule } from '@/components/modules/LockedModule';
 import {
   CBAMDashboard,
   CBAMInstallations,
@@ -16,9 +18,17 @@ import {
   FileText,
   Calculator,
   ArrowLeft,
+  Scale,
 } from 'lucide-react';
 
 type CBAMView = 'dashboard' | 'installations' | 'imports' | 'reports' | 'calculator';
+
+const PLAN_LEVELS: Record<string, number> = {
+  free: 0,
+  starter: 1,
+  professional: 2,
+  enterprise: 3,
+};
 
 const NAV_ITEMS: { id: CBAMView; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -30,6 +40,29 @@ const NAV_ITEMS: { id: CBAMView; label: string; icon: typeof LayoutDashboard }[]
 
 export default function CBAMModulePage() {
   const [currentView, setCurrentView] = useState<CBAMView>('dashboard');
+  const { organization } = useAuthStore();
+  const currentPlan = organization?.subscription_plan || 'free';
+  const isLocked = (PLAN_LEVELS[currentPlan] ?? 0) < PLAN_LEVELS['professional'];
+
+  if (isLocked) {
+    return (
+      <LockedModule
+        moduleName="CBAM"
+        description="Carbon Border Adjustment Mechanism - EU carbon compliance for importers."
+        icon={Scale}
+        color="bg-blue-600"
+        features={[
+          'Embedded Emissions Calculation',
+          'Supplier Data Collection',
+          'CBAM Compliance Reports',
+          'EU Regulatory Compliance',
+          'Certificate Management',
+        ]}
+        requiredPlan="Professional"
+        price="$149/mo"
+      />
+    );
+  }
 
   const renderView = () => {
     switch (currentView) {

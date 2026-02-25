@@ -14,6 +14,8 @@ import {
   CardContent,
   Button,
   ScopeBadge,
+  ConfirmDialog,
+  toast,
 } from '@/components/ui';
 import { cn, formatCO2e } from '@/lib/utils';
 import {
@@ -86,6 +88,7 @@ function ImportContent() {
   }>>([]);
   const [loadingBatchDetails, setLoadingBatchDetails] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [confirmState, setConfirmState] = useState<{open: boolean; onConfirm: () => void; title: string; message: string}>({open: false, onConfirm: () => {}, title: '', message: ''});
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
 
   const [mounted, setMounted] = useState(false);
@@ -334,70 +337,66 @@ function ImportContent() {
   };
 
   // Clear period data handler
-  const handleClearPeriodData = async () => {
+  const handleClearPeriodData = () => {
     if (!periodId) return;
 
-    const confirmed = confirm(
-      `⚠️ Delete ALL activities for ${currentPeriod?.name || 'this period'}?\n\n` +
-      `This will permanently delete:\n` +
-      `• ${activities?.length || 0} activities\n` +
-      `• All associated emissions\n` +
-      `• All import batches\n\n` +
-      `This action cannot be undone.`
-    );
-
-    if (!confirmed) return;
-
-    setIsClearing(true);
-    try {
-      const result = await api.deletePeriodActivities(periodId);
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['activities'] });
-      queryClient.invalidateQueries({ queryKey: ['import-batches'] });
-      queryClient.invalidateQueries({ queryKey: ['report-summary'] });
-      setError(null);
-      alert(`✅ Successfully deleted ${result.deleted_activities} activities and ${result.deleted_emissions} emissions.`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to clear data');
-    } finally {
-      setIsClearing(false);
-    }
+    setConfirmState({
+      open: true,
+      onConfirm: async () => {
+        setConfirmState(s => ({...s, open: false}));
+        setIsClearing(true);
+        try {
+          const result = await api.deletePeriodActivities(periodId);
+          // Invalidate queries to refresh data
+          queryClient.invalidateQueries({ queryKey: ['activities'] });
+          queryClient.invalidateQueries({ queryKey: ['import-batches'] });
+          queryClient.invalidateQueries({ queryKey: ['report-summary'] });
+          setError(null);
+          toast.success(`Successfully deleted ${result.deleted_activities} activities and ${result.deleted_emissions} emissions.`);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to clear data');
+        } finally {
+          setIsClearing(false);
+        }
+      },
+      title: 'Delete Period Data',
+      message: `Delete ALL activities for ${currentPeriod?.name || 'this period'}?\n\nThis will permanently delete:\n- ${activities?.length || 0} activities\n- All associated emissions\n- All import batches\n\nThis action cannot be undone.`,
+    });
   };
 
   // Clear ALL organization data handler
-  const handleClearAllData = async () => {
-    const confirmed = confirm(
-      `🚨 DELETE ALL DATA for your organization?\n\n` +
-      `This will permanently delete:\n` +
-      `• ALL activities across ALL periods\n` +
-      `• ALL associated emissions\n` +
-      `• ALL import batches\n\n` +
-      `⚠️ THIS ACTION CANNOT BE UNDONE!\n\n` +
-      `Type "DELETE" in the next prompt to confirm.`
-    );
+  const handleClearAllData = () => {
+    setConfirmState({
+      open: true,
+      onConfirm: () => {
+        setConfirmState(s => ({...s, open: false}));
+        // Double confirm with prompt
+        const doubleConfirm = prompt('Type "DELETE" to confirm deleting ALL organization data:');
+        if (doubleConfirm !== 'DELETE') {
+          toast.info('Operation cancelled. Data was NOT deleted.');
+          return;
+        }
 
-    if (!confirmed) return;
-
-    const doubleConfirm = prompt('Type "DELETE" to confirm deleting ALL organization data:');
-    if (doubleConfirm !== 'DELETE') {
-      alert('Operation cancelled. Data was NOT deleted.');
-      return;
-    }
-
-    setIsClearing(true);
-    try {
-      const result = await api.deleteOrganizationActivities(true);
-      // Invalidate all queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['activities'] });
-      queryClient.invalidateQueries({ queryKey: ['import-batches'] });
-      queryClient.invalidateQueries({ queryKey: ['report-summary'] });
-      setError(null);
-      alert(`✅ Successfully deleted ALL data: ${result.deleted_activities} activities and ${result.deleted_emissions} emissions.`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to clear data');
-    } finally {
-      setIsClearing(false);
-    }
+        (async () => {
+          setIsClearing(true);
+          try {
+            const result = await api.deleteOrganizationActivities(true);
+            // Invalidate all queries to refresh data
+            queryClient.invalidateQueries({ queryKey: ['activities'] });
+            queryClient.invalidateQueries({ queryKey: ['import-batches'] });
+            queryClient.invalidateQueries({ queryKey: ['report-summary'] });
+            setError(null);
+            toast.success(`Successfully deleted ALL data: ${result.deleted_activities} activities and ${result.deleted_emissions} emissions.`);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to clear data');
+          } finally {
+            setIsClearing(false);
+          }
+        })();
+      },
+      title: 'Delete All Organization Data',
+      message: 'DELETE ALL DATA for your organization?\n\nThis will permanently delete:\n- ALL activities across ALL periods\n- ALL associated emissions\n- ALL import batches\n\nTHIS ACTION CANNOT BE UNDONE!\n\nYou will be asked to type "DELETE" to confirm.',
+    });
   };
 
   const downloadTemplate = async (scope: '1-2' | '3') => {
@@ -1599,6 +1598,15 @@ function ImportContent() {
           </Card>
         </div>
       )}
+      <ConfirmDialog
+        isOpen={confirmState.open}
+        onClose={() => setConfirmState(s => ({...s, open: false}))}
+        onConfirm={confirmState.onConfirm}
+        title={confirmState.title}
+        message={confirmState.message}
+        variant="danger"
+        confirmLabel="Delete"
+      />
     </AppShell>
   );
 }

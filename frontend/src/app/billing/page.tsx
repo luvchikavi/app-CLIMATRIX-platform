@@ -13,6 +13,7 @@ import {
   CardTitle,
   CardContent,
   Badge,
+  toast,
 } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import {
@@ -60,6 +61,9 @@ function BillingPageContent() {
     onSuccess: (data) => {
       window.location.href = data.url;
     },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to create checkout session');
+    },
   });
 
   // Create portal session mutation
@@ -67,6 +71,9 @@ function BillingPageContent() {
     mutationFn: () => api.createPortal(`${window.location.origin}/billing`),
     onSuccess: (data) => {
       window.location.href = data.url;
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to open subscription management');
     },
   });
 
@@ -84,6 +91,9 @@ function BillingPageContent() {
   useEffect(() => {
     if (checkoutStatus === 'success') {
       refetchSubscription();
+      toast.success('Subscription updated successfully!');
+    } else if (checkoutStatus === 'canceled') {
+      toast.warning('Checkout was canceled. No changes were made.');
     }
   }, [checkoutStatus, refetchSubscription]);
 
@@ -98,6 +108,12 @@ function BillingPageContent() {
   const isLoading = subscriptionLoading || plansLoading;
   const plans = plansData?.plans || [];
   const currentPlan = subscription?.plan || 'free';
+
+  // Compute trial info
+  const trialEndsAt = subscription?.trial_ends_at ? new Date(subscription.trial_ends_at) : null;
+  const trialDaysRemaining = trialEndsAt
+    ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
 
   const getPlanIcon = (planId: string) => {
     switch (planId) {
@@ -169,6 +185,33 @@ function BillingPageContent() {
           <p className="text-warning font-medium">
             Checkout was canceled. No changes were made to your subscription.
           </p>
+        </div>
+      )}
+
+      {/* Trial Status Banner */}
+      {subscription?.is_trialing && trialEndsAt && (
+        <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Sparkles className="w-5 h-5 text-primary" />
+            <div>
+              <p className="text-primary font-semibold">
+                Free Trial Active &mdash; {trialDaysRemaining} day{trialDaysRemaining !== 1 ? 's' : ''} remaining
+              </p>
+              <p className="text-sm text-foreground-muted mt-0.5">
+                Your trial ends on {trialEndsAt.toLocaleDateString()}. Upgrade to a paid plan to keep full access.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              const plansSection = document.getElementById('available-plans');
+              plansSection?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
+            Upgrade Now
+          </Button>
         </div>
       )}
 
@@ -277,7 +320,7 @@ function BillingPageContent() {
           </Card>
 
           {/* Available Plans */}
-          <div>
+          <div id="available-plans">
             <h2 className="text-xl font-bold text-foreground mb-4">Available Plans</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {plans.map((plan: PlanInfo) => {

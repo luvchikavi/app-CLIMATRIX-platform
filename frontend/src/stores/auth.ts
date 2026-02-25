@@ -19,6 +19,7 @@ interface AuthState {
 
   // Actions
   login: (email: string, password: string) => Promise<void>;
+  googleLogin: (idToken: string) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   setAuth: (token: string, user: User, organization: Organization | null) => void;
   logout: () => void;
@@ -53,6 +54,26 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Login failed',
+            isLoading: false,
+          });
+          throw error;
+        }
+      },
+
+      googleLogin: async (idToken: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await api.googleLogin(idToken);
+          set({
+            user: response.user,
+            organization: response.organization || null,
+            token: response.access_token,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } catch (error) {
+          set({
+            error: error instanceof Error ? error.message : 'Google login failed',
             isLoading: false,
           });
           throw error;

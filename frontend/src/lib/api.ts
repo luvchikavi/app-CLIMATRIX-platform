@@ -51,6 +51,7 @@ export interface Organization {
   id: string;
   name: string;
   country_code: string;
+  subscription_plan?: 'free' | 'starter' | 'professional' | 'enterprise';
 }
 
 export type PeriodStatus = "draft" | "review" | "submitted" | "audit" | "verified" | "locked";
@@ -867,6 +868,24 @@ class ApiClient {
     this.setToken(null);
   }
 
+  // Google OAuth
+  async googleLogin(idToken: string): Promise<LoginResponse> {
+    const response = await fetch(`${API_BASE}/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token: idToken }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Google login failed' }));
+      throw new Error(error.detail || 'Google login failed');
+    }
+
+    const result = await response.json();
+    this.setToken(result.access_token);
+    return result;
+  }
+
   // Registration
   async register(data: RegisterRequest): Promise<RegisterResponse> {
     const response = await fetch(`${API_BASE}/auth/register`, {
@@ -948,6 +967,21 @@ class ApiClient {
   ): Promise<ActivityWithEmission> {
     return this.fetch<ActivityWithEmission>(`/periods/${periodId}/activities`, {
       method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateActivity(activityId: string, data: {
+    description?: string;
+    quantity?: number;
+    unit?: string;
+    activity_key?: string;
+    data_quality_score?: number;
+    data_quality_justification?: string;
+    supporting_document_url?: string;
+  }): Promise<ActivityWithEmission> {
+    return this.fetch<ActivityWithEmission>(`/activities/${activityId}`, {
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
@@ -1041,6 +1075,38 @@ class ApiClient {
 
   async exportESRSE1(periodId: string): Promise<ESRSE1Export> {
     return this.fetch<ESRSE1Export>(`/periods/${periodId}/export/esrs-e1`);
+  }
+
+  getReportExportUrl(format: 'csv' | 'pdf', periodId: string): string {
+    return `${API_BASE}/reports/export/${format}?period_id=${periodId}`;
+  }
+
+  async downloadReportExport(format: 'csv' | 'pdf', periodId: string): Promise<void> {
+    const token = this.getToken();
+    const url = this.getReportExportUrl(format, periodId);
+
+    const response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Export failed' }));
+      throw new Error(error.detail || `Export failed: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const disposition = response.headers.get('Content-Disposition');
+    const filenameMatch = disposition?.match(/filename="?([^"]+)"?/);
+    const filename = filenameMatch?.[1] || `ghg_report.${format}`;
+
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
   }
 
   // Recalculate
@@ -2140,6 +2206,7 @@ export interface SubscriptionInfo {
   plan: SubscriptionPlan;
   status: SubscriptionStatus | null;
   current_period_end: string | null;
+  trial_ends_at: string | null;
   is_trialing: boolean;
   plan_limits: PlanLimits;
 }

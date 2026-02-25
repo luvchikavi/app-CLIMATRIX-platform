@@ -35,11 +35,26 @@ interface NavItem {
   disabled?: boolean;
   comingSoon?: boolean;
   superAdminOnly?: boolean;
+  /** Minimum subscription plan required to unlock this item */
+  requiredPlan?: 'free' | 'starter' | 'professional' | 'enterprise';
 }
 
 interface NavGroup {
   title: string;
   items: NavItem[];
+}
+
+/** Plan hierarchy for comparison */
+const PLAN_LEVELS: Record<string, number> = {
+  free: 0,
+  starter: 1,
+  professional: 2,
+  enterprise: 3,
+};
+
+/** Returns true if the current plan meets or exceeds the required plan */
+function hasPlanAccess(currentPlan: string, requiredPlan: string): boolean {
+  return (PLAN_LEVELS[currentPlan] ?? 0) >= (PLAN_LEVELS[requiredPlan] ?? 0);
 }
 
 const navigation: NavGroup[] = [
@@ -54,12 +69,12 @@ const navigation: NavGroup[] = [
   {
     title: 'Modules',
     items: [
-      { label: 'GHG Inventory', href: '/modules/ghg', icon: Leaf, badge: 'Active' },
+      { label: 'GHG Inventory', href: '/modules/ghg', icon: Leaf, badge: 'Active', requiredPlan: 'free' },
       { label: 'Decarbonization', href: '/decarbonization', icon: Target, badge: 'New' },
-      { label: 'CBAM', href: '/modules/cbam', icon: Scale, badge: 'Active' },
-      { label: 'PCAF', href: '/modules/pcaf', icon: Coins, comingSoon: true },
-      { label: 'LCA', href: '/modules/lca', icon: Microscope, comingSoon: true },
-      { label: 'EPD/Reports', href: '/modules/epd', icon: FileStack, comingSoon: true },
+      { label: 'CBAM', href: '/modules/cbam', icon: Scale, badge: 'Active', requiredPlan: 'professional' },
+      { label: 'PCAF', href: '/modules/pcaf', icon: Coins, comingSoon: true, requiredPlan: 'enterprise' },
+      { label: 'LCA', href: '/modules/lca', icon: Microscope, comingSoon: true, requiredPlan: 'enterprise' },
+      { label: 'EPD/Reports', href: '/modules/epd', icon: FileStack, comingSoon: true, requiredPlan: 'enterprise' },
     ],
   },
   {
@@ -88,8 +103,9 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const { user } = useAuthStore();
+  const { user, organization } = useAuthStore();
   const isSuperAdmin = user?.role === 'super_admin';
+  const currentPlan = organization?.subscription_plan || 'free';
 
   // Filter navigation to hide super admin items from non-super admins
   const filteredNavigation = navigation
@@ -139,7 +155,9 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
               {group.items.map((item) => {
                 const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
                 const Icon = item.icon;
-                const isDisabled = item.disabled || item.comingSoon;
+                const isModuleLocked = item.requiredPlan && !hasPlanAccess(currentPlan, item.requiredPlan);
+                // Coming soon items without plan gating stay disabled; locked modules are still navigable
+                const isDisabled = (item.disabled || item.comingSoon) && !isModuleLocked;
 
                 return (
                   <li key={item.href}>
@@ -152,6 +170,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                           ? 'bg-primary text-white'
                           : 'text-foreground hover:bg-background-muted',
                         isDisabled && 'opacity-50 cursor-not-allowed',
+                        isModuleLocked && !isActive && 'opacity-60',
                         collapsed && 'justify-center'
                       )}
                       onClick={(e) => isDisabled && e.preventDefault()}
@@ -160,15 +179,21 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                       {!collapsed && (
                         <>
                           <span className="flex-1 text-sm font-medium">{item.label}</span>
-                          {item.badge && (
-                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-secondary text-white">
-                              {item.badge}
-                            </span>
-                          )}
-                          {item.comingSoon && (
-                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-background-muted text-foreground-muted">
-                              Soon
-                            </span>
+                          {isModuleLocked ? (
+                            <Lock className="w-3.5 h-3.5 text-foreground-muted flex-shrink-0" />
+                          ) : (
+                            <>
+                              {item.badge && (
+                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-secondary text-white">
+                                  {item.badge}
+                                </span>
+                              )}
+                              {item.comingSoon && (
+                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-background-muted text-foreground-muted">
+                                  Soon
+                                </span>
+                              )}
+                            </>
                           )}
                         </>
                       )}
@@ -177,7 +202,8 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                       {collapsed && (
                         <div className="absolute left-full ml-2 px-2 py-1 bg-neutral-900 text-white text-sm rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
                           {item.label}
-                          {item.comingSoon && ' (Coming Soon)'}
+                          {isModuleLocked && ' (Upgrade to unlock)'}
+                          {item.comingSoon && !isModuleLocked && ' (Coming Soon)'}
                         </div>
                       )}
                     </Link>

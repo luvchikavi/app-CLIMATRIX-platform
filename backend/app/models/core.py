@@ -122,7 +122,8 @@ class User(UserBase, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     organization_id: UUID = Field(foreign_key="organizations.id", index=True)
-    hashed_password: str = Field(max_length=255)
+    hashed_password: Optional[str] = Field(default=None, max_length=255)
+    google_id: Optional[str] = Field(default=None, max_length=255, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_login: Optional[datetime] = Field(default=None)
 

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ImportBatch } from '@/lib/api';
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmDialog } from '@/components/ui';
 import { FileSpreadsheet, CheckCircle, AlertCircle, Clock, Trash2, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -32,6 +32,7 @@ interface ImportHistoryProps {
 
 export function ImportHistory({ periodId, limit = 10 }: ImportHistoryProps) {
   const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<{open: boolean; onConfirm: () => void; title: string; message: string}>({open: false, onConfirm: () => {}, title: '', message: ''});
   const queryClient = useQueryClient();
 
   const { data: batches, isLoading, error } = useQuery({
@@ -178,9 +179,12 @@ export function ImportHistory({ periodId, limit = 10 }: ImportHistoryProps) {
                     className="text-error/60 hover:text-error hover:bg-error/10 h-7 w-7 p-0"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (confirm(`Delete import "${batch.file_name}"?\n\nThis will also delete ${batch.successful_rows} imported activities.`)) {
-                        deleteMutation.mutate({ batchId: batch.id, deleteActivities: true });
-                      }
+                      setConfirmState({
+                        open: true,
+                        onConfirm: () => { deleteMutation.mutate({ batchId: batch.id, deleteActivities: true }); setConfirmState(s => ({...s, open: false})); },
+                        title: 'Delete Import',
+                        message: `Delete import "${batch.file_name}"?\n\nThis will also delete ${batch.successful_rows} imported activities.`,
+                      });
                     }}
                     disabled={deleteMutation.isPending}
                     title="Delete this import and its activities"
@@ -258,6 +262,15 @@ export function ImportHistory({ periodId, limit = 10 }: ImportHistoryProps) {
           ))}
         </div>
       </CardContent>
+      <ConfirmDialog
+        isOpen={confirmState.open}
+        onClose={() => setConfirmState(s => ({...s, open: false}))}
+        onConfirm={confirmState.onConfirm}
+        title={confirmState.title}
+        message={confirmState.message}
+        variant="danger"
+        confirmLabel="Delete"
+      />
     </Card>
   );
 }

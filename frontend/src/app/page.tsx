@@ -1,9 +1,17 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { COUNTRIES } from '@/lib/countries';
+import { plans, addOns } from '@/lib/pricing';
 import {
   Leaf,
   Loader2,
@@ -28,6 +36,9 @@ import {
   Linkedin,
   Mail,
   ExternalLink,
+  Rocket,
+  DollarSign,
+  Star,
 } from 'lucide-react';
 
 // Team data from climatrix.io
@@ -130,8 +141,10 @@ function LandingPageContent() {
   const [organizationName, setOrganizationName] = useState('');
   const [countryCode, setCountryCode] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const { login, register, isLoading, error, clearError, isAuthenticated, logout } = useAuthStore();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { login, googleLogin, register, isLoading, error, clearError, isAuthenticated, logout } = useAuthStore();
   const router = useRouter();
+  const googleInitialized = useRef(false);
 
   useEffect(() => {
     if (searchParams.get('reset') === 'true') {
@@ -147,6 +160,59 @@ function LandingPageContent() {
       router.push('/dashboard');
     }
   }, [isAuthenticated, router, searchParams]);
+
+  // Load Google Identity Services script
+  useEffect(() => {
+    if (document.getElementById('google-gsi-script')) return;
+    const script = document.createElement('script');
+    script.id = 'google-gsi-script';
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  }, []);
+
+  const handleGoogleSignIn = useCallback(() => {
+    if (!window.google) return;
+    clearError();
+    setGoogleLoading(true);
+
+    if (!googleInitialized.current) {
+      window.google.accounts.id.initialize({
+        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+        callback: async (response: any) => {
+          try {
+            await googleLogin(response.credential);
+            router.push('/dashboard');
+          } catch {
+            // Error is handled by the store
+          } finally {
+            setGoogleLoading(false);
+          }
+        },
+      });
+      googleInitialized.current = true;
+    }
+
+    window.google.accounts.id.prompt((notification: any) => {
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        // Fallback: render a Google button in a hidden div and click it
+        const btnContainer = document.getElementById('google-btn-container');
+        if (btnContainer) {
+          btnContainer.innerHTML = '';
+          window.google.accounts.id.renderButton(btnContainer, {
+            type: 'standard',
+            theme: 'filled_black',
+            size: 'large',
+            width: '100%',
+          });
+          const innerBtn = btnContainer.querySelector('div[role="button"]') as HTMLElement;
+          if (innerBtn) innerBtn.click();
+        }
+        setGoogleLoading(false);
+      }
+    });
+  }, [clearError, googleLogin, router]);
 
   if (isAuthenticated) {
     return null;
@@ -213,6 +279,9 @@ function LandingPageContent() {
             <div className="hidden md:flex items-center gap-8">
               <a href="#features" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
                 Features
+              </a>
+              <a href="#pricing" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+                Pricing
               </a>
               <a href="#team" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
                 Team
@@ -367,6 +436,112 @@ function LandingPageContent() {
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section id="pricing" className="relative py-32 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-sm font-medium mb-6">
+              <DollarSign className="w-4 h-4" />
+              Pricing Plans
+            </div>
+            <h2 className="text-4xl sm:text-5xl font-bold text-white mb-6">
+              Enterprise Features, Transparent Pricing
+            </h2>
+            <p className="text-lg text-gray-400 max-w-2xl mx-auto">
+              Start with a 14-day free trial. No credit card required.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            {plans.map((plan) => {
+              const iconMap: Record<string, typeof Zap> = { Zap, Building2, Rocket };
+              const Icon = iconMap[plan.icon] || Zap;
+              return (
+                <div
+                  key={plan.name}
+                  className={cn(
+                    'relative p-8 rounded-3xl border transition-all duration-300 hover:-translate-y-1',
+                    plan.popular
+                      ? 'bg-white/[0.06] border-emerald-500/30 shadow-lg shadow-emerald-500/10'
+                      : 'bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]'
+                  )}
+                >
+                  {plan.popular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <span className="px-3 py-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-semibold rounded-full flex items-center gap-1">
+                        <Star className="w-3 h-3" /> Most Popular
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={cn(
+                      'w-10 h-10 rounded-xl flex items-center justify-center',
+                      plan.popular ? 'bg-emerald-500/20' : 'bg-white/5'
+                    )}>
+                      <Icon className={cn('w-5 h-5', plan.popular ? 'text-emerald-400' : 'text-gray-400')} />
+                    </div>
+                    <h3 className="text-xl font-semibold text-white">{plan.name}</h3>
+                  </div>
+                  <div className="mb-6">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold text-white">${plan.monthlyPrice}</span>
+                      <span className="text-gray-500">/month</span>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">{plan.description}</p>
+                  </div>
+                  <ul className="space-y-2.5 mb-8">
+                    {plan.features.slice(0, 5).map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                        <span className="text-sm text-gray-300">{feature}</span>
+                      </li>
+                    ))}
+                    {plan.features.length > 5 && (
+                      <li className="text-sm text-gray-500">+{plan.features.length - 5} more features</li>
+                    )}
+                  </ul>
+                  <button
+                    onClick={() => { setShowLogin(true); setIsRegistering(true); }}
+                    className={cn(
+                      'w-full py-3 rounded-xl font-semibold text-sm transition-all',
+                      plan.popular
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-lg hover:shadow-emerald-500/25 hover:-translate-y-0.5'
+                        : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'
+                    )}
+                  >
+                    {plan.cta}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Add-on modules */}
+          <div className="text-center mb-8">
+            <h3 className="text-xl font-semibold text-white mb-2">Add-On Modules</h3>
+            <p className="text-sm text-gray-500">Extend with specialized compliance modules</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {addOns.map((addon) => (
+              <div key={addon.name} className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-center">
+                <h4 className="text-sm font-semibold text-white mb-1">{addon.name}</h4>
+                <p className="text-lg font-bold text-emerald-400">+${addon.price}<span className="text-xs text-gray-500 font-normal">/mo</span></p>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <a
+              href="/pricing"
+              className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
+            >
+              See Full Comparison
+              <ArrowRight className="w-4 h-4" />
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* Team Section */}
       <section id="team" className="relative py-32 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
@@ -498,6 +673,34 @@ function LandingPageContent() {
               </p>
             </div>
 
+            {/* Google Sign-In Button */}
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={googleLoading || isLoading}
+              className="w-full py-3.5 bg-white/5 border border-white/10 rounded-xl font-semibold text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 transition-all hover:-translate-y-0.5 mb-4"
+            >
+              {googleLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
+              )}
+              Continue with Google
+            </button>
+            <div id="google-btn-container" className="hidden" />
+
+            {/* Divider */}
+            <div className="relative flex items-center gap-4 mb-4">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-xs text-gray-500 uppercase tracking-wider">or continue with email</span>
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               {isRegistering && (
                 <>
@@ -539,14 +742,9 @@ function LandingPageContent() {
                       className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
                     >
                       <option value="" className="bg-[#0f1629]">Select country...</option>
-                      <option value="US" className="bg-[#0f1629]">United States</option>
-                      <option value="GB" className="bg-[#0f1629]">United Kingdom</option>
-                      <option value="IL" className="bg-[#0f1629]">Israel</option>
-                      <option value="DE" className="bg-[#0f1629]">Germany</option>
-                      <option value="FR" className="bg-[#0f1629]">France</option>
-                      <option value="NL" className="bg-[#0f1629]">Netherlands</option>
-                      <option value="AU" className="bg-[#0f1629]">Australia</option>
-                      <option value="CA" className="bg-[#0f1629]">Canada</option>
+                      {COUNTRIES.map((c) => (
+                        <option key={c.code} value={c.code} className="bg-[#0f1629]">{c.name}</option>
+                      ))}
                     </select>
                   </div>
                 </>

@@ -25,6 +25,7 @@ import {
   Badge,
 } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { COUNTRY_OPTIONS } from '@/lib/countries';
 import {
   Plus,
   MapPin,
@@ -264,17 +265,7 @@ function SitesPageContent() {
                 <Select
                   value={formData.country_code}
                   onChange={(e) => setFormData({ ...formData, country_code: e.target.value })}
-                  options={[
-                    { value: '', label: 'Select country...' },
-                    { value: 'IL', label: 'Israel' },
-                    { value: 'US', label: 'United States' },
-                    { value: 'GB', label: 'United Kingdom' },
-                    { value: 'DE', label: 'Germany' },
-                    { value: 'FR', label: 'France' },
-                    { value: 'NL', label: 'Netherlands' },
-                    { value: 'CN', label: 'China' },
-                    { value: 'IN', label: 'India' },
-                  ]}
+                  options={COUNTRY_OPTIONS}
                 />
               </div>
 

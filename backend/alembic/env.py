@@ -14,7 +14,7 @@ from app.models import *  # noqa: F401, F403 - Import all models for auto-discov
 config = context.config
 
 # Override sqlalchemy.url with app settings
-config.set_main_option("sqlalchemy.url", settings.database_url)
+config.set_main_option("sqlalchemy.url", settings.async_database_url)
 
 # Setup logging
 if config.config_file_name is not None:

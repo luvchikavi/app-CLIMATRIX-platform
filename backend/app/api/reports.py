@@ -14,6 +14,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, func
+import csv
 import io
 import json
 
@@ -2107,4 +2108,303 @@ async def export_esrs_e1_format(
         ghg_accounting_standard="GHG Protocol Corporate Standard",
         emission_factor_sources=list(factor_sources),
         gwp_values_source="IPCC AR6 (2021) - 100-year GWP values",
+    )
+
+
+# ============================================================================
+# CSV / PDF Export
+# ============================================================================
+
+async def _get_export_data(
+    period_id: UUID,
+    session: AsyncSession,
+    current_user: User,
+):
+    """Shared helper to fetch period, organization, and activity rows for export."""
+    # Verify period belongs to organization
+    period_query = select(ReportingPeriod).where(
+        ReportingPeriod.id == period_id,
+        ReportingPeriod.organization_id == current_user.organization_id,
+    )
+    period_result = await session.execute(period_query)
+    period = period_result.scalar_one_or_none()
+    if not period:
+        raise HTTPException(status_code=404, detail="Reporting period not found")
+
+    # Fetch organization
+    org_result = await session.execute(
+        select(Organization).where(Organization.id == current_user.organization_id)
+    )
+    org = org_result.scalar_one_or_none()
+
+    # Fetch all activities with their emissions and factors
+    query = (
+        select(Activity, Emission, EmissionFactor)
+        .join(Emission, Activity.id == Emission.activity_id)
+        .outerjoin(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
+        .where(
+            Activity.reporting_period_id == period_id,
+            Activity.organization_id == current_user.organization_id,
+        )
+        .order_by(Activity.scope, Activity.category_code)
+    )
+    result = await session.execute(query)
+    rows = result.all()
+
+    return period, org, rows
+
+
+@router.get("/reports/export/csv")
+async def export_report_csv(
+    period_id: UUID = Query(...),
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Export a GHG report as CSV.
+
+    Generates a CSV file with all activities and their emissions
+    for the specified reporting period.
+    """
+    period, org, rows = await _get_export_data(period_id, session, current_user)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Header row
+    writer.writerow([
+        "Scope",
+        "Category",
+        "Description",
+        "Activity Key",
+        "Quantity",
+        "Unit",
+        "CO2e (kg)",
+        "CO2e (tonnes)",
+        "Factor Source",
+        "Data Quality",
+    ])
+
+    data_quality_labels = {
+        1: "Verified Data",
+        2: "Primary Data",
+        3: "Activity Average",
+        4: "Spend-Based",
+        5: "Estimated",
+    }
+
+    for activity, emission, factor in rows:
+        co2e_kg = float(emission.co2e_kg) if emission.co2e_kg else 0.0
+        co2e_tonnes = co2e_kg / 1000.0
+        factor_source = factor.source if factor else (emission.resolution_strategy or "N/A")
+        dq_score = activity.data_quality_score or 5
+        dq_label = data_quality_labels.get(dq_score, f"Score {dq_score}")
+
+        writer.writerow([
+            f"Scope {activity.scope}",
+            activity.category_code,
+            activity.description,
+            activity.activity_key,
+            float(activity.quantity),
+            activity.unit,
+            round(co2e_kg, 4),
+            round(co2e_tonnes, 6),
+            factor_source,
+            dq_label,
+        ])
+
+    safe_name = period.name.replace(" ", "_").replace("/", "-")
+    output.seek(0)
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="ghg_report_{safe_name}.csv"',
+        },
+    )
+
+
+@router.get("/reports/export/pdf")
+async def export_report_pdf(
+    period_id: UUID = Query(...),
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Export a GHG report as PDF.
+
+    Generates a professional PDF GHG Emissions Inventory Report
+    using reportlab for the specified reporting period.
+    """
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (
+        SimpleDocTemplate,
+        Table,
+        TableStyle,
+        Paragraph,
+        Spacer,
+    )
+
+    period, org, rows = await _get_export_data(period_id, session, current_user)
+
+    org_name = org.name if org else "Organization"
+
+    # Aggregate scope totals
+    scope_totals = {1: Decimal(0), 2: Decimal(0), 3: Decimal(0)}
+    for activity, emission, _factor in rows:
+        scope_totals[activity.scope] += emission.co2e_kg or Decimal(0)
+    total_co2e = sum(scope_totals.values())
+
+    # Build PDF in memory
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        leftMargin=20 * mm,
+        rightMargin=20 * mm,
+        topMargin=20 * mm,
+        bottomMargin=20 * mm,
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "ReportTitle",
+        parent=styles["Title"],
+        fontSize=20,
+        spaceAfter=6,
+    )
+    subtitle_style = ParagraphStyle(
+        "ReportSubtitle",
+        parent=styles["Normal"],
+        fontSize=12,
+        textColor=colors.HexColor("#555555"),
+        spaceAfter=4,
+    )
+    heading_style = ParagraphStyle(
+        "SectionHeading",
+        parent=styles["Heading2"],
+        fontSize=14,
+        spaceBefore=16,
+        spaceAfter=8,
+        textColor=colors.HexColor("#1a1a1a"),
+    )
+    body_style = styles["Normal"]
+    footer_style = ParagraphStyle(
+        "Footer",
+        parent=styles["Normal"],
+        fontSize=8,
+        textColor=colors.HexColor("#888888"),
+    )
+
+    elements = []
+
+    # --- Title Section ---
+    elements.append(Paragraph("GHG Emissions Inventory Report", title_style))
+    elements.append(Paragraph(org_name, subtitle_style))
+    elements.append(Paragraph(
+        f"Period: {period.name} ({period.start_date.isoformat()} to {period.end_date.isoformat()})",
+        subtitle_style,
+    ))
+    elements.append(Spacer(1, 12))
+
+    # --- Summary Section ---
+    elements.append(Paragraph("Executive Summary", heading_style))
+
+    summary_data = [
+        ["Scope", "Emissions (tonnes CO2e)"],
+        ["Scope 1 - Direct Emissions", f"{float(scope_totals[1]) / 1000:.4f}"],
+        ["Scope 2 - Indirect Energy", f"{float(scope_totals[2]) / 1000:.4f}"],
+        ["Scope 3 - Value Chain", f"{float(scope_totals[3]) / 1000:.4f}"],
+        ["Total", f"{float(total_co2e) / 1000:.4f}"],
+    ]
+
+    summary_table = Table(summary_data, colWidths=[300, 170])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563eb")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 10),
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#eff6ff")),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 16))
+
+    # --- Activity Detail Table ---
+    elements.append(Paragraph("Activity Detail", heading_style))
+
+    detail_header = [
+        "Scope",
+        "Category",
+        "Description",
+        "Quantity",
+        "Unit",
+        "CO2e (t)",
+    ]
+    detail_data = [detail_header]
+
+    for activity, emission, _factor in rows:
+        co2e_t = float(emission.co2e_kg or 0) / 1000.0
+        # Truncate long descriptions for the PDF table
+        desc = activity.description
+        if len(desc) > 40:
+            desc = desc[:37] + "..."
+        detail_data.append([
+            str(activity.scope),
+            activity.category_code,
+            Paragraph(desc, body_style),
+            f"{float(activity.quantity):,.2f}",
+            activity.unit,
+            f"{co2e_t:.4f}",
+        ])
+
+    col_widths = [40, 55, 200, 70, 50, 60]
+    detail_table = Table(detail_data, colWidths=col_widths, repeatRows=1)
+    detail_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563eb")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("ALIGN", (0, 0), (0, -1), "CENTER"),
+        ("ALIGN", (3, 0), (3, -1), "RIGHT"),
+        ("ALIGN", (5, 0), (5, -1), "RIGHT"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f9fafb")]),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+    elements.append(detail_table)
+    elements.append(Spacer(1, 24))
+
+    # --- Footer ---
+    generated_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    elements.append(Paragraph(
+        f"Generated by CLIMATRIX on {generated_at}. "
+        "Emission factors sourced from recognised databases (DEFRA, EPA, IPCC).",
+        footer_style,
+    ))
+
+    doc.build(elements)
+    buf.seek(0)
+    safe_name = period.name.replace(" ", "_").replace("/", "-")
+
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="ghg_report_{safe_name}.pdf"',
+        },
     )

@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
-import { usePeriods, useActivities, useDeleteActivity } from '@/hooks/useEmissions';
+import { usePeriodStore } from '@/stores/period';
+import { usePeriods, useActivities, useDeleteActivity, useUpdateActivity } from '@/hooks/useEmissions';
 import { AppShell } from '@/components/layout';
 import {
   Card,
@@ -20,9 +21,11 @@ import {
   TableHead,
   TableCell,
   EmptyState,
+  ConfirmDialog,
+  toast,
 } from '@/components/ui';
-import { Plus, Loader2, Trash2, ArrowLeft, Filter, FileSpreadsheet, ChevronDown } from 'lucide-react';
-import { api, ImportBatch } from '@/lib/api';
+import { Plus, Loader2, Trash2, Pencil, ArrowLeft, Filter, FileSpreadsheet, ChevronDown, Calendar, X } from 'lucide-react';
+import { api, ImportBatch, ActivityWithEmission } from '@/lib/api';
 
 export default function ActivitiesPage() {
   const router = useRouter();
@@ -33,10 +36,17 @@ export default function ActivitiesPage() {
   const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
   const [batchDropdownOpen, setBatchDropdownOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [confirmState, setConfirmState] = useState<{open: boolean; onConfirm: () => void; title: string; message: string}>({open: false, onConfirm: () => {}, title: '', message: ''});
+  const [editingActivity, setEditingActivity] = useState<ActivityWithEmission | null>(null);
+  const [editForm, setEditForm] = useState({ description: '', quantity: 0, unit: '', data_quality_score: 5 });
 
   // All data fetching hooks (must be before any conditional returns)
   const { data: periods, isLoading: periodsLoading } = usePeriods();
-  const activePeriodId = periods?.[0]?.id;
+  const { selectedPeriodId, setSelectedPeriodId } = usePeriodStore();
+
+  // Use selected period from store, fall back to first available period
+  const activePeriodId = selectedPeriodId || periods?.[0]?.id;
+  const activePeriod = periods?.find((p) => p.id === activePeriodId) || periods?.[0];
 
   const { data: activities, isLoading: activitiesLoading } = useActivities(
     activePeriodId || '',
@@ -44,6 +54,7 @@ export default function ActivitiesPage() {
   );
 
   const deleteActivity = useDeleteActivity(activePeriodId || '');
+  const updateActivity = useUpdateActivity(activePeriodId || '');
 
   // Fetch import batches for filter dropdown
   const { data: importBatches } = useQuery({
@@ -86,6 +97,40 @@ export default function ActivitiesPage() {
     ? importBatches?.find((b) => b.id === selectedBatch)
     : null;
 
+  const openEditModal = (item: ActivityWithEmission) => {
+    setEditForm({
+      description: item.activity.description,
+      quantity: item.activity.quantity,
+      unit: item.activity.unit,
+      data_quality_score: item.activity.data_quality_score ?? 5,
+    });
+    setEditingActivity(item);
+  };
+
+  const handleEditSave = () => {
+    if (!editingActivity) return;
+    updateActivity.mutate(
+      {
+        activityId: editingActivity.activity.id,
+        data: {
+          description: editForm.description,
+          quantity: editForm.quantity,
+          unit: editForm.unit,
+          data_quality_score: editForm.data_quality_score,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success('Activity updated successfully');
+          setEditingActivity(null);
+        },
+        onError: (err: any) => {
+          toast.error(err?.message || 'Failed to update activity');
+        },
+      }
+    );
+  };
+
   return (
     <AppShell>
       {/* Page Header */}
@@ -101,9 +146,24 @@ export default function ActivitiesPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-foreground">All Activities</h1>
-            <p className="text-foreground-muted mt-1">
-              {periods?.[0]?.name || 'Loading...'}
-            </p>
+            {periods && periods.length > 1 ? (
+              <div className="flex items-center gap-2 mt-1">
+                <Calendar className="w-4 h-4 text-foreground-muted" />
+                <select
+                  value={activePeriodId || ''}
+                  onChange={(e) => setSelectedPeriodId(e.target.value || null)}
+                  className="text-sm bg-transparent border border-border rounded-lg px-2 py-1 text-foreground-muted focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  {periods.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <p className="text-foreground-muted mt-1">
+                {activePeriod?.name || 'Loading...'}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -297,18 +357,31 @@ export default function ActivitiesPage() {
                         {item.emission?.factor_source || '-'}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (confirm('Delete this activity?')) {
-                              deleteActivity.mutate(item.activity.id);
-                            }
-                          }}
-                          className="text-danger hover:text-danger hover:bg-danger/10"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditModal(item)}
+                            className="text-foreground-muted hover:text-primary hover:bg-primary/10"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setConfirmState({
+                                open: true,
+                                onConfirm: () => { deleteActivity.mutate(item.activity.id); setConfirmState(s => ({...s, open: false})); },
+                                title: 'Delete Activity',
+                                message: 'Delete this activity?',
+                              });
+                            }}
+                            className="text-danger hover:text-danger hover:bg-danger/10"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -341,6 +414,112 @@ export default function ActivitiesPage() {
             )}
           </CardContent>
         </Card>
+      )}
+      <ConfirmDialog
+        isOpen={confirmState.open}
+        onClose={() => setConfirmState(s => ({...s, open: false}))}
+        onConfirm={confirmState.onConfirm}
+        title={confirmState.title}
+        message={confirmState.message}
+        variant="danger"
+        confirmLabel="Delete"
+      />
+
+      {/* Edit Activity Modal */}
+      {editingActivity && (
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
+          style={{ zIndex: 'var(--z-modal)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setEditingActivity(null); }}
+        >
+          <div className="relative w-full max-w-lg bg-background-elevated border border-border rounded-xl shadow-xl">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pt-6 pb-2">
+              <h2 className="text-lg font-semibold text-foreground">Edit Activity</h2>
+              <button
+                onClick={() => setEditingActivity(null)}
+                className="p-1 rounded-lg text-foreground-muted hover:text-foreground hover:bg-background-muted transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <div className="px-6 py-4 space-y-4">
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+                <input
+                  type="text"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+
+              {/* Quantity */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Quantity</label>
+                <input
+                  type="number"
+                  value={editForm.quantity}
+                  onChange={(e) => setEditForm(f => ({ ...f, quantity: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  min="0"
+                  step="any"
+                />
+              </div>
+
+              {/* Unit */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Unit</label>
+                <input
+                  type="text"
+                  value={editForm.unit}
+                  onChange={(e) => setEditForm(f => ({ ...f, unit: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+
+              {/* Data Quality Score */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Data Quality Score</label>
+                <select
+                  value={editForm.data_quality_score}
+                  onChange={(e) => setEditForm(f => ({ ...f, data_quality_score: parseInt(e.target.value) }))}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value={1}>1 - Highest quality</option>
+                  <option value={2}>2 - High quality</option>
+                  <option value={3}>3 - Medium quality</option>
+                  <option value={4}>4 - Low quality</option>
+                  <option value={5}>5 - Lowest quality</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3 px-6 pb-6 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditingActivity(null)}
+                disabled={updateActivity.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleEditSave}
+                disabled={updateActivity.isPending || !editForm.description.trim() || editForm.quantity <= 0}
+                leftIcon={updateActivity.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : undefined}
+              >
+                {updateActivity.isPending ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </AppShell>
   );

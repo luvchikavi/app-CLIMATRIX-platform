@@ -12,7 +12,7 @@
 import { useState, useMemo } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
-import { Button, Input } from '@/components/ui';
+import { Button, Input, toast } from '@/components/ui';
 import { formatCO2e } from '@/lib/utils';
 import { calculateSpendEmissions } from '@/lib/currency';
 import {
@@ -131,7 +131,7 @@ export function TransportForm({ periodId, onSuccess }: TransportFormProps) {
         }
       } else {
         setAutoDistanceResult(null);
-        alert('No route found for this country pair. Please enter distance manually.');
+        toast.warning('No route found for this country pair. Please enter distance manually.');
       }
     } catch (error) {
       console.error('Failed to auto-calculate distance:', error);

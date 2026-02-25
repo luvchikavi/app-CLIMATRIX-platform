@@ -47,17 +47,27 @@ app = FastAPI(
 )
 
 # CORS Middleware - Uses CORS_ORIGINS_STR from environment
-# In production: set to specific domains (e.g., "https://app.climatrix.io")
+# In production: set to specific domains (e.g., "https://climatrix.io,https://app.climatrix.io")
 # In development: defaults to "*" for convenience
 _origins = settings.cors_origins
 _use_wildcard = _origins == ["*"]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_origins,
-    allow_credentials=not _use_wildcard,  # credentials require specific origins
+
+_cors_kwargs: dict = dict(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+if _use_wildcard:
+    _cors_kwargs["allow_origins"] = ["*"]
+    _cors_kwargs["allow_credentials"] = False
+else:
+    _cors_kwargs["allow_origins"] = _origins
+    _cors_kwargs["allow_credentials"] = True
+    # Allow Vercel preview deploys (*.vercel.app)
+    if settings.cors_allow_vercel_previews:
+        _cors_kwargs["allow_origin_regex"] = r"https://.*\.vercel\.app"
+
+app.add_middleware(CORSMiddleware, **_cors_kwargs)
 
 
 # Global exception handler to ensure proper error responses with CORS

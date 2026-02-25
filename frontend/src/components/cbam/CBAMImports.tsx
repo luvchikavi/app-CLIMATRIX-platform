@@ -15,6 +15,7 @@ import {
   TableEmpty,
 } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
+import { ConfirmDialog } from '@/components/ui';
 import { api } from '@/lib/api';
 import type { CBAMImport, CBAMImportCreate, CBAMInstallation, CBAMCNCode } from '@/lib/types';
 import { Plus, Package, Trash2, Search, X, Calculator } from 'lucide-react';
@@ -38,6 +39,7 @@ export function CBAMImports() {
     mass_tonnes: 0,
   });
   const [saving, setSaving] = useState(false);
+  const [confirmState, setConfirmState] = useState<{open: boolean; onConfirm: () => void; title: string; message: string}>({open: false, onConfirm: () => {}, title: '', message: ''});
 
   // CN Code search
   const [cnSearchQuery, setCnSearchQuery] = useState('');
@@ -116,15 +118,21 @@ export function CBAMImports() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this import?')) return;
-
-    try {
-      await api.deleteCBAMImport(id);
-      await loadData();
-    } catch (err) {
-      console.error('Failed to delete import:', err);
-    }
+  const handleDelete = (id: string) => {
+    setConfirmState({
+      open: true,
+      onConfirm: async () => {
+        setConfirmState(s => ({...s, open: false}));
+        try {
+          await api.deleteCBAMImport(id);
+          await loadData();
+        } catch (err) {
+          console.error('Failed to delete import:', err);
+        }
+      },
+      title: 'Delete Import',
+      message: 'Are you sure you want to delete this import?',
+    });
   };
 
   const resetForm = () => {
@@ -423,6 +431,15 @@ export function CBAMImports() {
           </TableBody>
         </Table>
       </Card>
+      <ConfirmDialog
+        isOpen={confirmState.open}
+        onClose={() => setConfirmState(s => ({...s, open: false}))}
+        onConfirm={confirmState.onConfirm}
+        title={confirmState.title}
+        message={confirmState.message}
+        variant="danger"
+        confirmLabel="Delete"
+      />
     </div>
   );
 }

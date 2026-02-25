@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
+import { ConfirmDialog, toast } from '@/components/ui';
 import { api } from '@/lib/api';
 import type { CBAMQuarterlyReport, CBAMAnnualDeclaration } from '@/lib/types';
 import {
@@ -35,6 +36,7 @@ export function CBAMReports() {
   const [generating, setGenerating] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [exporting, setExporting] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<{open: boolean; onConfirm: () => void; title: string; message: string}>({open: false, onConfirm: () => {}, title: '', message: ''});
 
   const currentYear = new Date().getFullYear();
   const isDefinitivePhase = currentYear >= 2026;
@@ -71,18 +73,24 @@ export function CBAMReports() {
     }
   };
 
-  const submitQuarterlyReport = async (quarter: number) => {
-    if (!confirm(`Are you sure you want to submit the Q${quarter} ${selectedYear} report?`)) return;
-
-    try {
-      setSubmitting(`Q${quarter}`);
-      await api.submitCBAMQuarterlyReport(selectedYear, quarter);
-      await loadReports();
-    } catch (err) {
-      console.error('Failed to submit report:', err);
-    } finally {
-      setSubmitting(null);
-    }
+  const submitQuarterlyReport = (quarter: number) => {
+    setConfirmState({
+      open: true,
+      onConfirm: async () => {
+        setConfirmState(s => ({...s, open: false}));
+        try {
+          setSubmitting(`Q${quarter}`);
+          await api.submitCBAMQuarterlyReport(selectedYear, quarter);
+          await loadReports();
+        } catch (err) {
+          console.error('Failed to submit report:', err);
+        } finally {
+          setSubmitting(null);
+        }
+      },
+      title: 'Submit Report',
+      message: `Are you sure you want to submit the Q${quarter} ${selectedYear} report?`,
+    });
   };
 
   const exportReport = async (quarter: number, format: 'xml' | 'csv') => {
@@ -111,7 +119,7 @@ export function CBAMReports() {
       document.body.removeChild(a);
     } catch (err) {
       console.error('Failed to export report:', err);
-      alert('Failed to export report');
+      toast.error('Failed to export report');
     } finally {
       setExporting(null);
     }
@@ -337,6 +345,15 @@ export function CBAMReports() {
           )}
         </div>
       )}
+      <ConfirmDialog
+        isOpen={confirmState.open}
+        onClose={() => setConfirmState(s => ({...s, open: false}))}
+        onConfirm={confirmState.onConfirm}
+        title={confirmState.title}
+        message={confirmState.message}
+        variant="warning"
+        confirmLabel="Submit"
+      />
     </div>
   );
 }

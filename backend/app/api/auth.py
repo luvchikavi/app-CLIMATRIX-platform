@@ -143,7 +143,7 @@ async def login(
     result = await session.execute(select(User).where(User.email == form_data.username))
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user or not user.hashed_password or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -198,6 +198,136 @@ async def login(
     return Token(
         access_token=access_token,
         refresh_token=refresh_token,
+        user=user_response,
+        organization=org_response,
+    )
+
+
+class GoogleLoginRequest(BaseModel):
+    """Google OAuth login request."""
+    id_token: str
+
+
+@router.post("/google", response_model=Token)
+async def google_login(
+    data: GoogleLoginRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Authenticate or register a user via Google OAuth.
+
+    Verifies the Google ID token, then:
+    - If user exists (by google_id or email): logs them in
+    - If user doesn't exist: creates org + user and logs them in
+    """
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_requests
+    from app.models.core import Organization, UserRole
+
+    # Verify the Google ID token
+    try:
+        payload = google_id_token.verify_oauth2_token(
+            data.id_token,
+            google_requests.Request(),
+            settings.google_client_id,
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Google token",
+        )
+
+    google_email = payload.get("email")
+    google_name = payload.get("name", "")
+    google_sub = payload.get("sub")  # Google user ID
+
+    if not google_email or not google_sub:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google token missing required fields",
+        )
+
+    # Look up user by google_id first, then by email
+    result = await session.execute(select(User).where(User.google_id == google_sub))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        result = await session.execute(select(User).where(User.email == google_email))
+        user = result.scalar_one_or_none()
+
+    if user:
+        # Existing user - update google_id if missing
+        if not user.google_id:
+            user.google_id = google_sub
+        user.last_login = datetime.utcnow()
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+    else:
+        # New user - create organization and user
+        organization = Organization(
+            name=f"{google_name}'s Organization" if google_name else "My Organization",
+            default_region="Global",
+        )
+        session.add(organization)
+        await session.flush()
+
+        user = User(
+            email=google_email,
+            full_name=google_name,
+            hashed_password=None,
+            google_id=google_sub,
+            organization_id=organization.id,
+            role=UserRole.ADMIN,
+            last_login=datetime.utcnow(),
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+        # Start free trial for the new organization
+        from app.services.billing import BillingService
+        await BillingService.start_free_trial(session, organization)
+
+    # Fetch organization
+    org_result = await session.execute(
+        select(Organization).where(Organization.id == user.organization_id)
+    )
+    organization = org_result.scalar_one_or_none()
+
+    # Create tokens
+    token_data = {
+        "sub": str(user.id),
+        "org_id": str(user.organization_id),
+        "role": user.role.value,
+    }
+
+    access_token = create_access_token(
+        token_data,
+        expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+    )
+    refresh_tok = create_refresh_token(token_data)
+
+    # Build responses
+    user_response = UserResponse(
+        id=str(user.id),
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role.value,
+        organization_id=str(user.organization_id),
+    )
+
+    org_response = None
+    if organization:
+        org_response = OrganizationResponse(
+            id=str(organization.id),
+            name=organization.name,
+            country_code=organization.country_code,
+        )
+
+    return Token(
+        access_token=access_token,
+        refresh_token=refresh_tok,
         user=user_response,
         organization=org_response,
     )
@@ -311,6 +441,10 @@ async def register(
     await session.commit()
     await session.refresh(user)
     await session.refresh(organization)
+
+    # Start free trial for the new organization
+    from app.services.billing import BillingService
+    await BillingService.start_free_trial(session, organization)
 
     # Create tokens
     token_data = {

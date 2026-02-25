@@ -34,6 +34,7 @@ class SubscriptionResponse(BaseModel):
     plan: str
     status: str | None
     current_period_end: str | None
+    trial_ends_at: str | None
     is_trialing: bool
     plan_limits: dict
 
@@ -51,6 +52,12 @@ class PortalResponse(BaseModel):
 class PlansResponse(BaseModel):
     """Available subscription plans."""
     plans: list[dict]
+
+
+@router.get("/config")
+async def get_billing_config():
+    """Get Stripe publishable key for frontend."""
+    return {"publishable_key": settings.stripe_publishable_key}
 
 
 @router.get("/subscription", response_model=SubscriptionResponse)
@@ -71,6 +78,7 @@ async def get_subscription(
         plan=organization.subscription_plan.value,
         status=organization.subscription_status.value if organization.subscription_status else None,
         current_period_end=organization.subscription_current_period_end.isoformat() if organization.subscription_current_period_end else None,
+        trial_ends_at=organization.trial_ends_at.isoformat() if organization.trial_ends_at else None,
         is_trialing=organization.trial_ends_at is not None and organization.subscription_status and organization.subscription_status.value == "trialing",
         plan_limits=BillingService.get_plan_limits(organization.subscription_plan),
     )

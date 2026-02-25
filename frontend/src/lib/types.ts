@@ -60,12 +60,15 @@ export const DATA_QUALITY_DESCRIPTIONS: Record<DataQualityScore, string> = {
 // ENTITY TYPES
 // =============================================================================
 
+export type SubscriptionPlan = 'free' | 'starter' | 'professional' | 'enterprise';
+
 export interface Organization {
   id: string;
   name: string;
   country_code?: string;
   industry_code?: string;
   base_year?: number;
+  subscription_plan?: SubscriptionPlan;
   created_at: string;
   modules?: ModuleConfig;
 }

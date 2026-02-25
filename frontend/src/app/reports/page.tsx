@@ -24,6 +24,7 @@ import {
   ScopeBadge,
   Badge,
   PeriodStatusBadge,
+  toast,
 } from '@/components/ui';
 import { ScopePieChart } from '@/components/dashboard/ScopePieChart';
 import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
@@ -185,12 +186,30 @@ function ReportsPageContent() {
     return acc;
   }, {} as Record<string, typeof activities>);
 
-  const handleExportCSV = () => {
-    alert('Export to CSV coming soon');
+  const handleExportCSV = async () => {
+    if (!activePeriodId) {
+      toast.error('Please select a reporting period');
+      return;
+    }
+    try {
+      await api.downloadReportExport('csv', activePeriodId);
+      toast.success('CSV report downloaded');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to export CSV');
+    }
   };
 
-  const handleExportPDF = () => {
-    alert('Export to PDF coming soon');
+  const handleExportPDF = async () => {
+    if (!activePeriodId) {
+      toast.error('Please select a reporting period');
+      return;
+    }
+    try {
+      await api.downloadReportExport('pdf', activePeriodId);
+      toast.success('PDF report downloaded');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to export PDF');
+    }
   };
 
   const handleExportCDP = async () => {

@@ -13,6 +13,7 @@ import {
   Microscope,
   FileStack,
   ArrowRight,
+  ArrowUpRight,
   Check,
   Lock,
   Loader2,
@@ -27,6 +28,23 @@ interface Module {
   href: string;
   status: 'active' | 'coming_soon' | 'locked';
   features: string[];
+  /** Minimum plan required to unlock this module */
+  requiredPlan?: 'free' | 'starter' | 'professional' | 'enterprise';
+  /** Price hint for the upgrade CTA */
+  price?: string;
+}
+
+/** Plan hierarchy for comparison */
+const PLAN_LEVELS: Record<string, number> = {
+  free: 0,
+  starter: 1,
+  professional: 2,
+  enterprise: 3,
+};
+
+/** Returns true if the current plan meets or exceeds the required plan */
+function hasPlanAccess(currentPlan: string, requiredPlan: string): boolean {
+  return (PLAN_LEVELS[currentPlan] ?? 0) >= (PLAN_LEVELS[requiredPlan] ?? 0);
 }
 
 const MODULES: Module[] = [
@@ -38,6 +56,7 @@ const MODULES: Module[] = [
     color: 'bg-primary',
     href: '/modules/ghg',
     status: 'active',
+    requiredPlan: 'free',
     features: [
       'Scope 1 Direct Emissions',
       'Scope 2 Indirect Energy',
@@ -54,6 +73,8 @@ const MODULES: Module[] = [
     color: 'bg-amber-500',
     href: '/modules/pcaf',
     status: 'coming_soon',
+    requiredPlan: 'enterprise',
+    price: '$299/mo',
     features: [
       'Asset Class Attribution',
       'Financed Emissions',
@@ -70,6 +91,8 @@ const MODULES: Module[] = [
     color: 'bg-blue-600',
     href: '/modules/cbam',
     status: 'active',
+    requiredPlan: 'professional',
+    price: '$149/mo',
     features: [
       'Embedded Emissions',
       'Supplier Data Collection',
@@ -86,6 +109,8 @@ const MODULES: Module[] = [
     color: 'bg-purple-600',
     href: '/modules/lca',
     status: 'coming_soon',
+    requiredPlan: 'enterprise',
+    price: '$299/mo',
     features: [
       'Cradle-to-Gate Analysis',
       'Product Footprinting',
@@ -102,6 +127,8 @@ const MODULES: Module[] = [
     color: 'bg-teal-600',
     href: '/modules/epd',
     status: 'coming_soon',
+    requiredPlan: 'enterprise',
+    price: '$299/mo',
     features: [
       'EPD Generation',
       'Third-party Verification',
@@ -114,8 +141,9 @@ const MODULES: Module[] = [
 
 export default function ModulesPage() {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, organization } = useAuthStore();
   const [mounted, setMounted] = useState(false);
+  const currentPlan = organization?.subscription_plan || 'free';
 
   // Handle client-side mounting
   useEffect(() => {
@@ -152,9 +180,89 @@ export default function ModulesPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {MODULES.map((module) => {
           const Icon = module.icon;
-          const isActive = module.status === 'active';
+          const requiredPlan = module.requiredPlan || 'free';
+          const isUnlocked = hasPlanAccess(currentPlan, requiredPlan);
           const isComingSoon = module.status === 'coming_soon';
+          const isLocked = !isUnlocked && !isComingSoon;
+          const isActive = module.status === 'active' && isUnlocked;
+          // Coming soon modules that are also locked by plan show as locked with coming soon note
+          const isComingSoonLocked = isComingSoon && !isUnlocked;
 
+          // Locked module card (plan-gated)
+          if (isLocked || isComingSoonLocked) {
+            return (
+              <Card
+                key={module.id}
+                padding="lg"
+                className="relative overflow-hidden transition-all duration-300 hover:shadow-lg cursor-pointer opacity-75 hover:opacity-90"
+                onClick={() => router.push(module.href)}
+              >
+                {/* Lock overlay icon */}
+                <div className="absolute top-4 right-4 flex items-center gap-2">
+                  {isComingSoonLocked && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      Coming Soon
+                    </Badge>
+                  )}
+                  <Badge variant="warning">
+                    <Lock className="w-3 h-3 mr-1" />
+                    Locked
+                  </Badge>
+                </div>
+
+                {/* Icon with lock overlay */}
+                <div className="relative mb-4">
+                  <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center opacity-50', module.color)}>
+                    <Icon className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-background-elevated border border-border flex items-center justify-center">
+                    <Lock className="w-3 h-3 text-foreground-muted" />
+                  </div>
+                </div>
+
+                {/* Content */}
+                <h3 className="text-lg font-semibold text-foreground mb-2">{module.name}</h3>
+                <p className="text-sm text-foreground-muted mb-4">{module.description}</p>
+
+                {/* Features */}
+                <ul className="space-y-2 mb-4">
+                  {module.features.slice(0, 3).map((feature, i) => (
+                    <li key={i} className="flex items-center gap-2 text-sm text-foreground-muted">
+                      <div className={cn('w-1.5 h-1.5 rounded-full bg-foreground-muted/30')} />
+                      {feature}
+                    </li>
+                  ))}
+                  {module.features.length > 3 && (
+                    <li className="text-xs text-foreground-muted">
+                      +{module.features.length - 3} more features
+                    </li>
+                  )}
+                </ul>
+
+                {/* Plan requirement badge */}
+                <div className="mb-4">
+                  <Badge variant="primary" className="text-[10px] normal-case tracking-normal">
+                    Available with {requiredPlan} plan
+                  </Badge>
+                </div>
+
+                {/* Upgrade CTA */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  rightIcon={<ArrowUpRight className="w-4 h-4" />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push('/billing');
+                  }}
+                >
+                  Upgrade
+                </Button>
+              </Card>
+            );
+          }
+
+          // Active or coming soon (unlocked) module card
           return (
             <Card
               key={module.id}
@@ -176,12 +284,6 @@ export default function ModulesPage() {
                 {isComingSoon && (
                   <Badge variant="secondary">
                     Coming Soon
-                  </Badge>
-                )}
-                {module.status === 'locked' && (
-                  <Badge variant="secondary">
-                    <Lock className="w-3 h-3 mr-1" />
-                    Locked
                   </Badge>
                 )}
               </div>
