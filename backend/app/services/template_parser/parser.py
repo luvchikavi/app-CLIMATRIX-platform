@@ -600,6 +600,16 @@ class TemplateParser:
         
         # Normalize unit
         unit = self._normalize_unit(unit)
+
+        # Store supplier EF for supplier-specific methods (import API expects '_supplier_ef')
+        supplier_ef_val = row_dict.get('supplier_ef') or row_dict.get('Supplier EF (kg CO2e/unit)')
+        if supplier_ef_val is not None:
+            parsed_ef = self._parse_decimal(supplier_ef_val)
+            if parsed_ef is not None:
+                row_dict['_supplier_ef'] = float(parsed_ef)
+        supplier_name = row_dict.get('supplier_name') or row_dict.get('Supplier Name')
+        if supplier_name:
+            row_dict['_supplier_name'] = str(supplier_name).strip()
         
         # Get site
         site_idx = col_indices.get('site')
@@ -693,6 +703,8 @@ class TemplateParser:
             'nights': 'nights',
             'room-nights': 'nights',
             'room nights': 'nights',
+            'unit': 'unit',
+            'units': 'unit',
             'usd': 'USD',
             '$': 'USD',
         }

@@ -1817,10 +1817,13 @@ def resolve_v4_purchased_goods(row: dict) -> tuple[str, str]:
     # User provides their own emission factor (from EPD or supplier)
     # =========================================================================
     if method == 'supplier-specific':
-        # activity_key signals to use row['Supplier EF'] directly
-        # Unit comes from the row
-        unit = (row.get('Unit') or 'kg').strip()
-        return ('supplier_specific_3_1', unit)
+        supplier_ef = row.get('supplier_ef') or row.get('Supplier EF (kg CO2e/unit)')
+        if supplier_ef:
+            # activity_key signals to use row['Supplier EF'] directly
+            unit = (row.get('Unit') or 'kg').strip()
+            return ('supplier_specific_3_1', unit)
+        # No supplier EF provided - treat as physical method using generic factor
+        method = 'physical'
 
     # =========================================================================
     # METHOD 2: SPEND
@@ -1882,6 +1885,8 @@ def resolve_v4_purchased_goods(row: dict) -> tuple[str, str]:
             'virgin paper': 'paper_virgin_purchased_kg',
             'paper - recycled': 'paper_recycled_purchased_kg',
             'recycled paper': 'paper_recycled_purchased_kg',
+            'paper products': 'paper_virgin_purchased_kg',
+            'paper': 'paper_virgin_purchased_kg',
             'cardboard': 'cardboard_purchased_kg',
             # Glass
             'glass - primary': 'glass_purchased_kg',
@@ -1926,18 +1931,30 @@ def resolve_v4_purchased_goods(row: dict) -> tuple[str, str]:
         category = (row.get('Category') or '').strip().lower()
         category_fallback = {
             'metals': 'steel_purchased_kg',
+            'raw materials': 'steel_purchased_kg',
             'plastics': 'plastic_generic_purchased_kg',
             'paper & cardboard': 'paper_virgin_purchased_kg',
+            'office supplies': 'paper_virgin_purchased_kg',
             'glass': 'glass_purchased_kg',
             'textiles': 'textiles_cotton_purchased_kg',
             'electronics': 'electronics_purchased_kg',
+            'it equipment': 'electronics_purchased_kg',
             'food & beverages': 'food_mixed_purchased_kg',
+            'food & catering': 'food_mixed_purchased_kg',
             'chemicals': 'chemicals_purchased_kg',
             'concrete & cement': 'concrete_purchased_kg',
             'wood & timber': 'wood_purchased_kg',
         }
 
-        activity_key = category_fallback.get(category, 'material_generic_purchased_kg')
+        activity_key = category_fallback.get(category)
+        if not activity_key:
+            # Partial match on category
+            for key, val in category_fallback.items():
+                if key in category or category in key:
+                    activity_key = val
+                    break
+        if not activity_key:
+            activity_key = 'plastic_generic_purchased_kg'  # safe generic fallback
         return (activity_key, 'kg')
 
     # =========================================================================
@@ -1975,13 +1992,14 @@ def resolve_v4_capital_goods(row: dict) -> tuple[str, str]:
     if method == 'spend':
         # Map asset category to spend activity_key
         spend_category_map = {
-            'vehicles': 'spend_capital_vehicles',
-            'it equipment': 'spend_capital_it',
-            'machinery': 'spend_capital_machinery',
-            'buildings': 'spend_capital_buildings',
-            'furniture': 'spend_capital_furniture',
-            'hvac': 'spend_capital_hvac',
-            'solar': 'spend_capital_renewable',
+            'vehicles': 'spend_capital_equipment',
+            'it equipment': 'spend_capital_equipment',
+            'machinery': 'spend_capital_equipment',
+            'buildings': 'spend_construction',
+            'furniture': 'spend_capital_equipment',
+            'hvac': 'spend_capital_equipment',
+            'solar': 'spend_capital_equipment',
+            'equipment': 'spend_capital_equipment',
         }
         for key, activity_key in spend_category_map.items():
             if key in asset_category:
@@ -1994,33 +2012,37 @@ def resolve_v4_capital_goods(row: dict) -> tuple[str, str]:
     # =================================================================
     asset_map = {
         # Vehicles
-        'small car': ('capital_car_small_unit', 'unit'),
-        'medium car': ('capital_car_medium_unit', 'unit'),
-        'large car': ('capital_car_large_unit', 'unit'),
-        'suv': ('capital_car_large_unit', 'unit'),
-        'van': ('capital_van_unit', 'unit'),
+        'small car': ('capital_vehicle_unit', 'unit'),
+        'medium car': ('capital_vehicle_unit', 'unit'),
+        'large car': ('capital_vehicle_unit', 'unit'),
+        'suv': ('capital_vehicle_unit', 'unit'),
+        'delivery van': ('capital_vehicle_unit', 'unit'),
+        'van': ('capital_vehicle_unit', 'unit'),
         'truck': ('capital_truck_unit', 'unit'),
         'hgv': ('capital_truck_unit', 'unit'),
         # IT Equipment
-        'laptop': ('capital_laptop_unit', 'unit'),
-        'desktop': ('capital_desktop_unit', 'unit'),
-        'monitor': ('capital_monitor_unit', 'unit'),
+        'laptop': ('capital_computer_unit', 'unit'),
+        'desktop': ('capital_computer_unit', 'unit'),
+        'monitor': ('capital_computer_unit', 'unit'),
         'server': ('capital_server_unit', 'unit'),
-        'smartphone': ('capital_smartphone_unit', 'unit'),
-        'tablet': ('capital_tablet_unit', 'unit'),
-        'printer': ('capital_printer_unit', 'unit'),
+        'smartphone': ('capital_computer_unit', 'unit'),
+        'tablet': ('capital_computer_unit', 'unit'),
+        'printer': ('capital_computer_unit', 'unit'),
+        'manufacturing machinery': ('capital_vehicle_unit', 'unit'),
+        'machinery': ('capital_vehicle_unit', 'unit'),
         # Buildings
-        'office': ('capital_building_office_m2', 'm2'),
-        'warehouse': ('capital_building_warehouse_m2', 'm2'),
-        'retail': ('capital_building_retail_m2', 'm2'),
-        'industrial': ('capital_building_industrial_m2', 'm2'),
+        'office building': ('capital_building_m2', 'm2'),
+        'office': ('capital_building_m2', 'm2'),
+        'warehouse': ('capital_building_m2', 'm2'),
+        'retail': ('capital_building_m2', 'm2'),
+        'industrial': ('capital_building_m2', 'm2'),
         # Other
-        'hvac': ('capital_hvac_unit', 'unit'),
-        'solar pv': ('capital_solar_unit', 'kW'),
-        'solar panel': ('capital_solar_unit', 'kW'),
-        'office desk': ('capital_furniture_unit', 'unit'),
-        'office chair': ('capital_furniture_unit', 'unit'),
-        'furniture': ('capital_furniture_unit', 'unit'),
+        'hvac': ('capital_vehicle_unit', 'unit'),
+        'solar pv': ('capital_vehicle_unit', 'kW'),
+        'solar panel': ('capital_vehicle_unit', 'kW'),
+        'office desk': ('capital_vehicle_unit', 'unit'),
+        'office chair': ('capital_vehicle_unit', 'unit'),
+        'furniture': ('capital_vehicle_unit', 'unit'),
     }
 
     for key, result in asset_map.items():
@@ -2029,17 +2051,18 @@ def resolve_v4_capital_goods(row: dict) -> tuple[str, str]:
 
     # Fallback based on asset category
     category_fallback = {
-        'vehicles': ('capital_car_medium_unit', 'unit'),
-        'it equipment': ('capital_laptop_unit', 'unit'),
-        'buildings': ('capital_building_office_m2', 'm2'),
-        'furniture': ('capital_furniture_unit', 'unit'),
-        'machinery': ('capital_machinery_unit', 'unit'),
+        'vehicles': ('capital_vehicle_unit', 'unit'),
+        'it equipment': ('capital_computer_unit', 'unit'),
+        'buildings': ('capital_building_m2', 'm2'),
+        'furniture': ('capital_vehicle_unit', 'unit'),
+        'machinery': ('capital_vehicle_unit', 'unit'),
+        'equipment': ('capital_vehicle_unit', 'unit'),
     }
     for key, result in category_fallback.items():
         if key in asset_category:
             return result
 
-    return ('spend_capital_equipment', 'USD')
+    return ('capital_vehicle_unit', 'unit')
 
 
 def resolve_v4_transport(row: dict) -> tuple[str, str]:
@@ -2293,8 +2316,32 @@ def resolve_v4_commuting(row: dict) -> tuple[str, str]:
         return ('commute_spend_general', 'USD')
 
     if method == 'average':
-        # Use national average - country-based
-        return ('commute_average', 'employee-km')
+        # "Average" means using average distances but still mode-specific
+        # Check transport mode to select the right emission factor
+        mode_avg_map = {
+            'car (petrol)': ('commute_car_petrol', 'km'),
+            'car - petrol': ('commute_car_petrol', 'km'),
+            'car (diesel)': ('commute_car_diesel', 'km'),
+            'car - diesel': ('commute_car_diesel', 'km'),
+            'car (hybrid)': ('commute_car_hybrid', 'km'),
+            'car - hybrid': ('commute_car_hybrid', 'km'),
+            'car (electric)': ('commute_car_electric', 'km'),
+            'car - electric': ('commute_car_electric', 'km'),
+            'bus': ('commute_bus', 'km'),
+            'rail': ('commute_rail', 'km'),
+            'rail / train': ('commute_rail', 'km'),
+            'metro': ('commute_rail', 'km'),
+            'motorcycle': ('commute_motorcycle', 'km'),
+            'e-bike': ('commute_ebike', 'km'),
+            'bicycle': ('commute_bicycle', 'km'),
+            'walk': ('commute_walk', 'km'),
+            'work from home': ('commute_wfh_day', 'days'),
+        }
+        for key, result in mode_avg_map.items():
+            if key in mode:
+                return result
+        # Default: assume car petrol for unknown average mode
+        return ('commute_car_petrol', 'km')
 
     # Survey-based: specific transport mode
     mode_map = {
