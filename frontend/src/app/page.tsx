@@ -11,7 +11,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { COUNTRIES } from '@/lib/countries';
-import { plans, addOns } from '@/lib/pricing';
+import { plans } from '@/lib/pricing';
 import {
   Leaf,
   Loader2,
@@ -516,20 +516,6 @@ function LandingPageContent() {
                 </div>
               );
             })}
-          </div>
-
-          {/* Add-on modules */}
-          <div className="text-center mb-8">
-            <h3 className="text-xl font-semibold text-white mb-2">Add-On Modules</h3>
-            <p className="text-sm text-gray-500">Extend with specialized compliance modules</p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {addOns.map((addon) => (
-              <div key={addon.name} className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-center">
-                <h4 className="text-sm font-semibold text-white mb-1">{addon.name}</h4>
-                <p className="text-lg font-bold text-emerald-400">+${addon.price}<span className="text-xs text-gray-500 font-normal">/mo</span></p>
-              </div>
-            ))}
           </div>
 
           <div className="text-center">
