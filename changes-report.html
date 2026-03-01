@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLIMATRIX - Scope 2 Dual Reporting Changes Report</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2rem;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        .header .subtitle { color: #94a3b8; font-size: 1.1rem; }
+        .header .date { color: #64748b; font-size: 0.875rem; margin-top: 0.75rem; }
+
+        /* Summary badges */
+        .summary-bar { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem; }
+        .badge {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 1rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 600;
+        }
+        .badge-blue { background: #1e3a5f; color: #38bdf8; }
+        .badge-green { background: #14532d; color: #4ade80; }
+        .badge-purple { background: #3b1f6e; color: #a78bfa; }
+
+        /* Section cards */
+        .card {
+            background: #1e293b; border: 1px solid #334155;
+            border-radius: 12px; margin-bottom: 1.5rem; overflow: hidden;
+        }
+        .card-header {
+            padding: 1.25rem 1.5rem; border-bottom: 1px solid #334155;
+            display: flex; align-items: center; gap: 0.75rem;
+        }
+        .card-header h2 { font-size: 1.25rem; color: #f1f5f9; }
+        .card-header .icon {
+            width: 32px; height: 32px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center; font-size: 1rem;
+        }
+        .icon-blue { background: #1e3a5f; }
+        .icon-green { background: #14532d; }
+        .icon-orange { background: #713f12; }
+        .icon-purple { background: #3b1f6e; }
+        .icon-red { background: #7f1d1d; }
+        .card-body { padding: 1.5rem; }
+
+        /* Problem / Solution */
+        .problem-solution { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+        @media (max-width: 768px) { .problem-solution { grid-template-columns: 1fr; } }
+        .box { padding: 1.25rem; border-radius: 10px; border: 1px solid; }
+        .box-red { background: #1c1012; border-color: #7f1d1d; }
+        .box-red h3 { color: #fca5a5; }
+        .box-green { background: #0c1a12; border-color: #14532d; }
+        .box-green h3 { color: #86efac; }
+        .box h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
+        .box ul { list-style: none; padding: 0; }
+        .box li { padding: 0.35rem 0; padding-left: 1.25rem; position: relative; color: #cbd5e1; font-size: 0.925rem; }
+        .box-red li::before { content: "\2717"; position: absolute; left: 0; color: #f87171; }
+        .box-green li::before { content: "\2713"; position: absolute; left: 0; color: #4ade80; }
+
+        /* File changes */
+        .file-list { list-style: none; padding: 0; }
+        .file-item {
+            display: flex; align-items: flex-start; gap: 1rem;
+            padding: 1rem; border-bottom: 1px solid #1e293b;
+        }
+        .file-item:last-child { border-bottom: none; }
+        .file-item:hover { background: #1a2539; }
+        .file-name { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85rem; color: #38bdf8; white-space: nowrap; min-width: 280px; }
+        .file-desc { color: #94a3b8; font-size: 0.9rem; }
+        .file-tag { font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600; white-space: nowrap; }
+        .tag-new { background: #14532d; color: #4ade80; }
+        .tag-modified { background: #1e3a5f; color: #38bdf8; }
+
+        /* Commits */
+        .commit-list { list-style: none; padding: 0; }
+        .commit-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1rem; border-bottom: 1px solid #1e293b; }
+        .commit-item:last-child { border-bottom: none; }
+        .commit-hash { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; color: #a78bfa; background: #2d1f5e; padding: 0.2rem 0.5rem; border-radius: 4px; }
+        .commit-msg { color: #cbd5e1; font-size: 0.9rem; }
+
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th {
+            background: #0f172a; color: #94a3b8; text-transform: uppercase;
+            font-size: 0.75rem; letter-spacing: 0.05em; padding: 0.75rem 0.5rem;
+            text-align: left; border-bottom: 2px solid #334155; white-space: nowrap;
+        }
+        td { padding: 0.6rem 0.5rem; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+        tr:hover td { background: #1a2539; }
+        .num { text-align: right; font-family: 'SF Mono', monospace; font-size: 0.8rem; }
+        .highlight { color: #fbbf24; font-weight: 600; }
+        .scope1 { color: #f87171; }
+        .scope2 { color: #38bdf8; }
+        .scope2-row { background: #0c1a2e; }
+        .dual-col { background: #132035; }
+        .supplier-col { color: #a78bfa; font-weight: 600; }
+
+        /* Callout */
+        .callout { padding: 1rem 1.25rem; border-radius: 8px; border-left: 4px solid; margin: 1rem 0; font-size: 0.9rem; }
+        .callout-info { background: #0c1a2e; border-color: #38bdf8; color: #7dd3fc; }
+        .callout-success { background: #0c1a12; border-color: #4ade80; color: #86efac; }
+
+        /* Steps */
+        .steps { list-style: none; padding: 0; counter-reset: step; }
+        .steps li { counter-increment: step; padding: 1rem 1rem 1rem 3.5rem; position: relative; border-bottom: 1px solid #1e293b; }
+        .steps li:last-child { border-bottom: none; }
+        .steps li::before {
+            content: counter(step); position: absolute; left: 1rem; top: 1rem;
+            width: 28px; height: 28px; background: #1e3a5f; color: #38bdf8;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.85rem;
+        }
+        .steps li strong { color: #f1f5f9; }
+        .steps li p { color: #94a3b8; margin-top: 0.25rem; font-size: 0.9rem; }
+        .screenshot-hint {
+            display: inline-block; background: #334155; color: #e2e8f0;
+            padding: 0.25rem 0.75rem; border-radius: 6px; font-size: 0.8rem; margin-top: 0.5rem;
+        }
+
+        /* Architecture diagram */
+        .diagram {
+            background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+            padding: 1.5rem; font-family: 'SF Mono', monospace; font-size: 0.8rem;
+            line-height: 1.8; overflow-x: auto; color: #94a3b8;
+        }
+        .diagram .arrow { color: #4ade80; }
+        .diagram .label { color: #38bdf8; }
+        .diagram .new { color: #fbbf24; font-weight: 700; }
+
+        .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+        .footer {
+            text-align: center; color: #475569; font-size: 0.8rem;
+            margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #1e293b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- Header -->
+        <div class="header">
+            <h1>Scope 2 Dual Reporting &amp; Supplier Data Persistence</h1>
+            <div class="subtitle">GHG Protocol Scope 2 Guidance Implementation</div>
+            <div class="date">March 1, 2026 &mdash; CLIMATRIX Platform</div>
+            <div class="summary-bar">
+                <span class="badge badge-blue">11 Files Changed</span>
+                <span class="badge badge-green">+286 Lines Added</span>
+                <span class="badge badge-purple">5 Commits</span>
+            </div>
+        </div>
+
+        <!-- Problem & Solution -->
+        <div class="card">
+            <div class="card-header">
+                <div class="icon icon-red">&#9888;</div>
+                <h2>Problem &amp; Solution</h2>
+            </div>
+            <div class="card-body">
+                <div class="problem-solution">
+                    <div class="box box-red">
+                        <h3>Problems Found</h3>
+                        <ul>
+                            <li>When a supplier emission factor was provided (e.g., IEC 0.467, Dorad 0.417), only the <strong>market-based</strong> calculation was performed</li>
+                            <li>The <strong>location-based</strong> calculation was skipped entirely due to an early return in the pipeline</li>
+                            <li>Supplier name and supplier EF were extracted during Excel parsing but <strong>never saved</strong> to the database</li>
+                            <li>CSV/PDF exports had no columns for dual reporting or supplier data</li>
+                        </ul>
+                    </div>
+                    <div class="box box-green">
+                        <h3>What Was Fixed</h3>
+                        <ul>
+                            <li>Both <strong>location-based</strong> and <strong>market-based</strong> results are now calculated per GHG Protocol Scope 2 Guidance</li>
+                            <li>Supplier name and emission factor are <strong>persisted</strong> in the Activity model</li>
+                            <li>Dual results (location_co2e_kg, market_co2e_kg) stored in the Emission model</li>
+                            <li>CSV and PDF exports now include all 4 new columns</li>
+                            <li>API responses include supplier data and dual results</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="callout callout-info">
+                    <strong>GHG Protocol Scope 2 Guidance:</strong> Organizations must report Scope 2 emissions using <em>both</em> location-based (grid average) and market-based (supplier-specific) methods. The primary CO2e result uses the market-based value when a supplier EF is provided.
+                </div>
+            </div>
+        </div>
+
+        <!-- Calculation Flow -->
+        <div class="card">
+            <div class="card-header">
+                <div class="icon icon-blue">&#9881;</div>
+                <h2>How Dual Calculation Works</h2>
+            </div>
+            <div class="card-body">
+                <div class="diagram">
+<span class="label">Excel Import</span> (supplier_name="IEC", supplier_ef=0.467, quantity=1,203,111 kWh)
+    <span class="arrow">|</span>
+    <span class="arrow">v</span>
+<span class="label">CalculationPipeline._calculate_supplier_ef()</span>
+    <span class="arrow">|</span>
+    <span class="arrow">+---&gt;</span> <span class="new">[NEW] Market-Based Calculation</span>
+    <span class="arrow">|</span>       1,203,111 kWh x 0.467 (IEC supplier EF) = <span class="new">561,852.84 kg CO2e</span>
+    <span class="arrow">|</span>
+    <span class="arrow">+---&gt;</span> <span class="new">[NEW] Location-Based Calculation</span>
+    <span class="arrow">|</span>       1,203,111 kWh x 0.502 (Israel grid factor) = <span class="new">603,961.72 kg CO2e</span>
+    <span class="arrow">|</span>
+    <span class="arrow">v</span>
+<span class="label">Result</span>
+    co2e_kg         = 561,852.84   (primary = market-based)
+    <span class="new">market_co2e_kg</span>   = 561,852.84   <span class="new">[NEW FIELD]</span>
+    <span class="new">location_co2e_kg</span> = 603,961.72   <span class="new">[NEW FIELD]</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Full Results Table -->
+        <div class="card">
+            <div class="card-header">
+                <div class="icon icon-orange">&#128202;</div>
+                <h2>Full Report Results &mdash; Novolog S1 &amp; S2 Import</h2>
+            </div>
+            <div class="card-body">
+                <p style="color: #94a3b8; margin-bottom: 1rem; font-size: 0.9rem;">
+                    Complete exported data from production. Scope 2 rows with supplier data show the new dual reporting columns highlighted.
+                </p>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Scope</th>
+                                <th>Cat.</th>
+                                <th>Description</th>
+                                <th>Activity Key</th>
+                                <th style="text-align:right">Quantity</th>
+                                <th>Unit</th>
+                                <th style="text-align:right">CO2e (kg)</th>
+                                <th style="text-align:right">CO2e (t)</th>
+                                <th>Source</th>
+                                <th>Supplier</th>
+                                <th style="text-align:right">Supplier EF</th>
+                                <th style="text-align:right">Location CO2e (kg)</th>
+                                <th style="text-align:right">Market CO2e (kg)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="scope1">Scope 1</td><td>1.1</td>
+                                <td>Stationary</td><td>diesel_liters</td>
+                                <td class="num">1,575.00</td><td>liters</td>
+                                <td class="num">4,191.94</td><td class="num">4.19</td>
+                                <td>DEFRA_2024</td><td></td><td class="num"></td><td class="num"></td><td class="num"></td>
+                            </tr>
+                            <tr>
+                                <td class="scope1">Scope 1</td><td>1.2</td>
+                                <td>1.2 Mobile - Row 4</td><td>urea_liters</td>
+                                <td class="num">863.05</td><td>liters</td>
+                                <td class="num">1,147.86</td><td class="num">1.15</td>
+                                <td>DEFRA_2024</td><td></td><td class="num"></td><td class="num"></td><td class="num"></td>
+                            </tr>
+                            <tr>
+                                <td class="scope1">Scope 1</td><td>1.2</td>
+                                <td>1.2 Mobile - Row 5</td><td>petrol_liters</td>
+                                <td class="num">4,426.57</td><td>liters</td>
+                                <td class="num">10,418.91</td><td class="num">10.42</td>
+                                <td>DEFRA_2024</td><td></td><td class="num"></td><td class="num"></td><td class="num"></td>
+                            </tr>
+                            <tr>
+                                <td class="scope1">Scope 1</td><td>1.2</td>
+                                <td>1.2 Mobile - Row 6</td><td>diesel_liters</td>
+                                <td class="num">141,680.83</td><td>liters</td>
+                                <td class="num">377,090.61</td><td class="num">377.09</td>
+                                <td>DEFRA_2024</td><td></td><td class="num"></td><td class="num"></td><td class="num"></td>
+                            </tr>
+                            <tr>
+                                <td class="scope1">Scope 1</td><td>1.2</td>
+                                <td>1.2 Mobile - Row 7</td><td>urea_liters</td>
+                                <td class="num">1,831.13</td><td>liters</td>
+                                <td class="num">2,435.40</td><td class="num">2.44</td>
+                                <td>DEFRA_2024</td><td></td><td class="num"></td><td class="num"></td><td class="num"></td>
+                            </tr>
+                            <tr>
+                                <td class="scope1">Scope 1</td><td>1.2</td>
+                                <td>1.2 Mobile - Row 9</td><td>diesel_liters</td>
+                                <td class="num">240,760.99</td><td>liters</td>
+                                <td class="num">640,797.41</td><td class="num">640.80</td>
+                                <td>DEFRA_2024</td><td></td><td class="num"></td><td class="num"></td><td class="num"></td>
+                            </tr>
+                            <tr>
+                                <td class="scope1">Scope 1</td><td>1.2</td>
+                                <td>1.2 Mobile - Row 11</td><td>petrol_liters</td>
+                                <td class="num">51,615.30</td><td>liters</td>
+                                <td class="num">121,487.96</td><td class="num">121.49</td>
+                                <td>DEFRA_2024</td><td></td><td class="num"></td><td class="num"></td><td class="num"></td>
+                            </tr>
+                            <tr>
+                                <td class="scope1">Scope 1</td><td>1.2</td>
+                                <td>1.2 Mobile - Row 12</td><td>diesel_liters</td>
+                                <td class="num">3,619.86</td><td>liters</td>
+                                <td class="num">9,634.44</td><td class="num">9.63</td>
+                                <td>DEFRA_2024</td><td></td><td class="num"></td><td class="num"></td><td class="num"></td>
+                            </tr>
+                            <tr>
+                                <td class="scope1">Scope 1</td><td>1.2</td>
+                                <td>1.2 Mobile - Row 13</td><td>diesel_liters</td>
+                                <td class="num">681.00</td><td>liters</td>
+                                <td class="num">1,812.52</td><td class="num">1.81</td>
+                                <td>DEFRA_2024</td><td></td><td class="num"></td><td class="num"></td><td class="num"></td>
+                            </tr>
+                            <tr>
+                                <td class="scope1">Scope 1</td><td>1.2</td>
+                                <td>1.2 Mobile - Row 14</td><td>petrol_liters</td>
+                                <td class="num">256.00</td><td>liters</td>
+                                <td class="num">602.55</td><td class="num">0.60</td>
+                                <td>DEFRA_2024</td><td></td><td class="num"></td><td class="num"></td><td class="num"></td>
+                            </tr>
+                            <tr>
+                                <td class="scope1">Scope 1</td><td>1.3</td>
+                                <td>1.3 Fugitive - Row 4</td><td>refrigerant_r410a</td>
+                                <td class="num">335.00</td><td>kg</td>
+                                <td class="num">644,540.00</td><td class="num">644.54</td>
+                                <td>DEFRA_2024</td><td></td><td class="num"></td><td class="num"></td><td class="num"></td>
+                            </tr>
+
+                            <!-- Scope 2 with dual reporting -->
+                            <tr class="scope2-row">
+                                <td class="scope2"><strong>Scope 2</strong></td><td>2.1</td>
+                                <td><strong>Logistics+HQ IEC</strong></td><td>electricity_il</td>
+                                <td class="num">1,203,111.00</td><td>kWh</td>
+                                <td class="num highlight">561,852.84</td><td class="num">561.85</td>
+                                <td>market_based_supplier</td>
+                                <td class="supplier-col">IEC</td>
+                                <td class="num supplier-col">0.467</td>
+                                <td class="num dual-col highlight">603,961.72</td>
+                                <td class="num dual-col highlight">561,852.84</td>
+                            </tr>
+                            <tr class="scope2-row">
+                                <td class="scope2"><strong>Scope 2</strong></td><td>2.1</td>
+                                <td><strong>Logistics+HQ DORAD</strong></td><td>electricity_il</td>
+                                <td class="num">6,853,127.00</td><td>kWh</td>
+                                <td class="num highlight">2,857,753.96</td><td class="num">2,857.75</td>
+                                <td>market_based_supplier</td>
+                                <td class="supplier-col">Dorad</td>
+                                <td class="num supplier-col">0.417</td>
+                                <td class="num dual-col highlight">3,440,269.75</td>
+                                <td class="num dual-col highlight">2,857,753.96</td>
+                            </tr>
+                            <tr class="scope2-row">
+                                <td class="scope2"><strong>Scope 2</strong></td><td>2.1</td>
+                                <td><strong>Logistics IEC</strong></td><td>electricity_il</td>
+                                <td class="num">2,337,201.00</td><td>kWh</td>
+                                <td class="num highlight">1,091,472.87</td><td class="num">1,091.47</td>
+                                <td>market_based_supplier</td>
+                                <td class="supplier-col">IEC</td>
+                                <td class="num supplier-col">0.467</td>
+                                <td class="num dual-col highlight">1,173,274.90</td>
+                                <td class="num dual-col highlight">1,091,472.87</td>
+                            </tr>
+                            <tr class="scope2-row">
+                                <td class="scope2"><strong>Scope 2</strong></td><td>2.1</td>
+                                <td><strong>K. Ata IEC</strong></td><td>electricity_il</td>
+                                <td class="num">7,537.00</td><td>kWh</td>
+                                <td class="num highlight">3,519.78</td><td class="num">3.52</td>
+                                <td>market_based_supplier</td>
+                                <td class="supplier-col">IEC</td>
+                                <td class="num supplier-col">0.467</td>
+                                <td class="num dual-col highlight">3,783.57</td>
+                                <td class="num dual-col highlight">3,519.78</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Totals -->
+                <div style="margin-top: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                    <div class="box" style="background: #1c1012; border-color: #991b1b;">
+                        <h3 style="color: #f87171; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Scope 1 Total</h3>
+                        <p style="font-size: 1.5rem; font-weight: 700; color: #fca5a5;">1,814,160 kg</p>
+                        <p style="color: #94a3b8; font-size: 0.85rem;">1,814.16 tonnes CO2e</p>
+                    </div>
+                    <div class="box" style="background: #0c1a2e; border-color: #1d4ed8;">
+                        <h3 style="color: #38bdf8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Scope 2 &mdash; Location-Based</h3>
+                        <p style="font-size: 1.5rem; font-weight: 700; color: #7dd3fc;">5,221,290 kg</p>
+                        <p style="color: #94a3b8; font-size: 0.85rem;">5,221.29 tonnes CO2e (grid factor 0.502)</p>
+                    </div>
+                    <div class="box" style="background: #1a0f2e; border-color: #7c3aed;">
+                        <h3 style="color: #a78bfa; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Scope 2 &mdash; Market-Based</h3>
+                        <p style="font-size: 1.5rem; font-weight: 700; color: #c4b5fd;">4,514,599 kg</p>
+                        <p style="color: #94a3b8; font-size: 0.85rem;">4,514.60 tonnes CO2e (supplier EFs)</p>
+                    </div>
+                </div>
+
+                <div class="callout callout-success" style="margin-top: 1rem;">
+                    <strong>Key Insight:</strong> Market-based emissions are <strong>13.5% lower</strong> than location-based for Novolog's Scope 2. This means IEC and Dorad supply electricity that is cleaner than the Israeli national grid average (0.502 kg CO2e/kWh).
+                </div>
+            </div>
+        </div>
+
+        <!-- Files Changed -->
+        <div class="card">
+            <div class="card-header">
+                <div class="icon icon-purple">&#128196;</div>
+                <h2>Files Changed (11 files, +286 lines)</h2>
+            </div>
+            <div class="card-body" style="padding: 0;">
+                <ul class="file-list">
+                    <li class="file-item">
+                        <span class="file-tag tag-modified">MOD</span>
+                        <span class="file-name">app/models/emission.py</span>
+                        <span class="file-desc">Added supplier_name, supplier_ef to Activity model; location_co2e_kg, market_co2e_kg to Emission model</span>
+                    </li>
+                    <li class="file-item">
+                        <span class="file-tag tag-modified">MOD</span>
+                        <span class="file-name">app/services/calculation/pipeline.py</span>
+                        <span class="file-desc">Rewrote _calculate_supplier_ef() to compute both location-based and market-based results; updated recalculate_for_period()</span>
+                    </li>
+                    <li class="file-item">
+                        <span class="file-tag tag-modified">MOD</span>
+                        <span class="file-name">app/services/calculation/result.py</span>
+                        <span class="file-desc">Added location_co2e_kg and market_co2e_kg fields to CalculationResult dataclass and to_dict()</span>
+                    </li>
+                    <li class="file-item">
+                        <span class="file-tag tag-modified">MOD</span>
+                        <span class="file-name">app/api/import_data.py</span>
+                        <span class="file-desc">Extract and persist supplier_name from raw Excel data; pass supplier fields to Activity/Emission creation</span>
+                    </li>
+                    <li class="file-item">
+                        <span class="file-tag tag-modified">MOD</span>
+                        <span class="file-name">app/api/activities.py</span>
+                        <span class="file-desc">Updated API response schemas (ActivityResponse, EmissionResponse) and all endpoint response constructors</span>
+                    </li>
+                    <li class="file-item">
+                        <span class="file-tag tag-modified">MOD</span>
+                        <span class="file-name">app/api/reports.py</span>
+                        <span class="file-desc">Added 4 new columns to CSV export and 3 new columns to PDF export (Supplier, Location, Market)</span>
+                    </li>
+                    <li class="file-item">
+                        <span class="file-tag tag-modified">MOD</span>
+                        <span class="file-name">app/database.py</span>
+                        <span class="file-desc">Updated run_migrations() to auto-detect and stamp Alembic baseline for existing databases</span>
+                    </li>
+                    <li class="file-item">
+                        <span class="file-tag tag-new">NEW</span>
+                        <span class="file-name">alembic/versions/g6h7..._dual_reporting.py</span>
+                        <span class="file-desc">Migration adding 4 columns: activities.supplier_name, activities.supplier_ef, emissions.location_co2e_kg, emissions.market_co2e_kg</span>
+                    </li>
+                    <li class="file-item">
+                        <span class="file-tag tag-new">NEW</span>
+                        <span class="file-name">migrate.py</span>
+                        <span class="file-desc">Async pre-migration script for Railway: checks/stamps Alembic baseline using information_schema (PostgreSQL-safe)</span>
+                    </li>
+                    <li class="file-item">
+                        <span class="file-tag tag-modified">MOD</span>
+                        <span class="file-name">railway.toml</span>
+                        <span class="file-desc">Updated startup: python migrate.py &amp;&amp; alembic upgrade head &amp;&amp; uvicorn</span>
+                    </li>
+                    <li class="file-item">
+                        <span class="file-tag tag-modified">MOD</span>
+                        <span class="file-name">nixpacks.toml</span>
+                        <span class="file-desc">Same startup command update for Nixpacks builder</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Commits -->
+        <div class="card">
+            <div class="card-header">
+                <div class="icon icon-green">&#9745;</div>
+                <h2>Commits</h2>
+            </div>
+            <div class="card-body" style="padding: 0;">
+                <ul class="commit-list">
+                    <li class="commit-item">
+                        <span class="commit-hash">d98427f</span>
+                        <span class="commit-msg">Fix Scope 2 dual reporting and persist supplier data</span>
+                    </li>
+                    <li class="commit-item">
+                        <span class="commit-hash">e46ad1a</span>
+                        <span class="commit-msg">Fix migration to use op.add_column for SQLite compatibility</span>
+                    </li>
+                    <li class="commit-item">
+                        <span class="commit-hash">47ef35b</span>
+                        <span class="commit-msg">Auto-stamp Alembic baseline on production startup</span>
+                    </li>
+                    <li class="commit-item">
+                        <span class="commit-hash">7b766be</span>
+                        <span class="commit-msg">Fix production deployment: async migrate.py for stamping Alembic baseline</span>
+                    </li>
+                    <li class="commit-item">
+                        <span class="commit-hash">71dfc9b</span>
+                        <span class="commit-msg">Fix migrate.py: use information_schema to avoid PostgreSQL aborted transaction</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- New DB Columns -->
+        <div class="card">
+            <div class="card-header">
+                <div class="icon icon-green">&#128451;</div>
+                <h2>New Database Columns</h2>
+            </div>
+            <div class="card-body">
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Table</th>
+                                <th>Column</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>activities</td>
+                                <td>supplier_name</td>
+                                <td>VARCHAR(255)</td>
+                                <td>Electricity supplier name (e.g., "IEC", "Dorad")</td>
+                            </tr>
+                            <tr>
+                                <td>activities</td>
+                                <td>supplier_ef</td>
+                                <td>NUMERIC</td>
+                                <td>Supplier emission factor in kg CO2e per unit</td>
+                            </tr>
+                            <tr>
+                                <td>emissions</td>
+                                <td>location_co2e_kg</td>
+                                <td>NUMERIC</td>
+                                <td>Location-based CO2e result (grid average factor)</td>
+                            </tr>
+                            <tr>
+                                <td>emissions</td>
+                                <td>market_co2e_kg</td>
+                                <td>NUMERIC</td>
+                                <td>Market-based CO2e result (supplier-specific factor)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p style="color: #64748b; font-size: 0.8rem; margin-top: 0.75rem;">Migration: alembic/versions/g6h7i8j9k0l1_add_scope2_dual_reporting_fields.py (revises f1a2b3c4d5e6)</p>
+            </div>
+        </div>
+
+        <!-- Where to See Results -->
+        <div class="card">
+            <div class="card-header">
+                <div class="icon icon-blue">&#128269;</div>
+                <h2>Where to See Results in the App</h2>
+            </div>
+            <div class="card-body" style="padding: 0;">
+                <ol class="steps">
+                    <li>
+                        <strong>CSV Report Export</strong>
+                        <p>Go to <strong>Reports</strong> page (sidebar) &rarr; select the period from the dropdown (top right) &rarr; click the <strong>CSV</strong> button. The downloaded file includes 4 new columns: <em>Supplier Name</em>, <em>Supplier EF</em>, <em>Location CO2e (kg)</em>, <em>Market CO2e (kg)</em>.</p>
+                        <span class="screenshot-hint">File: ghg_report_&lt;period&gt;.csv</span>
+                    </li>
+                    <li>
+                        <strong>PDF Report Export</strong>
+                        <p>Same page &rarr; click the <strong>PDF</strong> button. The PDF table includes 3 new columns: <em>Supplier</em>, <em>Loc (t)</em>, <em>Mkt (t)</em> showing dual results in tonnes.</p>
+                        <span class="screenshot-hint">File: ghg_report_&lt;period&gt;.pdf</span>
+                    </li>
+                    <li>
+                        <strong>Activities API Response</strong>
+                        <p>The GET /api/periods/{id}/activities endpoint now returns supplier_name, supplier_ef on each activity, and location_co2e_kg, market_co2e_kg on each emission.</p>
+                        <span class="screenshot-hint">Endpoint: /api/periods/{id}/activities</span>
+                    </li>
+                    <li>
+                        <strong>Reports &rarr; By Scope Tab</strong>
+                        <p>On the Reports page, the <strong>By Scope</strong> tab shows Scope 2 activities with their primary CO2e value (market-based when supplier EF is provided). The dual breakdown is available in the CSV/PDF exports.</p>
+                        <span class="screenshot-hint">Reports &rarr; By Scope &rarr; Scope 2</span>
+                    </li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>CLIMATRIX Platform &mdash; Scope 2 Dual Reporting Feature &mdash; March 2026</p>
+            <p style="margin-top: 0.25rem;">Deployed on Railway &bull; app-climatrix-platform-production.up.railway.app</p>
+        </div>
+
+    </div>
+</body>
+</html>
