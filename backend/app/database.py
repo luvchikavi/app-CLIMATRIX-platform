@@ -14,10 +14,17 @@ logger = logging.getLogger(__name__)
 
 
 def run_migrations() -> None:
-    """Run Alembic migrations to ensure database schema is up to date."""
+    """Run Alembic migrations to ensure database schema is up to date.
+
+    If the database has never been stamped (tables exist but no alembic_version
+    row), stamp it at the comprehensive baseline revision before upgrading.
+    """
     try:
         from alembic.config import Config
         from alembic import command
+        from alembic.script import ScriptDirectory
+        from alembic.runtime.migration import MigrationContext
+        from sqlalchemy import create_engine, inspect, text
 
         # Get the directory where this file is located
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -27,14 +34,36 @@ def run_migrations() -> None:
             # Check if alembic.ini has content
             with open(alembic_ini, 'r') as f:
                 content = f.read().strip()
-            if content:
-                logger.info("Running Alembic migrations...")
-                alembic_cfg = Config(alembic_ini)
-                alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
-                command.upgrade(alembic_cfg, "head")
-                logger.info("Migrations completed successfully!")
-            else:
+            if not content:
                 logger.warning("alembic.ini is empty, skipping Alembic migrations")
+                return
+
+            alembic_cfg = Config(alembic_ini)
+            alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
+
+            # Check if DB needs to be stamped (tables exist but no alembic revision)
+            sync_engine = create_engine(settings.database_url)
+            with sync_engine.connect() as conn:
+                inspector = inspect(sync_engine)
+                tables = inspector.get_table_names()
+                has_tables = "emission_factors" in tables
+                has_version = "alembic_version" in tables
+                current_rev = None
+                if has_version:
+                    result = conn.execute(text("SELECT version_num FROM alembic_version LIMIT 1"))
+                    row = result.first()
+                    current_rev = row[0] if row else None
+            sync_engine.dispose()
+
+            if has_tables and not current_rev:
+                # DB was created outside of Alembic — stamp at comprehensive baseline
+                logger.info("Database exists but no Alembic revision found. Stamping at baseline f1a2b3c4d5e6...")
+                command.stamp(alembic_cfg, "f1a2b3c4d5e6")
+                logger.info("Stamped successfully.")
+
+            logger.info("Running Alembic migrations...")
+            command.upgrade(alembic_cfg, "head")
+            logger.info("Migrations completed successfully!")
         else:
             logger.warning(f"alembic.ini not found at {alembic_ini}, skipping migrations")
     except Exception as e:
