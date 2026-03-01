@@ -229,7 +229,7 @@ async def google_login(
         payload = google_id_token.verify_oauth2_token(
             data.id_token,
             google_requests.Request(),
-            settings.google_client_id,
+            settings.google_client_id.strip(),
         )
     except Exception:
         raise HTTPException(

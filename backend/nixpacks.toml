@@ -9,4 +9,4 @@ cmds = ["python -m venv /opt/venv", ". /opt/venv/bin/activate && pip install -r 
 cmds = []
 
 [start]
-cmd = ". /opt/venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+cmd = ". /opt/venv/bin/activate && python -m alembic upgrade head; uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"

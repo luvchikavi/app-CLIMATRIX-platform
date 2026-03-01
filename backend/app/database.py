@@ -66,11 +66,13 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db() -> None:
-    """Initialize database tables and seed data if needed."""
-    # Run Alembic migrations first (sync operation)
-    run_migrations()
+    """Initialize database tables and seed data if needed.
 
-    # Then create any new tables that might not exist
+    Note: Alembic migrations are run before server startup via the
+    Railway/nixpacks start command, not here (asyncio.run() cannot
+    be called inside an already-running event loop).
+    """
+    # Create any new tables that might not exist
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
 
