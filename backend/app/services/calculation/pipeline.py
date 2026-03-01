@@ -50,6 +50,7 @@ class ActivityInput:
     # For Supplier-Specific method (3.1, 3.2): user provides their own EF
     supplier_ef: Decimal | None = None
     supplier_ef_unit: str | None = None  # e.g., "kg CO2e/kg"
+    supplier_name: str | None = None  # e.g., "IEC", "Dorad"
 
 
 # Currency conversion rates to USD (2024 annual averages)
@@ -383,23 +384,32 @@ class CalculationPipeline:
         """
         Calculate emissions using supplier-provided emission factor for Scope 2.
 
-        Used for market-based method when user provides the supplier's emission factor
-        (e.g., from electricity supplier's environmental report).
-
-        This enables accurate market-based reporting per GHG Protocol Scope 2 guidance.
+        Per GHG Protocol Scope 2 Guidance, BOTH location-based and market-based
+        results must be calculated. The primary co2e_kg uses the market-based result
+        (supplier EF), while location_co2e_kg and market_co2e_kg store both for
+        dual reporting.
         """
         if input_data.supplier_ef is None:
             raise CalculationError(
                 "Supplier emission factor required but not provided"
             )
 
-        # Create a "virtual" emission factor from user input
-        display_name = "Electricity Supplier" if input_data.activity_key == 'electricity_supplier' else "Energy Supplier"
-        factor = EmissionFactor(
+        # Normalize to kWh (shared by both calculations)
+        normalized = self.normalizer.normalize(
+            quantity=input_data.quantity,
+            input_unit=input_data.unit,
+            target_unit="kWh",
+        )
+
+        calculator = ElectricityCalculator()
+
+        # --- Market-based calculation (supplier EF) ---
+        supplier_label = input_data.supplier_name or "Electricity Supplier"
+        market_factor = EmissionFactor(
             scope=input_data.scope,
             category_code=input_data.category_code,
             activity_key=input_data.activity_key,
-            display_name=f"{display_name} (Market-Based)",
+            display_name=f"{supplier_label} (Market-Based)",
             co2e_factor=input_data.supplier_ef,
             activity_unit="kWh",
             factor_unit="kg CO2e/kWh",
@@ -407,27 +417,45 @@ class CalculationPipeline:
             region="Supplier",
             year=input_data.year,
         )
+        market_result = calculator.calculate(normalized, market_factor, wtt_factor=None)
+        market_co2e = market_result.co2e_kg
 
-        # Normalize to kWh
-        normalized = self.normalizer.normalize(
-            quantity=input_data.quantity,
-            input_unit=input_data.unit,
-            target_unit="kWh",
-        )
+        # --- Location-based calculation (grid factor from DB) ---
+        location_co2e = None
+        try:
+            resolution = await self.resolver.resolve(
+                activity_key=input_data.activity_key,
+                region=input_data.region,
+                year=input_data.year,
+            )
+            if resolution.strategy != ResolutionStrategy.NOT_FOUND and resolution.factor:
+                location_result = calculator.calculate(normalized, resolution.factor, wtt_factor=None)
+                location_co2e = location_result.co2e_kg
+        except Exception:
+            # Location-based is supplementary; don't fail the whole calculation
+            pass
 
-        # Calculate using electricity calculator
-        calculator = ElectricityCalculator()
-        result = calculator.calculate(normalized, factor, wtt_factor=None)
+        # Primary result uses market-based (supplier EF is more specific)
+        result = market_result
+        result.market_co2e_kg = market_co2e
+        result.location_co2e_kg = location_co2e
 
         # Mark as market-based with high confidence
         result.resolution_strategy = "market_based_supplier"
         result.confidence = "high"
-        # Clear emission_factor_id since this is a virtual factor not in the database
         result.emission_factor_id = None
+        result.method_hierarchy = "supplier"
+
+        supplier_info = f"{supplier_label} " if input_data.supplier_name else ""
         result.warnings.append(
-            f"Using supplier-provided emission factor ({input_data.supplier_ef} kg CO2e/kWh). "
+            f"Using supplier-provided emission factor {supplier_info}({input_data.supplier_ef} kg CO2e/kWh). "
             "This is the market-based method per GHG Protocol Scope 2 Guidance."
         )
+        if location_co2e is not None:
+            result.warnings.append(
+                f"Dual reporting: location-based={float(location_co2e):.4f} kg, "
+                f"market-based={float(market_co2e):.4f} kg"
+            )
 
         return result
 
@@ -465,6 +493,8 @@ class CalculationPipeline:
                     category_code=act.category_code,
                     region="Global",
                     year=2024,
+                    supplier_ef=act.supplier_ef if hasattr(act, 'supplier_ef') else None,
+                    supplier_name=act.supplier_name if hasattr(act, 'supplier_name') else None,
                 )
                 calc_result = await self.calculate(input_data)
 
@@ -484,6 +514,8 @@ class CalculationPipeline:
                     emission.confidence = calc_result.confidence
                     emission.resolution_strategy = calc_result.resolution_strategy
                     emission.warnings = calc_result.warnings or None
+                    emission.location_co2e_kg = calc_result.location_co2e_kg
+                    emission.market_co2e_kg = calc_result.market_co2e_kg
                     emission.recalculated_at = datetime.utcnow()
                     updated += 1
                 else:

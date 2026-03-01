@@ -60,6 +60,10 @@ class CalculationResult:
     td_co2e_kg: Optional[Decimal] = None
     td_wtt_co2e_kg: Optional[Decimal] = None
 
+    # Dual Scope 2 reporting (GHG Protocol Scope 2 Guidance)
+    location_co2e_kg: Optional[Decimal] = None
+    market_co2e_kg: Optional[Decimal] = None
+
     def to_dict(self) -> dict:
         """Convert to dictionary for API response."""
         return {
@@ -83,4 +87,6 @@ class CalculationResult:
             "fallback_reason": self.fallback_reason,
             "td_co2e_kg": float(self.td_co2e_kg) if self.td_co2e_kg else None,
             "td_wtt_co2e_kg": float(self.td_wtt_co2e_kg) if self.td_wtt_co2e_kg else None,
+            "location_co2e_kg": float(self.location_co2e_kg) if self.location_co2e_kg else None,
+            "market_co2e_kg": float(self.market_co2e_kg) if self.market_co2e_kg else None,
         }

@@ -340,6 +340,10 @@ class Activity(ActivityBase, table=True):
     data_quality_justification: Optional[str] = Field(default=None, max_length=500)
     supporting_document_url: Optional[str] = Field(default=None, max_length=500)
 
+    # Supplier data (for market-based Scope 2)
+    supplier_name: Optional[str] = Field(default=None, max_length=255)  # e.g., "IEC", "Dorad"
+    supplier_ef: Optional[Decimal] = Field(default=None)  # kg CO2e/unit (supplier emission factor)
+
     # Audit
     created_by: Optional[UUID] = Field(default=None, foreign_key="users.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -393,6 +397,10 @@ class Emission(SQLModel, table=True):
     factor_year: Optional[int] = Field(default=None)
     factor_region: Optional[str] = Field(default=None, max_length=50)
     method_hierarchy: Optional[str] = Field(default=None, max_length=50)  # supplier, ecoinvent, defra_physical, eeio_spend
+
+    # Dual Scope 2 reporting (GHG Protocol Scope 2 Guidance)
+    location_co2e_kg: Optional[Decimal] = Field(default=None)  # Location-based result
+    market_co2e_kg: Optional[Decimal] = Field(default=None)  # Market-based result
 
     # Audit
     calculated_at: datetime = Field(default_factory=datetime.utcnow)

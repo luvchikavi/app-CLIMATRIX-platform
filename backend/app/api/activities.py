@@ -83,6 +83,9 @@ class ActivityResponse(BaseModel):
     data_quality_score: int = 5
     data_quality_justification: str | None = None
     supporting_document_url: str | None = None
+    # Supplier data (for market-based Scope 2)
+    supplier_name: str | None = None
+    supplier_ef: float | None = None
 
 
 class EmissionResponse(BaseModel):
@@ -106,6 +109,9 @@ class EmissionResponse(BaseModel):
     factor_year: int | None = None
     factor_region: str | None = None
     method_hierarchy: str | None = None
+    # Dual Scope 2 reporting
+    location_co2e_kg: float | None = None
+    market_co2e_kg: float | None = None
 
 
 class ActivityWithEmissionResponse(BaseModel):
@@ -181,6 +187,8 @@ async def list_activities(
                 factor_year=emission.factor_year,
                 factor_region=emission.factor_region,
                 method_hierarchy=emission.method_hierarchy,
+                location_co2e_kg=float(emission.location_co2e_kg) if emission.location_co2e_kg else None,
+                market_co2e_kg=float(emission.market_co2e_kg) if emission.market_co2e_kg else None,
             )
 
         responses.append(ActivityWithEmissionResponse(
@@ -200,6 +208,8 @@ async def list_activities(
                 data_quality_score=a.data_quality_score if hasattr(a, 'data_quality_score') else 5,
                 data_quality_justification=a.data_quality_justification if hasattr(a, 'data_quality_justification') else None,
                 supporting_document_url=a.supporting_document_url if hasattr(a, 'supporting_document_url') else None,
+                supplier_name=a.supplier_name if hasattr(a, 'supplier_name') else None,
+                supplier_ef=float(a.supplier_ef) if hasattr(a, 'supplier_ef') and a.supplier_ef else None,
             ),
             emission=emission_response,
         ))
@@ -283,6 +293,8 @@ async def create_activity(
         data_quality_score=data.data_quality_score,
         data_quality_justification=data.data_quality_justification,
         supporting_document_url=data.supporting_document_url,
+        # Supplier data
+        supplier_ef=data.supplier_ef,
     )
     session.add(activity)
     await session.flush()
@@ -304,6 +316,8 @@ async def create_activity(
         factor_year=calc_result.factor_year,
         factor_region=calc_result.factor_region,
         method_hierarchy=calc_result.method_hierarchy,
+        location_co2e_kg=calc_result.location_co2e_kg,
+        market_co2e_kg=calc_result.market_co2e_kg,
     )
     session.add(emission)
     await session.commit()
@@ -328,6 +342,8 @@ async def create_activity(
             data_quality_score=activity.data_quality_score,
             data_quality_justification=activity.data_quality_justification,
             supporting_document_url=activity.supporting_document_url,
+            supplier_name=activity.supplier_name,
+            supplier_ef=float(activity.supplier_ef) if activity.supplier_ef else None,
         ),
         emission=EmissionResponse(
             id=str(emission.id),
@@ -349,6 +365,8 @@ async def create_activity(
             factor_year=calc_result.factor_year,
             factor_region=calc_result.factor_region,
             method_hierarchy=calc_result.method_hierarchy,
+            location_co2e_kg=float(calc_result.location_co2e_kg) if calc_result.location_co2e_kg else None,
+            market_co2e_kg=float(calc_result.market_co2e_kg) if calc_result.market_co2e_kg else None,
         ),
     )
 
@@ -442,6 +460,8 @@ async def update_activity(
             category_code=activity.category_code,
             region=org_region,
             year=2024,
+            supplier_ef=activity.supplier_ef if hasattr(activity, 'supplier_ef') else None,
+            supplier_name=activity.supplier_name if hasattr(activity, 'supplier_name') else None,
         ))
     except FactorNotFoundError:
         raise HTTPException(
@@ -475,6 +495,8 @@ async def update_activity(
         emission.factor_year = calc_result.factor_year
         emission.factor_region = calc_result.factor_region
         emission.method_hierarchy = calc_result.method_hierarchy
+        emission.location_co2e_kg = calc_result.location_co2e_kg
+        emission.market_co2e_kg = calc_result.market_co2e_kg
     else:
         emission = Emission(
             activity_id=activity.id,
@@ -492,6 +514,8 @@ async def update_activity(
             factor_year=calc_result.factor_year,
             factor_region=calc_result.factor_region,
             method_hierarchy=calc_result.method_hierarchy,
+            location_co2e_kg=calc_result.location_co2e_kg,
+            market_co2e_kg=calc_result.market_co2e_kg,
         )
         session.add(emission)
 
@@ -522,6 +546,8 @@ async def update_activity(
             data_quality_score=activity.data_quality_score,
             data_quality_justification=activity.data_quality_justification,
             supporting_document_url=activity.supporting_document_url,
+            supplier_name=activity.supplier_name,
+            supplier_ef=float(activity.supplier_ef) if activity.supplier_ef else None,
         ),
         emission=EmissionResponse(
             id=str(emission.id),
@@ -542,6 +568,8 @@ async def update_activity(
             factor_year=emission.factor_year,
             factor_region=emission.factor_region,
             method_hierarchy=emission.method_hierarchy,
+            location_co2e_kg=float(emission.location_co2e_kg) if emission.location_co2e_kg else None,
+            market_co2e_kg=float(emission.market_co2e_kg) if emission.market_co2e_kg else None,
         ),
     )
 
@@ -611,6 +639,8 @@ async def recalculate_period_emissions(
                 category_code=activity.category_code,
                 region=org_region,  # Use organization's configured region
                 year=2024,
+                supplier_ef=activity.supplier_ef if hasattr(activity, 'supplier_ef') else None,
+                supplier_name=activity.supplier_name if hasattr(activity, 'supplier_name') else None,
             ))
 
             # Update existing emission or create new one
@@ -636,6 +666,8 @@ async def recalculate_period_emissions(
                 emission.factor_year = calc_result.factor_year
                 emission.factor_region = calc_result.factor_region
                 emission.method_hierarchy = calc_result.method_hierarchy
+                emission.location_co2e_kg = calc_result.location_co2e_kg
+                emission.market_co2e_kg = calc_result.market_co2e_kg
             else:
                 # Create new emission
                 emission = Emission(
@@ -655,6 +687,8 @@ async def recalculate_period_emissions(
                     factor_year=calc_result.factor_year,
                     factor_region=calc_result.factor_region,
                     method_hierarchy=calc_result.method_hierarchy,
+                    location_co2e_kg=calc_result.location_co2e_kg,
+                    market_co2e_kg=calc_result.market_co2e_kg,
                 )
                 session.add(emission)
 

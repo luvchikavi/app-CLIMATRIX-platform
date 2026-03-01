@@ -2183,6 +2183,10 @@ async def export_report_csv(
         "CO2e (tonnes)",
         "Factor Source",
         "Data Quality",
+        "Supplier Name",
+        "Supplier EF",
+        "Location CO2e (kg)",
+        "Market CO2e (kg)",
     ])
 
     data_quality_labels = {
@@ -2211,6 +2215,10 @@ async def export_report_csv(
             round(co2e_tonnes, 6),
             factor_source,
             dq_label,
+            activity.supplier_name or "",
+            float(activity.supplier_ef) if activity.supplier_ef else "",
+            round(float(emission.location_co2e_kg), 4) if emission.location_co2e_kg else "",
+            round(float(emission.market_co2e_kg), 4) if emission.market_co2e_kg else "",
         ])
 
     safe_name = period.name.replace(" ", "_").replace("/", "-")
@@ -2347,18 +2355,24 @@ async def export_report_pdf(
         "Scope",
         "Category",
         "Description",
-        "Quantity",
+        "Qty",
         "Unit",
         "CO2e (t)",
+        "Supplier",
+        "Loc (t)",
+        "Mkt (t)",
     ]
     detail_data = [detail_header]
 
     for activity, emission, _factor in rows:
         co2e_t = float(emission.co2e_kg or 0) / 1000.0
+        loc_t = f"{float(emission.location_co2e_kg) / 1000:.4f}" if emission.location_co2e_kg else ""
+        mkt_t = f"{float(emission.market_co2e_kg) / 1000:.4f}" if emission.market_co2e_kg else ""
+        supplier = activity.supplier_name or ""
         # Truncate long descriptions for the PDF table
         desc = activity.description
-        if len(desc) > 40:
-            desc = desc[:37] + "..."
+        if len(desc) > 30:
+            desc = desc[:27] + "..."
         detail_data.append([
             str(activity.scope),
             activity.category_code,
@@ -2366,9 +2380,12 @@ async def export_report_pdf(
             f"{float(activity.quantity):,.2f}",
             activity.unit,
             f"{co2e_t:.4f}",
+            supplier,
+            loc_t,
+            mkt_t,
         ])
 
-    col_widths = [40, 55, 200, 70, 50, 60]
+    col_widths = [30, 40, 140, 55, 35, 50, 55, 50, 50]
     detail_table = Table(detail_data, colWidths=col_widths, repeatRows=1)
     detail_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563eb")),

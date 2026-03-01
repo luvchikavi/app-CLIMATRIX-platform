@@ -515,6 +515,8 @@ async def import_activities(
                 formula=calc_result.formula,
                 confidence=ConfidenceLevel(calc_result.confidence),
                 resolution_strategy=calc_result.resolution_strategy,
+                location_co2e_kg=calc_result.location_co2e_kg,
+                market_co2e_kg=calc_result.market_co2e_kg,
             )
             session.add(emission)
 
@@ -1653,12 +1655,14 @@ async def import_template(
             continue
 
         try:
-            # Extract supplier EF if provided (Scope 1: overrides DEFRA factor, Scope 2: market-based)
+            # Extract supplier EF and supplier name if provided
             supplier_ef = None
+            supplier_name = None
             if activity_data.raw_data:
                 supplier_ef_val = activity_data.raw_data.get('_supplier_ef')
                 if supplier_ef_val is not None:
                     supplier_ef = Decimal(str(supplier_ef_val))
+                supplier_name = activity_data.raw_data.get('supplier_name') or activity_data.raw_data.get('_supplier_name') or None
 
             # Calculate emissions
             calc_result = await pipeline.calculate(ActivityInput(
@@ -1670,6 +1674,7 @@ async def import_template(
                 region=org_region,
                 year=year or datetime.now().year,
                 supplier_ef=supplier_ef,
+                supplier_name=supplier_name,
             ))
 
             # Parse activity date
@@ -1695,6 +1700,8 @@ async def import_template(
                 created_by=current_user.id,
                 data_source=DataSource.IMPORT,
                 import_batch_id=import_batch.id,
+                supplier_name=supplier_name,
+                supplier_ef=supplier_ef,
             )
             session.add(activity)
             await session.flush()
@@ -1713,6 +1720,8 @@ async def import_template(
                 formula=calc_result.formula,
                 confidence=ConfidenceLevel(calc_result.confidence),
                 resolution_strategy=calc_result.resolution_strategy,
+                location_co2e_kg=calc_result.location_co2e_kg,
+                market_co2e_kg=calc_result.market_co2e_kg,
             )
             session.add(emission)
 
