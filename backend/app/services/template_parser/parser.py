@@ -256,11 +256,21 @@ class TemplateParser:
                 skipped += 1
                 continue
 
-            # Skip sample/example rows (greyed out rows with "SAMPLE" or "EXAMPLE")
+            # Skip sample/example rows (text marker or green fill)
             row_text = ' '.join(str(v or '') for v in row_values).upper()
             if 'SAMPLE' in row_text or 'EXAMPLE' in row_text:
                 skipped += 1
                 continue
+
+            # Skip rows with green example fill (E2EFDA) used in generated templates
+            try:
+                first_cell = ws.cell(row=row_num, column=1)
+                fill_rgb = getattr(getattr(getattr(first_cell, 'fill', None), 'start_color', None), 'rgb', None)
+                if fill_rgb and str(fill_rgb).upper().endswith('E2EFDA'):
+                    skipped += 1
+                    continue
+            except Exception:
+                pass
             
             try:
                 activity = self._parse_row(

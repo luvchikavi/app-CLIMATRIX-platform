@@ -524,7 +524,7 @@ def create_introduction_sheet(ws):
         "Step 4: Enter Your Data",
         "   - YELLOW columns: Select from dropdown list",
         "   - WHITE columns: Paste or type your data",
-        "   - GREEN rows: Example data (delete before uploading)",
+        "   - GREEN rows: Example data (auto-skipped during import, or delete them)",
         "",
         "Step 5: Review Your Data",
         "   - Check that all required columns are filled",
@@ -541,7 +541,7 @@ def create_introduction_sheet(ws):
         "",
         "   YELLOW background = Dropdown selection (click cell, select from list)",
         "   WHITE background = Free entry (paste or type your data)",
-        "   GREEN row = Example data (for reference, delete before upload)",
+        "   GREEN row = Example data (auto-skipped during import)",
         "",
         "",
         "TIPS FOR SUCCESS",
@@ -552,7 +552,7 @@ def create_introduction_sheet(ws):
         "   3. Leave optional columns empty if you don't have the data",
         "   4. Date format: YYYY-MM-DD or YYYY-MM (e.g., 2024-01-15 or 2024-01)",
         "   5. Use decimal point (.) not comma (,) for numbers: 1234.56",
-        "   6. Delete the green example row before uploading",
+        "   6. Green example rows are auto-skipped during import (no need to delete)",
         "",
         "",
         "NEED HELP?",
@@ -684,9 +684,9 @@ def create_scope_1_1_sheet(ws):
 
     # Example rows (green) - Physical AND Spend examples
     examples = [
-        ["Natural Gas", "Physical", "Office heating - Q1 2024", "15000", "kWh", "2024-01", "HQ Building"],
-        ["Diesel", "Physical", "Backup generator", "500", "liters", "2024-02", "Factory"],
-        ["Natural Gas", "Spend", "Monthly gas bill", "2500", "USD", "2024-03", "Warehouse"],
+        ["Natural Gas", "Physical", "EXAMPLE: Office heating - Q1 2024", "15000", "kWh", "2024-01", "HQ Building"],
+        ["Diesel", "Physical", "EXAMPLE: Backup generator", "500", "liters", "2024-02", "Factory"],
+        ["Natural Gas", "Spend", "EXAMPLE: Monthly gas bill", "2500", "USD", "2024-03", "Warehouse"],
     ]
     for row_offset, example in enumerate(examples):
         for col, ex in enumerate(example, 1):
@@ -764,10 +764,10 @@ def create_scope_1_2_sheet(ws):
 
     # Example rows (green) - Physical AND Spend
     examples = [
-        ["Car", "Diesel", "Physical", "Sales team vehicle ABC-123", "25000", "km", "2024-01"],
-        ["HGV", "Diesel", "Physical", "Delivery truck fleet", "85000", "km", "2024-01"],
-        ["(Fuel Only)", "Diesel", "Physical", "Fleet fuel purchase", "5500", "liters", "2024-01"],
-        ["(Fuel Only)", "Petrol", "Spend", "Monthly fuel cards", "8500", "USD", "2024-02"],
+        ["Car", "Diesel", "Physical", "EXAMPLE: Sales team vehicle ABC-123", "25000", "km", "2024-01"],
+        ["HGV", "Diesel", "Physical", "EXAMPLE: Delivery truck fleet", "85000", "km", "2024-01"],
+        ["(Fuel Only)", "Diesel", "Physical", "EXAMPLE: Fleet fuel purchase", "5500", "liters", "2024-01"],
+        ["(Fuel Only)", "Petrol", "Spend", "EXAMPLE: Monthly fuel cards", "8500", "USD", "2024-02"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -842,8 +842,8 @@ def create_scope_1_3_sheet(ws):
 
     # Example rows - Physical AND Spend
     examples = [
-        ["R-410A", "Physical", "AC system refill - Building A", "3.5", "kg", "2024-03"],
-        ["R-134a", "Spend", "Refrigerant purchase invoice", "450", "USD", "2024-04"],
+        ["R-410A", "Physical", "EXAMPLE: AC system refill - Building A", "3.5", "kg", "2024-03"],
+        ["R-134a", "Spend", "EXAMPLE: Refrigerant purchase invoice", "450", "USD", "2024-04"],
     ]
     for row_offset, example in enumerate(examples):
         for col, ex in enumerate(example, 1):
@@ -912,8 +912,8 @@ def create_scope_1_4_sheet(ws):
 
     # Examples - Physical AND Spend
     examples = [
-        ["Cement", "Physical", "Portland cement production - Plant A", "25000", "tonnes", "2024-Q1"],
-        ["Iron & Steel (Integrated)", "Spend", "Steel raw material purchase", "1500000", "USD", "2024-Q1"],
+        ["Cement", "Physical", "EXAMPLE: Portland cement production - Plant A", "25000", "tonnes", "2024-Q1"],
+        ["Iron & Steel (Integrated)", "Spend", "EXAMPLE: Steel raw material purchase", "1500000", "USD", "2024-Q1"],
     ]
     for row_offset, example in enumerate(examples):
         for col, ex in enumerate(example, 1):
@@ -1003,12 +1003,12 @@ def create_scope_2_1_sheet(ws):
 
     # Examples - Physical AND Spend, including market-based examples
     examples = [
-        ["Grid Electricity (Location-based)", "Physical", "IL", "", "location_based", "Main office - Tel Aviv", "45000", "kWh", "2024-01"],
-        ["Grid Electricity (Location-based)", "Physical", "US", "", "location_based", "US subsidiary", "28000", "kWh", "2024-01"],
-        ["Grid Electricity (Location-based)", "Spend", "DE", "", "location_based", "Germany office - bill", "3500", "EUR", "2024-02"],
-        ["Supplier Specific (Market-based)", "Physical", "IL", "OPC Energy", "market_based_supplier", "IL - OPC power producer", "22000", "kWh", "2024-01"],
-        ["Supplier Specific (Market-based)", "Physical", "UK", "", "market_based_residual", "UK - residual mix", "15000", "kWh", "2024-01"],
-        ["100% Renewable (Certified)", "Physical", "Global", "", "rec_ppa", "Data center - RECs", "180000", "kWh", "2024-Q1"],
+        ["Grid Electricity (Location-based)", "Physical", "IL", "", "location_based", "EXAMPLE: Main office - Tel Aviv", "45000", "kWh", "2024-01"],
+        ["Grid Electricity (Location-based)", "Physical", "US", "", "location_based", "EXAMPLE: US subsidiary", "28000", "kWh", "2024-01"],
+        ["Grid Electricity (Location-based)", "Spend", "DE", "", "location_based", "EXAMPLE: Germany office - bill", "3500", "EUR", "2024-02"],
+        ["Supplier Specific (Market-based)", "Physical", "IL", "OPC Energy", "market_based_supplier", "EXAMPLE: IL - OPC power producer", "22000", "kWh", "2024-01"],
+        ["Supplier Specific (Market-based)", "Physical", "UK", "", "market_based_residual", "EXAMPLE: UK - residual mix", "15000", "kWh", "2024-01"],
+        ["100% Renewable (Certified)", "Physical", "Global", "", "rec_ppa", "EXAMPLE: Data center - RECs", "180000", "kWh", "2024-Q1"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -1088,9 +1088,9 @@ def create_scope_2_2_sheet(ws):
 
     # Examples - Physical AND Spend
     examples = [
-        ["District Heating", "Physical", "Office heating - Winter 2024", "35000", "kWh", "2024-Q1"],
-        ["Steam", "Physical", "Manufacturing process steam", "18000", "kWh", "2024-01"],
-        ["District Heating", "Spend", "Monthly heating bill", "1200", "EUR", "2024-02"],
+        ["District Heating", "Physical", "EXAMPLE: Office heating - Winter 2024", "35000", "kWh", "2024-Q1"],
+        ["Steam", "Physical", "EXAMPLE: Manufacturing process steam", "18000", "kWh", "2024-01"],
+        ["District Heating", "Spend", "EXAMPLE: Monthly heating bill", "1200", "EUR", "2024-02"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -1159,9 +1159,9 @@ def create_scope_2_3_sheet(ws):
 
     # Examples - Physical AND Spend
     examples = [
-        ["Chilled Water", "Physical", "Data center cooling", "42000", "kWh", "2024-02"],
-        ["District Cooling", "Physical", "Office cooling - Summer", "28000", "kWh", "2024-Q3"],
-        ["District Cooling", "Spend", "Monthly cooling bill", "850", "USD", "2024-07"],
+        ["Chilled Water", "Physical", "EXAMPLE: Data center cooling", "42000", "kWh", "2024-02"],
+        ["District Cooling", "Physical", "EXAMPLE: Office cooling - Summer", "28000", "kWh", "2024-Q3"],
+        ["District Cooling", "Spend", "EXAMPLE: Monthly cooling bill", "850", "USD", "2024-07"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -1252,10 +1252,10 @@ def create_scope_3_4_sheet(ws):
 
     # Examples
     examples = [
-        ["Physical", "Sea - Container", "Raw materials from China", "120", "CN", "IL", "", "", "", "2024-Q1"],
-        ["Physical", "Road - HGV", "Components from Germany", "25", "DE", "IL", "4200", "", "", "2024-02"],
-        ["Physical", "Air Freight", "Urgent parts from US", "2.5", "US", "IL", "11000", "", "", "2024-03"],
-        ["Spend", "Road - Average", "Local delivery (spend)", "", "", "", "", "15000", "USD", "2024-Q1"],
+        ["Physical", "Sea - Container", "EXAMPLE: Raw materials from China", "120", "CN", "IL", "", "", "", "2024-Q1"],
+        ["Physical", "Road - HGV", "EXAMPLE: Components from Germany", "25", "DE", "IL", "4200", "", "", "2024-02"],
+        ["Physical", "Air Freight", "EXAMPLE: Urgent parts from US", "2.5", "US", "IL", "11000", "", "", "2024-03"],
+        ["Spend", "Road - Average", "EXAMPLE: Local delivery (spend)", "", "", "", "", "15000", "USD", "2024-Q1"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -1354,11 +1354,11 @@ def create_scope_3_7_sheet(ws):
 
     # Examples
     examples = [
-        ["Physical", "Car - Petrol", "45", "25", "220", "IL", "Tel Aviv", "20", "", "", "R&D"],
-        ["Physical", "Bus", "30", "18", "220", "IL", "Jerusalem", "10", "", "", "Operations"],
-        ["Physical", "Rail / Train", "20", "35", "220", "UK", "", "15", "", "", "London Office"],
-        ["Physical", "Work from Home", "15", "", "220", "IL", "Gush Dan", "100", "", "", "Support"],
-        ["Spend", "Car - Average", "", "", "", "US", "", "", "45000", "USD", "US Subsidiary"],
+        ["Physical", "Car - Petrol", "45", "25", "220", "IL", "Tel Aviv", "20", "", "", "EXAMPLE: R&D"],
+        ["Physical", "Bus", "30", "18", "220", "IL", "Jerusalem", "10", "", "", "EXAMPLE: Operations"],
+        ["Physical", "Rail / Train", "20", "35", "220", "UK", "", "15", "", "", "EXAMPLE: London Office"],
+        ["Physical", "Work from Home", "15", "", "220", "IL", "Gush Dan", "100", "", "", "EXAMPLE: Support"],
+        ["Spend", "Car - Average", "", "", "", "US", "", "", "45000", "USD", "EXAMPLE: US Subsidiary"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -1464,10 +1464,10 @@ def create_scope_3_8_sheet(ws):
 
     # Examples
     examples = [
-        ["Physical", "Office", "Leased HQ - Tel Aviv", "2500", "120000", "35000", "IL", "", "", "", "", "2024"],
-        ["Physical", "Warehouse", "Distribution center", "5000", "85000", "", "IL", "4500", "18000", "", "", "2024"],
-        ["Physical", "Data Center", "Cloud hosting facility", "800", "450000", "", "US", "12000", "95000", "", "", "2024"],
-        ["Spend", "Office", "Small satellite office", "", "", "", "UK", "", "", "48000", "GBP", "2024"],
+        ["Physical", "Office", "EXAMPLE: Leased HQ - Tel Aviv", "2500", "120000", "35000", "IL", "", "", "", "", "2024"],
+        ["Physical", "Warehouse", "EXAMPLE: Distribution center", "5000", "85000", "", "IL", "4500", "18000", "", "", "2024"],
+        ["Physical", "Data Center", "EXAMPLE: Cloud hosting facility", "800", "450000", "", "US", "12000", "95000", "", "", "2024"],
+        ["Spend", "Office", "EXAMPLE: Small satellite office", "", "", "", "UK", "", "", "48000", "GBP", "2024"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -1536,9 +1536,9 @@ def create_scope_3_1_sheet(ws):
         cell.alignment = Alignment(horizontal='center')
 
     examples = [
-        ["Physical", "Steel", "Raw steel plates for production", "15000", "kg", "", "", "", "CN", "2024-Q1"],
-        ["Spend", "Office Supplies", "Annual office supplies", "", "", "25000", "USD", "", "", "2024-01"],
-        ["Supplier-Specific", "Plastic-PET", "PET bottles from supplier", "8000", "kg", "", "", "2.1", "IL", "2024-Q2"],
+        ["Physical", "Steel", "EXAMPLE: Raw steel plates for production", "15000", "kg", "", "", "", "CN", "2024-Q1"],
+        ["Spend", "Office Supplies", "EXAMPLE: Annual office supplies", "", "", "25000", "USD", "", "", "2024-01"],
+        ["Supplier-Specific", "Plastic-PET", "EXAMPLE: PET bottles from supplier", "8000", "kg", "", "", "2.1", "IL", "2024-Q2"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -1600,9 +1600,9 @@ def create_scope_3_2_sheet(ws):
         cell.alignment = Alignment(horizontal='center')
 
     examples = [
-        ["Physical", "IT Equipment", "Laptop", "50 laptops for employees", "50", "unit", "", "", "", "2024-01"],
-        ["Physical", "Vehicles", "Medium Car", "Fleet vehicle purchase", "3", "unit", "", "", "", "2024-03"],
-        ["Spend", "Machinery", "", "CNC machine purchase", "", "", "250000", "USD", "", "2024-Q2"],
+        ["Physical", "IT Equipment", "Laptop", "EXAMPLE: 50 laptops for employees", "50", "unit", "", "", "", "2024-01"],
+        ["Physical", "Vehicles", "Medium Car", "EXAMPLE: Fleet vehicle purchase", "3", "unit", "", "", "", "2024-03"],
+        ["Spend", "Machinery", "", "EXAMPLE: CNC machine purchase", "", "", "250000", "USD", "", "2024-Q2"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -1672,9 +1672,9 @@ def create_scope_3_5_sheet(ws):
         cell.alignment = Alignment(horizontal='center')
 
     examples = [
-        ["Physical", "Paper/Cardboard", "Recycling", "Office paper waste", "2500", "kg", "", "", "HQ", "2024-Q1"],
-        ["Physical", "Mixed/General", "Landfill", "General office waste", "8000", "kg", "", "", "HQ", "2024-Q1"],
-        ["Spend", "Mixed/General", "Landfill", "Waste disposal contract", "", "", "12000", "USD", "", "2024"],
+        ["Physical", "Paper/Cardboard", "Recycling", "EXAMPLE: Office paper waste", "2500", "kg", "", "", "HQ", "2024-Q1"],
+        ["Physical", "Mixed/General", "Landfill", "EXAMPLE: General office waste", "8000", "kg", "", "", "HQ", "2024-Q1"],
+        ["Spend", "Mixed/General", "Landfill", "EXAMPLE: Waste disposal contract", "", "", "12000", "USD", "", "2024"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -1747,9 +1747,9 @@ def create_scope_3_6_flights_sheet(ws):
         cell.alignment = Alignment(horizontal='center')
 
     examples = [
-        ["Physical", "TLV", "LHR", "Economy", "Round-trip", "1", "2", "", "", "John Smith", "2024-03"],
-        ["Physical", "TLV", "JFK", "Business", "Round-trip", "1", "1", "", "", "Jane Doe", "2024-05"],
-        ["Spend", "", "", "", "", "", "", "3500", "USD", "Team trip", "2024-06"],
+        ["Physical", "TLV", "LHR", "Economy", "Round-trip", "1", "2", "", "", "EXAMPLE: John Smith", "2024-03"],
+        ["Physical", "TLV", "JFK", "Business", "Round-trip", "1", "1", "", "", "EXAMPLE: Jane Doe", "2024-05"],
+        ["Spend", "", "", "", "", "", "", "3500", "USD", "EXAMPLE: Team trip", "2024-06"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -1815,9 +1815,9 @@ def create_scope_3_6_hotels_sheet(ws):
         cell.alignment = Alignment(horizontal='center')
 
     examples = [
-        ["Physical", "3", "1", "UK", "London", "", "", "John Smith", "2024-03"],
-        ["Physical", "5", "2", "US", "New York", "", "", "Team", "2024-06"],
-        ["Spend", "", "", "", "", "850", "USD", "Jane Doe", "2024-04"],
+        ["Physical", "3", "1", "UK", "London", "", "", "EXAMPLE: John Smith", "2024-03"],
+        ["Physical", "5", "2", "US", "New York", "", "", "EXAMPLE: Team", "2024-06"],
+        ["Spend", "", "", "", "", "850", "USD", "EXAMPLE: Jane Doe", "2024-04"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -1876,9 +1876,9 @@ def create_scope_3_6_other_travel_sheet(ws):
         cell.alignment = Alignment(horizontal='center')
 
     examples = [
-        ["Rail", "Physical", "450", "London to Manchester round trip", "", "", "2024-03"],
-        ["Taxi", "Physical", "25", "Airport transfer", "", "", "2024-03"],
-        ["Rental Car", "Spend", "", "Weekly rental", "850", "USD", "2024-04"],
+        ["Rail", "Physical", "450", "EXAMPLE: London to Manchester round trip", "", "", "2024-03"],
+        ["Taxi", "Physical", "25", "EXAMPLE: Airport transfer", "", "", "2024-03"],
+        ["Rental Car", "Spend", "", "EXAMPLE: Weekly rental", "850", "USD", "2024-04"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -1941,8 +1941,8 @@ def create_scope_3_9_sheet(ws):
         cell.alignment = Alignment(horizontal='center')
 
     examples = [
-        ["Physical", "Products to EU market", "50", "IL", "DE", "", "Sea - Container", "", "", "EU Distribution", "2024-Q1"],
-        ["Spend", "Local deliveries", "", "", "", "", "Road - Average", "8000", "USD", "Domestic", "2024-Q2"],
+        ["Physical", "EXAMPLE: Products to EU market", "50", "IL", "DE", "", "Sea - Container", "", "", "EU Distribution", "2024-Q1"],
+        ["Spend", "EXAMPLE: Local deliveries", "", "", "", "", "Road - Average", "8000", "USD", "Domestic", "2024-Q2"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -2013,8 +2013,8 @@ def create_scope_3_10_sheet(ws):
         cell.alignment = Alignment(horizontal='center')
 
     examples = [
-        ["Physical", "Steel", "", "Melting/Smelting", "Steel plates for auto parts", "50000", "kg", "", "", "", "2024-Q1"],
-        ["Spend", "", "", "", "Revenue from processed goods", "", "", "", "", "USD", "2024"],
+        ["Physical", "Steel", "", "Melting/Smelting", "EXAMPLE: Steel plates for auto parts", "50000", "kg", "", "", "", "2024-Q1"],
+        ["Spend", "", "", "", "EXAMPLE: Revenue from processed goods", "", "", "", "", "USD", "2024"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -2081,8 +2081,8 @@ def create_scope_3_11_sheet(ws):
         cell.alignment = Alignment(horizontal='center')
 
     examples = [
-        ["Physical", "Appliance", "Air Conditioner", "Window AC units sold", "5000", "15000", "10", "", "", "Electricity", "", "2024"],
-        ["Fuel", "Vehicle", "Truck", "Diesel trucks sold", "200", "", "15", "45000", "Diesel", "", "", "2024"],
+        ["Physical", "Appliance", "Air Conditioner", "EXAMPLE: Window AC units sold", "5000", "15000", "10", "", "", "Electricity", "", "2024"],
+        ["Fuel", "Vehicle", "Truck", "EXAMPLE: Diesel trucks sold", "200", "", "15", "45000", "Diesel", "", "", "2024"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -2144,8 +2144,8 @@ def create_scope_3_12_sheet(ws):
         cell.alignment = Alignment(horizontal='center')
 
     examples = [
-        ["Physical", "Plastic", "Recycling", "PET packaging", "Product packaging waste", "25000", "", "", "", "", "2024"],
-        ["Physical", "Electronic", "Recycling", "Circuit boards", "E-waste from sold devices", "5000", "10000", "0.5", "", "", "2024"],
+        ["Physical", "Plastic", "Recycling", "PET packaging", "EXAMPLE: Product packaging waste", "25000", "", "", "", "", "2024"],
+        ["Physical", "Electronic", "Recycling", "Circuit boards", "EXAMPLE: E-waste from sold devices", "5000", "10000", "0.5", "", "", "2024"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -2209,8 +2209,8 @@ def create_scope_3_13_sheet(ws):
         cell.alignment = Alignment(horizontal='center')
 
     examples = [
-        ["Physical", "Office", "Office", "Leased office space - Floor 3", "85000", "kWh", "1200", "", "", "", "Acme Corp", "Tel Aviv", "2024"],
-        ["Spend", "Warehouse", "Warehouse", "Leased warehouse", "", "", "", "", "120000", "USD", "LogiCo", "Haifa", "2024"],
+        ["Physical", "Office", "Office", "EXAMPLE: Leased office space - Floor 3", "85000", "kWh", "1200", "", "", "", "Acme Corp", "Tel Aviv", "2024"],
+        ["Spend", "Warehouse", "Warehouse", "EXAMPLE: Leased warehouse", "", "", "", "", "120000", "USD", "LogiCo", "Haifa", "2024"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
@@ -2282,8 +2282,8 @@ def create_scope_3_14_sheet(ws):
         cell.alignment = Alignment(horizontal='center')
 
     examples = [
-        ["Physical", "Restaurant", "Fast Food", "Main St. franchise", "250000", "5000", "1", "350", "", "", "Franchisee A", "Tel Aviv", "2024"],
-        ["Spend", "Retail Store", "", "Mall franchise", "", "", "3", "", "850000", "USD", "Franchisee B", "Haifa", "2024"],
+        ["Physical", "Restaurant", "Fast Food", "EXAMPLE: Main St. franchise", "250000", "5000", "1", "350", "", "", "Franchisee A", "Tel Aviv", "2024"],
+        ["Spend", "Retail Store", "", "EXAMPLE: Mall franchise", "", "", "3", "", "850000", "USD", "Franchisee B", "Haifa", "2024"],
     ]
     for row_offset, example in enumerate(examples):
         for col, val in enumerate(example, 1):
