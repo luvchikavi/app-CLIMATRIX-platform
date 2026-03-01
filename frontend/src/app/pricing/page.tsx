@@ -29,8 +29,6 @@ const iconMap: Record<string, LucideIcon> = {
   Rocket,
 };
 
-type BillingPeriod = 'monthly' | 'annual';
-
 interface PlanFeature {
   name: string;
   starter: boolean | string;
@@ -99,7 +97,7 @@ const faqs = [
   },
   {
     question: 'Do you offer discounts?',
-    answer: 'Yes! We offer 15% discount for annual billing (already reflected in prices), 20% discount for non-profits, and custom pricing for multi-entity organizations.',
+    answer: 'Yes! All plans are billed yearly. We also offer 20% discount for non-profits, and custom pricing for multi-entity organizations.',
   },
   {
     question: 'What about data security?',
@@ -116,7 +114,6 @@ const faqs = [
 ];
 
 export default function PricingPage() {
-  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('annual');
   const [showComparison, setShowComparison] = useState(false);
 
   return (
@@ -144,7 +141,6 @@ export default function PricingPage() {
       {/* Hero */}
       <section className="py-16 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <Badge variant="success" className="mb-4">Save 15% with annual billing</Badge>
           <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
             Enterprise Carbon Accounting
             <br />
@@ -152,36 +148,10 @@ export default function PricingPage() {
           </h1>
           <p className="text-xl text-foreground-muted mb-8 max-w-2xl mx-auto">
             The same regulatory-compliant calculations and audit-ready reports as $50K+ platforms,
-            starting at just $299/month.
+            starting at just $649/month.
           </p>
 
-          {/* Billing Toggle */}
-          <div className="flex items-center justify-center gap-4 mb-12">
-            <span className={cn(
-              "text-sm font-medium",
-              billingPeriod === 'monthly' ? 'text-foreground' : 'text-foreground-muted'
-            )}>
-              Monthly
-            </span>
-            <button
-              onClick={() => setBillingPeriod(billingPeriod === 'monthly' ? 'annual' : 'monthly')}
-              className={cn(
-                "relative w-14 h-7 rounded-full transition-colors",
-                billingPeriod === 'annual' ? 'bg-primary' : 'bg-background-muted'
-              )}
-            >
-              <span className={cn(
-                "absolute top-1 w-5 h-5 rounded-full bg-white transition-transform",
-                billingPeriod === 'annual' ? 'translate-x-8' : 'translate-x-1'
-              )} />
-            </button>
-            <span className={cn(
-              "text-sm font-medium",
-              billingPeriod === 'annual' ? 'text-foreground' : 'text-foreground-muted'
-            )}>
-              Annual <span className="text-success">(Save 15%)</span>
-            </span>
-          </div>
+          <p className="text-sm text-foreground-muted mb-12">Billed yearly. 14-day free trial included.</p>
         </div>
       </section>
 
@@ -191,7 +161,7 @@ export default function PricingPage() {
           <div className="grid md:grid-cols-3 gap-8">
             {plans.map((plan) => {
               const Icon = iconMap[plan.icon];
-              const price = billingPeriod === 'annual' ? plan.annualPrice : plan.monthlyPrice;
+              const price = plan.annualPrice;
 
               return (
                 <Card
@@ -221,14 +191,20 @@ export default function PricingPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-center mb-6">
-                      <div className="flex items-baseline justify-center gap-1">
-                        <span className="text-4xl font-bold text-foreground">${price}</span>
-                        <span className="text-foreground-muted">/month</span>
-                      </div>
-                      {billingPeriod === 'annual' && (
-                        <p className="text-sm text-foreground-muted mt-1">
-                          Billed annually (${price * 12}/year)
-                        </p>
+                      {price != null ? (
+                        <>
+                          <div className="flex items-baseline justify-center gap-1">
+                            <span className="text-4xl font-bold text-foreground">${price.toLocaleString()}</span>
+                            <span className="text-foreground-muted">/month</span>
+                          </div>
+                          <p className="text-sm text-foreground-muted mt-1">
+                            Billed yearly (${(price * 12).toLocaleString()}/year)
+                          </p>
+                        </>
+                      ) : (
+                        <div className="flex items-baseline justify-center gap-1">
+                          <span className="text-4xl font-bold text-foreground">Custom</span>
+                        </div>
                       )}
                     </div>
 

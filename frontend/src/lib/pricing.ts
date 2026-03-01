@@ -2,8 +2,8 @@ export interface Plan {
   name: string;
   description: string;
   icon: string;
-  monthlyPrice: number;
-  annualPrice: number;
+  monthlyPrice: number | null;
+  annualPrice: number | null;
   features: string[];
   limitations: string[];
   cta: string;
@@ -22,8 +22,8 @@ export const plans: Plan[] = [
     name: 'Starter',
     description: 'Perfect for small businesses beginning their sustainability journey',
     icon: 'Zap',
-    monthlyPrice: 349,
-    annualPrice: 299,
+    monthlyPrice: 649,
+    annualPrice: 649,
     features: [
       'Scope 1 & 2 emissions',
       'Up to 5 sites',
@@ -45,8 +45,8 @@ export const plans: Plan[] = [
     name: 'Professional',
     description: 'Ideal for mid-size companies with comprehensive reporting needs',
     icon: 'Building2',
-    monthlyPrice: 799,
-    annualPrice: 699,
+    monthlyPrice: 1449,
+    annualPrice: 1449,
     features: [
       'Scope 1, 2 & 3 (all 15 categories)',
       'Up to 25 sites',
@@ -69,8 +69,8 @@ export const plans: Plan[] = [
     name: 'Enterprise',
     description: 'For large organizations with complex compliance requirements',
     icon: 'Rocket',
-    monthlyPrice: 1799,
-    annualPrice: 1499,
+    monthlyPrice: null,
+    annualPrice: null,
     features: [
       'Everything in Professional',
       'Unlimited sites & users',

@@ -479,10 +479,16 @@ function LandingPageContent() {
                     <h3 className="text-xl font-semibold text-white">{plan.name}</h3>
                   </div>
                   <div className="mb-6">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-bold text-white">${plan.monthlyPrice}</span>
-                      <span className="text-gray-500">/month</span>
-                    </div>
+                    {plan.monthlyPrice != null ? (
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-4xl font-bold text-white">${plan.monthlyPrice.toLocaleString()}</span>
+                        <span className="text-gray-500">/month</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-4xl font-bold text-white">Custom</span>
+                      </div>
+                    )}
                     <p className="text-sm text-gray-500 mt-1">{plan.description}</p>
                   </div>
                   <ul className="space-y-2.5 mb-8">
