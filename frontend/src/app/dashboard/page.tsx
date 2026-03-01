@@ -666,16 +666,16 @@ function DashboardContent() {
       )}
 
       {/* Scope Drill-Down Modal */}
-      {drillDownScope && filteredActivities.length > 0 && (
+      {drillDownScope && (activities || []).length > 0 && (
         <ScopeDrillDown
           scope={drillDownScope}
-          activities={filteredActivities}
+          activities={activities || []}
           onClose={() => setDrillDownScope(null)}
         />
       )}
 
       {/* Category Drill-Down Modal */}
-      {drillDownCategory && filteredActivities.length > 0 && (
+      {drillDownCategory && (activities || []).length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
@@ -709,7 +709,8 @@ function DashboardContent() {
             {/* Modal Content */}
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-100px)]">
               {(() => {
-                const categoryActivities = filteredActivities.filter(
+                // Use all activities (not batch-filtered) since the summary chart shows all data
+                const categoryActivities = (activities || []).filter(
                   (item) =>
                     item.activity.scope === drillDownCategory.scope &&
                     item.activity.category_code === drillDownCategory.category_code
