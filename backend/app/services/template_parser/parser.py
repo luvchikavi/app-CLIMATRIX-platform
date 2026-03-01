@@ -178,33 +178,70 @@ class TemplateParser:
 
         return None
 
+    def _find_header_row(self, ws, config: SheetConfig) -> int:
+        """
+        Auto-detect the actual header row by matching column_map keys against row values.
+        Falls back to config.header_row if no match found.
+        """
+        if not config.column_map:
+            return config.header_row
+
+        col_names = set(config.column_map.keys())
+
+        # Scan rows 1-8 to find the best header row
+        best_row = config.header_row
+        best_count = 0
+        for row_num in range(1, min(9, ws.max_row + 1)):
+            row_values = [str(cell.value).strip() if cell.value else '' for cell in ws[row_num]]
+            match_count = 0
+            for val in row_values:
+                if not val:
+                    continue
+                for col_name in col_names:
+                    if val == col_name or col_name in val or val in col_name:
+                        match_count += 1
+                        break
+            if match_count > best_count:
+                best_count = match_count
+                best_row = row_num
+
+        # Only override if we found a meaningful match (at least 3 columns)
+        if best_count >= 3:
+            return best_row
+        return config.header_row
+
     def _parse_sheet(self, ws, config: SheetConfig) -> SheetResult:
         """Parse a single worksheet."""
         activities = []
         errors = []
         warnings = []
         skipped = 0
-        
+
+        # Auto-detect header row (handles mismatches between config and actual file)
+        actual_header_row = self._find_header_row(ws, config)
+
         # Get headers from header row
         headers = []
-        for cell in ws[config.header_row]:
+        for cell in ws[actual_header_row]:
             headers.append(str(cell.value).strip() if cell.value else "")
-        
-        # Create column index map
+
+        # Create column index map (bidirectional partial matching)
         col_indices = {}
         for i, header in enumerate(headers):
+            if not header:
+                continue
             if header in config.column_map:
                 col_indices[config.column_map[header]] = i
             else:
-                # Try to find partial match
+                # Bidirectional partial match: check both directions
                 for template_col, std_col in config.column_map.items():
-                    if template_col in header:
+                    if template_col in header or header in template_col:
                         col_indices[std_col] = i
                         break
         
         # Parse data rows
         total_rows = 0
-        for row_num in range(config.header_row + 1, ws.max_row + 1):
+        for row_num in range(actual_header_row + 1, ws.max_row + 1):
             total_rows += 1
             row_values = [cell.value for cell in ws[row_num]]
 
@@ -282,6 +319,14 @@ class TemplateParser:
                 # Also store with mapped column name for resolver functions
                 if header in config.column_map:
                     row_dict[config.column_map[header]] = row_values[i]
+                else:
+                    # Check bidirectional partial match for mapped name storage
+                    for template_col, std_col in config.column_map.items():
+                        if template_col in header or header in template_col:
+                            row_dict[std_col] = row_values[i]
+                            # Also store with the canonical template column name
+                            row_dict[template_col] = row_values[i]
+                            break
 
         # Get quantity - check both Physical_Amount and Spend_Amount
         quantity = None
@@ -362,9 +407,19 @@ class TemplateParser:
 
         # Special case: 3.7 Commuting (new template) - same calculation
         if config.sheet_name == '3.7 Commuting' and quantity is None:
-            employees = self._parse_decimal(row_dict.get('Number of Employees'))
-            working_days = self._parse_decimal(row_dict.get('Working Days/Year') or row_dict.get('Working_Days'))
-            avg_distance = self._parse_decimal(row_dict.get('Avg Distance (km one-way)') or row_dict.get('Avg_Distance_km'))
+            employees = self._parse_decimal(
+                row_dict.get('num_employees') or row_dict.get('Number of Employees')
+                or row_dict.get('Employees')
+            )
+            working_days = self._parse_decimal(
+                row_dict.get('working_days') or row_dict.get('Working Days/Year')
+                or row_dict.get('Working_Days')
+            )
+            avg_distance = self._parse_decimal(
+                row_dict.get('avg_distance_km') or row_dict.get('Avg Distance One-Way (km)')
+                or row_dict.get('Avg Distance (km)') or row_dict.get('Avg Distance (km one-way)')
+                or row_dict.get('Avg_Distance_km')
+            )
 
             if employees and working_days and avg_distance:
                 # Round trip = × 2
@@ -379,8 +434,14 @@ class TemplateParser:
 
             # Auto-lookup distance from origin/destination countries if distance not provided
             if distance is None:
-                origin_country = (row_dict.get('Origin Country') or row_dict.get('origin_country') or '').strip().upper()
-                dest_country = (row_dict.get('Destination Country') or row_dict.get('destination_country') or '').strip().upper()
+                origin_country = (
+                    row_dict.get('origin') or row_dict.get('Origin Country')
+                    or row_dict.get('origin_country') or row_dict.get('Origin') or ''
+                ).strip().upper()
+                dest_country = (
+                    row_dict.get('destination') or row_dict.get('Destination Country')
+                    or row_dict.get('destination_country') or row_dict.get('Destination') or ''
+                ).strip().upper()
                 if origin_country and dest_country:
                     auto_distance = self._get_transport_distance(origin_country, dest_country)
                     if auto_distance is not None:
@@ -405,7 +466,10 @@ class TemplateParser:
         # Auto-fill commuting distance from Israel city lookup
         if config.category_code == '3.7':
             city_zone = row_dict.get('city_zone') or row_dict.get('City/Zone (Israel)')
-            distance = row_dict.get('avg_distance_km') or row_dict.get('Avg Distance One-Way (km)') or row_dict.get('Avg Distance (km one-way)')
+            distance = (
+                row_dict.get('avg_distance_km') or row_dict.get('Avg Distance One-Way (km)')
+                or row_dict.get('Avg Distance (km)') or row_dict.get('Avg Distance (km one-way)')
+            )
 
             if city_zone and not distance:
                 auto_distance = self._get_commuting_distance(city_zone)
@@ -443,21 +507,33 @@ class TemplateParser:
 
         # Special case: 3.6 Flights (new template) - calculate distance from airports
         if config.sheet_name == '3.6 Flights' and quantity is None:
-            from_airport = row_dict.get('From Airport') or ''
-            to_airport = row_dict.get('To Airport') or ''
-            trip_type = (row_dict.get('Trip Type') or '').lower().strip()
-            num_trips = self._parse_decimal(row_dict.get('Number of Trips')) or Decimal('1')
+            from_airport = (
+                row_dict.get('origin_airport') or row_dict.get('Origin Airport (IATA)')
+                or row_dict.get('Origin Airport') or ''
+            )
+            to_airport = (
+                row_dict.get('destination_airport') or row_dict.get('Destination Airport (IATA)')
+                or row_dict.get('Destination Airport') or ''
+            )
+            trip_type = (row_dict.get('Trip Type') or row_dict.get('trip_type') or '').lower().strip()
+            num_trips = self._parse_decimal(
+                row_dict.get('num_trips') or row_dict.get('Number of Trips')
+            ) or Decimal('1')
+            num_passengers = self._parse_decimal(
+                row_dict.get('num_passengers') or row_dict.get('Number of Passengers')
+                or row_dict.get('Passengers')
+            ) or Decimal('1')
 
             if from_airport and to_airport:
                 # Calculate distance (use approximation table)
                 distance = self._get_airport_distance(from_airport, to_airport)
-                if distance:
+                if distance is not None:
                     # Round trip = × 2
                     if 'round' in trip_type:
-                        quantity = Decimal(str(distance * 2)) * num_trips
+                        quantity = Decimal(str(distance * 2)) * num_trips * num_passengers
                     else:
-                        quantity = Decimal(str(distance)) * num_trips
-                    unit = 'km'
+                        quantity = Decimal(str(distance)) * num_trips * num_passengers
+                    unit = 'passenger-km'
 
         # Get the activity/fuel type for error messages
         type_idx = col_indices.get('activity_type') or col_indices.get('type')
@@ -629,6 +705,10 @@ class TemplateParser:
 
         if not from_code or not to_code:
             return None
+
+        # Same airport = 0 distance (e.g., TLV→TLV)
+        if from_code == to_code:
+            return 0
 
         # Use the full airport database for accurate distance calculation
         try:

@@ -1519,13 +1519,27 @@ SHEET_CONFIGS = {
 
 
 def get_sheet_config(sheet_name: str) -> SheetConfig | None:
-    """Get configuration for a sheet by name."""
-    return SHEET_CONFIGS.get(sheet_name)
+    """Get configuration for a sheet by name, checking aliases for short names."""
+    config = SHEET_CONFIGS.get(sheet_name)
+    if not config:
+        canonical = SHEET_NAME_ALIASES.get(sheet_name)
+        if canonical:
+            config = SHEET_CONFIGS.get(canonical)
+    return config
 
 
 def get_all_sheet_configs() -> dict[str, SheetConfig]:
     """Get all sheet configurations."""
     return SHEET_CONFIGS
+
+
+# Sheet name aliases for client files that use shortened names
+SHEET_NAME_ALIASES = {
+    '3.10 Processing': '3.10 Processing of Sold Products',
+    '3.11 Use of Products': '3.11 Use of Sold Products',
+    '3.12 End-of-Life': '3.12 End-of-Life Treatment',
+    '3.13 Leased to Others': '3.13 Downstream Leased Assets',
+}
 
 
 # =============================================================================
@@ -2199,9 +2213,9 @@ def resolve_v4_waste(row: dict) -> tuple[str, str]:
 def resolve_v4_flights(row: dict) -> tuple[str, str]:
     """Resolve activity_key for v4 template 3.6 Flights."""
     method = (row.get('Method') or '').lower().strip()
-    cabin_class = (row.get('Cabin Class') or '').lower().strip()
-    origin = row.get('Origin Airport (IATA)') or ''
-    dest = row.get('Destination Airport (IATA)') or ''
+    cabin_class = (row.get('Cabin Class') or row.get('cabin_class') or '').lower().strip()
+    origin = row.get('origin_airport') or row.get('Origin Airport (IATA)') or row.get('Origin Airport') or ''
+    dest = row.get('destination_airport') or row.get('Destination Airport (IATA)') or row.get('Destination Airport') or ''
 
     if method == 'spend':
         return ('travel_spend_air', 'USD')
@@ -2776,6 +2790,7 @@ V4_SHEET_CONFIGS = {
             'Currency': 'currency',
             'Supplier EF': 'supplier_ef',  # For Supplier-Specific method
             'Purchase Date': 'activity_date',
+            'Date': 'activity_date',  # Alias for client files
             'Expected Lifetime (Years)': 'lifetime',
         },
         activity_key_resolver=resolve_v4_capital_goods,
@@ -2797,6 +2812,9 @@ V4_SHEET_CONFIGS = {
             'Distance (km)': 'distance_km',
             'Origin': 'origin',
             'Destination': 'destination',
+            # Client file aliases for origin/destination
+            'Origin Country': 'origin',
+            'Destination Country': 'destination',
             # Spend method fields
             'Spend Amount': 'spend_amount',
             'Currency': 'currency',
@@ -2848,9 +2866,14 @@ V4_SHEET_CONFIGS = {
             'Method': 'calc_type',
             'Origin Airport (IATA)': 'origin_airport',
             'Destination Airport (IATA)': 'destination_airport',
+            # Client file aliases for airport columns
+            'Origin Airport': 'origin_airport',
+            'Destination Airport': 'destination_airport',
             'Cabin Class': 'cabin_class',
             'Trip Type': 'trip_type',
             'Number of Passengers': 'num_passengers',
+            'Passengers': 'num_passengers',  # Client file alias
+            'Number of Trips': 'num_trips',
             'Spend Amount': 'spend_amount',
             'Currency': 'currency',
             'Traveler Name': 'traveler',
@@ -2906,11 +2929,15 @@ V4_SHEET_CONFIGS = {
             'Method': 'calc_type',
             'Transport Mode': 'transport_mode',
             'Number of Employees': 'num_employees',
+            'Employees': 'num_employees',  # Client file alias
             'Avg Distance One-Way (km)': 'avg_distance_km',
+            'Avg Distance (km)': 'avg_distance_km',  # Client file alias
             'City/Zone (Israel)': 'city_zone',
             'Working Days/Year': 'working_days',
             'Country': 'country',
             '% Remote Work': 'remote_work_pct',
+            '% Remote': 'remote_work_pct',  # Client file alias
+            'Comments': 'comments',
             'Spend Amount': 'spend_amount',
             'Currency': 'currency',
             'Site/Department': 'site',
@@ -3078,6 +3105,7 @@ V4_SHEET_CONFIGS = {
             'Tenant Scope 2 CO2e (kg)': 'tenant_scope2_co2e',
             # Optional
             'Tenant': 'tenant',
+            'Lessee': 'tenant',  # Client file alias
             'Location': 'location',
             'Date': 'activity_date',
         },

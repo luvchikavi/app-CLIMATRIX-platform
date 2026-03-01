@@ -289,6 +289,154 @@ CURRENCIES = [
     "Other",
 ]
 
+# Scope 3 - Additional reference data
+SCOPE3_METHODS = [
+    "Physical",
+    "Spend",
+    "Supplier-Specific",
+]
+
+PURCHASED_GOODS_CATEGORIES = [
+    "Raw Materials",
+    "Office Supplies",
+    "IT Equipment",
+    "Packaging",
+    "Chemicals",
+    "Food & Beverages",
+    "Textiles",
+    "Other",
+]
+
+CAPITAL_GOODS_CATEGORIES = [
+    "Vehicles",
+    "IT Equipment",
+    "Machinery",
+    "Buildings",
+    "Furniture",
+    "HVAC",
+    "Solar",
+    "Other",
+]
+
+CAPITAL_GOODS_TYPES = [
+    "Small Car",
+    "Medium Car",
+    "Large Car / SUV",
+    "Van",
+    "Truck / HGV",
+    "Laptop",
+    "Desktop",
+    "Monitor",
+    "Server",
+    "Smartphone",
+    "Tablet",
+    "Printer",
+    "Office",
+    "Warehouse",
+    "Retail",
+    "Industrial",
+    "HVAC System",
+    "Solar PV",
+    "Office Desk",
+    "Office Chair",
+]
+
+WASTE_TYPES = [
+    "Paper/Cardboard",
+    "Plastics",
+    "Glass",
+    "Metals",
+    "Organic/Food",
+    "Wood",
+    "Textile",
+    "Mixed/General",
+    "Electronic (WEEE)",
+    "Construction & Demolition",
+    "Hazardous",
+    "Batteries",
+]
+
+TREATMENT_METHODS = [
+    "Landfill",
+    "Recycling",
+    "Composting",
+    "Incineration",
+    "Incineration (Energy Recovery)",
+    "Anaerobic Digestion",
+]
+
+CABIN_CLASSES = [
+    "Economy",
+    "Premium Economy",
+    "Business",
+    "First",
+]
+
+TRIP_TYPES = [
+    "One-way",
+    "Round-trip",
+]
+
+TRAVEL_TYPES = [
+    "Rail",
+    "Taxi",
+    "Rental Car",
+    "Bus",
+]
+
+PROCESSING_TYPES = [
+    "Melting/Smelting",
+    "Molding/Extrusion",
+    "Assembly",
+    "Weaving",
+    "Milling/Refining",
+    "Chemical Processing",
+    "Other",
+]
+
+PRODUCT_CATEGORIES_USE = [
+    "Vehicle",
+    "Appliance",
+    "Electronic",
+    "Machinery",
+    "Building",
+    "Lighting",
+    "Other",
+]
+
+DISPOSAL_METHODS = [
+    "Recycling",
+    "Landfill",
+    "Incineration",
+    "Incineration (Energy Recovery)",
+    "Composting",
+    "Anaerobic Digestion",
+]
+
+DOWNSTREAM_ASSET_TYPES = [
+    "Office",
+    "Warehouse",
+    "Retail",
+    "Industrial",
+    "Data Center",
+    "Residential",
+    "Vehicle",
+    "Equipment",
+]
+
+FRANCHISE_TYPES = [
+    "Restaurant",
+    "Fast Food",
+    "Cafe/Coffee",
+    "Retail Store",
+    "Convenience Store",
+    "Hotel/Hospitality",
+    "Gym/Fitness",
+    "Gas Station",
+    "Office",
+    "Service",
+]
+
 # =============================================================================
 # STYLES
 # =============================================================================
@@ -353,9 +501,21 @@ def create_introduction_sheet(ws):
         "   - 2.3 Cooling: Chilled water, district cooling",
         "",
         "   SCOPE 3 - VALUE CHAIN EMISSIONS:",
+        "   - 3.1 Purchased Goods: Raw materials, office supplies, packaging",
+        "   - 3.2 Capital Goods: Vehicles, IT equipment, buildings, machinery",
         "   - 3.4 Upstream Transport: Freight & distribution (auto-distance from origin/destination)",
+        "   - 3.5 Waste: Waste disposal by type and treatment method",
+        "   - 3.6 Flights: Business air travel (auto-distance from airport codes)",
+        "   - 3.6 Hotels: Hotel stays by country",
+        "   - 3.6 Other Travel: Rail, taxi, rental car, bus",
         "   - 3.7 Commuting: Employee travel to work (Israel city/zone supported)",
         "   - 3.8 Leased Assets: Upstream leased buildings (tenant data supported)",
+        "   - 3.9 Downstream Transport: Distribution of sold products",
+        "   - 3.10 Processing: Processing of sold products by third parties",
+        "   - 3.11 Use of Products: Emissions from use of sold products",
+        "   - 3.12 End-of-Life: End-of-life treatment of sold products",
+        "   - 3.13 Leased to Others: Downstream leased assets",
+        "   - 3.14 Franchises: Emissions from franchise operations",
         "",
         "Step 3: Choose Calculation Method",
         "   - PHYSICAL: Enter actual consumption (liters, kWh, km, kg)",
@@ -1342,6 +1502,815 @@ def create_scope_3_8_sheet(ws):
     dv_currency.add('K7:K60')
 
 
+def create_scope_3_1_sheet(ws):
+    """Create Scope 3.1 Purchased Goods & Services sheet."""
+    ws.title = "3.1 Purchased Goods"
+
+    cols = {'A': 15, 'B': 18, 'C': 35, 'D': 15, 'E': 12, 'F': 15, 'G': 12, 'H': 22, 'I': 15, 'J': 12}
+    for c, w in cols.items():
+        ws.column_dimensions[c].width = w
+
+    ws['A1'] = "Scope 3.1 - Purchased Goods & Services"
+    ws['A1'].font = TITLE_FONT
+    ws.merge_cells('A1:J1')
+    ws['A2'] = "Raw materials, components, office supplies, and services purchased. Use Physical, Spend, or Supplier-Specific."
+    ws['A2'].font = Font(italic=True, size=10, color="666666")
+    ws.merge_cells('A2:J2')
+
+    headers = [
+        "Method", "Sub-Category", "Description", "Quantity", "Unit",
+        "Spend Amount", "Currency", "Supplier EF (kg CO2e/unit)", "Supplier Country", "Date",
+    ]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal='center')
+
+    indicators = ["[Dropdown]", "[Paste/Type]", "[Paste/Type]", "[Paste/Type]", "[Dropdown]",
+                  "[Paste/Type]", "[Dropdown]", "[Optional]", "[Optional]", "[Paste/Type]"]
+    for col, ind in enumerate(indicators, 1):
+        cell = ws.cell(row=5, column=col, value=ind)
+        cell.font = Font(italic=True, size=9, color="666666")
+        cell.alignment = Alignment(horizontal='center')
+
+    examples = [
+        ["Physical", "Steel", "Raw steel plates for production", "15000", "kg", "", "", "", "CN", "2024-Q1"],
+        ["Spend", "Office Supplies", "Annual office supplies", "", "", "25000", "USD", "", "", "2024-01"],
+        ["Supplier-Specific", "Plastic-PET", "PET bottles from supplier", "8000", "kg", "", "", "2.1", "IL", "2024-Q2"],
+    ]
+    for row_offset, example in enumerate(examples):
+        for col, val in enumerate(example, 1):
+            cell = ws.cell(row=6+row_offset, column=col, value=val)
+            cell.fill = EXAMPLE_FILL
+            cell.border = THIN_BORDER
+
+    for row in range(9, 109):
+        for col in range(1, 11):
+            cell = ws.cell(row=row, column=col)
+            cell.border = THIN_BORDER
+            if col in [1, 5, 7]:
+                cell.fill = DROPDOWN_FILL
+
+    dv_method = DataValidation(type="list", formula1='"' + ','.join(SCOPE3_METHODS) + '"', allow_blank=True)
+    ws.add_data_validation(dv_method)
+    dv_method.add('A6:A108')
+
+    dv_unit = DataValidation(type="list", formula1='"kg,tonnes,liters,m3,kWh,units,' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_unit)
+    dv_unit.add('E6:E108')
+
+    dv_currency = DataValidation(type="list", formula1='"' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_currency)
+    dv_currency.add('G6:G108')
+
+
+def create_scope_3_2_sheet(ws):
+    """Create Scope 3.2 Capital Goods sheet."""
+    ws.title = "3.2 Capital Goods"
+
+    cols = {'A': 15, 'B': 18, 'C': 18, 'D': 35, 'E': 15, 'F': 12, 'G': 15, 'H': 12, 'I': 18, 'J': 12}
+    for c, w in cols.items():
+        ws.column_dimensions[c].width = w
+
+    ws['A1'] = "Scope 3.2 - Capital Goods"
+    ws['A1'].font = TITLE_FONT
+    ws.merge_cells('A1:J1')
+    ws['A2'] = "Purchased capital equipment: vehicles, IT, buildings, machinery. Use Physical, Spend, or Supplier-Specific."
+    ws['A2'].font = Font(italic=True, size=10, color="666666")
+    ws.merge_cells('A2:J2')
+
+    headers = [
+        "Method", "Asset Category", "Asset Type", "Description", "Quantity", "Unit",
+        "Spend Amount", "Currency", "Supplier EF", "Date",
+    ]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal='center')
+
+    indicators = ["[Dropdown]", "[Dropdown]", "[Dropdown]", "[Paste/Type]", "[Paste/Type]", "[Dropdown]",
+                  "[Paste/Type]", "[Dropdown]", "[Optional]", "[Paste/Type]"]
+    for col, ind in enumerate(indicators, 1):
+        cell = ws.cell(row=5, column=col, value=ind)
+        cell.font = Font(italic=True, size=9, color="666666")
+        cell.alignment = Alignment(horizontal='center')
+
+    examples = [
+        ["Physical", "IT Equipment", "Laptop", "50 laptops for employees", "50", "unit", "", "", "", "2024-01"],
+        ["Physical", "Vehicles", "Medium Car", "Fleet vehicle purchase", "3", "unit", "", "", "", "2024-03"],
+        ["Spend", "Machinery", "", "CNC machine purchase", "", "", "250000", "USD", "", "2024-Q2"],
+    ]
+    for row_offset, example in enumerate(examples):
+        for col, val in enumerate(example, 1):
+            cell = ws.cell(row=6+row_offset, column=col, value=val)
+            cell.fill = EXAMPLE_FILL
+            cell.border = THIN_BORDER
+
+    for row in range(9, 59):
+        for col in range(1, 11):
+            cell = ws.cell(row=row, column=col)
+            cell.border = THIN_BORDER
+            if col in [1, 2, 3, 6, 8]:
+                cell.fill = DROPDOWN_FILL
+
+    dv_method = DataValidation(type="list", formula1='"' + ','.join(SCOPE3_METHODS) + '"', allow_blank=True)
+    ws.add_data_validation(dv_method)
+    dv_method.add('A6:A58')
+
+    dv_cat = DataValidation(type="list", formula1='"' + ','.join(CAPITAL_GOODS_CATEGORIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_cat)
+    dv_cat.add('B6:B58')
+
+    dv_type = DataValidation(type="list", formula1='"' + ','.join(CAPITAL_GOODS_TYPES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_type)
+    dv_type.add('C6:C58')
+
+    dv_unit = DataValidation(type="list", formula1='"unit,m2,kW,' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_unit)
+    dv_unit.add('F6:F58')
+
+    dv_currency = DataValidation(type="list", formula1='"' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_currency)
+    dv_currency.add('H6:H58')
+
+
+def create_scope_3_5_sheet(ws):
+    """Create Scope 3.5 Waste Generated in Operations sheet."""
+    ws.title = "3.5 Waste"
+
+    cols = {'A': 15, 'B': 20, 'C': 22, 'D': 35, 'E': 15, 'F': 12, 'G': 15, 'H': 12, 'I': 15, 'J': 12}
+    for c, w in cols.items():
+        ws.column_dimensions[c].width = w
+
+    ws['A1'] = "Scope 3.5 - Waste Generated in Operations"
+    ws['A1'].font = TITLE_FONT
+    ws.merge_cells('A1:J1')
+    ws['A2'] = "Waste disposal and treatment. Enter waste type, treatment method, and weight."
+    ws['A2'].font = Font(italic=True, size=10, color="666666")
+    ws.merge_cells('A2:J2')
+
+    headers = [
+        "Method", "Waste Type", "Treatment Method", "Description", "Quantity", "Unit",
+        "Spend Amount", "Currency", "Site", "Date",
+    ]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal='center')
+
+    indicators = ["[Dropdown]", "[Dropdown]", "[Dropdown]", "[Paste/Type]", "[Paste/Type]", "[Dropdown]",
+                  "[Paste/Type]", "[Dropdown]", "[Paste/Type]", "[Paste/Type]"]
+    for col, ind in enumerate(indicators, 1):
+        cell = ws.cell(row=5, column=col, value=ind)
+        cell.font = Font(italic=True, size=9, color="666666")
+        cell.alignment = Alignment(horizontal='center')
+
+    examples = [
+        ["Physical", "Paper/Cardboard", "Recycling", "Office paper waste", "2500", "kg", "", "", "HQ", "2024-Q1"],
+        ["Physical", "Mixed/General", "Landfill", "General office waste", "8000", "kg", "", "", "HQ", "2024-Q1"],
+        ["Spend", "Mixed/General", "Landfill", "Waste disposal contract", "", "", "12000", "USD", "", "2024"],
+    ]
+    for row_offset, example in enumerate(examples):
+        for col, val in enumerate(example, 1):
+            cell = ws.cell(row=6+row_offset, column=col, value=val)
+            cell.fill = EXAMPLE_FILL
+            cell.border = THIN_BORDER
+
+    for row in range(9, 59):
+        for col in range(1, 11):
+            cell = ws.cell(row=row, column=col)
+            cell.border = THIN_BORDER
+            if col in [1, 2, 3, 6, 8]:
+                cell.fill = DROPDOWN_FILL
+
+    dv_method = DataValidation(type="list", formula1='"' + ','.join(SCOPE3_METHODS) + '"', allow_blank=True)
+    ws.add_data_validation(dv_method)
+    dv_method.add('A6:A58')
+
+    dv_waste = DataValidation(type="list", formula1='"' + ','.join(WASTE_TYPES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_waste)
+    dv_waste.add('B6:B58')
+
+    dv_treatment = DataValidation(type="list", formula1='"' + ','.join(TREATMENT_METHODS) + '"', allow_blank=True)
+    ws.add_data_validation(dv_treatment)
+    dv_treatment.add('C6:C58')
+
+    dv_unit = DataValidation(type="list", formula1='"kg,tonnes,m3,' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_unit)
+    dv_unit.add('F6:F58')
+
+    dv_currency = DataValidation(type="list", formula1='"' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_currency)
+    dv_currency.add('H6:H58')
+
+
+def create_scope_3_6_flights_sheet(ws):
+    """Create Scope 3.6 Flights sheet."""
+    ws.title = "3.6 Flights"
+
+    cols = {'A': 15, 'B': 20, 'C': 20, 'D': 15, 'E': 12, 'F': 18, 'G': 12, 'H': 15, 'I': 12, 'J': 18, 'K': 12}
+    for c, w in cols.items():
+        ws.column_dimensions[c].width = w
+
+    ws['A1'] = "Scope 3.6 - Business Travel: Flights"
+    ws['A1'].font = TITLE_FONT
+    ws.merge_cells('A1:K1')
+    ws['A2'] = "Business air travel. Enter IATA airport codes (e.g., TLV, LHR, JFK) - distance is auto-calculated."
+    ws['A2'].font = Font(italic=True, size=10, color="666666")
+    ws.merge_cells('A2:K2')
+    ws['A3'] = "If the same airport appears as origin and destination (e.g., TLV→TLV), it will be treated as 0 emissions."
+    ws['A3'].font = Font(italic=True, size=10, color="336699")
+    ws.merge_cells('A3:K3')
+
+    headers = [
+        "Method", "Origin Airport", "Destination Airport", "Cabin Class", "Trip Type",
+        "Passengers", "Number of Trips", "Spend Amount", "Currency", "Traveler Name", "Date",
+    ]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=5, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal='center')
+
+    indicators = ["[Dropdown]", "[IATA Code]", "[IATA Code]", "[Dropdown]", "[Dropdown]",
+                  "[Paste/Type]", "[Paste/Type]", "[Paste/Type]", "[Dropdown]", "[Paste/Type]", "[Paste/Type]"]
+    for col, ind in enumerate(indicators, 1):
+        cell = ws.cell(row=6, column=col, value=ind)
+        cell.font = Font(italic=True, size=9, color="666666")
+        cell.alignment = Alignment(horizontal='center')
+
+    examples = [
+        ["Physical", "TLV", "LHR", "Economy", "Round-trip", "1", "2", "", "", "John Smith", "2024-03"],
+        ["Physical", "TLV", "JFK", "Business", "Round-trip", "1", "1", "", "", "Jane Doe", "2024-05"],
+        ["Spend", "", "", "", "", "", "", "3500", "USD", "Team trip", "2024-06"],
+    ]
+    for row_offset, example in enumerate(examples):
+        for col, val in enumerate(example, 1):
+            cell = ws.cell(row=7+row_offset, column=col, value=val)
+            cell.fill = EXAMPLE_FILL
+            cell.border = THIN_BORDER
+
+    for row in range(10, 110):
+        for col in range(1, 12):
+            cell = ws.cell(row=row, column=col)
+            cell.border = THIN_BORDER
+            if col in [1, 4, 5, 9]:
+                cell.fill = DROPDOWN_FILL
+
+    dv_method = DataValidation(type="list", formula1='"Physical,Spend"', allow_blank=True)
+    ws.add_data_validation(dv_method)
+    dv_method.add('A7:A109')
+
+    dv_cabin = DataValidation(type="list", formula1='"' + ','.join(CABIN_CLASSES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_cabin)
+    dv_cabin.add('D7:D109')
+
+    dv_trip = DataValidation(type="list", formula1='"' + ','.join(TRIP_TYPES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_trip)
+    dv_trip.add('E7:E109')
+
+    dv_currency = DataValidation(type="list", formula1='"' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_currency)
+    dv_currency.add('I7:I109')
+
+
+def create_scope_3_6_hotels_sheet(ws):
+    """Create Scope 3.6 Hotels sheet."""
+    ws.title = "3.6 Hotels"
+
+    cols = {'A': 15, 'B': 18, 'C': 18, 'D': 15, 'E': 15, 'F': 15, 'G': 12, 'H': 18, 'I': 12}
+    for c, w in cols.items():
+        ws.column_dimensions[c].width = w
+
+    ws['A1'] = "Scope 3.6 - Business Travel: Hotels"
+    ws['A1'].font = TITLE_FONT
+    ws.merge_cells('A1:I1')
+    ws['A2'] = "Hotel stays during business travel. Enter number of nights, rooms, and country."
+    ws['A2'].font = Font(italic=True, size=10, color="666666")
+    ws.merge_cells('A2:I2')
+
+    headers = [
+        "Method", "Number of Nights", "Number of Rooms", "Country", "City",
+        "Spend Amount", "Currency", "Traveler Name", "Date",
+    ]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal='center')
+
+    indicators = ["[Dropdown]", "[Paste/Type]", "[Paste/Type]", "[Dropdown]", "[Paste/Type]",
+                  "[Paste/Type]", "[Dropdown]", "[Paste/Type]", "[Paste/Type]"]
+    for col, ind in enumerate(indicators, 1):
+        cell = ws.cell(row=5, column=col, value=ind)
+        cell.font = Font(italic=True, size=9, color="666666")
+        cell.alignment = Alignment(horizontal='center')
+
+    examples = [
+        ["Physical", "3", "1", "UK", "London", "", "", "John Smith", "2024-03"],
+        ["Physical", "5", "2", "US", "New York", "", "", "Team", "2024-06"],
+        ["Spend", "", "", "", "", "850", "USD", "Jane Doe", "2024-04"],
+    ]
+    for row_offset, example in enumerate(examples):
+        for col, val in enumerate(example, 1):
+            cell = ws.cell(row=6+row_offset, column=col, value=val)
+            cell.fill = EXAMPLE_FILL
+            cell.border = THIN_BORDER
+
+    for row in range(9, 59):
+        for col in range(1, 10):
+            cell = ws.cell(row=row, column=col)
+            cell.border = THIN_BORDER
+            if col in [1, 4, 7]:
+                cell.fill = DROPDOWN_FILL
+
+    dv_method = DataValidation(type="list", formula1='"Physical,Spend"', allow_blank=True)
+    ws.add_data_validation(dv_method)
+    dv_method.add('A6:A58')
+
+    country_codes = [c.split(' - ')[0] for c in COUNTRIES]
+    dv_country = DataValidation(type="list", formula1='"' + ','.join(country_codes) + '"', allow_blank=True)
+    ws.add_data_validation(dv_country)
+    dv_country.add('D6:D58')
+
+    dv_currency = DataValidation(type="list", formula1='"' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_currency)
+    dv_currency.add('G6:G58')
+
+
+def create_scope_3_6_other_travel_sheet(ws):
+    """Create Scope 3.6 Other Travel sheet."""
+    ws.title = "3.6 Other Travel"
+
+    cols = {'A': 18, 'B': 15, 'C': 15, 'D': 35, 'E': 15, 'F': 12, 'G': 12}
+    for c, w in cols.items():
+        ws.column_dimensions[c].width = w
+
+    ws['A1'] = "Scope 3.6 - Business Travel: Other (Rail, Taxi, Rental Car, Bus)"
+    ws['A1'].font = TITLE_FONT
+    ws.merge_cells('A1:G1')
+    ws['A2'] = "Non-air business travel. Enter distance or spend amount."
+    ws['A2'].font = Font(italic=True, size=10, color="666666")
+    ws.merge_cells('A2:G2')
+
+    headers = ["Travel Type", "Method", "Distance (km)", "Description", "Spend Amount", "Currency", "Date"]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal='center')
+
+    indicators = ["[Dropdown]", "[Dropdown]", "[Paste/Type]", "[Paste/Type]", "[Paste/Type]", "[Dropdown]", "[Paste/Type]"]
+    for col, ind in enumerate(indicators, 1):
+        cell = ws.cell(row=5, column=col, value=ind)
+        cell.font = Font(italic=True, size=9, color="666666")
+        cell.alignment = Alignment(horizontal='center')
+
+    examples = [
+        ["Rail", "Physical", "450", "London to Manchester round trip", "", "", "2024-03"],
+        ["Taxi", "Physical", "25", "Airport transfer", "", "", "2024-03"],
+        ["Rental Car", "Spend", "", "Weekly rental", "850", "USD", "2024-04"],
+    ]
+    for row_offset, example in enumerate(examples):
+        for col, val in enumerate(example, 1):
+            cell = ws.cell(row=6+row_offset, column=col, value=val)
+            cell.fill = EXAMPLE_FILL
+            cell.border = THIN_BORDER
+
+    for row in range(9, 59):
+        for col in range(1, 8):
+            cell = ws.cell(row=row, column=col)
+            cell.border = THIN_BORDER
+            if col in [1, 2, 6]:
+                cell.fill = DROPDOWN_FILL
+
+    dv_travel = DataValidation(type="list", formula1='"' + ','.join(TRAVEL_TYPES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_travel)
+    dv_travel.add('A6:A58')
+
+    dv_method = DataValidation(type="list", formula1='"Physical,Spend"', allow_blank=True)
+    ws.add_data_validation(dv_method)
+    dv_method.add('B6:B58')
+
+    dv_currency = DataValidation(type="list", formula1='"' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_currency)
+    dv_currency.add('F6:F58')
+
+
+def create_scope_3_9_sheet(ws):
+    """Create Scope 3.9 Downstream Transport sheet."""
+    ws.title = "3.9 Downstream Transport"
+
+    cols = {'A': 15, 'B': 35, 'C': 15, 'D': 18, 'E': 18, 'F': 15, 'G': 18, 'H': 15, 'I': 12, 'J': 18, 'K': 12}
+    for c, w in cols.items():
+        ws.column_dimensions[c].width = w
+
+    ws['A1'] = "Scope 3.9 - Downstream Transportation & Distribution"
+    ws['A1'].font = TITLE_FONT
+    ws.merge_cells('A1:K1')
+    ws['A2'] = "Transport of sold products to customers. Same structure as 3.4 but for downstream."
+    ws['A2'].font = Font(italic=True, size=10, color="666666")
+    ws.merge_cells('A2:K2')
+
+    headers = [
+        "Method", "Description", "Weight (tonnes)",
+        "Origin Country", "Destination Country", "Distance (km)",
+        "Transport Mode", "Spend Amount", "Currency", "Customer/Region", "Date",
+    ]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal='center')
+
+    indicators = ["[Dropdown]", "[Paste/Type]", "[Paste/Type]", "[Dropdown]", "[Dropdown]",
+                  "[Optional]", "[Dropdown]", "[Paste/Type]", "[Dropdown]", "[Paste/Type]", "[Paste/Type]"]
+    for col, ind in enumerate(indicators, 1):
+        cell = ws.cell(row=5, column=col, value=ind)
+        cell.font = Font(italic=True, size=9, color="666666")
+        cell.alignment = Alignment(horizontal='center')
+
+    examples = [
+        ["Physical", "Products to EU market", "50", "IL", "DE", "", "Sea - Container", "", "", "EU Distribution", "2024-Q1"],
+        ["Spend", "Local deliveries", "", "", "", "", "Road - Average", "8000", "USD", "Domestic", "2024-Q2"],
+    ]
+    for row_offset, example in enumerate(examples):
+        for col, val in enumerate(example, 1):
+            cell = ws.cell(row=6+row_offset, column=col, value=val)
+            cell.fill = EXAMPLE_FILL
+            cell.border = THIN_BORDER
+
+    for row in range(8, 58):
+        for col in range(1, 12):
+            cell = ws.cell(row=row, column=col)
+            cell.border = THIN_BORDER
+            if col in [1, 4, 5, 7, 9]:
+                cell.fill = DROPDOWN_FILL
+
+    dv_method = DataValidation(type="list", formula1='"Physical,Spend"', allow_blank=True)
+    ws.add_data_validation(dv_method)
+    dv_method.add('A6:A57')
+
+    country_codes = [c.split(' - ')[0] for c in COUNTRIES]
+    dv_origin = DataValidation(type="list", formula1='"' + ','.join(country_codes) + '"', allow_blank=True)
+    ws.add_data_validation(dv_origin)
+    dv_origin.add('D6:D57')
+
+    dv_dest = DataValidation(type="list", formula1='"' + ','.join(country_codes) + '"', allow_blank=True)
+    ws.add_data_validation(dv_dest)
+    dv_dest.add('E6:E57')
+
+    dv_mode = DataValidation(type="list", formula1='"' + ','.join(TRANSPORT_MODES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_mode)
+    dv_mode.add('G6:G57')
+
+    dv_currency = DataValidation(type="list", formula1='"' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_currency)
+    dv_currency.add('I6:I57')
+
+
+def create_scope_3_10_sheet(ws):
+    """Create Scope 3.10 Processing of Sold Products sheet."""
+    ws.title = "3.10 Processing"
+
+    cols = {'A': 15, 'B': 18, 'C': 18, 'D': 20, 'E': 35, 'F': 15, 'G': 12, 'H': 20, 'I': 15, 'J': 12, 'K': 12}
+    for c, w in cols.items():
+        ws.column_dimensions[c].width = w
+
+    ws['A1'] = "Scope 3.10 - Processing of Sold Products"
+    ws['A1'].font = TITLE_FONT
+    ws.merge_cells('A1:K1')
+    ws['A2'] = "Emissions from downstream processing of intermediate products sold by your company."
+    ws['A2'].font = Font(italic=True, size=10, color="666666")
+    ws.merge_cells('A2:K2')
+
+    headers = [
+        "Method", "Product Type", "Product Category", "Processing Type", "Description",
+        "Quantity Sold", "Unit", "Processing Energy (kWh)", "Supplier EF", "Currency", "Date",
+    ]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=5, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal='center')
+
+    indicators = ["[Dropdown]", "[Paste/Type]", "[Paste/Type]", "[Dropdown]", "[Paste/Type]",
+                  "[Paste/Type]", "[Dropdown]", "[Optional]", "[Optional]", "[Dropdown]", "[Paste/Type]"]
+    for col, ind in enumerate(indicators, 1):
+        cell = ws.cell(row=6, column=col, value=ind)
+        cell.font = Font(italic=True, size=9, color="666666")
+        cell.alignment = Alignment(horizontal='center')
+
+    examples = [
+        ["Physical", "Steel", "", "Melting/Smelting", "Steel plates for auto parts", "50000", "kg", "", "", "", "2024-Q1"],
+        ["Spend", "", "", "", "Revenue from processed goods", "", "", "", "", "USD", "2024"],
+    ]
+    for row_offset, example in enumerate(examples):
+        for col, val in enumerate(example, 1):
+            cell = ws.cell(row=7+row_offset, column=col, value=val)
+            cell.fill = EXAMPLE_FILL
+            cell.border = THIN_BORDER
+
+    for row in range(9, 59):
+        for col in range(1, 12):
+            cell = ws.cell(row=row, column=col)
+            cell.border = THIN_BORDER
+            if col in [1, 4, 7, 10]:
+                cell.fill = DROPDOWN_FILL
+
+    dv_method = DataValidation(type="list", formula1='"Physical,Spend,Site-Specific"', allow_blank=True)
+    ws.add_data_validation(dv_method)
+    dv_method.add('A7:A58')
+
+    dv_process = DataValidation(type="list", formula1='"' + ','.join(PROCESSING_TYPES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_process)
+    dv_process.add('D7:D58')
+
+    dv_unit = DataValidation(type="list", formula1='"kg,tonnes,liters,units"', allow_blank=True)
+    ws.add_data_validation(dv_unit)
+    dv_unit.add('G7:G58')
+
+    dv_currency = DataValidation(type="list", formula1='"' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_currency)
+    dv_currency.add('J7:J58')
+
+
+def create_scope_3_11_sheet(ws):
+    """Create Scope 3.11 Use of Sold Products sheet."""
+    ws.title = "3.11 Use of Products"
+
+    cols = {'A': 15, 'B': 18, 'C': 18, 'D': 35, 'E': 15, 'F': 22, 'G': 15, 'H': 22, 'I': 15, 'J': 15, 'K': 12, 'L': 12}
+    for c, w in cols.items():
+        ws.column_dimensions[c].width = w
+
+    ws['A1'] = "Scope 3.11 - Use of Sold Products"
+    ws['A1'].font = TITLE_FONT
+    ws.merge_cells('A1:L1')
+    ws['A2'] = "Emissions from the use of products sold by your company during their expected lifetime."
+    ws['A2'].font = Font(italic=True, size=10, color="666666")
+    ws.merge_cells('A2:L2')
+
+    headers = [
+        "Method", "Product Type", "Product Category", "Description", "Units Sold",
+        "Lifetime Energy (kWh/unit)", "Lifetime (years)", "Lifetime Fuel (liters/unit)",
+        "Fuel Type", "Energy Source", "Revenue", "Date",
+    ]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=5, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal='center')
+
+    indicators = ["[Dropdown]", "[Dropdown]", "[Paste/Type]", "[Paste/Type]", "[Paste/Type]",
+                  "[Paste/Type]", "[Paste/Type]", "[Paste/Type]", "[Dropdown]", "[Paste/Type]", "[Paste/Type]", "[Paste/Type]"]
+    for col, ind in enumerate(indicators, 1):
+        cell = ws.cell(row=6, column=col, value=ind)
+        cell.font = Font(italic=True, size=9, color="666666")
+        cell.alignment = Alignment(horizontal='center')
+
+    examples = [
+        ["Physical", "Appliance", "Air Conditioner", "Window AC units sold", "5000", "15000", "10", "", "", "Electricity", "", "2024"],
+        ["Fuel", "Vehicle", "Truck", "Diesel trucks sold", "200", "", "15", "45000", "Diesel", "", "", "2024"],
+    ]
+    for row_offset, example in enumerate(examples):
+        for col, val in enumerate(example, 1):
+            cell = ws.cell(row=7+row_offset, column=col, value=val)
+            cell.fill = EXAMPLE_FILL
+            cell.border = THIN_BORDER
+
+    for row in range(9, 59):
+        for col in range(1, 13):
+            cell = ws.cell(row=row, column=col)
+            cell.border = THIN_BORDER
+            if col in [1, 2, 9]:
+                cell.fill = DROPDOWN_FILL
+
+    dv_method = DataValidation(type="list", formula1='"Physical,Fuel,Spend"', allow_blank=True)
+    ws.add_data_validation(dv_method)
+    dv_method.add('A7:A58')
+
+    dv_type = DataValidation(type="list", formula1='"' + ','.join(PRODUCT_CATEGORIES_USE) + '"', allow_blank=True)
+    ws.add_data_validation(dv_type)
+    dv_type.add('B7:B58')
+
+    dv_fuel = DataValidation(type="list", formula1='"Petrol,Diesel,Natural Gas,LPG,Electricity"', allow_blank=True)
+    ws.add_data_validation(dv_fuel)
+    dv_fuel.add('I7:I58')
+
+
+def create_scope_3_12_sheet(ws):
+    """Create Scope 3.12 End-of-Life Treatment of Sold Products sheet."""
+    ws.title = "3.12 End-of-Life"
+
+    cols = {'A': 15, 'B': 18, 'C': 18, 'D': 18, 'E': 35, 'F': 15, 'G': 15, 'H': 15, 'I': 15, 'J': 12, 'K': 12}
+    for c, w in cols.items():
+        ws.column_dimensions[c].width = w
+
+    ws['A1'] = "Scope 3.12 - End-of-Life Treatment of Sold Products"
+    ws['A1'].font = TITLE_FONT
+    ws.merge_cells('A1:K1')
+    ws['A2'] = "Emissions from disposal and treatment of products sold by your company at end of life."
+    ws['A2'].font = Font(italic=True, size=10, color="666666")
+    ws.merge_cells('A2:K2')
+
+    headers = [
+        "Method", "Material Type", "Disposal Method", "Product Material", "Description",
+        "Weight (kg)", "Units Sold", "Unit Weight (kg)", "Revenue", "Currency", "Date",
+    ]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=5, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal='center')
+
+    indicators = ["[Dropdown]", "[Paste/Type]", "[Dropdown]", "[Paste/Type]", "[Paste/Type]",
+                  "[Paste/Type]", "[Paste/Type]", "[Paste/Type]", "[Paste/Type]", "[Dropdown]", "[Paste/Type]"]
+    for col, ind in enumerate(indicators, 1):
+        cell = ws.cell(row=6, column=col, value=ind)
+        cell.font = Font(italic=True, size=9, color="666666")
+        cell.alignment = Alignment(horizontal='center')
+
+    examples = [
+        ["Physical", "Plastic", "Recycling", "PET packaging", "Product packaging waste", "25000", "", "", "", "", "2024"],
+        ["Physical", "Electronic", "Recycling", "Circuit boards", "E-waste from sold devices", "5000", "10000", "0.5", "", "", "2024"],
+    ]
+    for row_offset, example in enumerate(examples):
+        for col, val in enumerate(example, 1):
+            cell = ws.cell(row=7+row_offset, column=col, value=val)
+            cell.fill = EXAMPLE_FILL
+            cell.border = THIN_BORDER
+
+    for row in range(9, 59):
+        for col in range(1, 12):
+            cell = ws.cell(row=row, column=col)
+            cell.border = THIN_BORDER
+            if col in [1, 3, 10]:
+                cell.fill = DROPDOWN_FILL
+
+    dv_method = DataValidation(type="list", formula1='"Physical,Spend"', allow_blank=True)
+    ws.add_data_validation(dv_method)
+    dv_method.add('A7:A58')
+
+    dv_disposal = DataValidation(type="list", formula1='"' + ','.join(DISPOSAL_METHODS) + '"', allow_blank=True)
+    ws.add_data_validation(dv_disposal)
+    dv_disposal.add('C7:C58')
+
+    dv_currency = DataValidation(type="list", formula1='"' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_currency)
+    dv_currency.add('J7:J58')
+
+
+def create_scope_3_13_sheet(ws):
+    """Create Scope 3.13 Downstream Leased Assets sheet."""
+    ws.title = "3.13 Leased to Others"
+
+    cols = {'A': 15, 'B': 18, 'C': 18, 'D': 35, 'E': 15, 'F': 18, 'G': 12, 'H': 15, 'I': 15, 'J': 15, 'K': 12, 'L': 18, 'M': 12}
+    for c, w in cols.items():
+        ws.column_dimensions[c].width = w
+
+    ws['A1'] = "Scope 3.13 - Downstream Leased Assets"
+    ws['A1'].font = TITLE_FONT
+    ws.merge_cells('A1:M1')
+    ws['A2'] = "Assets owned by your company and leased to others. Enter energy data or use area-based estimates."
+    ws['A2'].font = Font(italic=True, size=10, color="666666")
+    ws.merge_cells('A2:M2')
+
+    headers = [
+        "Method", "Asset Type", "Building Type", "Description", "Energy Consumption",
+        "Energy Unit", "Floor Area (m2)", "Number of Units", "Rental Income", "Currency",
+        "Lessee", "Location", "Date",
+    ]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=5, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal='center')
+
+    indicators = ["[Dropdown]", "[Dropdown]", "[Dropdown]", "[Paste/Type]", "[Paste/Type]",
+                  "[Dropdown]", "[Paste/Type]", "[Paste/Type]", "[Paste/Type]", "[Dropdown]",
+                  "[Paste/Type]", "[Paste/Type]", "[Paste/Type]"]
+    for col, ind in enumerate(indicators, 1):
+        cell = ws.cell(row=6, column=col, value=ind)
+        cell.font = Font(italic=True, size=9, color="666666")
+        cell.alignment = Alignment(horizontal='center')
+
+    examples = [
+        ["Physical", "Office", "Office", "Leased office space - Floor 3", "85000", "kWh", "1200", "", "", "", "Acme Corp", "Tel Aviv", "2024"],
+        ["Spend", "Warehouse", "Warehouse", "Leased warehouse", "", "", "", "", "120000", "USD", "LogiCo", "Haifa", "2024"],
+    ]
+    for row_offset, example in enumerate(examples):
+        for col, val in enumerate(example, 1):
+            cell = ws.cell(row=7+row_offset, column=col, value=val)
+            cell.fill = EXAMPLE_FILL
+            cell.border = THIN_BORDER
+
+    for row in range(9, 59):
+        for col in range(1, 14):
+            cell = ws.cell(row=row, column=col)
+            cell.border = THIN_BORDER
+            if col in [1, 2, 3, 6, 10]:
+                cell.fill = DROPDOWN_FILL
+
+    dv_method = DataValidation(type="list", formula1='"Physical,Spend,Asset-Specific"', allow_blank=True)
+    ws.add_data_validation(dv_method)
+    dv_method.add('A7:A58')
+
+    dv_asset = DataValidation(type="list", formula1='"' + ','.join(DOWNSTREAM_ASSET_TYPES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_asset)
+    dv_asset.add('B7:B58')
+
+    dv_building = DataValidation(type="list", formula1='"' + ','.join(LEASED_BUILDING_TYPES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_building)
+    dv_building.add('C7:C58')
+
+    dv_energy_unit = DataValidation(type="list", formula1='"kWh,MWh,m3,liters"', allow_blank=True)
+    ws.add_data_validation(dv_energy_unit)
+    dv_energy_unit.add('F7:F58')
+
+    dv_currency = DataValidation(type="list", formula1='"' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_currency)
+    dv_currency.add('J7:J58')
+
+
+def create_scope_3_14_sheet(ws):
+    """Create Scope 3.14 Franchises sheet."""
+    ws.title = "3.14 Franchises"
+
+    cols = {'A': 15, 'B': 18, 'C': 18, 'D': 35, 'E': 18, 'F': 18, 'G': 15, 'H': 15, 'I': 15, 'J': 12, 'K': 18, 'L': 18, 'M': 12}
+    for c, w in cols.items():
+        ws.column_dimensions[c].width = w
+
+    ws['A1'] = "Scope 3.14 - Franchises"
+    ws['A1'].font = TITLE_FONT
+    ws.merge_cells('A1:M1')
+    ws['A2'] = "Emissions from franchise operations not in your Scope 1 & 2 (reported by franchisor)."
+    ws['A2'].font = Font(italic=True, size=10, color="666666")
+    ws.merge_cells('A2:M2')
+
+    headers = [
+        "Method", "Franchise Type", "Business Type", "Description", "Energy Consumption",
+        "Fuel Consumption", "Number of Locations", "Floor Area (m2)", "Franchise Revenue",
+        "Currency", "Franchisee Name", "Location", "Date",
+    ]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=5, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal='center')
+
+    indicators = ["[Dropdown]", "[Dropdown]", "[Paste/Type]", "[Paste/Type]", "[Paste/Type]",
+                  "[Paste/Type]", "[Paste/Type]", "[Paste/Type]", "[Paste/Type]", "[Dropdown]",
+                  "[Paste/Type]", "[Paste/Type]", "[Paste/Type]"]
+    for col, ind in enumerate(indicators, 1):
+        cell = ws.cell(row=6, column=col, value=ind)
+        cell.font = Font(italic=True, size=9, color="666666")
+        cell.alignment = Alignment(horizontal='center')
+
+    examples = [
+        ["Physical", "Restaurant", "Fast Food", "Main St. franchise", "250000", "5000", "1", "350", "", "", "Franchisee A", "Tel Aviv", "2024"],
+        ["Spend", "Retail Store", "", "Mall franchise", "", "", "3", "", "850000", "USD", "Franchisee B", "Haifa", "2024"],
+    ]
+    for row_offset, example in enumerate(examples):
+        for col, val in enumerate(example, 1):
+            cell = ws.cell(row=7+row_offset, column=col, value=val)
+            cell.fill = EXAMPLE_FILL
+            cell.border = THIN_BORDER
+
+    for row in range(9, 39):
+        for col in range(1, 14):
+            cell = ws.cell(row=row, column=col)
+            cell.border = THIN_BORDER
+            if col in [1, 2, 10]:
+                cell.fill = DROPDOWN_FILL
+
+    dv_method = DataValidation(type="list", formula1='"Physical,Spend,Franchise-Specific"', allow_blank=True)
+    ws.add_data_validation(dv_method)
+    dv_method.add('A7:A38')
+
+    dv_type = DataValidation(type="list", formula1='"' + ','.join(FRANCHISE_TYPES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_type)
+    dv_type.add('B7:B38')
+
+    dv_currency = DataValidation(type="list", formula1='"' + ','.join(CURRENCIES) + '"', allow_blank=True)
+    ws.add_data_validation(dv_currency)
+    dv_currency.add('J7:J38')
+
+
 def create_reference_sheet(ws):
     """Create reference sheet with all valid values."""
     ws.title = "Reference"
@@ -1361,12 +2330,14 @@ def create_reference_sheet(ws):
     ws['A2'].font = Font(italic=True, size=10, color="666666")
     ws.merge_cells('A2:E2')
 
-    # Headers - 10 columns now
-    ws.column_dimensions['F'].width = 30
-    ws.column_dimensions['G'].width = 25
-    ws.column_dimensions['H'].width = 20
-    ws.column_dimensions['I'].width = 15
-    ws.column_dimensions['J'].width = 15
+    # Set column widths for all reference columns
+    ref_col_widths = {
+        'F': 30, 'G': 25, 'H': 20, 'I': 15, 'J': 15,
+        'K': 25, 'L': 20, 'M': 15, 'N': 20, 'O': 25,
+        'P': 22, 'Q': 18, 'R': 20, 'S': 18, 'T': 20,
+    }
+    for c, w in ref_col_widths.items():
+        ws.column_dimensions[c].width = w
 
     headers = [
         "Fuels (1.1)",
@@ -1382,12 +2353,14 @@ def create_reference_sheet(ws):
         "Building Types (3.8)",
         "Calc Method",
         "Currencies",
+        "Waste Types (3.5)",
+        "Treatment Methods (3.5)",
+        "Cabin Classes (3.6)",
+        "Trip Types (3.6)",
+        "Travel Types (3.6)",
+        "Capital Asset Types (3.2)",
+        "Franchise Types (3.14)",
     ]
-
-    # Extend column widths for new columns
-    ws.column_dimensions['K'].width = 25
-    ws.column_dimensions['L'].width = 20
-    ws.column_dimensions['M'].width = 15
 
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=4, column=col, value=header)
@@ -1410,6 +2383,13 @@ def create_reference_sheet(ws):
         LEASED_BUILDING_TYPES,
         CALCULATION_METHODS,
         CURRENCIES,
+        WASTE_TYPES,
+        TREATMENT_METHODS,
+        CABIN_CLASSES,
+        TRIP_TYPES,
+        TRAVEL_TYPES,
+        CAPITAL_GOODS_TYPES,
+        FRANCHISE_TYPES,
     ]
 
     max_len = max(len(lst) for lst in lists)
@@ -1463,14 +2443,50 @@ def generate(
     create_scope_2_3_sheet(wb.create_sheet())
     typer.echo("  + Scope 2.3 Cooling sheet")
 
+    create_scope_3_1_sheet(wb.create_sheet())
+    typer.echo("  + Scope 3.1 Purchased Goods sheet")
+
+    create_scope_3_2_sheet(wb.create_sheet())
+    typer.echo("  + Scope 3.2 Capital Goods sheet")
+
     create_scope_3_4_sheet(wb.create_sheet())
     typer.echo("  + Scope 3.4 Upstream Transport sheet")
+
+    create_scope_3_5_sheet(wb.create_sheet())
+    typer.echo("  + Scope 3.5 Waste sheet")
+
+    create_scope_3_6_flights_sheet(wb.create_sheet())
+    typer.echo("  + Scope 3.6 Flights sheet")
+
+    create_scope_3_6_hotels_sheet(wb.create_sheet())
+    typer.echo("  + Scope 3.6 Hotels sheet")
+
+    create_scope_3_6_other_travel_sheet(wb.create_sheet())
+    typer.echo("  + Scope 3.6 Other Travel sheet")
 
     create_scope_3_7_sheet(wb.create_sheet())
     typer.echo("  + Scope 3.7 Commuting sheet")
 
     create_scope_3_8_sheet(wb.create_sheet())
     typer.echo("  + Scope 3.8 Leased Assets sheet")
+
+    create_scope_3_9_sheet(wb.create_sheet())
+    typer.echo("  + Scope 3.9 Downstream Transport sheet")
+
+    create_scope_3_10_sheet(wb.create_sheet())
+    typer.echo("  + Scope 3.10 Processing sheet")
+
+    create_scope_3_11_sheet(wb.create_sheet())
+    typer.echo("  + Scope 3.11 Use of Products sheet")
+
+    create_scope_3_12_sheet(wb.create_sheet())
+    typer.echo("  + Scope 3.12 End-of-Life sheet")
+
+    create_scope_3_13_sheet(wb.create_sheet())
+    typer.echo("  + Scope 3.13 Downstream Leased Assets sheet")
+
+    create_scope_3_14_sheet(wb.create_sheet())
+    typer.echo("  + Scope 3.14 Franchises sheet")
 
     create_reference_sheet(wb.create_sheet())
     typer.echo("  + Reference sheet")
