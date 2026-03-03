@@ -256,19 +256,30 @@ class TemplateParser:
                 skipped += 1
                 continue
 
-            # Skip sample/example rows (text marker or green fill)
-            row_text = ' '.join(str(v or '') for v in row_values).upper()
-            if 'SAMPLE' in row_text or 'EXAMPLE' in row_text:
+            # Skip sample/example rows using a two-tier approach:
+            # 1. If description or first column contains EXAMPLE/SAMPLE → always skip
+            # 2. If row has green example fill AND any cell has EXAMPLE/SAMPLE → skip
+            # This avoids skipping real client data in green-filled rows (clients often
+            # type over template examples, keeping the fill but replacing the data)
+            desc_col = col_indices.get('description')
+            desc_text = ''
+            if desc_col is not None and desc_col < len(row_values):
+                desc_text = str(row_values[desc_col] or '').upper()
+            if 'SAMPLE' in first_val.upper() or 'EXAMPLE' in first_val.upper() \
+                    or 'SAMPLE' in desc_text or 'EXAMPLE' in desc_text:
                 skipped += 1
                 continue
 
-            # Skip rows with green example fill (E2EFDA) used in generated templates
+            # Check green fill + EXAMPLE anywhere (catches template examples in
+            # non-description columns like Traveler Name)
             try:
                 first_cell = ws.cell(row=row_num, column=1)
                 fill_rgb = getattr(getattr(getattr(first_cell, 'fill', None), 'start_color', None), 'rgb', None)
                 if fill_rgb and str(fill_rgb).upper().endswith('E2EFDA'):
-                    skipped += 1
-                    continue
+                    row_text = ' '.join(str(v or '') for v in row_values).upper()
+                    if 'SAMPLE' in row_text or 'EXAMPLE' in row_text:
+                        skipped += 1
+                        continue
             except Exception:
                 pass
             
@@ -497,6 +508,17 @@ class TemplateParser:
             if nights:
                 quantity = nights * rooms
                 unit = 'nights'
+
+        # Special case: 3.6 Other Travel - use distance for Physical method
+        if config.sheet_name == '3.6 Other Travel' and quantity is None:
+            method = (row_dict.get('Method') or row_dict.get('calc_type') or '').lower().strip()
+            if method != 'spend':
+                distance = self._parse_decimal(
+                    row_dict.get('distance_km') or row_dict.get('Distance (km)')
+                )
+                if distance:
+                    quantity = distance
+                    unit = 'km'
 
         # Special case: Cat6_BusinessTravel - calculate distance from airports if not provided
         if config.sheet_name == 'Cat6_BusinessTravel' and quantity is None:
