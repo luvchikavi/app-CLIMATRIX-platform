@@ -1663,6 +1663,10 @@ async def import_template(
                 if supplier_ef_val is not None:
                     supplier_ef = Decimal(str(supplier_ef_val))
                 supplier_name = activity_data.raw_data.get('supplier_name') or activity_data.raw_data.get('_supplier_name') or None
+                # Also check for power_producer name to use as supplier_name
+                power_producer = activity_data.raw_data.get('power_producer') or None
+                if power_producer and not supplier_name:
+                    supplier_name = power_producer
 
             # Calculate emissions
             calc_result = await pipeline.calculate(ActivityInput(

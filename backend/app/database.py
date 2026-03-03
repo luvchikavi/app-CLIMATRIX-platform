@@ -177,6 +177,51 @@ async def update_existing_emission_factors(session) -> None:
         logger.info("All emission factors already up to date")
 
 
+async def seed_power_producers(session) -> None:
+    """Seed or update Israeli power producers from reference data."""
+    from app.models.emission import PowerProducer
+    from app.data.reference_data import ISRAEL_POWER_PRODUCERS
+    from decimal import Decimal
+
+    # Get existing producers: (name_en, year) -> PowerProducer
+    result = await session.execute(select(PowerProducer).where(PowerProducer.country_code == "IL"))
+    existing = {}
+    for p in result.scalars().all():
+        existing[(p.producer_name_en, p.year)] = p
+
+    added = 0
+    updated = 0
+    for prod_data in ISRAEL_POWER_PRODUCERS:
+        for year, factor in prod_data["years"].items():
+            key = (prod_data["producer_name_en"], year)
+            if key in existing:
+                # Update if factor changed
+                db_prod = existing[key]
+                if db_prod.co2e_per_kwh != Decimal(str(factor)):
+                    db_prod.co2e_per_kwh = Decimal(str(factor))
+                    db_prod.source = prod_data["source"]
+                    updated += 1
+            else:
+                # Insert new
+                pp = PowerProducer(
+                    producer_name_en=prod_data["producer_name_en"],
+                    producer_name_he=prod_data.get("producer_name_he"),
+                    country_code=prod_data["country_code"],
+                    co2e_per_kwh=Decimal(str(factor)),
+                    source=prod_data["source"],
+                    source_type=prod_data["source_type"],
+                    year=year,
+                )
+                session.add(pp)
+                added += 1
+
+    if added or updated:
+        await session.commit()
+        logger.info(f"Power producers: added {added}, updated {updated}")
+    else:
+        logger.info("Power producers already up to date")
+
+
 async def seed_if_needed() -> None:
     """Seed database with emission factors if empty."""
     from app.models.emission import EmissionFactor, UnitConversion, FuelPrice
@@ -191,6 +236,8 @@ async def seed_if_needed() -> None:
             await add_missing_emission_factors(session)
             # Update existing factors if code values have changed
             await update_existing_emission_factors(session)
+            # Seed/update power producers
+            await seed_power_producers(session)
             return
 
         logger.info("Seeding emission factors...")
@@ -210,6 +257,9 @@ async def seed_if_needed() -> None:
 
         await session.commit()
         logger.info("Database seeded successfully!")
+
+        # Seed power producers (after initial seed commit)
+        await seed_power_producers(session)
 
 
 async def close_db() -> None:

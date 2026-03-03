@@ -184,10 +184,10 @@ GRID_EMISSION_FACTORS = {
     # Middle East
     "IL": {
         "country_name": "Israel",
-        "location_factor": Decimal("0.527"),
-        "market_factor": None,
+        "location_factor": Decimal("0.424"),  # 424 gCO2e/kWh for 2024 (BDO/Sivan)
+        "market_factor": None,  # Market factors are per-producer, stored in power_producers table
         "td_loss_percentage": Decimal("3.5"),
-        "source": "IEC 2024",
+        "source": "BDO_Israel_2024",
         "year": 2024,
     },
     "AE": {
@@ -440,7 +440,7 @@ def get_greene_residual_mix(subregion_or_state: str) -> Decimal | None:
 IREC_RESIDUAL_MIX = {
     # Country code -> kg CO2e per kWh
     # For countries without formal residual mix, use grid average as proxy
-    "IL": {"co2e_per_kwh": Decimal("0.527"), "country_name": "Israel", "year": 2024, "notes": "Grid average (no formal iREC market)"},
+    "IL": {"co2e_per_kwh": Decimal("0.424"), "country_name": "Israel", "year": 2024, "notes": "Israel grid average (location-based, BDO 2024)"},
     "AE": {"co2e_per_kwh": Decimal("0.456"), "country_name": "UAE", "year": 2024},
     "SA": {"co2e_per_kwh": Decimal("0.590"), "country_name": "Saudi Arabia", "year": 2024},
     "CN": {"co2e_per_kwh": Decimal("0.555"), "country_name": "China", "year": 2024},
@@ -677,3 +677,52 @@ def validate_price(material_type: str, price_per_unit: Decimal) -> dict:
             "expected_range": ranges,
         }
     return {"valid": True, "warning": None, "expected_range": ranges}
+
+
+# =============================================================================
+# ISRAEL POWER PRODUCERS — Market-Based Scope 2
+# Source: BDO Consulting (Sivan), IEC Environmental Reports
+# Factors in kg CO2e per kWh (converted from gCO2e/kWh ÷ 1000)
+# =============================================================================
+
+ISRAEL_POWER_PRODUCERS = [
+    # IPM - no 2021 data
+    {"producer_name_en": "IPM", "producer_name_he": "IPM", "country_code": "IL",
+     "source": "BDO_Israel", "source_type": "producer_specific",
+     "years": {2022: Decimal("0.337"), 2023: Decimal("0.331"), 2024: Decimal("0.329")}},
+    # OPC
+    {"producer_name_en": "OPC", "producer_name_he": "OPC", "country_code": "IL",
+     "source": "BDO_Israel", "source_type": "producer_specific",
+     "years": {2021: Decimal("0.349"), 2022: Decimal("0.370"), 2023: Decimal("0.325"), 2024: Decimal("0.349")}},
+    # Rapac Energy
+    {"producer_name_en": "Rapac Energy", "producer_name_he": "רפק אנרגיה", "country_code": "IL",
+     "source": "BDO_Israel", "source_type": "producer_specific",
+     "years": {2021: Decimal("0.333"), 2022: Decimal("0.394"), 2023: Decimal("0.334"), 2024: Decimal("0.333")}},
+    # Dorad
+    {"producer_name_en": "Dorad", "producer_name_he": "דוראד", "country_code": "IL",
+     "source": "BDO_Israel", "source_type": "producer_specific",
+     "years": {2021: Decimal("0.417"), 2022: Decimal("0.435"), 2023: Decimal("0.423"), 2024: Decimal("0.417")}},
+    # Edeltech
+    {"producer_name_en": "Edeltech", "producer_name_he": "אדלטק", "country_code": "IL",
+     "source": "BDO_Israel", "source_type": "producer_specific",
+     "years": {2021: Decimal("0.447"), 2022: Decimal("0.375"), 2023: Decimal("0.421"), 2024: Decimal("0.447")}},
+    # Dalia
+    {"producer_name_en": "Dalia", "producer_name_he": "דליה", "country_code": "IL",
+     "source": "BDO_Israel", "source_type": "producer_specific",
+     "years": {2021: Decimal("0.323"), 2022: Decimal("0.325"), 2023: Decimal("0.334"), 2024: Decimal("0.323")}},
+    # IEC (Israel Electric Corporation) - חח"י
+    {"producer_name_en": "IEC", "producer_name_he": "חח\"י", "country_code": "IL",
+     "source": "IEC_Israel", "source_type": "producer_specific",
+     "years": {2021: Decimal("0.559"), 2022: Decimal("0.543"), 2023: Decimal("0.495"), 2024: Decimal("0.467")}},
+    # MRC
+    {"producer_name_en": "MRC", "producer_name_he": "MRC", "country_code": "IL",
+     "source": "BDO_Israel", "source_type": "producer_specific",
+     "years": {2021: Decimal("0.388"), 2022: Decimal("0.361"), 2023: Decimal("0.362"), 2024: Decimal("0.388")}},
+]
+
+# Lookup dict: lowercase producer name -> producer data (for template parser)
+ISRAEL_POWER_PRODUCERS_BY_NAME: dict[str, dict] = {}
+for _prod in ISRAEL_POWER_PRODUCERS:
+    ISRAEL_POWER_PRODUCERS_BY_NAME[_prod["producer_name_en"].lower()] = _prod
+    if _prod["producer_name_he"]:
+        ISRAEL_POWER_PRODUCERS_BY_NAME[_prod["producer_name_he"].lower()] = _prod

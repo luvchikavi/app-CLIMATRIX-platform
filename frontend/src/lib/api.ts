@@ -1000,6 +1000,13 @@ class ApiClient {
     return this.fetch<EmissionFactor[]>(`/reference/activity-options/${categoryCode}`);
   }
 
+  // Power Producers (for market-based Scope 2)
+  async getPowerProducers(country: string, year?: number): Promise<PowerProducer[]> {
+    const params = new URLSearchParams({ country });
+    if (year) params.append('year', year.toString());
+    return this.fetch<PowerProducer[]>(`/reference/power-producers?${params}`);
+  }
+
   // Fuel Prices (for spend-to-quantity conversion)
   async getFuelPrices(fuelType?: string, region?: string): Promise<FuelPrice[]> {
     const params = new URLSearchParams();

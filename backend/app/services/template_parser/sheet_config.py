@@ -271,9 +271,10 @@ def resolve_electricity(row: dict) -> tuple[str, str]:
     Resolve activity_key for electricity (Scope 2.1).
 
     Template v1.0.1 columns:
-    Type | Method | Country | Description | Supplier Name | Supplier Emission Factor | Quantity/Amount | Unit/Currency | Date | Comments
+    Type | Method | Country | Power Producer | Market Method | Description | Quantity/Amount | Unit/Currency | Date | Comments
 
     If Supplier Emission Factor is provided, uses custom EF for calculation.
+    If Power Producer is specified (Israel), looks up the producer's market-based EF.
     """
     # Support both legacy and generated template column names
     calc_type = (row.get('calc_type') or row.get('Calc_Type') or row.get('Method') or '').lower().strip()
@@ -282,6 +283,19 @@ def resolve_electricity(row: dict) -> tuple[str, str]:
 
     # Extract supplier EF if provided (for market-based Scope 2)
     _extract_supplier_ef(row)
+
+    # Check for power_producer (Israel market-based)
+    power_producer = (row.get('power_producer') or row.get('Power Producer') or '').strip()
+    if power_producer and (country == 'IL' or not country):
+        from app.data.reference_data import ISRAEL_POWER_PRODUCERS_BY_NAME
+        producer_data = ISRAEL_POWER_PRODUCERS_BY_NAME.get(power_producer.lower())
+        if producer_data:
+            # Use the most recent year available
+            year = max(producer_data['years'].keys())
+            row['_supplier_ef'] = float(producer_data['years'][year])
+            row['_supplier_name'] = power_producer
+            # Return IL activity key so location-based is also calculated
+            return 'electricity_il', 'kWh'
 
     # Spend-based - use spend_other as generic spend factor
     if calc_type == 'spend':

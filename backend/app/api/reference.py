@@ -699,6 +699,7 @@ class TransportRouteResponse(BaseModel):
 async def list_power_producers(
     session: Annotated[AsyncSession, Depends(get_session)],
     country: str = Query(..., min_length=2, max_length=2, description="2-letter country code"),
+    year: int | None = Query(None, description="Filter by reporting year"),
 ):
     """
     List power producers for a country (market-based Scope 2).
@@ -707,6 +708,7 @@ async def list_power_producers(
     For other countries: Returns available producer-specific data
 
     Example: GET /reference/power-producers?country=IL
+    Example: GET /reference/power-producers?country=IL&year=2024
     """
     from app.models.emission import PowerProducer
 
@@ -716,8 +718,12 @@ async def list_power_producers(
             PowerProducer.country_code == country.upper(),
             PowerProducer.is_active == True,
         )
-        .order_by(PowerProducer.producer_name_en)
     )
+
+    if year is not None:
+        query = query.where(PowerProducer.year == year)
+
+    query = query.order_by(PowerProducer.producer_name_en)
 
     result = await session.execute(query)
     producers = result.scalars().all()

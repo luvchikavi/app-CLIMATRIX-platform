@@ -993,7 +993,7 @@ def create_scope_2_1_sheet(ws):
     # Indicators
     indicators = [
         "[Dropdown]", "[Dropdown]", "[Dropdown: 56]",
-        "[Paste/Type]", "[Dropdown]",
+        "[Dropdown]", "[Dropdown]",
         "[Paste/Type]", "[Paste/Type]", "[Dropdown]", "[Paste/Type]",
     ]
     for col, ind in enumerate(indicators, 1):
@@ -1021,7 +1021,7 @@ def create_scope_2_1_sheet(ws):
         for col in range(1, 10):
             cell = ws.cell(row=row, column=col)
             cell.border = THIN_BORDER
-            if col in [1, 2, 3, 5, 8]:  # Dropdown columns
+            if col in [1, 2, 3, 4, 5, 8]:  # Dropdown columns (including Power Producer)
                 cell.fill = DROPDOWN_FILL
 
     # Dropdowns
@@ -1037,6 +1037,18 @@ def create_scope_2_1_sheet(ws):
     dv_country = DataValidation(type="list", formula1='"' + ','.join(country_codes) + '"', allow_blank=True)
     ws.add_data_validation(dv_country)
     dv_country.add('C6:C111')
+
+    # Israeli power producer dropdown for column D
+    producer_display = ["IPM", "OPC", "Rapac Energy", "Dorad", "Edeltech", "Dalia", "IEC", "MRC"]
+    dv_producer = DataValidation(
+        type="list",
+        formula1='"' + ','.join(producer_display) + '"',
+        allow_blank=True,
+    )
+    dv_producer.error = "Select a valid power producer or leave blank for location-based"
+    dv_producer.errorTitle = "Invalid Producer"
+    ws.add_data_validation(dv_producer)
+    dv_producer.add('D12:D111')
 
     dv_market_method = DataValidation(type="list", formula1='"' + ','.join(MARKET_METHODS) + '"', allow_blank=True)
     dv_market_method.error = "Select a valid market method"

@@ -10,11 +10,12 @@
  * - Residual mix factor
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
 import { formatCO2e } from '@/lib/utils';
+import { api, type PowerProducer } from '@/lib/api';
 import {
   Save,
   Plus,
@@ -50,9 +51,23 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
   const [marketRegion, setMarketRegion] = useState<'israel' | 'europe' | 'usa' | 'other'>('israel');
   const [selectedCountry, setSelectedCountry] = useState('');
   const [selectedSubregion, setSelectedSubregion] = useState('');
+  const [selectedProducer, setSelectedProducer] = useState('');
+  const [producers, setProducers] = useState<PowerProducer[]>([]);
+  const [producersLoading, setProducersLoading] = useState(false);
   const [marketFactorLoading, setMarketFactorLoading] = useState(false);
   const [autoFilledFactor, setAutoFilledFactor] = useState<number | null>(null);
   const [marketFactorSource, setMarketFactorSource] = useState('');
+
+  // Fetch Israeli power producers when residual method + israel region selected
+  useEffect(() => {
+    if (method === 'residual' && marketRegion === 'israel') {
+      setProducersLoading(true);
+      api.getPowerProducers('IL', 2024)
+        .then((data) => setProducers(data))
+        .catch((err) => console.error('Failed to fetch producers:', err))
+        .finally(() => setProducersLoading(false));
+    }
+  }, [method, marketRegion]);
 
   // UI state
   const [isSaving, setIsSaving] = useState(false);
@@ -102,6 +117,9 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
 
   const canProceed = description && quantity > 0 && (method !== 'supplier' || supplierEF >= 0);
 
+  // Check if an Israeli producer is selected (residual method + israel region + producer chosen)
+  const isIsraeliProducer = method === 'residual' && marketRegion === 'israel' && selectedProducer;
+
   const handleSave = async () => {
     if (!canProceed) return;
 
@@ -110,12 +128,15 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
     setSaveSuccess(false);
 
     try {
-      // For market-based, we use activity keys matching emission_factors.py
+      // For Israeli producer: use electricity_il key with supplier_ef for dual reporting
+      // For other market-based: use appropriate activity keys
       const activityKey = method === 'rec'
         ? 'electricity_renewable'
-        : method === 'supplier'
-          ? 'electricity_supplier'
-          : 'electricity_residual_mix';
+        : isIsraeliProducer
+          ? 'electricity_il'
+          : method === 'supplier'
+            ? 'electricity_supplier'
+            : 'electricity_residual_mix';
 
       const payload = {
         scope: 2 as const,
@@ -125,8 +146,8 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
         quantity,
         unit: 'kWh',
         activity_date: new Date().toISOString().split('T')[0],
-        // Pass supplier emission factor for supplier-specific method
-        ...(method === 'supplier' && supplierEF > 0 ? { supplier_ef: supplierEF } : {}),
+        // Pass supplier emission factor for supplier-specific or Israeli producer
+        ...((method === 'supplier' || isIsraeliProducer) && supplierEF > 0 ? { supplier_ef: supplierEF, supplier_name: supplierName } : {}),
       };
 
       await createActivity.mutateAsync(payload);
@@ -150,12 +171,14 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
     setSaveError(null);
 
     try {
-      // For market-based, we use activity keys matching emission_factors.py
+      // For Israeli producer: use electricity_il key with supplier_ef for dual reporting
       const activityKey = method === 'rec'
         ? 'electricity_renewable'
-        : method === 'supplier'
-          ? 'electricity_supplier'
-          : 'electricity_residual_mix';
+        : isIsraeliProducer
+          ? 'electricity_il'
+          : method === 'supplier'
+            ? 'electricity_supplier'
+            : 'electricity_residual_mix';
 
       const payload = {
         scope: 2 as const,
@@ -165,8 +188,8 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
         quantity,
         unit: 'kWh',
         activity_date: new Date().toISOString().split('T')[0],
-        // Pass supplier emission factor for supplier-specific method
-        ...(method === 'supplier' && supplierEF > 0 ? { supplier_ef: supplierEF } : {}),
+        // Pass supplier emission factor for supplier-specific or Israeli producer
+        ...((method === 'supplier' || isIsraeliProducer) && supplierEF > 0 ? { supplier_ef: supplierEF, supplier_name: supplierName } : {}),
       };
 
       await createActivity.mutateAsync(payload);
@@ -180,6 +203,7 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
       setMarketFactorSource('');
       setSelectedCountry('');
       setSelectedSubregion('');
+      setSelectedProducer('');
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to save activity');
     } finally {
@@ -485,18 +509,43 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
           )}
 
           {marketRegion === 'israel' && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-sm text-amber-700">
-                Israel power producer data (BDO יח&quot;פית) will be available once the dataset is provided.
-                Currently using IEC grid average as fallback.
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">
+                Power Producer (יח&quot;פ)
+              </label>
+              {producersLoading ? (
+                <p className="text-sm text-gray-500 animate-pulse">Loading producers...</p>
+              ) : (
+                <select
+                  value={selectedProducer}
+                  onChange={(e) => {
+                    setSelectedProducer(e.target.value);
+                    const producer = producers.find(p => p.id === e.target.value);
+                    if (producer) {
+                      setAutoFilledFactor(producer.co2e_per_kwh);
+                      setSupplierEF(producer.co2e_per_kwh);
+                      setSupplierName(producer.producer_name_en);
+                      setMarketFactorSource(`${producer.producer_name_en} (${producer.source}, ${producer.year})`);
+                    } else {
+                      setAutoFilledFactor(null);
+                      setSupplierEF(0);
+                      setSupplierName('');
+                      setMarketFactorSource('');
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="">Select producer...</option>
+                  {producers.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.producer_name_en} {p.producer_name_he ? `(${p.producer_name_he})` : ''} — {p.co2e_per_kwh} kg CO2e/kWh
+                    </option>
+                  ))}
+                </select>
+              )}
+              <p className="text-xs text-gray-500">
+                Source: BDO Consulting — official market-based emission factors for Israeli power producers
               </p>
-              <button
-                type="button"
-                onClick={() => fetchMarketFactor('IL')}
-                className="mt-2 text-sm text-amber-600 underline"
-              >
-                Use Israel grid average →
-              </button>
             </div>
           )}
 
