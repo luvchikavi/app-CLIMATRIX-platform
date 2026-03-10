@@ -10,7 +10,7 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1.1 | Add rate limiting to login, register, password reset, import endpoints | TODO | Protect against brute force |
+| 1.1 | Add rate limiting to login, register, password reset, import endpoints | DONE | slowapi, configurable limits per endpoint |
 | 1.2 | Validate SECRET_KEY is not the default in production | TODO | Fail-fast on startup |
 | 1.3 | Add file upload size limits to import endpoints | TODO | Prevent abuse |
 
@@ -48,4 +48,4 @@
 
 | Date | Task | Description |
 |------|------|-------------|
-| | | |
+| 2026-03-11 | 1.1 | Rate limiting via slowapi: login/register 10/5 per min, password reset 5/min, imports 20/min. Redis in prod, in-memory dev. |

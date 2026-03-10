@@ -113,6 +113,14 @@ class Settings(BaseSettings):
     s3_access_key_id: str = ""
     s3_secret_access_key: str = ""
 
+    # Rate Limiting
+    rate_limit_enabled: bool = True
+    rate_limit_login: str = "10/minute"
+    rate_limit_register: str = "5/minute"
+    rate_limit_password_reset: str = "5/minute"
+    rate_limit_import: str = "20/minute"
+    rate_limit_default: str = "60/minute"
+
     # Stripe Billing
     stripe_secret_key: str = ""  # Set STRIPE_SECRET_KEY in environment
     stripe_publishable_key: str = ""  # Set STRIPE_PUBLISHABLE_KEY

@@ -16,7 +16,7 @@ import openpyxl
 
 from arq import ArqRedis, create_pool
 from arq.connections import RedisSettings
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +25,7 @@ from sqlmodel import select
 from app.api.auth import get_current_user
 from app.config import settings
 from app.database import get_session
+from app.rate_limit import limiter
 from app.models.core import User, ReportingPeriod, Organization
 from app.models.emission import Activity, Emission, EmissionFactor, ConfidenceLevel, DataSource, ImportBatch, ImportBatchStatus
 from app.models.jobs import ImportJob, JobStatus, JobType
@@ -297,7 +298,9 @@ def validate_row(row: dict, row_number: int, valid_activity_keys: set) -> Import
 # ============================================================================
 
 @router.post("/periods/{period_id}/import/preview", response_model=ImportPreview)
+@limiter.limit(settings.rate_limit_import)
 async def preview_import(
+    request: Request,
     period_id: UUID,
     file: UploadFile = File(...),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
@@ -372,7 +375,9 @@ async def preview_import(
 
 
 @router.post("/periods/{period_id}/import", response_model=ImportResult)
+@limiter.limit(settings.rate_limit_import)
 async def import_activities(
+    request: Request,
     period_id: UUID,
     file: UploadFile = File(...),
     site_id: UUID | None = Query(default=None, description="Optional site to associate with imported activities"),
@@ -886,7 +891,9 @@ class JobStatusResponse(BaseModel):
 
 
 @router.post("/periods/{period_id}/import/async", response_model=AsyncImportResponse)
+@limiter.limit(settings.rate_limit_import)
 async def import_activities_async(
+    request: Request,
     period_id: UUID,
     file: UploadFile = File(...),
     site_id: UUID | None = Query(default=None, description="Optional site to associate with imported activities"),
@@ -1222,7 +1229,9 @@ async def analyze_import_columns(
 
 
 @router.post("/periods/{period_id}/import/smart", response_model=SmartImportResponse)
+@limiter.limit(settings.rate_limit_import)
 async def smart_import_activities(
+    request: Request,
     period_id: UUID,
     file: UploadFile = File(...),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
@@ -1555,7 +1564,9 @@ async def preview_template_import(
 
 
 @router.post("/periods/{period_id}/import/template", response_model=TemplateImportResult)
+@limiter.limit(settings.rate_limit_import)
 async def import_template(
+    request: Request,
     period_id: UUID,
     file: UploadFile = File(...),
     year: int = Query(default=None, description="Reporting year (default: current year)"),
@@ -1904,7 +1915,9 @@ async def unified_import_preview(
 
 
 @router.post("/unified/import/{period_id}", response_model=UnifiedImportResultResponse)
+@limiter.limit(settings.rate_limit_import)
 async def unified_import_activities(
+    request: Request,
     period_id: UUID,
     file: UploadFile = File(...),
     site_id: UUID | None = Query(default=None, description="Optional site to associate with imported activities"),

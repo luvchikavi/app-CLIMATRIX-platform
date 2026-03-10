@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 import bcrypt
@@ -16,6 +16,7 @@ from sqlmodel import select
 
 from app.config import settings
 from app.database import get_session
+from app.rate_limit import limiter
 from app.models.core import User
 
 router = APIRouter()
@@ -132,7 +133,9 @@ async def get_current_user(
 # ============================================================================
 
 @router.post("/login", response_model=Token)
+@limiter.limit(settings.rate_limit_login)
 async def login(
+    request: Request,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -209,7 +212,9 @@ class GoogleLoginRequest(BaseModel):
 
 
 @router.post("/google", response_model=Token)
+@limiter.limit(settings.rate_limit_login)
 async def google_login(
+    request: Request,
     data: GoogleLoginRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -395,7 +400,9 @@ class RegisterRequest(BaseModel):
 
 
 @router.post("/register", response_model=Token)
+@limiter.limit(settings.rate_limit_register)
 async def register(
+    request: Request,
     data: RegisterRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -510,7 +517,9 @@ def create_password_reset_token(user_id: str) -> str:
 
 
 @router.post("/forgot-password", response_model=MessageResponse)
+@limiter.limit(settings.rate_limit_password_reset)
 async def forgot_password(
+    request: Request,
     data: ForgotPasswordRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -541,7 +550,9 @@ async def forgot_password(
 
 
 @router.post("/reset-password", response_model=MessageResponse)
+@limiter.limit(settings.rate_limit_password_reset)
 async def reset_password(
+    request: Request,
     data: ResetPasswordRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
