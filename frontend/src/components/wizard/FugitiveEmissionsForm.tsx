@@ -94,9 +94,15 @@ export function FugitiveEmissionsForm({ periodId, onSuccess }: FugitiveEmissions
 
   const groupedOptions = groupOptions(activityOptions || []);
 
-  const filteredOptions = activityOptions?.filter((factor) =>
-    factor.display_name?.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  const filteredOptions = activityOptions?.filter((factor) => {
+    // Normalize both search and display name: remove hyphens, spaces, and lowercase
+    // This way "R507", "R-507", "R507A", "R-507A" all match "R-507A Refrigerant (Blend)"
+    const normalize = (s: string) => s.toLowerCase().replace(/[-\s]/g, '');
+    const name = normalize(factor.display_name || '');
+    const key = normalize(factor.activity_key || '');
+    const query = normalize(searchQuery);
+    return name.includes(query) || key.includes(query);
+  }) || [];
 
   const handleSelectFactor = (factor: EmissionFactor) => {
     setSelectedFactor(factor);

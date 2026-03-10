@@ -23,6 +23,7 @@ import {
   TableHead,
   TableCell,
   EmptyState,
+  toast,
 } from '@/components/ui';
 import { ScopePieChart } from '@/components/dashboard/ScopePieChart';
 import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
@@ -51,6 +52,7 @@ import {
   Download,
   Filter,
   FileSpreadsheet,
+  File,
   ChevronDown,
 } from 'lucide-react';
 import { api, CategorySummary, ImportBatch } from '@/lib/api';
@@ -226,6 +228,33 @@ function DashboardContent() {
     document.body.removeChild(a);
   };
 
+  // Server-side report exports (full GHG report)
+  const handleExportCSV = async () => {
+    if (!activePeriodId) {
+      toast.error('Please select a reporting period');
+      return;
+    }
+    try {
+      await api.downloadReportExport('csv', activePeriodId);
+      toast.success('CSV report downloaded');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to export CSV');
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!activePeriodId) {
+      toast.error('Please select a reporting period');
+      return;
+    }
+    try {
+      await api.downloadReportExport('pdf', activePeriodId);
+      toast.success('PDF report downloaded');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to export PDF');
+    }
+  };
+
   // Show onboarding wizard for new users
   if (showOnboarding) {
     return (
@@ -254,6 +283,22 @@ function DashboardContent() {
             leftIcon={<RefreshCw className="w-4 h-4" />}
           >
             Refresh
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            leftIcon={<FileSpreadsheet className="w-4 h-4" />}
+          >
+            CSV
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPDF}
+            leftIcon={<File className="w-4 h-4" />}
+          >
+            PDF
           </Button>
           <Button
             variant="outline"
