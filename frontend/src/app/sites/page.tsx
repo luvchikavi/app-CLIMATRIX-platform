@@ -218,7 +218,7 @@ function SitesPageContent() {
 
       {/* Add/Edit Site Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Site Details">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-neutral-950/50 backdrop-blur-sm"
@@ -318,7 +318,7 @@ function SitesPageContent() {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Site Details">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-neutral-950/50 backdrop-blur-sm"

@@ -729,7 +729,7 @@ function SettingsPageContent() {
 
       {/* Create Period Modal */}
       {showPeriodModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Settings">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-neutral-950/50 backdrop-blur-sm"
@@ -847,7 +847,7 @@ function SettingsPageContent() {
 
       {/* Invite User Modal (Task 2.3) */}
       {showInviteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Settings">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-neutral-950/50 backdrop-blur-sm"

@@ -149,7 +149,7 @@ export function ScopeDrillDown({ scope, activities, onClose }: ScopeDrillDownPro
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Scope Drilldown">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-neutral-950/50 backdrop-blur-sm"

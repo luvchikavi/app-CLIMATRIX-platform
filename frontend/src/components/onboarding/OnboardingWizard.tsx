@@ -235,9 +235,11 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
     }
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     clearProgress();
     localStorage.setItem('onboarding_completed', 'true');
+    // Persist to backend so it survives localStorage clear
+    try { await api.completeOnboarding(); } catch { /* non-blocking */ }
     onComplete();
     router.push('/dashboard');
   };

@@ -45,6 +45,7 @@ export interface User {
   full_name: string;
   organization_id: string;
   role: string;
+  onboarding_completed?: boolean;
 }
 
 export interface Organization {
@@ -831,6 +832,10 @@ class ApiClient {
     } catch {
       return false;
     }
+  }
+
+  async completeOnboarding(): Promise<User> {
+    return this.fetch<User>('/auth/me/onboarding-complete', { method: 'PATCH' });
   }
 
   // Auth

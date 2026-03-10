@@ -36,6 +36,7 @@ class UserResponse(BaseModel):
     full_name: str | None
     role: str
     organization_id: str
+    onboarding_completed: bool = False
 
 
 class OrganizationResponse(BaseModel):
@@ -383,6 +384,27 @@ async def get_me(current_user: Annotated[User, Depends(get_current_user)]):
         full_name=current_user.full_name,
         role=current_user.role.value,
         organization_id=str(current_user.organization_id),
+        onboarding_completed=current_user.onboarding_completed,
+    )
+
+
+@router.patch("/me/onboarding-complete", response_model=UserResponse)
+async def complete_onboarding(
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Mark onboarding as completed for the current user."""
+    current_user.onboarding_completed = True
+    session.add(current_user)
+    await session.commit()
+    await session.refresh(current_user)
+    return UserResponse(
+        id=str(current_user.id),
+        email=current_user.email,
+        full_name=current_user.full_name,
+        role=current_user.role.value,
+        organization_id=str(current_user.organization_id),
+        onboarding_completed=current_user.onboarding_completed,
     )
 
 

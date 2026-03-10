@@ -78,7 +78,7 @@ function WizardBackButton() {
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated, organization } = useAuthStore();
+  const { isAuthenticated, organization, user } = useAuthStore();
   const { selectedPeriodId } = usePeriodStore();
 
   // All useState hooks at top
@@ -153,7 +153,7 @@ function DashboardContent() {
   // Check if onboarding should be shown (first time user with no periods)
   useEffect(() => {
     if (mounted && isAuthenticated && !periodsLoading && periods !== undefined) {
-      const onboardingCompleted = localStorage.getItem('onboarding_completed');
+      const onboardingCompleted = localStorage.getItem('onboarding_completed') || user?.onboarding_completed;
       if (!onboardingCompleted && periods.length === 0) {
         setShowOnboarding(true);
       }
@@ -670,7 +670,7 @@ function DashboardContent() {
 
       {/* Activity Wizard Modal */}
       {showWizard && activePeriodId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Add Activity">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-neutral-950/50 backdrop-blur-sm"
@@ -721,7 +721,7 @@ function DashboardContent() {
 
       {/* Category Drill-Down Modal */}
       {drillDownCategory && (activities || []).length > 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Category Activities">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-neutral-950/50 backdrop-blur-sm"
