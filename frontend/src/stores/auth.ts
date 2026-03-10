@@ -44,6 +44,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const response = await api.login({ email, password });
+          document.cookie = 'climatrix_auth=1; path=/; max-age=604800; SameSite=Lax';
           set({
             user: response.user,
             organization: response.organization || null,
@@ -64,6 +65,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const response = await api.googleLogin(idToken);
+          document.cookie = 'climatrix_auth=1; path=/; max-age=604800; SameSite=Lax';
           set({
             user: response.user,
             organization: response.organization || null,
@@ -84,6 +86,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const response = await api.register(data);
+          document.cookie = 'climatrix_auth=1; path=/; max-age=604800; SameSite=Lax';
           set({
             user: response.user,
             organization: response.organization,
@@ -102,6 +105,8 @@ export const useAuthStore = create<AuthState>()(
 
       setAuth: (token: string, user: User, organization: Organization | null) => {
         api.setToken(token);
+        // Set cookie flag for Next.js middleware route protection
+        document.cookie = 'climatrix_auth=1; path=/; max-age=604800; SameSite=Lax';
         set({
           user,
           organization,
@@ -114,6 +119,8 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         api.logout();
+        // Clear cookie flag
+        document.cookie = 'climatrix_auth=; path=/; max-age=0';
         set({
           user: null,
           organization: null,
