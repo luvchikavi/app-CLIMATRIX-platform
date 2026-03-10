@@ -285,6 +285,9 @@ function LandingPageContent() {
               <a href="#standards" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
                 Standards
               </a>
+              <a href="/security" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+                Security
+              </a>
             </div>
             <div className="flex items-center gap-4">
               <button
@@ -622,6 +625,7 @@ function LandingPageContent() {
             <div className="flex items-center gap-8 text-sm text-gray-500">
               <a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a>
               <a href="/terms" className="hover:text-white transition-colors">Terms of Service</a>
+              <a href="/security" className="hover:text-white transition-colors">Security</a>
               <a href="mailto:contact@climatrix.io" className="hover:text-white transition-colors">Contact</a>
             </div>
             <p className="text-sm text-gray-600">

@@ -20,6 +20,7 @@ const PUBLIC_PATHS = new Set([
   '/forgot-password',
   '/reset-password',
   '/accept-invitation',
+  '/security',
 ]);
 
 export function middleware(request: NextRequest) {
