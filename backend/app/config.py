@@ -3,9 +3,12 @@ Application configuration using Pydantic Settings.
 All configuration is loaded from environment variables.
 """
 import json
+import warnings
 from functools import lru_cache
 from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_DEFAULT_SECRET_KEY = "CHANGE-THIS-IN-PRODUCTION-use-openssl-rand-hex-32"
 
 
 class Settings(BaseSettings):
@@ -113,6 +116,9 @@ class Settings(BaseSettings):
     s3_access_key_id: str = ""
     s3_secret_access_key: str = ""
 
+    # File Upload Limits
+    max_upload_size_mb: int = 50  # Maximum file upload size in MB
+
     # Rate Limiting
     rate_limit_enabled: bool = True
     rate_limit_login: str = "10/minute"
@@ -133,7 +139,22 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings() -> Settings:
     """Get cached settings instance."""
-    return Settings()
+    s = Settings()
+    # Fail-fast: refuse to start in production with the default secret key
+    if s.secret_key == _DEFAULT_SECRET_KEY:
+        if s.environment in ("production", "staging"):
+            raise RuntimeError(
+                "SECRET_KEY is still the default placeholder. "
+                "Set a secure SECRET_KEY via environment variable before running in production. "
+                "Generate one with: openssl rand -hex 32"
+            )
+        else:
+            warnings.warn(
+                "SECRET_KEY is the default placeholder. "
+                "This is fine for development but MUST be changed for production.",
+                stacklevel=2,
+            )
+    return s
 
 
 settings = get_settings()

@@ -11,8 +11,8 @@
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1.1 | Add rate limiting to login, register, password reset, import endpoints | DONE | slowapi, configurable limits per endpoint |
-| 1.2 | Validate SECRET_KEY is not the default in production | TODO | Fail-fast on startup |
-| 1.3 | Add file upload size limits to import endpoints | TODO | Prevent abuse |
+| 1.2 | Validate SECRET_KEY is not the default in production | DONE | RuntimeError in prod/staging, warning in dev |
+| 1.3 | Add file upload size limits to import endpoints | DONE | 50 MB default, configurable, 413 on exceed |
 
 ## Phase 2 — High (Architecture & Reliability)
 
@@ -49,3 +49,5 @@
 | Date | Task | Description |
 |------|------|-------------|
 | 2026-03-11 | 1.1 | Rate limiting via slowapi: login/register 10/5 per min, password reset 5/min, imports 20/min. Redis in prod, in-memory dev. |
+| 2026-03-11 | 1.2 | SECRET_KEY validation: RuntimeError on startup if default key used in production/staging. Warning in dev. |
+| 2026-03-11 | 1.3 | File upload size limit: 50 MB default (configurable via MAX_UPLOAD_SIZE_MB). Returns 413 on exceed. Applied to all 9 import endpoints. |

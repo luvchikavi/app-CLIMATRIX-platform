@@ -42,6 +42,19 @@ router = APIRouter()
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+MAX_UPLOAD_BYTES = settings.max_upload_size_mb * 1024 * 1024
+
+
+async def _check_file_size(file: UploadFile) -> bytes:
+    """Read file content and enforce size limit. Returns the content bytes."""
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is {settings.max_upload_size_mb} MB.",
+        )
+    return content
+
 
 async def get_redis_pool() -> ArqRedis:
     """Get Redis connection pool for queuing jobs."""
@@ -336,7 +349,7 @@ async def preview_import(
         )
 
     # Read file content
-    content = await file.read()
+    content = await _check_file_size(file)
 
     # Parse file content (CSV or Excel)
     try:
@@ -416,7 +429,7 @@ async def import_activities(
         raise HTTPException(status_code=400, detail="Only CSV and Excel (.xlsx) files are supported")
 
     # Read and parse file
-    content = await file.read()
+    content = await _check_file_size(file)
     try:
         rows, found_columns = parse_file_content(content, file.filename)
     except Exception as e:
@@ -932,7 +945,7 @@ async def import_activities_async(
         )
 
     # Read file content
-    content = await file.read()
+    content = await _check_file_size(file)
     file_size = len(content)
 
     # Save file for async processing (S3 or local via storage service)
@@ -1174,7 +1187,7 @@ async def analyze_import_columns(
         )
 
     # Read file content
-    content = await file.read()
+    content = await _check_file_size(file)
 
     # Parse file to get headers and sample data
     if filename_lower.endswith('.xlsx'):
@@ -1273,7 +1286,7 @@ async def smart_import_activities(
         )
 
     # Read file content
-    content = await file.read()
+    content = await _check_file_size(file)
     file_size = len(content)
 
     # Parse file and count rows
@@ -1525,7 +1538,7 @@ async def preview_template_import(
         )
 
     # Read file content
-    content = await file.read()
+    content = await _check_file_size(file)
 
     # Parse template
     parser = TemplateParser(default_year=year)
@@ -1618,7 +1631,7 @@ async def import_template(
         )
 
     # Read file content
-    content = await file.read()
+    content = await _check_file_size(file)
 
     # Parse template
     parser = TemplateParser(default_year=year)
@@ -1876,7 +1889,7 @@ async def unified_import_preview(
     - Multi-language files (Hebrew, etc.)
     """
     # Read file content
-    content = await file.read()
+    content = await _check_file_size(file)
     filename = file.filename or "unknown.csv"
 
     # Process with unified import service
@@ -1941,7 +1954,7 @@ async def unified_import_activities(
         raise HTTPException(status_code=404, detail="Reporting period not found")
 
     # Read file content
-    content = await file.read()
+    content = await _check_file_size(file)
     filename = file.filename or "unknown.csv"
 
     # Get activities using unified import service
