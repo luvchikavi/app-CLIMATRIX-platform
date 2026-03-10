@@ -1,0 +1,7 @@
+#,Title,Requested By,Date,Area,Priority,Status,Assigned To,Notes,Completed Date
+1,Example: R507A gas not searchable in wizard,Sivan,2026-03-10,Import (Excel/CSV),High,Done,Avi,Fixed search normalization for hyphens,2026-03-10
+2,Example: Add export buttons to dashboard,Avi,2026-03-10,Dashboard,Medium,Done,Avi,CSV + PDF export added,2026-03-10
+3,Example: Rate limiting on login endpoint,Avi,2026-03-11,Security,Critical,Done,Avi,slowapi - 10 req/min,2026-03-11
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,

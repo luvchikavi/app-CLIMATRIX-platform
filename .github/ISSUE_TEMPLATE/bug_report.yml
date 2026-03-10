@@ -1,0 +1,72 @@
+name: Bug Report
+description: Report a bug or something not working correctly
+title: "[Bug]: "
+labels: ["bug"]
+assignees: ["luvchikavi"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected Area
+      options:
+        - Dashboard
+        - Activities / Data Entry
+        - Import (Excel/CSV)
+        - Reports / Export
+        - Sites Management
+        - Settings / Organization
+        - Login / Authentication
+        - Billing
+        - CBAM Module
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Critical (blocking work)
+        - High (important, needs fix soon)
+        - Medium (annoying but can work around)
+        - Low (nice to fix)
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      placeholder: Describe the issue clearly...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened?
+      placeholder: Describe the expected behavior...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click on ...
+        3. See error
+    validations:
+      required: false
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      placeholder: Drag and drop screenshots here if relevant
+    validations:
+      required: false
+  - type: input
+    id: client
+    attributes:
+      label: Client name (if client-specific)
+      placeholder: e.g. "Acme Corp"
+    validations:
+      required: false
