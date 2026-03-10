@@ -6,6 +6,17 @@
 
 ---
 
+## Deployment Architecture (existing)
+
+| Environment | Provider | Trigger |
+|-------------|----------|---------|
+| Production backend | **Railway** (Nixpacks) | Push to `main` → auto-deploy |
+| Production frontend | **Vercel** | Push to `main` → auto-deploy |
+| Preview frontend | **Vercel** | Push to any branch → preview deploy |
+| CI (tests/lint) | **GitHub Actions** | Push + PR → run checks (NEW) |
+
+---
+
 ## Phase 1 — Critical (Security & Production)
 
 | # | Task | Status | Notes |
@@ -32,14 +43,14 @@
 | 3.3 | Code-split recharts (lazy load on dashboard/reports only) | TODO | Bundle size |
 | 3.4 | Improve accessibility (ARIA labels, focus management on modals) | TODO | A11y compliance |
 
-## Phase 4 — Infrastructure (from original Phase 3)
+## Phase 4 — Infrastructure
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 4.1 | S3/R2 file storage migration | TODO | Move from local uploads/ |
-| 4.2 | Alembic migration chain finalization | TODO | Clean migration history |
+| 4.2 | Alembic migration chain | DONE | Clean linear chain of 13 migrations, no fixes needed |
 | 4.3 | Stripe billing configuration | TODO | Payment integration |
-| 4.4 | Add CI/CD pipeline (GitHub Actions) | TODO | Automated tests + deploy |
+| 4.4 | GitHub Actions CI pipeline | DONE | 4 jobs: backend lint, backend test, frontend lint, frontend build+typecheck |
 | 4.5 | Deployment audit | TODO | Final production checklist |
 
 ---
@@ -55,3 +66,5 @@
 | 2026-03-11 | 2.2 | SKIPPED: Reports already use explicit JOINs (select Activity, Emission).join()), no N+1 issue found. |
 | 2026-03-11 | 2.3 | Token simplified: removed duplicate `auth_token` localStorage from ApiClient. Zustand `auth-storage` is now the single source of truth, synced via TokenSync + onRehydrate. |
 | 2026-03-11 | 2.4 | API base URL aligned: api.ts default and .env.example both point to `http://localhost:8000/api`. |
+| 2026-03-11 | 4.2 | Alembic: Audited — clean linear chain of 13 migrations, proper baseline stamping, no fixes needed. |
+| 2026-03-11 | 4.4 | GitHub Actions CI: 4 parallel jobs (backend lint+test, frontend lint+build). CD already handled by Railway (backend) + Vercel (frontend) auto-deploy on push. All 29 backend tests passing. |
