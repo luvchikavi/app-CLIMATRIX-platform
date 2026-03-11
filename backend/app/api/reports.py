@@ -2229,6 +2229,8 @@ async def export_report_csv(
         "Activity Key",
         "Quantity",
         "Unit",
+        "Emission Factor",
+        "EF Unit",
         "CO2e (kg)",
         "CO2e (tonnes)",
         "Factor Source",
@@ -2254,6 +2256,9 @@ async def export_report_csv(
         dq_score = activity.data_quality_score or 5
         dq_label = data_quality_labels.get(dq_score, f"Score {dq_score}")
 
+        ef_value = float(factor.co2e_factor) if factor and factor.co2e_factor else ""
+        ef_unit = factor.factor_unit if factor and factor.factor_unit else ""
+
         writer.writerow([
             f"Scope {activity.scope}",
             activity.category_code,
@@ -2261,6 +2266,8 @@ async def export_report_csv(
             activity.activity_key,
             float(activity.quantity),
             activity.unit,
+            ef_value,
+            ef_unit,
             round(co2e_kg, 4),
             round(co2e_tonnes, 6),
             factor_source,

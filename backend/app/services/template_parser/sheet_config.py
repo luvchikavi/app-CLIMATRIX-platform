@@ -579,6 +579,9 @@ def resolve_upstream_transport(row: dict) -> tuple[str, str]:
             'road': ('freight_spend_road', 'USD'),
             'hgv': ('freight_spend_road', 'USD'),
             'van': ('freight_spend_road', 'USD'),
+            'motorcycle': ('freight_spend_courier', 'USD'),
+            'motorbike': ('freight_spend_courier', 'USD'),
+            'scooter': ('freight_spend_courier', 'USD'),
             'air': ('freight_spend_air', 'USD'),
             'sea': ('freight_spend_sea', 'USD'),
             'courier': ('freight_spend_courier', 'USD'),
@@ -589,12 +592,17 @@ def resolve_upstream_transport(row: dict) -> tuple[str, str]:
                 return result
         return 'freight_spend_road', 'USD'
 
-    # Distance-based (tonne-km)
+    # Distance-based (tonne-km or km for motorcycles)
     distance_map = {
         'road - hgv': ('road_freight_hgv', 'tonne-km'),
         'hgv': ('road_freight_hgv', 'tonne-km'),
         'road - van': ('road_freight_van', 'tonne-km'),
         'van': ('road_freight_van', 'tonne-km'),
+        'motorcycle': ('road_freight_motorcycle', 'km'),
+        'motorbike': ('road_freight_motorcycle', 'km'),
+        'road - motorcycle': ('road_freight_motorcycle', 'km'),
+        'road - motorbike': ('road_freight_motorcycle', 'km'),
+        'scooter': ('road_freight_motorcycle', 'km'),
         'rail': ('rail_freight', 'tonne-km'),
         'sea - container': ('sea_freight_container', 'tonne-km'),
         'container': ('sea_freight_container', 'tonne-km'),
