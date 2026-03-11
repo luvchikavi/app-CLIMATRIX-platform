@@ -292,6 +292,8 @@ export interface ReportSummary {
   total_co2e_tonnes: number;
   scope_1_co2e_kg: number;
   scope_2_co2e_kg: number;
+  scope_2_location_based_co2e_kg: number;
+  scope_2_market_based_co2e_kg: number | null;
   scope_3_co2e_kg: number;
   scope_3_wtt_co2e_kg: number;
   by_scope: ScopeSummary[];

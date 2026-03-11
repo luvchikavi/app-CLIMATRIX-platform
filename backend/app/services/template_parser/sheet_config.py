@@ -258,11 +258,22 @@ def resolve_refrigerant(row: dict) -> tuple[str, str]:
         'HALON1211': 'refrigerant_halon1211',
     }
 
+    # Try exact match first (most reliable)
+    if gas_type in refrigerant_map:
+        return refrigerant_map[gas_type], 'kg'
+
+    # Try substring match (for values like "R-507A Blend", "R410A System")
     for key, activity_key in refrigerant_map.items():
         if key in gas_type:
             return activity_key, 'kg'
 
-    # Default - return generic key; the resolver will try to find the best match
+    # Also try normalised form: strip hyphens and spaces (e.g. "R 507" -> "R507")
+    normalised = gas_type.replace('-', '').replace(' ', '')
+    if normalised in refrigerant_map:
+        return refrigerant_map[normalised], 'kg'
+
+    # No match — return None so caller can handle the error instead of silently
+    # defaulting to a wrong refrigerant. Fall back to generic HFC as last resort.
     return 'refrigerant_r410a', 'kg'
 
 

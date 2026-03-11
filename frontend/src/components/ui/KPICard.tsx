@@ -112,6 +112,8 @@ export interface ScopeKPIProps extends HTMLAttributes<HTMLDivElement> {
   percentage?: number;
   activityCount?: number;
   onClick?: () => void;
+  label?: string;
+  subtitle?: string;
 }
 
 const scopeLabels = {
@@ -127,7 +129,7 @@ const scopeDescriptions = {
 };
 
 export const ScopeKPI = forwardRef<HTMLDivElement, ScopeKPIProps>(
-  ({ className, scope, value, percentage, activityCount, onClick, ...props }, ref) => {
+  ({ className, scope, value, percentage, activityCount, onClick, label, subtitle, ...props }, ref) => {
     const scopeColors = {
       1: 'border-l-scope1',
       2: 'border-l-scope2',
@@ -165,7 +167,7 @@ export const ScopeKPI = forwardRef<HTMLDivElement, ScopeKPIProps>(
       >
         <div className="flex items-start justify-between mb-1">
           <p className="text-sm font-medium text-foreground-muted">
-            {scopeLabels[scope]}
+            {label || scopeLabels[scope]}
           </p>
           {percentage !== undefined && (
             <span className={cn('px-2 py-0.5 rounded-full text-xs font-semibold', scopeBg[scope])}>

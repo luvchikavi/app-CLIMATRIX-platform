@@ -56,6 +56,8 @@ class ReportSummaryResponse(BaseModel):
     total_co2e_tonnes: float
     scope_1_co2e_kg: float
     scope_2_co2e_kg: float
+    scope_2_location_based_co2e_kg: float
+    scope_2_market_based_co2e_kg: float | None = None
     scope_3_co2e_kg: float
     scope_3_wtt_co2e_kg: float
     by_scope: list[ScopeSummary]
@@ -279,6 +281,52 @@ async def get_report_summary(
 
     total_co2e = sum(scope_totals.values())
 
+    # Calculate Scope 2 location-based and market-based totals
+    scope2_query = (
+        select(Activity, Emission, EmissionFactor)
+        .join(Emission, Activity.id == Emission.activity_id)
+        .outerjoin(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
+        .where(
+            Activity.reporting_period_id == period_id,
+            Activity.organization_id == current_user.organization_id,
+            Activity.scope == 2,
+        )
+    )
+    scope2_result = await session.execute(scope2_query)
+    scope2_rows = scope2_result.all()
+
+    scope2_location_total = Decimal(0)
+    scope2_market_total = Decimal(0)
+    has_market = False
+
+    for activity, emission, factor in scope2_rows:
+        # Get country code
+        factor_region = factor.region if factor else None
+        country_code = _extract_country_code(activity.activity_key, factor_region)
+        grid_factor = GRID_EMISSION_FACTORS.get(country_code) if country_code else None
+        if not grid_factor:
+            grid_factor = GRID_EMISSION_FACTORS.get("GLOBAL", {
+                "location_factor": Decimal("0.436"),
+                "market_factor": None,
+            })
+
+        location_factor_val = grid_factor.get("location_factor", factor.co2e_factor if factor else Decimal("0.436"))
+        market_factor_val = grid_factor.get("market_factor")
+        quantity = float(activity.quantity)
+
+        # Location-based
+        scope2_location_total += Decimal(str(quantity * float(location_factor_val)))
+
+        # Market-based
+        is_supplier = (emission.resolution_strategy == "market_based_supplier" or
+                       emission.resolution_strategy == "supplier_provided")
+        if is_supplier:
+            scope2_market_total += emission.co2e_kg or Decimal(0)
+            has_market = True
+        elif market_factor_val:
+            scope2_market_total += Decimal(str(quantity * float(market_factor_val)))
+            has_market = True
+
     return ReportSummaryResponse(
         period_id=str(period_id),
         period_name=period.name,
@@ -286,6 +334,8 @@ async def get_report_summary(
         total_co2e_tonnes=float(total_co2e / 1000),
         scope_1_co2e_kg=float(scope_totals[1]),
         scope_2_co2e_kg=float(scope_totals[2]),
+        scope_2_location_based_co2e_kg=float(scope2_location_total),
+        scope_2_market_based_co2e_kg=float(scope2_market_total) if has_market else None,
         scope_3_co2e_kg=float(scope_totals[3]),
         scope_3_wtt_co2e_kg=float(wtt_total),
         by_scope=by_scope,
@@ -2267,6 +2317,33 @@ async def export_report_pdf(
         scope_totals[activity.scope] += emission.co2e_kg or Decimal(0)
     total_co2e = sum(scope_totals.values())
 
+    # Calculate Scope 2 location-based and market-based totals for PDF
+    scope2_location_total = Decimal(0)
+    scope2_market_total = Decimal(0)
+    has_market_data = False
+    for activity, emission, factor in rows:
+        if activity.scope != 2:
+            continue
+        factor_region = factor.region if factor else None
+        country_code = _extract_country_code(activity.activity_key, factor_region)
+        grid_factor = GRID_EMISSION_FACTORS.get(country_code) if country_code else None
+        if not grid_factor:
+            grid_factor = GRID_EMISSION_FACTORS.get("GLOBAL", {
+                "location_factor": Decimal("0.436"), "market_factor": None,
+            })
+        loc_f = grid_factor.get("location_factor", factor.co2e_factor if factor else Decimal("0.436"))
+        mkt_f = grid_factor.get("market_factor")
+        qty = float(activity.quantity)
+        scope2_location_total += Decimal(str(qty * float(loc_f)))
+        is_supplier = (emission.resolution_strategy == "market_based_supplier" or
+                       emission.resolution_strategy == "supplier_provided")
+        if is_supplier:
+            scope2_market_total += emission.co2e_kg or Decimal(0)
+            has_market_data = True
+        elif mkt_f:
+            scope2_market_total += Decimal(str(qty * float(mkt_f)))
+            has_market_data = True
+
     # Build PDF in memory
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -2325,7 +2402,8 @@ async def export_report_pdf(
     summary_data = [
         ["Scope", "Emissions (tonnes CO2e)"],
         ["Scope 1 - Direct Emissions", f"{float(scope_totals[1]) / 1000:.4f}"],
-        ["Scope 2 - Indirect Energy", f"{float(scope_totals[2]) / 1000:.4f}"],
+        ["Scope 2 - Location-based", f"{float(scope2_location_total) / 1000:.4f}"],
+        ["Scope 2 - Market-based", f"{float(scope2_market_total) / 1000:.4f}" if has_market_data else "N/A"],
         ["Scope 3 - Value Chain", f"{float(scope_totals[3]) / 1000:.4f}"],
         ["Total", f"{float(total_co2e) / 1000:.4f}"],
     ]

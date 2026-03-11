@@ -132,6 +132,8 @@ function DashboardContent() {
       total: scope1 + scope2 + scope3,
       scope1,
       scope2,
+      scope2LocationBased: scope2,
+      scope2MarketBased: null as number | null | undefined,
       scope3,
     };
   }, [filteredActivities]);
@@ -176,6 +178,8 @@ function DashboardContent() {
     total: summary?.total_co2e_kg || 0,
     scope1: summary?.scope_1_co2e_kg || 0,
     scope2: summary?.scope_2_co2e_kg || 0,
+    scope2LocationBased: summary?.scope_2_location_based_co2e_kg || 0,
+    scope2MarketBased: summary?.scope_2_market_based_co2e_kg,
     scope3: summary?.scope_3_co2e_kg || 0,
   };
 
@@ -473,7 +477,7 @@ function DashboardContent() {
       {!isLoading && summary && (
         <div className="space-y-8 animate-fade-in">
           {/* Total Emissions KPI */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             <Card padding="lg" className="lg:col-span-1">
               <div className="flex items-start justify-between">
                 <div>
@@ -516,9 +520,17 @@ function DashboardContent() {
             />
             <ScopeKPI
               scope={2}
-              value={displayTotals.scope2}
+              label="Scope 2 - Location-based"
+              value={displayTotals.scope2LocationBased}
               percentage={scope2Pct}
               activityCount={scope2Activities}
+              onClick={() => scope2Activities > 0 && setDrillDownScope(2)}
+            />
+            <ScopeKPI
+              scope={2}
+              label="Scope 2 - Market-based"
+              value={displayTotals.scope2MarketBased ?? 0}
+              activityCount={displayTotals.scope2MarketBased != null ? scope2Activities : undefined}
               onClick={() => scope2Activities > 0 && setDrillDownScope(2)}
             />
             <ScopeKPI

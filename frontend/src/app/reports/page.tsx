@@ -360,11 +360,20 @@ function ReportsPageContent() {
                   <p className="text-xs text-foreground-muted mt-1">Direct emissions</p>
                 </Card>
                 <Card padding="lg" className="border-l-4 border-l-scope2">
-                  <p className="text-sm font-medium text-foreground-muted">Scope 2</p>
+                  <p className="text-sm font-medium text-foreground-muted">Scope 2 (Location-based)</p>
                   <p className="text-2xl font-bold text-foreground mt-1">
-                    {formatCO2e(summary.scope_2_co2e_kg)}
+                    {formatCO2e(summary.scope_2_location_based_co2e_kg)}
                   </p>
-                  <p className="text-xs text-foreground-muted mt-1">Indirect energy</p>
+                  <p className="text-xs text-foreground-muted mt-1">Grid average</p>
+                </Card>
+                <Card padding="lg" className="border-l-4 border-l-scope2 opacity-90">
+                  <p className="text-sm font-medium text-foreground-muted">Scope 2 (Market-based)</p>
+                  <p className="text-2xl font-bold text-foreground mt-1">
+                    {summary.scope_2_market_based_co2e_kg != null
+                      ? formatCO2e(summary.scope_2_market_based_co2e_kg)
+                      : 'N/A'}
+                  </p>
+                  <p className="text-xs text-foreground-muted mt-1">Residual mix</p>
                 </Card>
                 <Card padding="lg" className="border-l-4 border-l-scope3">
                   <p className="text-sm font-medium text-foreground-muted">Scope 3</p>
