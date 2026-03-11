@@ -2123,6 +2123,9 @@ def resolve_v4_transport(row: dict) -> tuple[str, str]:
             'road': ('freight_spend_road', 'USD'),
             'hgv': ('freight_spend_road', 'USD'),
             'van': ('freight_spend_road', 'USD'),
+            'motorcycle': ('freight_spend_courier', 'USD'),
+            'motorbike': ('freight_spend_courier', 'USD'),
+            'scooter': ('freight_spend_courier', 'USD'),
             'rail': ('freight_spend_rail', 'USD'),
             'sea': ('freight_spend_sea', 'USD'),
             'air': ('freight_spend_air', 'USD'),
@@ -2137,6 +2140,11 @@ def resolve_v4_transport(row: dict) -> tuple[str, str]:
         'road-hgv': ('road_freight_hgv', 'tonne-km'),
         'road-van': ('road_freight_van', 'tonne-km'),
         'road-lgv': ('road_freight_van', 'tonne-km'),
+        'road-motorcycle': ('road_freight_motorcycle', 'km'),
+        'road-motorbike': ('road_freight_motorcycle', 'km'),
+        'motorcycle': ('road_freight_motorcycle', 'km'),
+        'motorbike': ('road_freight_motorcycle', 'km'),
+        'scooter': ('road_freight_motorcycle', 'km'),
         'rail': ('rail_freight', 'tonne-km'),
         'sea-container': ('sea_freight_container', 'tonne-km'),
         'sea-bulk': ('sea_freight_bulk', 'tonne-km'),
@@ -2151,6 +2159,8 @@ def resolve_v4_transport(row: dict) -> tuple[str, str]:
             return result
 
     # Fallback: try to match just the mode
+    if 'motorcycle' in transport_mode or 'motorbike' in transport_mode or 'scooter' in transport_mode:
+        return ('road_freight_motorcycle', 'km')
     if 'van' in transport_mode or 'lgv' in transport_mode:
         return ('road_freight_van', 'tonne-km')
     if 'hgv' in transport_mode or 'truck' in transport_mode or 'lorry' in transport_mode:

@@ -235,6 +235,7 @@ MARKET_METHODS = [
 TRANSPORT_MODES = [
     "Road - HGV",
     "Road - Van",
+    "Road - Motorcycle",
     "Road - Average",
     "Sea - Container",
     "Sea - Bulk",
