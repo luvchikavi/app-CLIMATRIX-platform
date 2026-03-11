@@ -2401,11 +2401,11 @@ async def export_report_pdf(
 
     summary_data = [
         ["Scope", "Emissions (tonnes CO2e)"],
-        ["Scope 1 - Direct Emissions", f"{float(scope_totals[1]) / 1000:.4f}"],
-        ["Scope 2 - Location-based", f"{float(scope2_location_total) / 1000:.4f}"],
-        ["Scope 2 - Market-based", f"{float(scope2_market_total) / 1000:.4f}" if has_market_data else "N/A"],
-        ["Scope 3 - Value Chain", f"{float(scope_totals[3]) / 1000:.4f}"],
-        ["Total", f"{float(total_co2e) / 1000:.4f}"],
+        ["Scope 1 - Direct Emissions", f"{float(scope_totals[1]) / 1000:,.2f}"],
+        ["Scope 2 - Location-based", f"{float(scope2_location_total) / 1000:,.2f}"],
+        ["Scope 2 - Market-based", f"{float(scope2_market_total) / 1000:,.2f}" if has_market_data else "N/A"],
+        ["Scope 3 - Value Chain", f"{float(scope_totals[3]) / 1000:,.2f}"],
+        ["Total", f"{float(total_co2e) / 1000:,.2f}"],
     ]
 
     summary_table = Table(summary_data, colWidths=[300, 170])
@@ -2444,8 +2444,8 @@ async def export_report_pdf(
 
     for activity, emission, _factor in rows:
         co2e_t = float(emission.co2e_kg or 0) / 1000.0
-        loc_t = f"{float(emission.location_co2e_kg) / 1000:.4f}" if emission.location_co2e_kg else ""
-        mkt_t = f"{float(emission.market_co2e_kg) / 1000:.4f}" if emission.market_co2e_kg else ""
+        loc_t = f"{float(emission.location_co2e_kg) / 1000:,.2f}" if emission.location_co2e_kg else ""
+        mkt_t = f"{float(emission.market_co2e_kg) / 1000:,.2f}" if emission.market_co2e_kg else ""
         supplier = activity.supplier_name or ""
         # Truncate long descriptions for the PDF table
         desc = activity.description
@@ -2457,7 +2457,7 @@ async def export_report_pdf(
             Paragraph(desc, body_style),
             f"{float(activity.quantity):,.2f}",
             activity.unit,
-            f"{co2e_t:.4f}",
+            f"{co2e_t:,.2f}",
             supplier,
             loc_t,
             mkt_t,
