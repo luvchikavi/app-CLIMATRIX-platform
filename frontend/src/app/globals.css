@@ -695,6 +695,18 @@ body {
   }
 }
 
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 .animate-fade-in {
   animation: fadeIn var(--transition-base) ease-out;
 }
@@ -839,4 +851,102 @@ body {
   height: 100%;
   background: var(--border);
   margin: 0 var(--space-4);
+}
+
+/* =============================================================================
+   PRINT STYLES
+   ============================================================================= */
+
+@media print {
+  /* Hide non-essential UI elements */
+  nav,
+  header,
+  aside,
+  .no-print,
+  button:not(.print-visible),
+  [role="dialog"],
+  [role="alert"] {
+    display: none !important;
+  }
+
+  /* Reset layout for print */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Remove shadows, borders, and backgrounds for clean print */
+  .card,
+  [class*="Card"] {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Ensure tables print well */
+  table {
+    width: 100% !important;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    border: 1px solid #ccc !important;
+    padding: 6px 8px !important;
+    font-size: 10pt;
+  }
+
+  th {
+    background: #f0f0f0 !important;
+    font-weight: bold;
+  }
+
+  /* KPI cards: row layout for print */
+  .kpi-value {
+    font-size: 18pt;
+    color: black !important;
+  }
+
+  /* Chart containers */
+  [class*="recharts"] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Scope badges: text-only for print */
+  .scope-badge {
+    border: 1px solid #666 !important;
+    background: transparent !important;
+    color: black !important;
+  }
+
+  /* Show link URLs in print */
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 9pt;
+    color: #666;
+  }
+
+  /* Page margins */
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+
+  /* Avoid page breaks inside these elements */
+  h1, h2, h3, h4 {
+    page-break-after: avoid;
+  }
+
+  img, svg {
+    max-width: 100% !important;
+  }
 }

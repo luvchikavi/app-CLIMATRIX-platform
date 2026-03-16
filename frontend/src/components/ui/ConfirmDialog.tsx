@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { AlertTriangle, HelpCircle, X, Loader2 } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 export interface ConfirmDialogProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const focusTrapRef = useFocusTrap<HTMLDivElement>(isOpen);
 
   // Focus the cancel button when the dialog opens
   useEffect(() => {
@@ -131,6 +133,7 @@ export function ConfirmDialog({
       aria-describedby="confirm-dialog-message"
     >
       <div
+        ref={focusTrapRef}
         className={cn(
           'relative w-full max-w-md',
           'bg-background-elevated border border-border rounded-xl shadow-xl',

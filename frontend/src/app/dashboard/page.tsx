@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense, useMemo } from 'react';
+import { useState, useEffect, Suspense, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
@@ -32,8 +32,8 @@ import { ActivityWizard } from '@/components/wizard';
 import { ImportHistory } from '@/components/ImportHistory';
 import { OnboardingWizard } from '@/components/onboarding';
 import { useWizardStore } from '@/stores/wizard';
-import { cn } from '@/lib/utils';
-import { formatCO2e } from '@/lib/utils';
+import { cn, formatCO2e } from '@/lib/utils';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import {
   Plus,
   RefreshCw,
@@ -90,6 +90,8 @@ function DashboardContent() {
   // Initialize batch filter from URL parameter (for import redirect)
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(searchParams.get('batchId'));
   const [showBatchDropdown, setShowBatchDropdown] = useState(false);
+  const wizardTrapRef = useFocusTrap<HTMLDivElement>(showWizard);
+  const categoryTrapRef = useFocusTrap<HTMLDivElement>(!!drillDownCategory);
 
   // All data fetching hooks (must be before any conditional returns)
   const { data: periods, isLoading: periodsLoading } = usePeriods();
@@ -98,6 +100,7 @@ function DashboardContent() {
   const {
     data: summary,
     isLoading: summaryLoading,
+    isError: summaryError,
     refetch: refetchSummary
   } = useReportSummary(activePeriodId || '');
 
@@ -323,7 +326,7 @@ function DashboardContent() {
 
       {/* Import Results Banner - shown when coming from import with batch filter */}
       {selectedBatchId && selectedBatch && searchParams.get('batchId') && (
-        <div className="mb-6 p-4 bg-success/10 border border-success/30 rounded-xl flex items-center justify-between">
+        <div className="mb-6 p-4 bg-success/10 border border-success/30 rounded-xl flex items-center justify-between" role="status" aria-live="polite">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-success/20">
               <FileSpreadsheet className="w-5 h-5 text-success" />
@@ -452,10 +455,34 @@ function DashboardContent() {
 
       {/* Loading State */}
       {isLoading && (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="flex items-center justify-center py-20" role="status" aria-live="polite">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
           <span className="ml-3 text-foreground-muted">Loading dashboard...</span>
         </div>
+      )}
+
+      {/* Error State */}
+      {!isLoading && summaryError && (
+        <Card padding="lg">
+          <div className="text-center py-8">
+            <div className="mx-auto w-12 h-12 rounded-full bg-error/10 flex items-center justify-center mb-4">
+              <X className="w-6 h-6 text-error" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mb-2">
+              Failed to load dashboard data
+            </h3>
+            <p className="text-foreground-muted mb-4">
+              There was a problem fetching your emissions data. This may be a temporary issue.
+            </p>
+            <Button
+              variant="primary"
+              onClick={() => refetchSummary()}
+              leftIcon={<RefreshCw className="w-4 h-4" />}
+            >
+              Retry
+            </Button>
+          </div>
+        </Card>
       )}
 
       {/* No Periods State */}
@@ -690,7 +717,7 @@ function DashboardContent() {
           />
 
           {/* Modal */}
-          <div className="relative bg-background-elevated rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-fade-in-up">
+          <div ref={wizardTrapRef} className="relative bg-background-elevated rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-fade-in-up">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div>
@@ -741,7 +768,7 @@ function DashboardContent() {
           />
 
           {/* Modal */}
-          <div className="relative bg-background-elevated rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-fade-in-up">
+          <div ref={categoryTrapRef} className="relative bg-background-elevated rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-fade-in-up">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div>

@@ -289,8 +289,8 @@ export default function ActivitiesPage() {
 
       {/* Loading State */}
       {isLoading && (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="flex items-center justify-center py-20" role="status" aria-live="polite">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
           <span className="ml-3 text-foreground-muted">Loading activities...</span>
         </div>
       )}
