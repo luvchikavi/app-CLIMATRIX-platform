@@ -269,13 +269,13 @@ function DecarbonizationPageContent() {
                     <div>
                       <p className="text-sm text-foreground-muted">Reduction</p>
                       <p className="text-xl font-bold text-success">
-                        -{activeScenario.total_reduction_tco2e.toLocaleString()} tCO2e
+                        -{Number(activeScenario.total_reduction_tco2e).toLocaleString()} tCO2e
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-foreground-muted">Investment</p>
                       <p className="text-xl font-bold text-foreground">
-                        ${(activeScenario.total_investment / 1000).toFixed(0)}K
+                        ${(Number(activeScenario.total_investment) / 1000).toFixed(0)}K
                       </p>
                     </div>
                   </div>
@@ -284,16 +284,16 @@ function DecarbonizationPageContent() {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-foreground-muted">Target Achievement</span>
                       <span className="font-medium text-foreground">
-                        {activeScenario.target_achievement_percent.toFixed(0)}%
+                        {Number(activeScenario.target_achievement_percent).toFixed(0)}%
                       </span>
                     </div>
                     <div className="w-full h-2 bg-background-muted rounded-full overflow-hidden">
                       <div
                         className={cn(
                           "h-full rounded-full transition-all",
-                          activeScenario.target_achievement_percent >= 100 ? 'bg-success' : 'bg-primary'
+                          Number(activeScenario.target_achievement_percent) >= 100 ? 'bg-success' : 'bg-primary'
                         )}
-                        style={{ width: `${Math.min(activeScenario.target_achievement_percent, 100)}%` }}
+                        style={{ width: `${Math.min(Number(activeScenario.target_achievement_percent), 100)}%` }}
                       />
                     </div>
                   </div>

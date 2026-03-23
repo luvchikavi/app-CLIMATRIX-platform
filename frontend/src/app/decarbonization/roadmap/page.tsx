@@ -185,7 +185,7 @@ export default function RoadmapPage() {
                                 {expectedEmissions.toLocaleString(undefined, { maximumFractionDigits: 0 })} tCO2e
                               </p>
                               <p className="text-sm text-foreground-muted">
-                                Target: -{(progress * activeTarget.target_reduction_percent).toFixed(0)}%
+                                Target: -{(progress * Number(activeTarget.target_reduction_percent)).toFixed(0)}%
                               </p>
                             </div>
                           </div>

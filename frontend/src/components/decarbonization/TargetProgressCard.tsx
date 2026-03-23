@@ -58,9 +58,9 @@ export function TargetProgressCard({
   }
 
   // Calculate progress
-  const requiredReduction = target.base_year_emissions_tco2e - target.target_emissions_tco2e;
+  const requiredReduction = Number(target.base_year_emissions_tco2e) - Number(target.target_emissions_tco2e);
   const actualReduction = currentEmissions !== undefined
-    ? target.base_year_emissions_tco2e - currentEmissions
+    ? Number(target.base_year_emissions_tco2e) - currentEmissions
     : 0;
   const progressPercent = requiredReduction > 0
     ? Math.min((actualReduction / requiredReduction) * 100, 100)
