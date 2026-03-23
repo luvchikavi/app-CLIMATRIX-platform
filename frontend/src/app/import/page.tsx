@@ -52,6 +52,7 @@ type ImportMode = 'standard' | 'smart' | 'unified';
 
 function ImportContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated } = useAuthStore();
   const { selectedPeriodId, setSelectedPeriodId } = usePeriodStore();
 
@@ -89,7 +90,7 @@ function ImportContent() {
   const [loadingBatchDetails, setLoadingBatchDetails] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [confirmState, setConfirmState] = useState<{open: boolean; onConfirm: () => void; title: string; message: string}>({open: false, onConfirm: () => {}, title: '', message: ''});
-  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(searchParams.get('site'));
 
   const [mounted, setMounted] = useState(false);
   const queryClient = useQueryClient();

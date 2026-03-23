@@ -733,6 +733,26 @@ export interface Site {
   is_active: boolean;
 }
 
+export interface SiteDetail extends Site {
+  activity_count: number;
+  total_co2e_kg: number;
+  total_co2e_tonnes: number;
+  scope_1_co2e_kg: number;
+  scope_2_co2e_kg: number;
+  scope_3_co2e_kg: number;
+}
+
+export interface SiteEmissionSummary {
+  site_id: string;
+  site_name: string;
+  total_co2e_kg: number;
+  total_co2e_tonnes: number;
+  scope_1_co2e_kg: number;
+  scope_2_co2e_kg: number;
+  scope_3_co2e_kg: number;
+  activity_count: number;
+}
+
 export interface ImportRow {
   row_number: number;
   scope: number | null;
@@ -965,11 +985,12 @@ class ApiClient {
   // Activities
   async getActivities(
     periodId: string,
-    filters?: { scope?: number; category_code?: string }
+    filters?: { scope?: number; category_code?: string; site_id?: string }
   ): Promise<ActivityWithEmission[]> {
     const params = new URLSearchParams();
     if (filters?.scope) params.append('scope', String(filters.scope));
     if (filters?.category_code) params.append('category_code', filters.category_code);
+    if (filters?.site_id) params.append('site_id', filters.site_id);
 
     const query = params.toString() ? `?${params}` : '';
     return this.fetch<ActivityWithEmission[]>(`/periods/${periodId}/activities${query}`);
@@ -1062,8 +1083,9 @@ class ApiClient {
   }
 
   // Reports
-  async getReportSummary(periodId: string): Promise<ReportSummary> {
-    return this.fetch<ReportSummary>(`/periods/${periodId}/report/summary`);
+  async getReportSummary(periodId: string, siteId?: string): Promise<ReportSummary> {
+    const query = siteId ? `?site_id=${siteId}` : '';
+    return this.fetch<ReportSummary>(`/periods/${periodId}/report/summary${query}`);
   }
 
   async getReportByScope(periodId: string): Promise<any> {
@@ -1098,13 +1120,15 @@ class ApiClient {
     return this.fetch<ESRSE1Export>(`/periods/${periodId}/export/esrs-e1`);
   }
 
-  getReportExportUrl(format: 'csv' | 'pdf', periodId: string): string {
-    return `${API_BASE}/reports/export/${format}?period_id=${periodId}`;
+  getReportExportUrl(format: 'csv' | 'pdf', periodId: string, siteId?: string): string {
+    let url = `${API_BASE}/reports/export/${format}?period_id=${periodId}`;
+    if (siteId) url += `&site_id=${siteId}`;
+    return url;
   }
 
-  async downloadReportExport(format: 'csv' | 'pdf', periodId: string): Promise<void> {
+  async downloadReportExport(format: 'csv' | 'pdf', periodId: string, siteId?: string): Promise<void> {
     const token = this.getToken();
-    const url = this.getReportExportUrl(format, periodId);
+    const url = this.getReportExportUrl(format, periodId, siteId);
 
     const response = await fetch(url, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -1166,6 +1190,16 @@ class ApiClient {
 
   async deleteSite(siteId: string): Promise<void> {
     await this.fetch(`/organization/sites/${siteId}`, { method: 'DELETE' });
+  }
+
+  async getSiteDetail(siteId: string, periodId?: string): Promise<SiteDetail> {
+    const query = periodId ? `?period_id=${periodId}` : '';
+    return this.fetch<SiteDetail>(`/organization/sites/${siteId}${query}`);
+  }
+
+  async getSitesBreakdown(periodId?: string): Promise<SiteEmissionSummary[]> {
+    const query = periodId ? `?period_id=${periodId}` : '';
+    return this.fetch<SiteEmissionSummary[]>(`/organization/sites-breakdown${query}`);
   }
 
   // Import

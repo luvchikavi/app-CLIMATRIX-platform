@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
-import { usePeriods, useReportSummary, useActivities } from '@/hooks/useEmissions';
+import { useSiteStore } from '@/stores/site';
+import { usePeriods, useReportSummary, useActivities, useSitesBreakdown } from '@/hooks/useEmissions';
 import { AppShell } from '@/components/layout';
 import {
   Card,
@@ -28,6 +29,8 @@ import {
 import { ScopePieChart } from '@/components/dashboard/ScopePieChart';
 import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
 import { ScopeDrillDown } from '@/components/dashboard/ScopeDrillDown';
+import { SiteBreakdownChart } from '@/components/dashboard/SiteBreakdownChart';
+import { SiteSelector } from '@/components/SiteSelector';
 import { ActivityWizard } from '@/components/wizard';
 import { ImportHistory } from '@/components/ImportHistory';
 import { OnboardingWizard } from '@/components/onboarding';
@@ -54,6 +57,7 @@ import {
   FileSpreadsheet,
   File,
   ChevronDown,
+  Building2,
 } from 'lucide-react';
 import { api, CategorySummary, ImportBatch } from '@/lib/api';
 
@@ -80,6 +84,7 @@ function DashboardContent() {
   const searchParams = useSearchParams();
   const { isAuthenticated, organization, user } = useAuthStore();
   const { selectedPeriodId } = usePeriodStore();
+  const { selectedSiteId } = useSiteStore();
 
   // All useState hooks at top
   const [showWizard, setShowWizard] = useState(searchParams.get('wizard') === 'true');
@@ -102,9 +107,15 @@ function DashboardContent() {
     isLoading: summaryLoading,
     isError: summaryError,
     refetch: refetchSummary
-  } = useReportSummary(activePeriodId || '');
+  } = useReportSummary(activePeriodId || '', selectedSiteId || undefined);
 
-  const { data: activities, isLoading: activitiesLoading } = useActivities(activePeriodId || '');
+  const { data: activities, isLoading: activitiesLoading } = useActivities(
+    activePeriodId || '',
+    selectedSiteId ? { site_id: selectedSiteId } : undefined
+  );
+
+  // Fetch site breakdown for chart
+  const { data: sitesBreakdown } = useSitesBreakdown(activePeriodId);
 
   // Fetch import batches for filter
   const { data: importBatches } = useQuery({
@@ -278,9 +289,12 @@ function DashboardContent() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-foreground-muted mt-1">
-            Track and manage your organization's emissions
-          </p>
+          <div className="flex items-center gap-4 mt-1">
+            <p className="text-foreground-muted">
+              Track and manage your organization's emissions
+            </p>
+            <SiteSelector compact />
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -601,6 +615,25 @@ function DashboardContent() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Site Breakdown Chart */}
+          {sitesBreakdown && sitesBreakdown.length > 0 && !selectedSiteId && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-foreground-muted" />
+                  Emissions by Site
+                </CardTitle>
+                <p className="text-xs text-foreground-muted mt-1">Click a site to filter the dashboard</p>
+              </CardHeader>
+              <CardContent>
+                <SiteBreakdownChart
+                  data={sitesBreakdown}
+                  onSiteClick={(siteId) => useSiteStore.getState().setSelectedSiteId(siteId)}
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Activities Table */}
           <Card>

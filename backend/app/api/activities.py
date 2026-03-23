@@ -131,6 +131,7 @@ async def list_activities(
     current_user: Annotated[User, Depends(get_current_user)],
     scope: int | None = None,
     category_code: str | None = None,
+    site_id: UUID | None = None,
 ):
     """List all activities for a reporting period."""
     # Verify period belongs to organization
@@ -151,6 +152,8 @@ async def list_activities(
         query = query.where(Activity.scope == scope)
     if category_code:
         query = query.where(Activity.category_code == category_code)
+    if site_id:
+        query = query.where(Activity.site_id == site_id)
 
     result = await session.execute(query)
     activities = result.scalars().all()

@@ -3,17 +3,19 @@ Organization API endpoints.
 
 Manage organization settings including region configuration.
 """
+from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import select, func
 
 from app.api.auth import get_current_user
 from app.database import get_session
 from app.models.core import User, Organization, Site
+from app.models.emission import Activity, Emission
 
 
 router = APIRouter()
@@ -234,3 +236,174 @@ async def delete_site(
     await session.commit()
 
     return {"status": "deleted", "id": str(site_id)}
+
+
+class SiteDetailResponse(BaseModel):
+    """Site details with emission statistics."""
+    id: str
+    name: str
+    country_code: str | None
+    address: str | None
+    grid_region: str | None
+    is_active: bool
+    activity_count: int
+    total_co2e_kg: float
+    total_co2e_tonnes: float
+    scope_1_co2e_kg: float
+    scope_2_co2e_kg: float
+    scope_3_co2e_kg: float
+
+
+@router.get("/organization/sites/{site_id}", response_model=SiteDetailResponse)
+async def get_site_detail(
+    site_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    period_id: UUID | None = None,
+):
+    """Get site details with emission statistics, optionally for a specific period."""
+    query = select(Site).where(
+        Site.id == site_id,
+        Site.organization_id == current_user.organization_id,
+    )
+    result = await session.execute(query)
+    site = result.scalar_one_or_none()
+
+    if not site:
+        raise HTTPException(status_code=404, detail="Site not found")
+
+    # Build activity filters
+    filters = [
+        Activity.site_id == site_id,
+        Activity.organization_id == current_user.organization_id,
+    ]
+    if period_id:
+        filters.append(Activity.reporting_period_id == period_id)
+
+    # Get emission stats by scope
+    stats_query = (
+        select(
+            Activity.scope,
+            func.sum(Emission.co2e_kg).label("total_co2e"),
+            func.count(Activity.id).label("count"),
+        )
+        .join(Emission, Activity.id == Emission.activity_id)
+        .where(*filters)
+        .group_by(Activity.scope)
+    )
+    stats_result = await session.execute(stats_query)
+    stats_rows = stats_result.all()
+
+    scope_totals = {1: Decimal(0), 2: Decimal(0), 3: Decimal(0)}
+    activity_count = 0
+    for row in stats_rows:
+        scope_totals[row.scope] = row.total_co2e or Decimal(0)
+        activity_count += row.count
+
+    total = sum(scope_totals.values())
+
+    return SiteDetailResponse(
+        id=str(site.id),
+        name=site.name,
+        country_code=site.country_code,
+        address=site.address,
+        grid_region=site.grid_region,
+        is_active=site.is_active,
+        activity_count=activity_count,
+        total_co2e_kg=float(total),
+        total_co2e_tonnes=float(total / 1000),
+        scope_1_co2e_kg=float(scope_totals[1]),
+        scope_2_co2e_kg=float(scope_totals[2]),
+        scope_3_co2e_kg=float(scope_totals[3]),
+    )
+
+
+class SiteEmissionSummary(BaseModel):
+    """Emission summary for one site in the breakdown."""
+    site_id: str
+    site_name: str
+    total_co2e_kg: float
+    total_co2e_tonnes: float
+    scope_1_co2e_kg: float
+    scope_2_co2e_kg: float
+    scope_3_co2e_kg: float
+    activity_count: int
+
+
+@router.get("/organization/sites-breakdown", response_model=list[SiteEmissionSummary])
+async def get_sites_emission_breakdown(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    period_id: UUID | None = None,
+):
+    """
+    Get emission breakdown across all sites.
+    Returns per-site totals for dashboard comparison charts.
+    """
+    # Build activity filters
+    filters = [
+        Activity.organization_id == current_user.organization_id,
+        Activity.site_id.isnot(None),
+    ]
+    if period_id:
+        filters.append(Activity.reporting_period_id == period_id)
+
+    # Get per-site, per-scope totals
+    query = (
+        select(
+            Activity.site_id,
+            Activity.scope,
+            func.sum(Emission.co2e_kg).label("total_co2e"),
+            func.count(Activity.id).label("count"),
+        )
+        .join(Emission, Activity.id == Emission.activity_id)
+        .where(*filters)
+        .group_by(Activity.site_id, Activity.scope)
+    )
+    result = await session.execute(query)
+    rows = result.all()
+
+    # Group by site
+    site_data: dict[UUID, dict] = {}
+    for row in rows:
+        sid = row.site_id
+        if sid not in site_data:
+            site_data[sid] = {
+                "scope_totals": {1: Decimal(0), 2: Decimal(0), 3: Decimal(0)},
+                "activity_count": 0,
+            }
+        site_data[sid]["scope_totals"][row.scope] = row.total_co2e or Decimal(0)
+        site_data[sid]["activity_count"] += row.count
+
+    # Fetch site names
+    if site_data:
+        sites_query = select(Site).where(
+            Site.id.in_(list(site_data.keys())),
+            Site.organization_id == current_user.organization_id,
+        )
+        sites_result = await session.execute(sites_query)
+        sites = {s.id: s for s in sites_result.scalars().all()}
+    else:
+        sites = {}
+
+    # Build response
+    summaries = []
+    for sid, data in site_data.items():
+        site = sites.get(sid)
+        if not site:
+            continue
+        total = sum(data["scope_totals"].values())
+        summaries.append(SiteEmissionSummary(
+            site_id=str(sid),
+            site_name=site.name,
+            total_co2e_kg=float(total),
+            total_co2e_tonnes=float(total / 1000),
+            scope_1_co2e_kg=float(data["scope_totals"][1]),
+            scope_2_co2e_kg=float(data["scope_totals"][2]),
+            scope_3_co2e_kg=float(data["scope_totals"][3]),
+            activity_count=data["activity_count"],
+        ))
+
+    # Sort by total emissions descending
+    summaries.sort(key=lambda s: s.total_co2e_kg, reverse=True)
+    return summaries

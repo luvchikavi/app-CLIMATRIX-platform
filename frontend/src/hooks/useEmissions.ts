@@ -18,6 +18,8 @@ import {
   OrganizationSettings,
   Region,
   Site,
+  SiteDetail,
+  SiteEmissionSummary,
   Airport,
   FlightDistanceResult,
   Scope2ComparisonResponse,
@@ -29,17 +31,19 @@ import {
 
 export const queryKeys = {
   periods: ['periods'] as const,
-  activities: (periodId: string, filters?: { scope?: number; category_code?: string }) =>
+  activities: (periodId: string, filters?: { scope?: number; category_code?: string; site_id?: string }) =>
     ['activities', periodId, filters] as const,
   emissionFactors: (categoryCode?: string) => ['emission-factors', categoryCode] as const,
   activityOptions: (categoryCode: string) => ['activity-options', categoryCode] as const,
-  reportSummary: (periodId: string) => ['report-summary', periodId] as const,
+  reportSummary: (periodId: string, siteId?: string) => ['report-summary', periodId, siteId] as const,
   reportByScope: (periodId: string) => ['report-by-scope', periodId] as const,
   wttReport: (periodId: string) => ['wtt-report', periodId] as const,
   scope2Comparison: (periodId: string) => ['scope-2-comparison', periodId] as const,
   organization: ['organization'] as const,
   regions: ['regions'] as const,
   sites: ['sites'] as const,
+  siteDetail: (siteId: string, periodId?: string) => ['site-detail', siteId, periodId] as const,
+  sitesBreakdown: (periodId?: string) => ['sites-breakdown', periodId] as const,
 };
 
 // ============================================================================
@@ -76,7 +80,7 @@ export function useCreatePeriod() {
  */
 export function useActivities(
   periodId: string,
-  filters?: { scope?: number; category_code?: string }
+  filters?: { scope?: number; category_code?: string; site_id?: string }
 ) {
   return useQuery({
     queryKey: queryKeys.activities(periodId, filters),
@@ -180,12 +184,12 @@ export function useActivityOptions(categoryCode: string) {
 }
 
 /**
- * Fetch report summary
+ * Fetch report summary, optionally filtered by site
  */
-export function useReportSummary(periodId: string) {
+export function useReportSummary(periodId: string, siteId?: string) {
   return useQuery({
-    queryKey: queryKeys.reportSummary(periodId),
-    queryFn: () => api.getReportSummary(periodId),
+    queryKey: queryKeys.reportSummary(periodId, siteId),
+    queryFn: () => api.getReportSummary(periodId, siteId),
     enabled: !!periodId,
     staleTime: 1 * 60 * 1000, // Cache for 1 minute
   });
@@ -328,6 +332,30 @@ export function useDeleteSite() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.sites });
     },
+  });
+}
+
+/**
+ * Fetch site detail with emission stats
+ */
+export function useSiteDetail(siteId: string, periodId?: string) {
+  return useQuery({
+    queryKey: queryKeys.siteDetail(siteId, periodId),
+    queryFn: () => api.getSiteDetail(siteId, periodId),
+    enabled: !!siteId,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+/**
+ * Fetch emission breakdown across all sites (for dashboard chart)
+ */
+export function useSitesBreakdown(periodId?: string) {
+  return useQuery({
+    queryKey: queryKeys.sitesBreakdown(periodId),
+    queryFn: () => api.getSitesBreakdown(periodId),
+    enabled: true,
+    staleTime: 2 * 60 * 1000,
   });
 }
 

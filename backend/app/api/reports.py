@@ -199,8 +199,9 @@ async def get_report_summary(
     period_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
+    site_id: UUID | None = None,
 ):
-    """Get emission summary report for a reporting period."""
+    """Get emission summary report for a reporting period, optionally filtered by site."""
     # Verify period belongs to organization
     period_query = select(ReportingPeriod).where(
         ReportingPeriod.id == period_id,
@@ -212,6 +213,14 @@ async def get_report_summary(
     if not period:
         raise HTTPException(status_code=404, detail="Reporting period not found")
 
+    # Build base filter conditions
+    base_filters = [
+        Activity.reporting_period_id == period_id,
+        Activity.organization_id == current_user.organization_id,
+    ]
+    if site_id:
+        base_filters.append(Activity.site_id == site_id)
+
     # Get totals by scope
     scope_query = (
         select(
@@ -221,10 +230,7 @@ async def get_report_summary(
             func.count(Activity.id).label("count"),
         )
         .join(Emission, Activity.id == Emission.activity_id)
-        .where(
-            Activity.reporting_period_id == period_id,
-            Activity.organization_id == current_user.organization_id,
-        )
+        .where(*base_filters)
         .group_by(Activity.scope)
     )
     scope_result = await session.execute(scope_query)
@@ -259,10 +265,7 @@ async def get_report_summary(
             func.count(Activity.id).label("count"),
         )
         .join(Emission, Activity.id == Emission.activity_id)
-        .where(
-            Activity.reporting_period_id == period_id,
-            Activity.organization_id == current_user.organization_id,
-        )
+        .where(*base_filters)
         .group_by(Activity.scope, Activity.category_code)
         .order_by(Activity.scope, Activity.category_code)
     )
@@ -282,15 +285,12 @@ async def get_report_summary(
     total_co2e = sum(scope_totals.values())
 
     # Calculate Scope 2 location-based and market-based totals
+    scope2_filters = base_filters + [Activity.scope == 2]
     scope2_query = (
         select(Activity, Emission, EmissionFactor)
         .join(Emission, Activity.id == Emission.activity_id)
         .outerjoin(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
-        .where(
-            Activity.reporting_period_id == period_id,
-            Activity.organization_id == current_user.organization_id,
-            Activity.scope == 2,
-        )
+        .where(*scope2_filters)
     )
     scope2_result = await session.execute(scope2_query)
     scope2_rows = scope2_result.all()
@@ -2169,6 +2169,7 @@ async def _get_export_data(
     period_id: UUID,
     session: AsyncSession,
     current_user: User,
+    site_id: UUID | None = None,
 ):
     """Shared helper to fetch period, organization, and activity rows for export."""
     # Verify period belongs to organization
@@ -2187,15 +2188,20 @@ async def _get_export_data(
     )
     org = org_result.scalar_one_or_none()
 
+    # Build filters
+    filters = [
+        Activity.reporting_period_id == period_id,
+        Activity.organization_id == current_user.organization_id,
+    ]
+    if site_id:
+        filters.append(Activity.site_id == site_id)
+
     # Fetch all activities with their emissions and factors
     query = (
         select(Activity, Emission, EmissionFactor)
         .join(Emission, Activity.id == Emission.activity_id)
         .outerjoin(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
-        .where(
-            Activity.reporting_period_id == period_id,
-            Activity.organization_id == current_user.organization_id,
-        )
+        .where(*filters)
         .order_by(Activity.scope, Activity.category_code)
     )
     result = await session.execute(query)
@@ -2207,6 +2213,7 @@ async def _get_export_data(
 @router.get("/reports/export/csv")
 async def export_report_csv(
     period_id: UUID = Query(...),
+    site_id: UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -2214,9 +2221,9 @@ async def export_report_csv(
     Export a GHG report as CSV.
 
     Generates a CSV file with all activities and their emissions
-    for the specified reporting period.
+    for the specified reporting period, optionally filtered by site.
     """
-    period, org, rows = await _get_export_data(period_id, session, current_user)
+    period, org, rows = await _get_export_data(period_id, session, current_user, site_id=site_id)
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -2293,6 +2300,7 @@ async def export_report_csv(
 @router.get("/reports/export/pdf")
 async def export_report_pdf(
     period_id: UUID = Query(...),
+    site_id: UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -2300,7 +2308,7 @@ async def export_report_pdf(
     Export a GHG report as PDF.
 
     Generates a professional PDF GHG Emissions Inventory Report
-    using reportlab for the specified reporting period.
+    using reportlab for the specified reporting period, optionally filtered by site.
     """
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
@@ -2314,7 +2322,7 @@ async def export_report_pdf(
         Spacer,
     )
 
-    period, org, rows = await _get_export_data(period_id, session, current_user)
+    period, org, rows = await _get_export_data(period_id, session, current_user, site_id=site_id)
 
     org_name = org.name if org else "Organization"
 

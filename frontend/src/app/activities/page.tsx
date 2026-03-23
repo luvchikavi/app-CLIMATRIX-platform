@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
-import { usePeriods, useActivities, useDeleteActivity, useUpdateActivity } from '@/hooks/useEmissions';
+import { useSiteStore } from '@/stores/site';
+import { usePeriods, useActivities, useDeleteActivity, useUpdateActivity, useSites } from '@/hooks/useEmissions';
 import { AppShell } from '@/components/layout';
 import {
   Card,
@@ -24,7 +25,8 @@ import {
   ConfirmDialog,
   toast,
 } from '@/components/ui';
-import { Plus, Loader2, Trash2, Pencil, ArrowLeft, Filter, FileSpreadsheet, ChevronDown, Calendar, X } from 'lucide-react';
+import { Plus, Loader2, Trash2, Pencil, ArrowLeft, Filter, FileSpreadsheet, ChevronDown, Calendar, X, Building2 } from 'lucide-react';
+import { SiteSelector } from '@/components/SiteSelector';
 import { api, ImportBatch, ActivityWithEmission } from '@/lib/api';
 
 export default function ActivitiesPage() {
@@ -43,14 +45,21 @@ export default function ActivitiesPage() {
   // All data fetching hooks (must be before any conditional returns)
   const { data: periods, isLoading: periodsLoading } = usePeriods();
   const { selectedPeriodId, setSelectedPeriodId } = usePeriodStore();
+  const { selectedSiteId } = useSiteStore();
+  const { data: sites } = useSites();
 
   // Use selected period from store, fall back to first available period
   const activePeriodId = selectedPeriodId || periods?.[0]?.id;
   const activePeriod = periods?.find((p) => p.id === activePeriodId) || periods?.[0];
 
+  // Build filters including site
+  const activityFilters: { scope?: number; site_id?: string } = {};
+  if (selectedScope) activityFilters.scope = selectedScope;
+  if (selectedSiteId) activityFilters.site_id = selectedSiteId;
+
   const { data: activities, isLoading: activitiesLoading } = useActivities(
     activePeriodId || '',
-    selectedScope ? { scope: selectedScope } : undefined
+    Object.keys(activityFilters).length > 0 ? activityFilters : undefined
   );
 
   const deleteActivity = useDeleteActivity(activePeriodId || '');
@@ -213,6 +222,9 @@ export default function ActivitiesPage() {
           </Button>
         </div>
 
+        {/* Site Filter */}
+        <SiteSelector compact />
+
         {/* Batch/File Filter */}
         <div className="flex items-center gap-2">
           <FileSpreadsheet className="w-4 h-4 text-foreground-muted" />
@@ -316,6 +328,7 @@ export default function ActivitiesPage() {
                     <TableHead>Scope</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Description</TableHead>
+                    <TableHead>Site</TableHead>
                     <TableHead>Activity</TableHead>
                     <TableHead>Quantity</TableHead>
                     <TableHead className="text-right">EF</TableHead>
@@ -335,6 +348,12 @@ export default function ActivitiesPage() {
                       </TableCell>
                       <TableCell className="font-medium text-foreground max-w-xs truncate">
                         {item.activity.description}
+                      </TableCell>
+                      <TableCell className="text-xs text-foreground-muted">
+                        {item.activity.site_id
+                          ? sites?.find(s => s.id === item.activity.site_id)?.name || '—'
+                          : <span className="text-foreground-muted/50">—</span>
+                        }
                       </TableCell>
                       <TableCell className="text-foreground-muted font-mono text-xs">
                         {item.activity.activity_key}

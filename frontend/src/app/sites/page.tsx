@@ -3,8 +3,9 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth';
-import { useSites, useCreateSite, useDeleteSite, useSupportedRegions } from '@/hooks/useEmissions';
-import { Site } from '@/lib/api';
+import { usePeriodStore } from '@/stores/period';
+import { useSites, useCreateSite, useDeleteSite, useSupportedRegions, usePeriods, useSitesBreakdown } from '@/hooks/useEmissions';
+import { Site, api } from '@/lib/api';
 import { AppShell } from '@/components/layout';
 import {
   Button,
@@ -26,6 +27,8 @@ import {
 } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { COUNTRY_OPTIONS } from '@/lib/countries';
+import { formatCO2e } from '@/lib/utils';
+import { toast } from '@/components/ui';
 import {
   Plus,
   MapPin,
@@ -38,6 +41,9 @@ import {
   AlertCircle,
   Zap,
   Factory,
+  Upload,
+  Eye,
+  BarChart3,
 } from 'lucide-react';
 
 function SitesPageContent() {
@@ -59,6 +65,10 @@ function SitesPageContent() {
   // All data fetching hooks (must be before any conditional returns)
   const { data: sites, isLoading } = useSites();
   const { data: regions } = useSupportedRegions();
+  const { data: periods } = usePeriods();
+  const { selectedPeriodId } = usePeriodStore();
+  const activePeriodId = selectedPeriodId || periods?.[0]?.id;
+  const { data: sitesBreakdown } = useSitesBreakdown(activePeriodId);
   const createSite = useCreateSite();
   const deleteSite = useDeleteSite();
 
@@ -197,7 +207,7 @@ function SitesPageContent() {
                 </div>
               )}
 
-              <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border-muted">
+              <div className="flex items-center gap-4 mt-3">
                 {site.country_code && (
                   <div className="flex items-center gap-1.5">
                     <Globe className="w-4 h-4 text-foreground-muted" />
@@ -210,6 +220,53 @@ function SitesPageContent() {
                     <span className="text-sm text-foreground-muted">{site.grid_region}</span>
                   </div>
                 )}
+              </div>
+
+              {/* Emission stats from breakdown */}
+              {(() => {
+                const stats = sitesBreakdown?.find(s => s.site_id === site.id);
+                return stats ? (
+                  <div className="mt-4 pt-4 border-t border-border-muted">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-foreground-muted uppercase">Emissions</span>
+                      <span className="text-sm font-bold text-foreground">{formatCO2e(stats.total_co2e_kg)}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-foreground-muted">
+                      <span>S1: {formatCO2e(stats.scope_1_co2e_kg)}</span>
+                      <span>S2: {formatCO2e(stats.scope_2_co2e_kg)}</span>
+                      <span>S3: {formatCO2e(stats.scope_3_co2e_kg)}</span>
+                    </div>
+                    <div className="text-xs text-foreground-muted mt-1">
+                      {stats.activity_count} activities
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 pt-4 border-t border-border-muted">
+                    <p className="text-xs text-foreground-muted/60">No emissions data yet</p>
+                  </div>
+                );
+              })()}
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => router.push(`/import?period=${activePeriodId}&site=${site.id}`)}
+                  leftIcon={<Upload className="w-3.5 h-3.5" />}
+                >
+                  Upload
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => router.push(`/sites/${site.id}`)}
+                  leftIcon={<Eye className="w-3.5 h-3.5" />}
+                >
+                  Details
+                </Button>
               </div>
             </Card>
           ))}
