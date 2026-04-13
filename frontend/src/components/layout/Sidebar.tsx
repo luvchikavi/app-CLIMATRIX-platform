@@ -74,7 +74,7 @@ const navigation: NavGroup[] = [
       { label: 'Decarbonization', href: '/decarbonization', icon: Target, badge: 'New' },
       { label: 'CBAM', href: '/modules/cbam', icon: Scale, badge: 'Active', requiredPlan: 'free' },
       { label: 'PCAF', href: '/modules/pcaf', icon: Coins, badge: 'Active', requiredPlan: 'free' },
-      { label: 'LCA', href: '/modules/lca', icon: Microscope, comingSoon: true, requiredPlan: 'enterprise' },
+      { label: 'LCA', href: '/modules/lca', icon: Microscope, badge: 'Active', requiredPlan: 'free' },
       { label: 'EPD/Reports', href: '/modules/epd', icon: FileStack, badge: 'Active', requiredPlan: 'free' },
     ],
   },

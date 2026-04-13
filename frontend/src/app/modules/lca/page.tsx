@@ -13,30 +13,6 @@ const PLAN_LEVELS: Record<string, number> = {
 };
 
 export default function LCAModulePage() {
-  const { organization } = useAuthStore();
-  const currentPlan = organization?.subscription_plan || 'free';
-  const isLocked = (PLAN_LEVELS[currentPlan] ?? 0) < PLAN_LEVELS['enterprise'];
-
-  if (isLocked) {
-    return (
-      <LockedModule
-        moduleName="LCA"
-        description="Life Cycle Assessment - comprehensive environmental impact analysis for products."
-        icon={Microscope}
-        color="bg-purple-600"
-        features={[
-          'Cradle-to-Gate Analysis',
-          'Product Footprinting',
-          'Multiple Impact Categories',
-          'Database Integration',
-          'ISO 14040/14044 Compliant',
-        ]}
-        requiredPlan="Enterprise"
-        price="$299/mo"
-      />
-    );
-  }
-
   return (
     <ComingSoonModule
       name="LCA"
