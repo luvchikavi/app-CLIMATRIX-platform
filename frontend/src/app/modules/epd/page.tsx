@@ -13,30 +13,6 @@ const PLAN_LEVELS: Record<string, number> = {
 };
 
 export default function EPDModulePage() {
-  const { organization } = useAuthStore();
-  const currentPlan = organization?.subscription_plan || 'free';
-  const isLocked = (PLAN_LEVELS[currentPlan] ?? 0) < PLAN_LEVELS['enterprise'];
-
-  if (isLocked) {
-    return (
-      <LockedModule
-        moduleName="EPD Reports"
-        description="Environmental Product Declarations - standardized environmental performance reports."
-        icon={FileStack}
-        color="bg-teal-600"
-        features={[
-          'Automated EPD Generation',
-          'Third-party Verification Support',
-          'Multiple PCR Standards',
-          'Product Category Management',
-          'Public Registry Ready',
-        ]}
-        requiredPlan="Enterprise"
-        price="$299/mo"
-      />
-    );
-  }
-
   return (
     <ComingSoonModule
       name="EPD Reports"

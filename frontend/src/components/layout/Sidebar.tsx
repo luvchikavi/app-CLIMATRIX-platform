@@ -72,10 +72,10 @@ const navigation: NavGroup[] = [
     items: [
       { label: 'GHG Inventory', href: '/modules/ghg', icon: Leaf, badge: 'Active', requiredPlan: 'free' },
       { label: 'Decarbonization', href: '/decarbonization', icon: Target, badge: 'New' },
-      { label: 'CBAM', href: '/modules/cbam', icon: Scale, badge: 'Active', requiredPlan: 'professional' },
-      { label: 'PCAF', href: '/modules/pcaf', icon: Coins, comingSoon: true, requiredPlan: 'enterprise' },
+      { label: 'CBAM', href: '/modules/cbam', icon: Scale, badge: 'Active', requiredPlan: 'free' },
+      { label: 'PCAF', href: '/modules/pcaf', icon: Coins, badge: 'Active', requiredPlan: 'free' },
       { label: 'LCA', href: '/modules/lca', icon: Microscope, comingSoon: true, requiredPlan: 'enterprise' },
-      { label: 'EPD/Reports', href: '/modules/epd', icon: FileStack, comingSoon: true, requiredPlan: 'enterprise' },
+      { label: 'EPD/Reports', href: '/modules/epd', icon: FileStack, badge: 'Active', requiredPlan: 'free' },
     ],
   },
   {

@@ -13,30 +13,6 @@ const PLAN_LEVELS: Record<string, number> = {
 };
 
 export default function PCAFModulePage() {
-  const { organization } = useAuthStore();
-  const currentPlan = organization?.subscription_plan || 'free';
-  const isLocked = (PLAN_LEVELS[currentPlan] ?? 0) < PLAN_LEVELS['enterprise'];
-
-  if (isLocked) {
-    return (
-      <LockedModule
-        moduleName="PCAF"
-        description="Partnership for Carbon Accounting Financials - financed emissions tracking for financial institutions."
-        icon={Coins}
-        color="bg-amber-500"
-        features={[
-          'Asset Class Attribution',
-          'Financed Emissions Tracking',
-          'Portfolio Carbon Footprint',
-          'PCAF Data Quality Scores',
-          'Regulatory Reporting',
-        ]}
-        requiredPlan="Enterprise"
-        price="$299/mo"
-      />
-    );
-  }
-
   return (
     <ComingSoonModule
       name="PCAF"
