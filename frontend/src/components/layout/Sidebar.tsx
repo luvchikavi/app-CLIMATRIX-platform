@@ -25,6 +25,7 @@ import {
   CreditCard,
   History,
   Target,
+  Briefcase,
 } from 'lucide-react';
 
 interface NavItem {
@@ -91,6 +92,7 @@ const navigation: NavGroup[] = [
     title: 'Admin',
     items: [
       { label: 'Admin Dashboard', href: '/admin', icon: Shield, badge: 'Super', superAdminOnly: true },
+      { label: 'Business Plan', href: '/admin/business-plan', icon: Briefcase, superAdminOnly: true },
       { label: 'Audit Trail', href: '/audit', icon: History, superAdminOnly: true },
     ],
   },
