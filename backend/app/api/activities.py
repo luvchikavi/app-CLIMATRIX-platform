@@ -9,6 +9,7 @@ THIN CONTROLLER - Only handles HTTP concerns:
 
 Business logic delegated to CalculationPipeline service.
 """
+
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
@@ -22,7 +23,13 @@ from sqlmodel import select
 from app.api.auth import get_current_user
 from app.database import get_session
 from app.models.core import User, ReportingPeriod, Organization
-from app.models.emission import Activity, Emission, EmissionFactor, ConfidenceLevel, DataSource
+from app.models.emission import (
+    Activity,
+    Emission,
+    EmissionFactor,
+    ConfidenceLevel,
+    DataSource,
+)
 from app.services.calculation import CalculationPipeline, ActivityInput
 from app.services.calculation.pipeline import CalculationError
 from app.services.calculation.resolver import FactorNotFoundError
@@ -35,8 +42,10 @@ router = APIRouter()
 # Schemas (HTTP layer only)
 # ============================================================================
 
+
 class ActivityCreate(BaseModel):
     """Create activity request."""
+
     scope: int
     category_code: str
     activity_key: str
@@ -55,6 +64,7 @@ class ActivityCreate(BaseModel):
 
 class UpdateActivityRequest(BaseModel):
     """Update activity request. All fields are optional."""
+
     description: str | None = None
     quantity: Decimal | None = None
     unit: str | None = None
@@ -67,6 +77,7 @@ class UpdateActivityRequest(BaseModel):
 
 class ActivityResponse(BaseModel):
     """Activity response."""
+
     id: str
     scope: int
     category_code: str
@@ -90,6 +101,7 @@ class ActivityResponse(BaseModel):
 
 class EmissionResponse(BaseModel):
     """Emission calculation response."""
+
     id: str
     activity_id: str
     co2e_kg: float
@@ -116,6 +128,7 @@ class EmissionResponse(BaseModel):
 
 class ActivityWithEmissionResponse(BaseModel):
     """Activity with its emission calculation."""
+
     activity: ActivityResponse
     emission: EmissionResponse | None
 
@@ -124,7 +137,10 @@ class ActivityWithEmissionResponse(BaseModel):
 # Endpoints (HTTP handling only - business logic in services)
 # ============================================================================
 
-@router.get("/periods/{period_id}/activities", response_model=list[ActivityWithEmissionResponse])
+
+@router.get(
+    "/periods/{period_id}/activities", response_model=list[ActivityWithEmissionResponse]
+)
 async def list_activities(
     period_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -166,7 +182,9 @@ async def list_activities(
 
         emission_response = None
         if emission:
-            factor_query = select(EmissionFactor).where(EmissionFactor.id == emission.emission_factor_id)
+            factor_query = select(EmissionFactor).where(
+                EmissionFactor.id == emission.emission_factor_id
+            )
             factor_result = await session.execute(factor_query)
             factor = factor_result.scalar_one_or_none()
 
@@ -177,50 +195,82 @@ async def list_activities(
                 co2_kg=float(emission.co2_kg) if emission.co2_kg else None,
                 ch4_kg=float(emission.ch4_kg) if emission.ch4_kg else None,
                 n2o_kg=float(emission.n2o_kg) if emission.n2o_kg else None,
-                wtt_co2e_kg=float(emission.wtt_co2e_kg) if emission.wtt_co2e_kg else None,
+                wtt_co2e_kg=(
+                    float(emission.wtt_co2e_kg) if emission.wtt_co2e_kg else None
+                ),
                 formula=emission.formula,
                 confidence=emission.confidence.value,
                 resolution_strategy=emission.resolution_strategy or "exact",
                 factor_used=factor.display_name if factor else "Unknown",
                 factor_source=factor.source if factor else "Unknown",
-                factor_value=float(factor.co2e_factor) if factor and factor.co2e_factor else None,
+                factor_value=(
+                    float(factor.co2e_factor) if factor and factor.co2e_factor else None
+                ),
                 factor_unit=factor.factor_unit if factor else None,
                 warnings=[],
                 # Calculation metadata (Phase 9B)
                 factor_year=emission.factor_year,
                 factor_region=emission.factor_region,
                 method_hierarchy=emission.method_hierarchy,
-                location_co2e_kg=float(emission.location_co2e_kg) if emission.location_co2e_kg else None,
-                market_co2e_kg=float(emission.market_co2e_kg) if emission.market_co2e_kg else None,
+                location_co2e_kg=(
+                    float(emission.location_co2e_kg)
+                    if emission.location_co2e_kg
+                    else None
+                ),
+                market_co2e_kg=(
+                    float(emission.market_co2e_kg) if emission.market_co2e_kg else None
+                ),
             )
 
-        responses.append(ActivityWithEmissionResponse(
-            activity=ActivityResponse(
-                id=str(a.id),
-                scope=a.scope,
-                category_code=a.category_code,
-                activity_key=a.activity_key,
-                description=a.description,
-                quantity=float(a.quantity),
-                unit=a.unit,
-                activity_date=a.activity_date,
-                site_id=str(a.site_id) if a.site_id else None,
-                created_at=a.created_at,
-                data_source=a.data_source.value if a.data_source else None,
-                import_batch_id=str(a.import_batch_id) if a.import_batch_id else None,
-                data_quality_score=a.data_quality_score if hasattr(a, 'data_quality_score') else 5,
-                data_quality_justification=a.data_quality_justification if hasattr(a, 'data_quality_justification') else None,
-                supporting_document_url=a.supporting_document_url if hasattr(a, 'supporting_document_url') else None,
-                supplier_name=a.supplier_name if hasattr(a, 'supplier_name') else None,
-                supplier_ef=float(a.supplier_ef) if hasattr(a, 'supplier_ef') and a.supplier_ef else None,
-            ),
-            emission=emission_response,
-        ))
+        responses.append(
+            ActivityWithEmissionResponse(
+                activity=ActivityResponse(
+                    id=str(a.id),
+                    scope=a.scope,
+                    category_code=a.category_code,
+                    activity_key=a.activity_key,
+                    description=a.description,
+                    quantity=float(a.quantity),
+                    unit=a.unit,
+                    activity_date=a.activity_date,
+                    site_id=str(a.site_id) if a.site_id else None,
+                    created_at=a.created_at,
+                    data_source=a.data_source.value if a.data_source else None,
+                    import_batch_id=(
+                        str(a.import_batch_id) if a.import_batch_id else None
+                    ),
+                    data_quality_score=(
+                        a.data_quality_score if hasattr(a, "data_quality_score") else 5
+                    ),
+                    data_quality_justification=(
+                        a.data_quality_justification
+                        if hasattr(a, "data_quality_justification")
+                        else None
+                    ),
+                    supporting_document_url=(
+                        a.supporting_document_url
+                        if hasattr(a, "supporting_document_url")
+                        else None
+                    ),
+                    supplier_name=(
+                        a.supplier_name if hasattr(a, "supplier_name") else None
+                    ),
+                    supplier_ef=(
+                        float(a.supplier_ef)
+                        if hasattr(a, "supplier_ef") and a.supplier_ef
+                        else None
+                    ),
+                ),
+                emission=emission_response,
+            )
+        )
 
     return responses
 
 
-@router.post("/periods/{period_id}/activities", response_model=ActivityWithEmissionResponse)
+@router.post(
+    "/periods/{period_id}/activities", response_model=ActivityWithEmissionResponse
+)
 async def create_activity(
     period_id: UUID,
     data: ActivityCreate,
@@ -245,10 +295,14 @@ async def create_activity(
     if not period:
         raise HTTPException(status_code=404, detail="Reporting period not found")
     if period.is_locked:
-        raise HTTPException(status_code=400, detail="Cannot add activities to locked period")
+        raise HTTPException(
+            status_code=400, detail="Cannot add activities to locked period"
+        )
 
     # Get organization's region for factor resolution
-    org_query = select(Organization).where(Organization.id == current_user.organization_id)
+    org_query = select(Organization).where(
+        Organization.id == current_user.organization_id
+    )
     org_result = await session.execute(org_query)
     org = org_result.scalar_one_or_none()
     org_region = org.default_region if org and org.default_region else "Global"
@@ -257,21 +311,23 @@ async def create_activity(
     pipeline = CalculationPipeline(session)
 
     try:
-        calc_result = await pipeline.calculate(ActivityInput(
-            activity_key=data.activity_key,
-            quantity=data.quantity,
-            unit=data.unit,
-            scope=data.scope,
-            category_code=data.category_code,
-            region=org_region,  # Use organization's configured region
-            year=2024,
-            supplier_ef=data.supplier_ef,  # For Supplier-Specific method
-        ))
-    except FactorNotFoundError as e:
+        calc_result = await pipeline.calculate(
+            ActivityInput(
+                activity_key=data.activity_key,
+                quantity=data.quantity,
+                unit=data.unit,
+                scope=data.scope,
+                category_code=data.category_code,
+                region=org_region,  # Use organization's configured region
+                year=2024,
+                supplier_ef=data.supplier_ef,  # For Supplier-Specific method
+            )
+        )
+    except FactorNotFoundError:
         raise HTTPException(
             status_code=400,
             detail=f"No emission factor found for activity_key='{data.activity_key}'. "
-                   f"Please select a valid activity type from the dropdown.",
+            f"Please select a valid activity type from the dropdown.",
         )
     except UnitConversionError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -341,7 +397,9 @@ async def create_activity(
             site_id=str(activity.site_id) if activity.site_id else None,
             created_at=activity.created_at,
             data_source=activity.data_source.value if activity.data_source else None,
-            import_batch_id=str(activity.import_batch_id) if activity.import_batch_id else None,
+            import_batch_id=(
+                str(activity.import_batch_id) if activity.import_batch_id else None
+            ),
             data_quality_score=activity.data_quality_score,
             data_quality_justification=activity.data_quality_justification,
             supporting_document_url=activity.supporting_document_url,
@@ -361,15 +419,25 @@ async def create_activity(
             resolution_strategy=emission.resolution_strategy or "exact",
             factor_used=calc_result.factor_display_name,
             factor_source=calc_result.factor_source,
-            factor_value=float(calc_result.factor_value) if calc_result.factor_value else None,
+            factor_value=(
+                float(calc_result.factor_value) if calc_result.factor_value else None
+            ),
             factor_unit=calc_result.factor_unit,
             warnings=calc_result.warnings,
             # Calculation metadata (Phase 9B)
             factor_year=calc_result.factor_year,
             factor_region=calc_result.factor_region,
             method_hierarchy=calc_result.method_hierarchy,
-            location_co2e_kg=float(calc_result.location_co2e_kg) if calc_result.location_co2e_kg else None,
-            market_co2e_kg=float(calc_result.market_co2e_kg) if calc_result.market_co2e_kg else None,
+            location_co2e_kg=(
+                float(calc_result.location_co2e_kg)
+                if calc_result.location_co2e_kg
+                else None
+            ),
+            market_co2e_kg=(
+                float(calc_result.market_co2e_kg)
+                if calc_result.market_co2e_kg
+                else None
+            ),
         ),
     )
 
@@ -447,7 +515,9 @@ async def update_activity(
 
     # --- BUSINESS LOGIC: Recalculate emissions ---
     # Get organization's region for factor resolution
-    org_query = select(Organization).where(Organization.id == current_user.organization_id)
+    org_query = select(Organization).where(
+        Organization.id == current_user.organization_id
+    )
     org_result = await session.execute(org_query)
     org = org_result.scalar_one_or_none()
     org_region = org.default_region if org and org.default_region else "Global"
@@ -455,22 +525,30 @@ async def update_activity(
     pipeline = CalculationPipeline(session)
 
     try:
-        calc_result = await pipeline.calculate(ActivityInput(
-            activity_key=activity.activity_key,
-            quantity=activity.quantity,
-            unit=activity.unit,
-            scope=activity.scope,
-            category_code=activity.category_code,
-            region=org_region,
-            year=2024,
-            supplier_ef=activity.supplier_ef if hasattr(activity, 'supplier_ef') else None,
-            supplier_name=activity.supplier_name if hasattr(activity, 'supplier_name') else None,
-        ))
+        calc_result = await pipeline.calculate(
+            ActivityInput(
+                activity_key=activity.activity_key,
+                quantity=activity.quantity,
+                unit=activity.unit,
+                scope=activity.scope,
+                category_code=activity.category_code,
+                region=org_region,
+                year=2024,
+                supplier_ef=(
+                    activity.supplier_ef if hasattr(activity, "supplier_ef") else None
+                ),
+                supplier_name=(
+                    activity.supplier_name
+                    if hasattr(activity, "supplier_name")
+                    else None
+                ),
+            )
+        )
     except FactorNotFoundError:
         raise HTTPException(
             status_code=400,
             detail=f"No emission factor found for activity_key='{activity.activity_key}'. "
-                   f"Please select a valid activity type.",
+            f"Please select a valid activity type.",
         )
     except UnitConversionError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -527,7 +605,9 @@ async def update_activity(
     await session.refresh(emission)
 
     # --- Fetch factor for response ---
-    factor_query = select(EmissionFactor).where(EmissionFactor.id == emission.emission_factor_id)
+    factor_query = select(EmissionFactor).where(
+        EmissionFactor.id == emission.emission_factor_id
+    )
     factor_result = await session.execute(factor_query)
     factor = factor_result.scalar_one_or_none()
 
@@ -545,7 +625,9 @@ async def update_activity(
             site_id=str(activity.site_id) if activity.site_id else None,
             created_at=activity.created_at,
             data_source=activity.data_source.value if activity.data_source else None,
-            import_batch_id=str(activity.import_batch_id) if activity.import_batch_id else None,
+            import_batch_id=(
+                str(activity.import_batch_id) if activity.import_batch_id else None
+            ),
             data_quality_score=activity.data_quality_score,
             data_quality_justification=activity.data_quality_justification,
             supporting_document_url=activity.supporting_document_url,
@@ -565,27 +647,36 @@ async def update_activity(
             resolution_strategy=emission.resolution_strategy or "exact",
             factor_used=factor.display_name if factor else "Unknown",
             factor_source=factor.source if factor else "Unknown",
-            factor_value=float(factor.co2e_factor) if factor and factor.co2e_factor else None,
+            factor_value=(
+                float(factor.co2e_factor) if factor and factor.co2e_factor else None
+            ),
             factor_unit=factor.factor_unit if factor else None,
             warnings=[],
             factor_year=emission.factor_year,
             factor_region=emission.factor_region,
             method_hierarchy=emission.method_hierarchy,
-            location_co2e_kg=float(emission.location_co2e_kg) if emission.location_co2e_kg else None,
-            market_co2e_kg=float(emission.market_co2e_kg) if emission.market_co2e_kg else None,
+            location_co2e_kg=(
+                float(emission.location_co2e_kg) if emission.location_co2e_kg else None
+            ),
+            market_co2e_kg=(
+                float(emission.market_co2e_kg) if emission.market_co2e_kg else None
+            ),
         ),
     )
 
 
 class RecalculateResponse(BaseModel):
     """Response for bulk recalculation."""
+
     total_activities: int
     recalculated: int
     failed: int
     errors: list[dict] = []
 
 
-@router.post("/periods/{period_id}/emissions/recalculate", response_model=RecalculateResponse)
+@router.post(
+    "/periods/{period_id}/emissions/recalculate", response_model=RecalculateResponse
+)
 async def recalculate_period_emissions(
     period_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -613,7 +704,9 @@ async def recalculate_period_emissions(
         raise HTTPException(status_code=404, detail="Reporting period not found")
 
     # Get organization's region for factor resolution
-    org_query = select(Organization).where(Organization.id == current_user.organization_id)
+    org_query = select(Organization).where(
+        Organization.id == current_user.organization_id
+    )
     org_result = await session.execute(org_query)
     org = org_result.scalar_one_or_none()
     org_region = org.default_region if org and org.default_region else "Global"
@@ -634,17 +727,27 @@ async def recalculate_period_emissions(
     for activity in activities:
         try:
             # Recalculate using pipeline
-            calc_result = await pipeline.calculate(ActivityInput(
-                activity_key=activity.activity_key,
-                quantity=activity.quantity,
-                unit=activity.unit,
-                scope=activity.scope,
-                category_code=activity.category_code,
-                region=org_region,  # Use organization's configured region
-                year=2024,
-                supplier_ef=activity.supplier_ef if hasattr(activity, 'supplier_ef') else None,
-                supplier_name=activity.supplier_name if hasattr(activity, 'supplier_name') else None,
-            ))
+            calc_result = await pipeline.calculate(
+                ActivityInput(
+                    activity_key=activity.activity_key,
+                    quantity=activity.quantity,
+                    unit=activity.unit,
+                    scope=activity.scope,
+                    category_code=activity.category_code,
+                    region=org_region,  # Use organization's configured region
+                    year=2024,
+                    supplier_ef=(
+                        activity.supplier_ef
+                        if hasattr(activity, "supplier_ef")
+                        else None
+                    ),
+                    supplier_name=(
+                        activity.supplier_name
+                        if hasattr(activity, "supplier_name")
+                        else None
+                    ),
+                )
+            )
 
             # Update existing emission or create new one
             emission_query = select(Emission).where(Emission.activity_id == activity.id)
@@ -699,11 +802,13 @@ async def recalculate_period_emissions(
 
         except Exception as e:
             failed += 1
-            errors.append({
-                "activity_id": str(activity.id),
-                "activity_key": activity.activity_key,
-                "error": str(e),
-            })
+            errors.append(
+                {
+                    "activity_id": str(activity.id),
+                    "activity_key": activity.activity_key,
+                    "error": str(e),
+                }
+            )
 
     await session.commit()
 
@@ -719,8 +824,10 @@ async def recalculate_period_emissions(
 # Bulk Delete Endpoints
 # ============================================================================
 
+
 class BulkDeleteResponse(BaseModel):
     """Response for bulk delete operations."""
+
     deleted_activities: int
     deleted_emissions: int
     message: str
@@ -753,7 +860,9 @@ async def delete_period_activities(
         raise HTTPException(status_code=404, detail="Reporting period not found")
 
     if period.is_locked:
-        raise HTTPException(status_code=400, detail="Cannot delete activities from locked period")
+        raise HTTPException(
+            status_code=400, detail="Cannot delete activities from locked period"
+        )
 
     # Get activity IDs for this period
     activities_query = select(Activity.id).where(
@@ -784,6 +893,7 @@ async def delete_period_activities(
 
     # Also delete import batches for this period
     from app.models.emission import ImportBatch
+
     await session.execute(
         delete(ImportBatch).where(
             ImportBatch.reporting_period_id == period_id,
@@ -820,7 +930,7 @@ async def delete_organization_activities(
         raise HTTPException(
             status_code=400,
             detail="This will delete ALL data for your organization. "
-                   "Pass confirm=true to proceed."
+            "Pass confirm=true to proceed.",
         )
 
     # Get all activity IDs for the organization
@@ -850,6 +960,7 @@ async def delete_organization_activities(
 
     # Delete all import batches for organization
     from app.models.emission import ImportBatch
+
     await session.execute(
         delete(ImportBatch).where(
             ImportBatch.organization_id == current_user.organization_id,

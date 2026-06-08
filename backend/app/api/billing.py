@@ -1,8 +1,9 @@
 """
 Billing API endpoints for subscription management.
 """
+
 import stripe
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -13,12 +14,12 @@ from app.models.core import Organization, User, SubscriptionPlan
 from app.api.auth import get_current_user
 from app.services.billing import BillingService, PLAN_LIMITS
 
-
 router = APIRouter(prefix="/billing", tags=["Billing"])
 
 
 class CreateCheckoutRequest(BaseModel):
     """Request to create a checkout session."""
+
     plan: SubscriptionPlan
     success_url: str
     cancel_url: str
@@ -26,11 +27,13 @@ class CreateCheckoutRequest(BaseModel):
 
 class CreatePortalRequest(BaseModel):
     """Request to create a customer portal session."""
+
     return_url: str
 
 
 class SubscriptionResponse(BaseModel):
     """Current subscription details."""
+
     plan: str
     status: str | None
     current_period_end: str | None
@@ -41,16 +44,19 @@ class SubscriptionResponse(BaseModel):
 
 class CheckoutResponse(BaseModel):
     """Checkout session URL."""
+
     url: str
 
 
 class PortalResponse(BaseModel):
     """Portal session URL."""
+
     url: str
 
 
 class PlansResponse(BaseModel):
     """Available subscription plans."""
+
     plans: list[dict]
 
 
@@ -76,10 +82,24 @@ async def get_subscription(
 
     return SubscriptionResponse(
         plan=organization.subscription_plan.value,
-        status=organization.subscription_status.value if organization.subscription_status else None,
-        current_period_end=organization.subscription_current_period_end.isoformat() if organization.subscription_current_period_end else None,
-        trial_ends_at=organization.trial_ends_at.isoformat() if organization.trial_ends_at else None,
-        is_trialing=organization.trial_ends_at is not None and organization.subscription_status and organization.subscription_status.value == "trialing",
+        status=(
+            organization.subscription_status.value
+            if organization.subscription_status
+            else None
+        ),
+        current_period_end=(
+            organization.subscription_current_period_end.isoformat()
+            if organization.subscription_current_period_end
+            else None
+        ),
+        trial_ends_at=(
+            organization.trial_ends_at.isoformat()
+            if organization.trial_ends_at
+            else None
+        ),
+        is_trialing=organization.trial_ends_at is not None
+        and organization.subscription_status
+        and organization.subscription_status.value == "trialing",
         plan_limits=BillingService.get_plan_limits(organization.subscription_plan),
     )
 
@@ -91,18 +111,20 @@ async def get_plans():
 
     for plan in SubscriptionPlan:
         limits = PLAN_LIMITS.get(plan, {})
-        plans.append({
-            "id": plan.value,
-            "name": plan.value.title(),
-            "limits": limits,
-            "price_monthly": {
-                SubscriptionPlan.FREE: 0,
-                SubscriptionPlan.STARTER: 49,
-                SubscriptionPlan.PROFESSIONAL: 199,
-                SubscriptionPlan.ENTERPRISE: None,  # Custom pricing
-            }.get(plan),
-            "features": _get_plan_features(plan),
-        })
+        plans.append(
+            {
+                "id": plan.value,
+                "name": plan.value.title(),
+                "limits": limits,
+                "price_monthly": {
+                    SubscriptionPlan.FREE: 0,
+                    SubscriptionPlan.STARTER: 49,
+                    SubscriptionPlan.PROFESSIONAL: 199,
+                    SubscriptionPlan.ENTERPRISE: None,  # Custom pricing
+                }.get(plan),
+                "features": _get_plan_features(plan),
+            }
+        )
 
     return PlansResponse(plans=plans)
 
@@ -130,9 +152,7 @@ async def create_checkout(
 
     # Create Stripe customer if needed
     if not organization.stripe_customer_id:
-        await BillingService.create_customer(
-            session, organization, current_user.email
-        )
+        await BillingService.create_customer(session, organization, current_user.email)
 
     try:
         url = await BillingService.create_checkout_session(

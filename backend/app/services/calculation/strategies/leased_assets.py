@@ -14,6 +14,7 @@ Methods:
 Per GHG Protocol, tenant emissions pass-through is the most accurate method
 when data is available.
 """
+
 from decimal import Decimal
 from typing import Optional
 
@@ -44,15 +45,15 @@ class LeasedAssetsCalculator(BaseCalculator):
     # Default building energy intensity factors (kg CO2e per m² per year)
     # Source: CRREM, DEFRA 2024
     BUILDING_INTENSITY = {
-        "office": Decimal("50.0"),       # Office building
-        "retail": Decimal("65.0"),       # Retail/commercial
-        "warehouse": Decimal("35.0"),    # Warehouse/logistics
-        "industrial": Decimal("80.0"),   # Industrial/manufacturing
+        "office": Decimal("50.0"),  # Office building
+        "retail": Decimal("65.0"),  # Retail/commercial
+        "warehouse": Decimal("35.0"),  # Warehouse/logistics
+        "industrial": Decimal("80.0"),  # Industrial/manufacturing
         "residential": Decimal("30.0"),  # Residential
-        "hotel": Decimal("90.0"),        # Hotel/hospitality
+        "hotel": Decimal("90.0"),  # Hotel/hospitality
         "healthcare": Decimal("120.0"),  # Healthcare facilities
-        "education": Decimal("55.0"),    # Educational buildings
-        "default": Decimal("50.0"),      # Default (office)
+        "education": Decimal("55.0"),  # Educational buildings
+        "default": Decimal("50.0"),  # Default (office)
     }
 
     def calculate(
@@ -178,15 +179,13 @@ class LeasedAssetsCalculator(BaseCalculator):
             intensity = custom_intensity
         else:
             intensity = cls.BUILDING_INTENSITY.get(
-                building_type.lower(),
-                cls.BUILDING_INTENSITY["default"]
+                building_type.lower(), cls.BUILDING_INTENSITY["default"]
             )
 
         total_co2e = area_m2 * intensity
 
         formula = (
-            f"{area_m2} m² × {intensity} kg CO2e/m²/year = "
-            f"{total_co2e:.2f} kg CO2e"
+            f"{area_m2} m² × {intensity} kg CO2e/m²/year = " f"{total_co2e:.2f} kg CO2e"
         )
 
         return CalculationResult(

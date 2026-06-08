@@ -19,7 +19,8 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install ruff black
+      # Pinned so a new ruff/black release can't silently turn CI red.
+      - run: pip install ruff==0.6.9 black==26.3.1
       - run: ruff check .
       - run: black --check .
 

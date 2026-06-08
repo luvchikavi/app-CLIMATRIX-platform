@@ -24,6 +24,7 @@ Imports:
 
 Note: Emission factor IDs in activities/emissions will be remapped to new system factors.
 """
+
 import json
 import sys
 from datetime import date, datetime
@@ -40,10 +41,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from app.config import settings
 from app.models.core import Organization, User, Site, ReportingPeriod, UserRole
 from app.models.emission import (
-    Activity, Emission, ImportBatch, EmissionFactor,
-    CalculationMethod, DataSource, ConfidenceLevel, ImportBatchStatus
+    Activity,
+    Emission,
+    ImportBatch,
+    EmissionFactor,
+    CalculationMethod,
+    DataSource,
+    ConfidenceLevel,
+    ImportBatchStatus,
 )
-
 
 app = typer.Typer(help="Import CLIMATRIX data from export file")
 
@@ -72,10 +78,7 @@ def parse_uuid(value: str) -> UUID:
 
 
 def find_emission_factor(
-    session: Session,
-    activity_key: str,
-    region: str = "Global",
-    year: int = 2024
+    session: Session, activity_key: str, region: str = "Global", year: int = 2024
 ) -> Optional[UUID]:
     """Find matching emission factor in new system."""
     # Try exact match first
@@ -111,7 +114,9 @@ def find_emission_factor(
     return factor.id if factor else None
 
 
-def import_organizations(session: Session, data: list[dict], skip_existing: bool) -> dict:
+def import_organizations(
+    session: Session, data: list[dict], skip_existing: bool
+) -> dict:
     """Import organizations. Returns mapping of old_id -> new_id."""
     id_map = {}
     imported = 0
@@ -220,7 +225,9 @@ def import_sites(session: Session, data: list[dict], skip_existing: bool) -> dic
     return {"id_map": id_map, "imported": imported, "skipped": skipped}
 
 
-def import_reporting_periods(session: Session, data: list[dict], skip_existing: bool) -> dict:
+def import_reporting_periods(
+    session: Session, data: list[dict], skip_existing: bool
+) -> dict:
     """Import reporting periods."""
     id_map = {}
     imported = 0
@@ -246,7 +253,8 @@ def import_reporting_periods(session: Session, data: list[dict], skip_existing: 
             start_date=parse_date(period_data["start_date"]),
             end_date=parse_date(period_data["end_date"]),
             is_locked=period_data.get("is_locked", False),
-            created_at=parse_datetime(period_data.get("created_at")) or datetime.utcnow(),
+            created_at=parse_datetime(period_data.get("created_at"))
+            or datetime.utcnow(),
         )
         session.add(period)
         id_map[str(period_id)] = str(period_id)
@@ -255,7 +263,9 @@ def import_reporting_periods(session: Session, data: list[dict], skip_existing: 
     return {"id_map": id_map, "imported": imported, "skipped": skipped}
 
 
-def import_import_batches(session: Session, data: list[dict], skip_existing: bool) -> dict:
+def import_import_batches(
+    session: Session, data: list[dict], skip_existing: bool
+) -> dict:
     """Import import batches."""
     id_map = {}
     imported = 0
@@ -289,7 +299,8 @@ def import_import_batches(session: Session, data: list[dict], skip_existing: boo
             error_message=batch_data.get("error_message"),
             row_errors=batch_data.get("row_errors"),
             uploaded_by=parse_uuid(batch_data["uploaded_by"]),
-            uploaded_at=parse_datetime(batch_data.get("uploaded_at")) or datetime.utcnow(),
+            uploaded_at=parse_datetime(batch_data.get("uploaded_at"))
+            or datetime.utcnow(),
             completed_at=parse_datetime(batch_data.get("completed_at")),
         )
         session.add(batch)
@@ -329,12 +340,15 @@ def import_activities(session: Session, data: list[dict], skip_existing: bool) -
             activity_key=activity_data["activity_key"],
             quantity=activity_data["quantity"],
             unit=activity_data["unit"],
-            calculation_method=CalculationMethod(activity_data.get("calculation_method", "activity")),
+            calculation_method=CalculationMethod(
+                activity_data.get("calculation_method", "activity")
+            ),
             activity_date=parse_date(activity_data["activity_date"]),
             data_source=DataSource(activity_data.get("data_source", "manual")),
             import_batch_id=parse_uuid(activity_data.get("import_batch_id")),
             created_by=parse_uuid(activity_data.get("created_by")),
-            created_at=parse_datetime(activity_data.get("created_at")) or datetime.utcnow(),
+            created_at=parse_datetime(activity_data.get("created_at"))
+            or datetime.utcnow(),
             updated_at=parse_datetime(activity_data.get("updated_at")),
         )
         session.add(activity)
@@ -345,10 +359,7 @@ def import_activities(session: Session, data: list[dict], skip_existing: bool) -
 
 
 def import_emissions(
-    session: Session,
-    data: list[dict],
-    activities_data: list[dict],
-    skip_existing: bool
+    session: Session, data: list[dict], activities_data: list[dict], skip_existing: bool
 ) -> dict:
     """Import emissions with remapped emission factor IDs."""
     # Build activity_key lookup
@@ -398,21 +409,32 @@ def import_emissions(
             resolution_strategy=emission_data.get("resolution_strategy", "exact"),
             needs_review=emission_data.get("needs_review", False),
             warnings=emission_data.get("warnings"),
-            calculated_at=parse_datetime(emission_data.get("calculated_at")) or datetime.utcnow(),
+            calculated_at=parse_datetime(emission_data.get("calculated_at"))
+            or datetime.utcnow(),
             recalculated_at=parse_datetime(emission_data.get("recalculated_at")),
         )
         session.add(emission)
         imported += 1
 
-    return {"imported": imported, "skipped": skipped, "factor_remapped": factor_remapped}
+    return {
+        "imported": imported,
+        "skipped": skipped,
+        "factor_remapped": factor_remapped,
+    }
 
 
 @app.command()
 def import_data(
     input_file: str = typer.Option(..., "--input", "-i", help="Input JSON file path"),
-    database_url: Optional[str] = typer.Option(None, "--database-url", help="Override database URL"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Preview import without committing"),
-    skip_existing: bool = typer.Option(False, "--skip-existing", help="Skip records that already exist"),
+    database_url: Optional[str] = typer.Option(
+        None, "--database-url", help="Override database URL"
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Preview import without committing"
+    ),
+    skip_existing: bool = typer.Option(
+        False, "--skip-existing", help="Skip records that already exist"
+    ),
 ):
     """Import data from JSON export file."""
 
@@ -457,37 +479,59 @@ def import_data(
     with Session(engine) as session:
         try:
             typer.echo("Importing organizations...")
-            result = import_organizations(session, data.get("organizations", []), skip_existing)
-            typer.echo(f"  Imported: {result['imported']}, Skipped: {result['skipped']}")
+            result = import_organizations(
+                session, data.get("organizations", []), skip_existing
+            )
+            typer.echo(
+                f"  Imported: {result['imported']}, Skipped: {result['skipped']}"
+            )
 
             typer.echo("Importing users...")
             result = import_users(session, data.get("users", []), skip_existing)
-            typer.echo(f"  Imported: {result['imported']}, Skipped: {result['skipped']}")
+            typer.echo(
+                f"  Imported: {result['imported']}, Skipped: {result['skipped']}"
+            )
 
             typer.echo("Importing sites...")
             result = import_sites(session, data.get("sites", []), skip_existing)
-            typer.echo(f"  Imported: {result['imported']}, Skipped: {result['skipped']}")
+            typer.echo(
+                f"  Imported: {result['imported']}, Skipped: {result['skipped']}"
+            )
 
             typer.echo("Importing reporting periods...")
-            result = import_reporting_periods(session, data.get("reporting_periods", []), skip_existing)
-            typer.echo(f"  Imported: {result['imported']}, Skipped: {result['skipped']}")
+            result = import_reporting_periods(
+                session, data.get("reporting_periods", []), skip_existing
+            )
+            typer.echo(
+                f"  Imported: {result['imported']}, Skipped: {result['skipped']}"
+            )
 
             typer.echo("Importing import batches...")
-            result = import_import_batches(session, data.get("import_batches", []), skip_existing)
-            typer.echo(f"  Imported: {result['imported']}, Skipped: {result['skipped']}")
+            result = import_import_batches(
+                session, data.get("import_batches", []), skip_existing
+            )
+            typer.echo(
+                f"  Imported: {result['imported']}, Skipped: {result['skipped']}"
+            )
 
             typer.echo("Importing activities...")
-            result = import_activities(session, data.get("activities", []), skip_existing)
-            typer.echo(f"  Imported: {result['imported']}, Skipped: {result['skipped']}")
+            result = import_activities(
+                session, data.get("activities", []), skip_existing
+            )
+            typer.echo(
+                f"  Imported: {result['imported']}, Skipped: {result['skipped']}"
+            )
 
             typer.echo("Importing emissions...")
             result = import_emissions(
                 session,
                 data.get("emissions", []),
                 data.get("activities", []),
-                skip_existing
+                skip_existing,
             )
-            typer.echo(f"  Imported: {result['imported']}, Skipped: {result['skipped']}")
+            typer.echo(
+                f"  Imported: {result['imported']}, Skipped: {result['skipped']}"
+            )
             typer.echo(f"  Emission factors remapped: {result['factor_remapped']}")
 
             session.commit()

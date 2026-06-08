@@ -59,7 +59,12 @@ GHG_PROTOCOL_SCOPE_1_2 = {
 REQUIRED_SPEND_PRICES = {
     "1.1": ["natural_gas", "diesel", "petrol", "lpg", "coal", "fuel_oil", "kerosene"],
     "1.2": ["diesel", "petrol"],  # Mobile uses same fuels
-    "1.3": ["refrigerant_r134a", "refrigerant_r410a", "refrigerant_r32", "refrigerant_sf6"],
+    "1.3": [
+        "refrigerant_r134a",
+        "refrigerant_r410a",
+        "refrigerant_r32",
+        "refrigerant_sf6",
+    ],
     "2.1": ["electricity"],
     "2.2": ["district_heating", "steam"],
     "2.3": ["chilled_water", "district_cooling"],
@@ -83,15 +88,19 @@ def check_emission_factors(conn):
     for category_code, requirements in GHG_PROTOCOL_SCOPE_1_2.items():
         cursor.execute(
             "SELECT COUNT(*) FROM emission_factors WHERE category_code = ? AND is_active = 1",
-            (category_code,)
+            (category_code,),
         )
         count = cursor.fetchone()[0]
 
         status = "✅" if count >= requirements["min_factors"] else "❌"
-        print(f"  {category_code} {requirements['name']}: {count} factors (min: {requirements['min_factors']}) {status}")
+        print(
+            f"  {category_code} {requirements['name']}: {count} factors (min: {requirements['min_factors']}) {status}"
+        )
 
         if count < requirements["min_factors"]:
-            errors.append(f"Category {category_code} has only {count} factors, needs {requirements['min_factors']}")
+            errors.append(
+                f"Category {category_code} has only {count} factors, needs {requirements['min_factors']}"
+            )
 
     return errors
 
@@ -110,7 +119,7 @@ def check_spend_support(conn):
         for fuel_type in required_prices:
             cursor.execute(
                 "SELECT COUNT(*) FROM fuel_prices WHERE fuel_type LIKE ? AND is_active = 1",
-                (f"%{fuel_type}%",)
+                (f"%{fuel_type}%",),
             )
             count = cursor.fetchone()[0]
             if count == 0:
@@ -122,7 +131,9 @@ def check_spend_support(conn):
         else:
             status = "✅"
 
-        print(f"  {category_code}: {len(required_prices) - len(missing)}/{len(required_prices)} fuel prices {status}")
+        print(
+            f"  {category_code}: {len(required_prices) - len(missing)}/{len(required_prices)} fuel prices {status}"
+        )
 
     return errors
 
@@ -147,7 +158,7 @@ def check_data_quality(conn):
         errors.append(f"Found {len(negative)} negative emission factors")
         print(f"  Negative factors: ❌ Found {len(negative)}")
     else:
-        print(f"  Negative factors: ✅ None")
+        print("  Negative factors: ✅ None")
 
     # Check for missing units
     cursor.execute("""
@@ -160,7 +171,7 @@ def check_data_quality(conn):
         errors.append(f"Found {len(missing_units)} factors without units")
         print(f"  Missing units: ❌ Found {len(missing_units)}")
     else:
-        print(f"  Missing units: ✅ None")
+        print("  Missing units: ✅ None")
 
     # Check for missing sources
     cursor.execute("""
@@ -173,7 +184,7 @@ def check_data_quality(conn):
         errors.append(f"Found {len(missing_sources)} factors without sources")
         print(f"  Missing sources: ❌ Found {len(missing_sources)}")
     else:
-        print(f"  Missing sources: ✅ None")
+        print("  Missing sources: ✅ None")
 
     return errors
 
@@ -207,7 +218,7 @@ def check_category_consistency(conn):
         print(f"  Missing categories: ❌ {missing}")
 
     if not extra and not missing:
-        print(f"  Category codes: ✅ All 7 categories present")
+        print("  Category codes: ✅ All 7 categories present")
 
     return errors
 
@@ -218,7 +229,9 @@ def check_wizard_config():
     print("CHECK 5: WIZARD CONFIGURATION")
     print("=" * 60)
 
-    wizard_path = Path(__file__).parent.parent.parent.parent / "frontend_v3/src/stores/wizard.ts"
+    wizard_path = (
+        Path(__file__).parent.parent.parent.parent / "frontend_v3/src/stores/wizard.ts"
+    )
 
     if not wizard_path.exists():
         print(f"  Wizard file: ⚠️ Not found at {wizard_path}")

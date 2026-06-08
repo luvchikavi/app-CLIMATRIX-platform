@@ -13,8 +13,8 @@ Hierarchy (per GHG Protocol):
 
 Source: DEFRA 2024 (UK Government GHG Conversion Factors for Company Reporting)
 """
-from decimal import Decimal
 
+from decimal import Decimal
 
 # =============================================================================
 # DEFRA MATERIAL EMISSION FACTORS (kg CO2e per kg of material)
@@ -114,7 +114,6 @@ DEFRA_MATERIAL_FACTORS = {
         "source": "DEFRA_2024",
         "category": "metals",
     },
-
     # =========================================================================
     # PLASTICS
     # =========================================================================
@@ -175,7 +174,6 @@ DEFRA_MATERIAL_FACTORS = {
         "source": "DEFRA_2024",
         "category": "plastics",
     },
-
     # =========================================================================
     # PAPER & BOARD
     # =========================================================================
@@ -207,7 +205,6 @@ DEFRA_MATERIAL_FACTORS = {
         "source": "DEFRA_2024",
         "category": "paper",
     },
-
     # =========================================================================
     # GLASS
     # =========================================================================
@@ -232,7 +229,6 @@ DEFRA_MATERIAL_FACTORS = {
         "source": "DEFRA_2024",
         "category": "glass",
     },
-
     # =========================================================================
     # CONSTRUCTION MATERIALS
     # =========================================================================
@@ -278,7 +274,6 @@ DEFRA_MATERIAL_FACTORS = {
         "source": "DEFRA_2024",
         "category": "construction",
     },
-
     # =========================================================================
     # TEXTILES
     # =========================================================================
@@ -310,7 +305,6 @@ DEFRA_MATERIAL_FACTORS = {
         "source": "DEFRA_2024",
         "category": "textiles",
     },
-
     # =========================================================================
     # FOOD & AGRICULTURE
     # =========================================================================
@@ -393,7 +387,6 @@ DEFRA_MATERIAL_FACTORS = {
         "category": "food",
         "notes": "Includes methane from paddy cultivation",
     },
-
     # =========================================================================
     # CHEMICALS
     # =========================================================================
@@ -418,7 +411,6 @@ DEFRA_MATERIAL_FACTORS = {
         "source": "DEFRA_2024",
         "category": "chemicals",
     },
-
     # =========================================================================
     # RUBBER
     # =========================================================================
@@ -436,7 +428,6 @@ DEFRA_MATERIAL_FACTORS = {
         "source": "DEFRA_2024",
         "category": "rubber",
     },
-
     # =========================================================================
     # ELECTRONICS (per kg of product weight)
     # =========================================================================
@@ -461,6 +452,7 @@ DEFRA_MATERIAL_FACTORS = {
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
+
 
 def get_material_factor(material_key: str) -> dict | None:
     """Get DEFRA material emission factor by key."""
@@ -492,8 +484,7 @@ def search_materials(query: str, category: str = None) -> list[dict]:
     for key, data in DEFRA_MATERIAL_FACTORS.items():
         if category and data.get("category") != category:
             continue
-        if (query_lower in key.lower() or
-            query_lower in data["display_name"].lower()):
+        if query_lower in key.lower() or query_lower in data["display_name"].lower():
             results.append({"key": key, **data})
 
     return results

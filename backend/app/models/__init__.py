@@ -2,13 +2,26 @@
 SQLModel database models.
 All models are imported here for Alembic auto-discovery.
 """
+
 from app.models.core import (
-    Organization, User, Site, ReportingPeriod,
-    UserRole, PeriodStatus, AssuranceLevel,
+    Organization,
+    User,
+    Site,
+    ReportingPeriod,
+    UserRole,
+    PeriodStatus,
+    AssuranceLevel,
 )
 from app.models.emission import (
-    EmissionFactor, EmissionFactorStatus, Activity, Emission, UnitConversion, FuelPrice,
-    ImportBatch, ImportBatchStatus, DataQualityScore,
+    EmissionFactor,
+    EmissionFactorStatus,
+    Activity,
+    Emission,
+    UnitConversion,
+    FuelPrice,
+    ImportBatch,
+    ImportBatchStatus,
+    DataQualityScore,
     # New Scope 3 Reference Tables
     Airport,
     TransportDistanceMatrix,

@@ -9,9 +9,9 @@ Validates:
 
 Suggests corrections for common errors.
 """
+
 import json
-from dataclasses import dataclass, field
-from decimal import Decimal
+from dataclasses import dataclass
 from typing import Optional
 
 from app.services.ai.claude_service import ClaudeService
@@ -20,6 +20,7 @@ from app.services.ai.claude_service import ClaudeService
 @dataclass
 class ValidationIssue:
     """Single validation issue found."""
+
     field: str  # "quantity", "unit", "activity_key", etc.
     severity: str  # "error", "warning", "info"
     message: str
@@ -31,6 +32,7 @@ class ValidationIssue:
 @dataclass
 class ValidationResult:
     """Complete validation result for an activity."""
+
     is_valid: bool
     issues: list[ValidationIssue]
     corrected_data: Optional[dict] = None  # Suggested corrections
@@ -40,6 +42,7 @@ class ValidationResult:
 @dataclass
 class BatchValidationResult:
     """Validation result for a batch of activities."""
+
     total_records: int
     valid_count: int
     warning_count: int
@@ -75,43 +78,36 @@ class DataValidator:
         "diesel_volume": (10, 50000, "liters"),
         "lpg_volume": (5, 10000, "liters"),
         "coal_mass": (100, 100000, "kg"),
-
         # Scope 1.2 - Mobile (per vehicle per month)
         "petrol_vehicle_km": (100, 10000, "km"),
         "diesel_vehicle_km": (100, 15000, "km"),
         "petrol_vehicle_liters": (20, 2000, "liters"),
         "diesel_vehicle_liters": (30, 3000, "liters"),
-
         # Scope 1.3 - Fugitive (annual)
         "refrigerant_r134a": (0.1, 1000, "kg"),
         "refrigerant_r410a": (0.1, 1000, "kg"),
         "refrigerant_r32": (0.1, 1000, "kg"),
         "sf6_leakage": (0.001, 100, "kg"),
-
         # Scope 2 - Electricity (monthly for office)
         "electricity_global": (100, 1000000, "kWh"),
         "electricity_il": (100, 1000000, "kWh"),
         "electricity_uk": (100, 1000000, "kWh"),
         "electricity_us": (100, 1000000, "kWh"),
         "district_heat": (100, 500000, "kWh"),
-
         # Scope 3.1 - Purchases (monthly spend)
         "spend_office_supplies": (100, 100000, "USD"),
         "spend_it_equipment": (1000, 1000000, "USD"),
         "spend_professional_services": (1000, 500000, "USD"),
         "spend_other": (100, 1000000, "USD"),
-
         # Scope 3.5 - Waste (monthly)
         "waste_mixed_landfill": (10, 100000, "kg"),
         "waste_paper_recycled": (5, 50000, "kg"),
         "waste_plastic_recycled": (1, 10000, "kg"),
-
         # Scope 3.6 - Travel
         "flight_short_economy": (100, 5000, "km"),
         "flight_medium_economy": (500, 10000, "km"),
         "flight_long_economy": (3000, 20000, "km"),
         "hotel_night": (1, 100, "nights"),
-
         # Scope 3.7 - Commuting (per employee per month)
         "commute_car_petrol": (100, 5000, "km"),
         "commute_car_diesel": (100, 5000, "km"),
@@ -210,7 +206,7 @@ Respond with JSON:
                 ai_notes=data.get("notes"),
             )
 
-        except (KeyError, TypeError) as e:
+        except (KeyError, TypeError):
             return self._rule_validate(activity_data)
 
     def _rule_validate(self, activity_data: dict) -> ValidationResult:
@@ -226,28 +222,34 @@ Respond with JSON:
 
         # Check required fields
         if not activity_key:
-            issues.append(ValidationIssue(
-                field="activity_key",
-                severity="error",
-                message="Activity key is required",
-                original_value="",
-            ))
+            issues.append(
+                ValidationIssue(
+                    field="activity_key",
+                    severity="error",
+                    message="Activity key is required",
+                    original_value="",
+                )
+            )
 
         if quantity is None:
-            issues.append(ValidationIssue(
-                field="quantity",
-                severity="error",
-                message="Quantity is required",
-                original_value="",
-            ))
+            issues.append(
+                ValidationIssue(
+                    field="quantity",
+                    severity="error",
+                    message="Quantity is required",
+                    original_value="",
+                )
+            )
 
         if not unit:
-            issues.append(ValidationIssue(
-                field="unit",
-                severity="error",
-                message="Unit is required",
-                original_value="",
-            ))
+            issues.append(
+                ValidationIssue(
+                    field="unit",
+                    severity="error",
+                    message="Unit is required",
+                    original_value="",
+                )
+            )
 
         # Check quantity bounds
         if activity_key in self.QUANTITY_BOUNDS and quantity is not None:
@@ -257,43 +259,51 @@ Respond with JSON:
                 qty = float(quantity)
 
                 if qty <= 0:
-                    issues.append(ValidationIssue(
-                        field="quantity",
-                        severity="error",
-                        message="Quantity must be positive",
-                        original_value=str(quantity),
-                        suggested_value=str(abs(qty)),
-                        confidence=0.9,
-                    ))
+                    issues.append(
+                        ValidationIssue(
+                            field="quantity",
+                            severity="error",
+                            message="Quantity must be positive",
+                            original_value=str(quantity),
+                            suggested_value=str(abs(qty)),
+                            confidence=0.9,
+                        )
+                    )
 
                 elif qty < min_val * 0.1:  # 10% of minimum
-                    issues.append(ValidationIssue(
-                        field="quantity",
-                        severity="warning",
-                        message=f"Quantity seems unusually low for {activity_key}. "
-                                f"Typical range: {min_val} - {max_val} {expected_unit}",
-                        original_value=str(quantity),
-                        confidence=0.7,
-                    ))
+                    issues.append(
+                        ValidationIssue(
+                            field="quantity",
+                            severity="warning",
+                            message=f"Quantity seems unusually low for {activity_key}. "
+                            f"Typical range: {min_val} - {max_val} {expected_unit}",
+                            original_value=str(quantity),
+                            confidence=0.7,
+                        )
+                    )
 
                 elif qty > max_val * 10:  # 10x maximum
-                    issues.append(ValidationIssue(
-                        field="quantity",
-                        severity="warning",
-                        message=f"Quantity seems unusually high for {activity_key}. "
-                                f"Typical range: {min_val} - {max_val} {expected_unit}. "
-                                f"Check if units are correct.",
-                        original_value=str(quantity),
-                        confidence=0.7,
-                    ))
+                    issues.append(
+                        ValidationIssue(
+                            field="quantity",
+                            severity="warning",
+                            message=f"Quantity seems unusually high for {activity_key}. "
+                            f"Typical range: {min_val} - {max_val} {expected_unit}. "
+                            f"Check if units are correct.",
+                            original_value=str(quantity),
+                            confidence=0.7,
+                        )
+                    )
 
             except (ValueError, TypeError):
-                issues.append(ValidationIssue(
-                    field="quantity",
-                    severity="error",
-                    message="Quantity must be a valid number",
-                    original_value=str(quantity),
-                ))
+                issues.append(
+                    ValidationIssue(
+                        field="quantity",
+                        severity="error",
+                        message="Quantity must be a valid number",
+                        original_value=str(quantity),
+                    )
+                )
 
             # Check unit consistency
             if unit and expected_unit:
@@ -317,15 +327,17 @@ Respond with JSON:
                 expected_aliases = unit_aliases.get(expected_lower, [expected_lower])
 
                 if unit_lower not in expected_aliases:
-                    issues.append(ValidationIssue(
-                        field="unit",
-                        severity="warning",
-                        message=f"Unit '{unit}' may not match expected unit '{expected_unit}' "
-                                f"for activity '{activity_key}'",
-                        original_value=unit,
-                        suggested_value=expected_unit,
-                        confidence=0.6,
-                    ))
+                    issues.append(
+                        ValidationIssue(
+                            field="unit",
+                            severity="warning",
+                            message=f"Unit '{unit}' may not match expected unit '{expected_unit}' "
+                            f"for activity '{activity_key}'",
+                            original_value=unit,
+                            suggested_value=expected_unit,
+                            confidence=0.6,
+                        )
+                    )
 
         # Determine overall validity
         has_errors = any(i.severity == "error" for i in issues)

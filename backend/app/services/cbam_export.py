@@ -6,6 +6,7 @@ Generates export formats for CBAM reporting:
 - XML export for EU CBAM Registry submission
 - CSV export for data analysis
 """
+
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, List
@@ -13,13 +14,6 @@ from xml.etree import ElementTree as ET
 from xml.dom import minidom
 import csv
 import io
-
-from app.models.cbam import (
-    CBAMQuarterlyReport,
-    CBAMImport,
-    CBAMInstallation,
-    CBAMSector,
-)
 
 
 def format_decimal(value: Optional[Decimal], places: int = 3) -> str:
@@ -66,7 +60,9 @@ class CBAMXMLExporter:
 
         # Report header
         header = ET.SubElement(root, "ReportHeader")
-        ET.SubElement(header, "ReportingYear").text = str(report.get("year", date.today().year))
+        ET.SubElement(header, "ReportingYear").text = str(
+            report.get("year", date.today().year)
+        )
         ET.SubElement(header, "ReportingQuarter").text = str(report.get("quarter", 1))
         ET.SubElement(header, "SubmissionDate").text = datetime.utcnow().isoformat()
         ET.SubElement(header, "ReportVersion").text = "1"
@@ -93,7 +89,9 @@ class CBAMXMLExporter:
             inst_emissions = ET.SubElement(inst_elem, "EmissionsData")
             ET.SubElement(inst_emissions, "DirectEmissionsFactor").text = "0"
             ET.SubElement(inst_emissions, "IndirectEmissionsFactor").text = "0"
-            ET.SubElement(inst_emissions, "VerificationStatus").text = inst.get("verification_status", "pending")
+            ET.SubElement(inst_emissions, "VerificationStatus").text = inst.get(
+                "verification_status", "pending"
+            )
 
         # Goods (imports)
         goods_elem = ET.SubElement(root, "ImportedGoods")
@@ -118,42 +116,66 @@ class CBAMXMLExporter:
 
             # Embedded emissions
             emissions = ET.SubElement(good, "EmbeddedEmissions")
-            ET.SubElement(emissions, "DirectEmissions").text = format_decimal(imp.get("direct_emissions_tco2e"))
-            ET.SubElement(emissions, "IndirectEmissions").text = format_decimal(imp.get("indirect_emissions_tco2e"))
-            ET.SubElement(emissions, "TotalEmissions").text = format_decimal(imp.get("total_emissions_tco2e"))
-            ET.SubElement(emissions, "CalculationMethod").text = imp.get("calculation_method", "default")
+            ET.SubElement(emissions, "DirectEmissions").text = format_decimal(
+                imp.get("direct_emissions_tco2e")
+            )
+            ET.SubElement(emissions, "IndirectEmissions").text = format_decimal(
+                imp.get("indirect_emissions_tco2e")
+            )
+            ET.SubElement(emissions, "TotalEmissions").text = format_decimal(
+                imp.get("total_emissions_tco2e")
+            )
+            ET.SubElement(emissions, "CalculationMethod").text = imp.get(
+                "calculation_method", "default"
+            )
 
             # SEE (Specific Embedded Emissions)
             see = ET.SubElement(good, "SpecificEmbeddedEmissions")
             ET.SubElement(see, "DirectSEE").text = format_decimal(imp.get("direct_see"))
-            ET.SubElement(see, "IndirectSEE").text = format_decimal(imp.get("indirect_see"))
+            ET.SubElement(see, "IndirectSEE").text = format_decimal(
+                imp.get("indirect_see")
+            )
             ET.SubElement(see, "TotalSEE").text = format_decimal(imp.get("total_see"))
 
             # Carbon price paid (if any)
             if imp.get("foreign_carbon_price_eur"):
                 carbon_price = ET.SubElement(good, "CarbonPricePaid")
-                ET.SubElement(carbon_price, "Amount").text = format_decimal(imp.get("foreign_carbon_price_eur"), 2)
-                ET.SubElement(carbon_price, "Currency").text = imp.get("foreign_carbon_price_currency", "EUR")
+                ET.SubElement(carbon_price, "Amount").text = format_decimal(
+                    imp.get("foreign_carbon_price_eur"), 2
+                )
+                ET.SubElement(carbon_price, "Currency").text = imp.get(
+                    "foreign_carbon_price_currency", "EUR"
+                )
 
         # Summary totals
         summary = ET.SubElement(root, "Summary")
-        ET.SubElement(summary, "TotalImports").text = str(report.get("total_imports", len(imports)))
-        ET.SubElement(summary, "TotalMassTonnes").text = format_decimal(report.get("total_mass_tonnes"))
+        ET.SubElement(summary, "TotalImports").text = str(
+            report.get("total_imports", len(imports))
+        )
+        ET.SubElement(summary, "TotalMassTonnes").text = format_decimal(
+            report.get("total_mass_tonnes")
+        )
         ET.SubElement(summary, "TotalDirectEmissions").text = format_decimal(
             sum(Decimal(str(imp.get("direct_emissions_tco2e", 0))) for imp in imports)
         )
         ET.SubElement(summary, "TotalIndirectEmissions").text = format_decimal(
             sum(Decimal(str(imp.get("indirect_emissions_tco2e", 0))) for imp in imports)
         )
-        ET.SubElement(summary, "TotalEmissions").text = format_decimal(report.get("total_emissions_tco2e"))
+        ET.SubElement(summary, "TotalEmissions").text = format_decimal(
+            report.get("total_emissions_tco2e")
+        )
 
         # By sector summary
         by_sector_elem = ET.SubElement(summary, "BySector")
         for sector, data in (report.get("by_sector") or {}).items():
             sector_elem = ET.SubElement(by_sector_elem, "Sector")
             ET.SubElement(sector_elem, "SectorCode").text = sector
-            ET.SubElement(sector_elem, "MassTonnes").text = format_decimal(data.get("mass_tonnes"))
-            ET.SubElement(sector_elem, "TotalEmissions").text = format_decimal(data.get("total_emissions_tco2e"))
+            ET.SubElement(sector_elem, "MassTonnes").text = format_decimal(
+                data.get("mass_tonnes")
+            )
+            ET.SubElement(sector_elem, "TotalEmissions").text = format_decimal(
+                data.get("total_emissions_tco2e")
+            )
 
         # Pretty print
         xml_str = ET.tostring(root, encoding="unicode")
@@ -185,7 +207,9 @@ class CBAMXMLExporter:
 
         # Declaration header
         header = ET.SubElement(root, "DeclarationHeader")
-        ET.SubElement(header, "DeclarationYear").text = str(declaration.get("year", date.today().year))
+        ET.SubElement(header, "DeclarationYear").text = str(
+            declaration.get("year", date.today().year)
+        )
         ET.SubElement(header, "SubmissionDate").text = datetime.utcnow().isoformat()
         ET.SubElement(header, "DeclarationType").text = "annual"
 
@@ -193,24 +217,42 @@ class CBAMXMLExporter:
         declarant_elem = ET.SubElement(root, "Declarant")
         ET.SubElement(declarant_elem, "Name").text = declarant.get("name", "")
         ET.SubElement(declarant_elem, "EORI").text = declarant.get("eori", "")
-        ET.SubElement(declarant_elem, "AuthorisedDeclarantNumber").text = declarant.get("auth_number", "")
+        ET.SubElement(declarant_elem, "AuthorisedDeclarantNumber").text = declarant.get(
+            "auth_number", ""
+        )
 
         # Certificate requirements
         certs = ET.SubElement(root, "CertificateRequirement")
-        ET.SubElement(certs, "GrossEmissions").text = format_decimal(declaration.get("gross_emissions_tco2e"))
-        ET.SubElement(certs, "Deductions").text = format_decimal(declaration.get("deductions_tco2e"))
-        ET.SubElement(certs, "NetEmissions").text = format_decimal(declaration.get("net_emissions_tco2e"))
-        ET.SubElement(certs, "CertificatesRequired").text = format_decimal(declaration.get("certificates_required"))
-        ET.SubElement(certs, "EstimatedCostEUR").text = format_decimal(declaration.get("estimated_cost_eur"), 2)
+        ET.SubElement(certs, "GrossEmissions").text = format_decimal(
+            declaration.get("gross_emissions_tco2e")
+        )
+        ET.SubElement(certs, "Deductions").text = format_decimal(
+            declaration.get("deductions_tco2e")
+        )
+        ET.SubElement(certs, "NetEmissions").text = format_decimal(
+            declaration.get("net_emissions_tco2e")
+        )
+        ET.SubElement(certs, "CertificatesRequired").text = format_decimal(
+            declaration.get("certificates_required")
+        )
+        ET.SubElement(certs, "EstimatedCostEUR").text = format_decimal(
+            declaration.get("estimated_cost_eur"), 2
+        )
 
         # Emissions by sector
         by_sector = ET.SubElement(root, "EmissionsBySector")
         for sector, data in (declaration.get("by_sector") or {}).items():
             sector_elem = ET.SubElement(by_sector, "Sector")
             ET.SubElement(sector_elem, "SectorCode").text = sector
-            ET.SubElement(sector_elem, "GrossEmissions").text = format_decimal(data.get("gross_emissions_tco2e"))
-            ET.SubElement(sector_elem, "NetEmissions").text = format_decimal(data.get("net_emissions_tco2e"))
-            ET.SubElement(sector_elem, "Certificates").text = format_decimal(data.get("certificates_required"))
+            ET.SubElement(sector_elem, "GrossEmissions").text = format_decimal(
+                data.get("gross_emissions_tco2e")
+            )
+            ET.SubElement(sector_elem, "NetEmissions").text = format_decimal(
+                data.get("net_emissions_tco2e")
+            )
+            ET.SubElement(sector_elem, "Certificates").text = format_decimal(
+                data.get("certificates_required")
+            )
 
         # Pretty print
         xml_str = ET.tostring(root, encoding="unicode")
@@ -235,43 +277,51 @@ class CBAMCSVExporter:
         writer = csv.writer(output)
 
         # Header
-        writer.writerow([
-            "Import ID",
-            "CN Code",
-            "Sector",
-            "Description",
-            "Import Date",
-            "Mass (tonnes)",
-            "Direct SEE (tCO2e/t)",
-            "Indirect SEE (tCO2e/t)",
-            "Total SEE (tCO2e/t)",
-            "Direct Emissions (tCO2e)",
-            "Indirect Emissions (tCO2e)",
-            "Total Emissions (tCO2e)",
-            "Calculation Method",
-            "Foreign Carbon Price (EUR)",
-            "Installation ID",
-        ])
+        writer.writerow(
+            [
+                "Import ID",
+                "CN Code",
+                "Sector",
+                "Description",
+                "Import Date",
+                "Mass (tonnes)",
+                "Direct SEE (tCO2e/t)",
+                "Indirect SEE (tCO2e/t)",
+                "Total SEE (tCO2e/t)",
+                "Direct Emissions (tCO2e)",
+                "Indirect Emissions (tCO2e)",
+                "Total Emissions (tCO2e)",
+                "Calculation Method",
+                "Foreign Carbon Price (EUR)",
+                "Installation ID",
+            ]
+        )
 
         # Data rows
         for imp in imports:
-            writer.writerow([
-                imp.get("id", ""),
-                imp.get("cn_code", ""),
-                imp.get("sector", ""),
-                imp.get("product_description", ""),
-                imp.get("import_date", ""),
-                format_decimal(imp.get("mass_tonnes")),
-                format_decimal(imp.get("direct_see")),
-                format_decimal(imp.get("indirect_see")),
-                format_decimal(imp.get("total_see")),
-                format_decimal(imp.get("direct_emissions_tco2e")),
-                format_decimal(imp.get("indirect_emissions_tco2e")),
-                format_decimal(imp.get("total_emissions_tco2e")),
-                imp.get("calculation_method", ""),
-                format_decimal(imp.get("foreign_carbon_price_eur"), 2) if imp.get("foreign_carbon_price_eur") else "",
-                imp.get("installation_id", ""),
-            ])
+            writer.writerow(
+                [
+                    imp.get("id", ""),
+                    imp.get("cn_code", ""),
+                    imp.get("sector", ""),
+                    imp.get("product_description", ""),
+                    imp.get("import_date", ""),
+                    format_decimal(imp.get("mass_tonnes")),
+                    format_decimal(imp.get("direct_see")),
+                    format_decimal(imp.get("indirect_see")),
+                    format_decimal(imp.get("total_see")),
+                    format_decimal(imp.get("direct_emissions_tco2e")),
+                    format_decimal(imp.get("indirect_emissions_tco2e")),
+                    format_decimal(imp.get("total_emissions_tco2e")),
+                    imp.get("calculation_method", ""),
+                    (
+                        format_decimal(imp.get("foreign_carbon_price_eur"), 2)
+                        if imp.get("foreign_carbon_price_eur")
+                        else ""
+                    ),
+                    imp.get("installation_id", ""),
+                ]
+            )
 
         return output.getvalue()
 
@@ -296,23 +346,41 @@ class CBAMCSVExporter:
         writer.writerow([])
 
         writer.writerow(["Total Imports", report.get("total_imports", 0)])
-        writer.writerow(["Total Mass (tonnes)", format_decimal(report.get("total_mass_tonnes"))])
-        writer.writerow(["Total Emissions (tCO2e)", format_decimal(report.get("total_emissions_tco2e"))])
+        writer.writerow(
+            ["Total Mass (tonnes)", format_decimal(report.get("total_mass_tonnes"))]
+        )
+        writer.writerow(
+            [
+                "Total Emissions (tCO2e)",
+                format_decimal(report.get("total_emissions_tco2e")),
+            ]
+        )
         writer.writerow([])
 
         # By sector
         writer.writerow(["Breakdown by Sector"])
-        writer.writerow(["Sector", "Import Count", "Mass (tonnes)", "Direct Emissions", "Indirect Emissions", "Total Emissions"])
+        writer.writerow(
+            [
+                "Sector",
+                "Import Count",
+                "Mass (tonnes)",
+                "Direct Emissions",
+                "Indirect Emissions",
+                "Total Emissions",
+            ]
+        )
 
         for sector, data in (report.get("by_sector") or {}).items():
-            writer.writerow([
-                sector,
-                data.get("import_count", 0),
-                format_decimal(data.get("mass_tonnes")),
-                format_decimal(data.get("direct_emissions_tco2e")),
-                format_decimal(data.get("indirect_emissions_tco2e")),
-                format_decimal(data.get("total_emissions_tco2e")),
-            ])
+            writer.writerow(
+                [
+                    sector,
+                    data.get("import_count", 0),
+                    format_decimal(data.get("mass_tonnes")),
+                    format_decimal(data.get("direct_emissions_tco2e")),
+                    format_decimal(data.get("indirect_emissions_tco2e")),
+                    format_decimal(data.get("total_emissions_tco2e")),
+                ]
+            )
 
         return output.getvalue()
 
@@ -358,7 +426,9 @@ class CBAMReportFormatter:
             "summary": {
                 "total_imports": report.get("total_imports", 0),
                 "total_mass_tonnes": float(report.get("total_mass_tonnes", 0)),
-                "total_embedded_emissions_tco2e": float(report.get("total_emissions_tco2e", 0)),
+                "total_embedded_emissions_tco2e": float(
+                    report.get("total_emissions_tco2e", 0)
+                ),
                 "direct_emissions_tco2e": sum(
                     float(imp.get("direct_emissions_tco2e", 0)) for imp in imports
                 ),
@@ -369,9 +439,15 @@ class CBAMReportFormatter:
             "emissions_by_sector": {
                 sector: {
                     "mass_tonnes": float(data.get("mass_tonnes", 0)),
-                    "direct_emissions_tco2e": float(data.get("direct_emissions_tco2e", 0)),
-                    "indirect_emissions_tco2e": float(data.get("indirect_emissions_tco2e", 0)),
-                    "total_emissions_tco2e": float(data.get("total_emissions_tco2e", 0)),
+                    "direct_emissions_tco2e": float(
+                        data.get("direct_emissions_tco2e", 0)
+                    ),
+                    "indirect_emissions_tco2e": float(
+                        data.get("indirect_emissions_tco2e", 0)
+                    ),
+                    "total_emissions_tco2e": float(
+                        data.get("total_emissions_tco2e", 0)
+                    ),
                     "import_count": data.get("import_count", 0),
                     "cn_codes": data.get("cn_codes", []),
                     "source_countries": data.get("countries", []),
@@ -381,7 +457,9 @@ class CBAMReportFormatter:
             "emissions_by_cn_code": {
                 cn: {
                     "mass_tonnes": float(data.get("mass_tonnes", 0)),
-                    "total_emissions_tco2e": float(data.get("total_emissions_tco2e", 0)),
+                    "total_emissions_tco2e": float(
+                        data.get("total_emissions_tco2e", 0)
+                    ),
                     "import_count": data.get("import_count", 0),
                     "source_countries": data.get("countries", []),
                 }
@@ -398,9 +476,15 @@ class CBAMReportFormatter:
                 for inst in installations
             ],
             "data_quality_notes": {
-                "calculation_methods_used": list(set(imp.get("calculation_method", "default") for imp in imports)),
-                "default_values_used": any(imp.get("calculation_method") == "default" for imp in imports),
-                "actual_values_available": any(imp.get("calculation_method") == "actual" for imp in imports),
+                "calculation_methods_used": list(
+                    set(imp.get("calculation_method", "default") for imp in imports)
+                ),
+                "default_values_used": any(
+                    imp.get("calculation_method") == "default" for imp in imports
+                ),
+                "actual_values_available": any(
+                    imp.get("calculation_method") == "actual" for imp in imports
+                ),
             },
             "submission_metadata": {
                 "generated_at": datetime.utcnow().isoformat(),

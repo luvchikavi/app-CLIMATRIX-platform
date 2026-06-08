@@ -1,8 +1,8 @@
 """
 Base Calculator Strategy - Abstract base for all calculation strategies.
 """
+
 from abc import ABC, abstractmethod
-from decimal import Decimal
 from typing import List
 
 from app.models.emission import EmissionFactor

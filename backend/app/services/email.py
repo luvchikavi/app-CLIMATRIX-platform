@@ -2,6 +2,7 @@
 Email service for transactional emails.
 Supports SMTP with TLS (SendGrid, Gmail, etc.)
 """
+
 import logging
 import smtplib
 from email.mime.text import MIMEText
@@ -50,7 +51,9 @@ class EmailService:
             True if email was sent successfully, False otherwise
         """
         if not self.is_configured:
-            logger.warning("Email not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASSWORD")
+            logger.warning(
+                "Email not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASSWORD"
+            )
             # In development, log the email content instead
             logger.info(f"[DEV] Would send email to {to_email}: {subject}")
             logger.info(f"[DEV] Content: {text_content or html_content[:500]}")
@@ -86,7 +89,9 @@ class EmailService:
             logger.error(f"Failed to send email to {to_email}: {e}")
             return False
 
-    def send_password_reset_email(self, to_email: str, reset_token: str, user_name: str) -> bool:
+    def send_password_reset_email(
+        self, to_email: str, reset_token: str, user_name: str
+    ) -> bool:
         """Send password reset email with reset link."""
         reset_url = f"{settings.frontend_url}/reset-password?token={reset_token}"
 
@@ -222,7 +227,9 @@ class EmailService:
         inviter_name: str,
     ) -> bool:
         """Send invitation email to join an organization."""
-        invite_url = f"{settings.frontend_url}/accept-invitation?token={invitation_token}"
+        invite_url = (
+            f"{settings.frontend_url}/accept-invitation?token={invitation_token}"
+        )
 
         subject = f"You're invited to join {organization_name} on CLIMATRIX"
 

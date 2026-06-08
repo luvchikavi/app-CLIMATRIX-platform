@@ -5,6 +5,7 @@ Handles: Natural gas, diesel, petrol, LPG, coal, vehicle fuels.
 Formula: quantity × factor
 WTT: Automatically tracked for Scope 3.3
 """
+
 from app.models.emission import EmissionFactor
 from app.services.calculation.normalizer import NormalizedQuantity
 from app.services.calculation.result import CalculationResult

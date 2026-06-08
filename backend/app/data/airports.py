@@ -5,7 +5,7 @@ Source: OpenFlights.org + Manual Verification
 Contains 200+ major airports worldwide with coordinates for accurate
 great-circle distance calculations.
 """
-from decimal import Decimal
+
 from math import radians, sin, cos, sqrt, atan2
 from typing import Optional, Tuple
 
@@ -18,7 +18,13 @@ AIRPORTS: dict[str, Tuple[str, str, str, float, float]] = {
     # ==========================================================================
     # NORTH AMERICA - United States
     # ==========================================================================
-    "ATL": ("Hartsfield-Jackson Atlanta International", "Atlanta", "US", 33.6407, -84.4277),
+    "ATL": (
+        "Hartsfield-Jackson Atlanta International",
+        "Atlanta",
+        "US",
+        33.6407,
+        -84.4277,
+    ),
     "LAX": ("Los Angeles International", "Los Angeles", "US", 33.9425, -118.4081),
     "ORD": ("O'Hare International", "Chicago", "US", 41.9742, -87.9073),
     "DFW": ("Dallas/Fort Worth International", "Dallas", "US", 32.8998, -97.0403),
@@ -33,9 +39,21 @@ AIRPORTS: dict[str, Tuple[str, str, str, float, float]] = {
     "PHX": ("Phoenix Sky Harbor International", "Phoenix", "US", 33.4373, -112.0078),
     "IAH": ("George Bush Intercontinental", "Houston", "US", 29.9902, -95.3368),
     "BOS": ("Boston Logan International", "Boston", "US", 42.3656, -71.0096),
-    "MSP": ("Minneapolis-St Paul International", "Minneapolis", "US", 44.8848, -93.2223),
+    "MSP": (
+        "Minneapolis-St Paul International",
+        "Minneapolis",
+        "US",
+        44.8848,
+        -93.2223,
+    ),
     "DTW": ("Detroit Metropolitan Wayne County", "Detroit", "US", 42.2162, -83.3554),
-    "FLL": ("Fort Lauderdale-Hollywood International", "Fort Lauderdale", "US", 26.0742, -80.1506),
+    "FLL": (
+        "Fort Lauderdale-Hollywood International",
+        "Fort Lauderdale",
+        "US",
+        26.0742,
+        -80.1506,
+    ),
     "PHL": ("Philadelphia International", "Philadelphia", "US", 39.8729, -75.2437),
     "LGA": ("LaGuardia", "New York", "US", 40.7769, -73.8740),
     "BWI": ("Baltimore/Washington International", "Baltimore", "US", 39.1774, -76.6684),
@@ -48,17 +66,27 @@ AIRPORTS: dict[str, Tuple[str, str, str, float, float]] = {
     "HNL": ("Daniel K. Inouye International", "Honolulu", "US", 21.3187, -157.9225),
     "AUS": ("Austin-Bergstrom International", "Austin", "US", 30.1975, -97.6664),
     "RDU": ("Raleigh-Durham International", "Raleigh", "US", 35.8776, -78.7875),
-
     # ==========================================================================
     # NORTH AMERICA - Canada
     # ==========================================================================
     "YYZ": ("Toronto Pearson International", "Toronto", "CA", 43.6777, -79.6248),
     "YVR": ("Vancouver International", "Vancouver", "CA", 49.1947, -123.1792),
-    "YUL": ("Montréal-Pierre Elliott Trudeau International", "Montreal", "CA", 45.4706, -73.7408),
+    "YUL": (
+        "Montréal-Pierre Elliott Trudeau International",
+        "Montreal",
+        "CA",
+        45.4706,
+        -73.7408,
+    ),
     "YYC": ("Calgary International", "Calgary", "CA", 51.1215, -114.0076),
     "YEG": ("Edmonton International", "Edmonton", "CA", 53.3097, -113.5792),
-    "YOW": ("Ottawa Macdonald-Cartier International", "Ottawa", "CA", 45.3225, -75.6692),
-
+    "YOW": (
+        "Ottawa Macdonald-Cartier International",
+        "Ottawa",
+        "CA",
+        45.3225,
+        -75.6692,
+    ),
     # ==========================================================================
     # EUROPE - United Kingdom
     # ==========================================================================
@@ -72,7 +100,6 @@ AIRPORTS: dict[str, Tuple[str, str, str, float, float]] = {
     "GLA": ("Glasgow", "Glasgow", "GB", 55.8642, -4.4331),
     "BRS": ("Bristol", "Bristol", "GB", 51.3827, -2.7190),
     "NCL": ("Newcastle", "Newcastle", "GB", 55.0375, -1.6917),
-
     # ==========================================================================
     # EUROPE - Germany
     # ==========================================================================
@@ -83,7 +110,6 @@ AIRPORTS: dict[str, Tuple[str, str, str, float, float]] = {
     "HAM": ("Hamburg", "Hamburg", "DE", 53.6304, 10.0065),
     "CGN": ("Cologne Bonn", "Cologne", "DE", 50.8659, 7.1427),
     "STR": ("Stuttgart", "Stuttgart", "DE", 48.6899, 9.2220),
-
     # ==========================================================================
     # EUROPE - France
     # ==========================================================================
@@ -93,7 +119,6 @@ AIRPORTS: dict[str, Tuple[str, str, str, float, float]] = {
     "LYS": ("Lyon-Saint Exupéry", "Lyon", "FR", 45.7256, 5.0811),
     "MRS": ("Marseille Provence", "Marseille", "FR", 43.4393, 5.2214),
     "TLS": ("Toulouse-Blagnac", "Toulouse", "FR", 43.6291, 1.3638),
-
     # ==========================================================================
     # EUROPE - Spain
     # ==========================================================================
@@ -102,7 +127,6 @@ AIRPORTS: dict[str, Tuple[str, str, str, float, float]] = {
     "PMI": ("Palma de Mallorca", "Palma", "ES", 39.5517, 2.7388),
     "AGP": ("Málaga-Costa del Sol", "Málaga", "ES", 36.6749, -4.4991),
     "ALC": ("Alicante-Elche", "Alicante", "ES", 38.2822, -0.5582),
-
     # ==========================================================================
     # EUROPE - Italy
     # ==========================================================================
@@ -112,13 +136,11 @@ AIRPORTS: dict[str, Tuple[str, str, str, float, float]] = {
     "VCE": ("Venice Marco Polo", "Venice", "IT", 45.5053, 12.3519),
     "NAP": ("Naples International", "Naples", "IT", 40.8860, 14.2908),
     "BGY": ("Milan Bergamo", "Bergamo", "IT", 45.6739, 9.7042),
-
     # ==========================================================================
     # EUROPE - Netherlands
     # ==========================================================================
     "AMS": ("Amsterdam Schiphol", "Amsterdam", "NL", 52.3105, 4.7683),
     "RTM": ("Rotterdam The Hague", "Rotterdam", "NL", 51.9569, 4.4372),
-
     # ==========================================================================
     # EUROPE - Other
     # ==========================================================================
@@ -136,7 +158,6 @@ AIRPORTS: dict[str, Tuple[str, str, str, float, float]] = {
     "PRG": ("Václav Havel Prague", "Prague", "CZ", 50.1008, 14.2600),
     "WAW": ("Warsaw Chopin", "Warsaw", "PL", 52.1657, 20.9671),
     "BUD": ("Budapest Ferenc Liszt", "Budapest", "HU", 47.4298, 19.2611),
-
     # ==========================================================================
     # MIDDLE EAST
     # ==========================================================================
@@ -154,7 +175,6 @@ AIRPORTS: dict[str, Tuple[str, str, str, float, float]] = {
     "IST": ("Istanbul Airport", "Istanbul", "TR", 41.2753, 28.7519),
     "SAW": ("Istanbul Sabiha Gökçen", "Istanbul", "TR", 40.8986, 29.3092),
     "TBS": ("Tbilisi International", "Tbilisi", "GE", 41.6692, 44.9547),
-
     # ==========================================================================
     # ASIA - East Asia
     # ==========================================================================
@@ -171,7 +191,6 @@ AIRPORTS: dict[str, Tuple[str, str, str, float, float]] = {
     "CAN": ("Guangzhou Baiyun", "Guangzhou", "CN", 23.3924, 113.2988),
     "SZX": ("Shenzhen Bao'an", "Shenzhen", "CN", 22.6393, 113.8129),
     "TPE": ("Taiwan Taoyuan", "Taipei", "TW", 25.0797, 121.2342),
-
     # ==========================================================================
     # ASIA - Southeast Asia
     # ==========================================================================
@@ -183,18 +202,28 @@ AIRPORTS: dict[str, Tuple[str, str, str, float, float]] = {
     "MNL": ("Ninoy Aquino International", "Manila", "PH", 14.5086, 121.0197),
     "SGN": ("Tan Son Nhat International", "Ho Chi Minh City", "VN", 10.8188, 106.6519),
     "HAN": ("Noi Bai International", "Hanoi", "VN", 21.2212, 105.8072),
-
     # ==========================================================================
     # ASIA - South Asia
     # ==========================================================================
     "DEL": ("Indira Gandhi International", "Delhi", "IN", 28.5562, 77.1000),
-    "BOM": ("Chhatrapati Shivaji Maharaj International", "Mumbai", "IN", 19.0896, 72.8656),
+    "BOM": (
+        "Chhatrapati Shivaji Maharaj International",
+        "Mumbai",
+        "IN",
+        19.0896,
+        72.8656,
+    ),
     "BLR": ("Kempegowda International", "Bangalore", "IN", 13.1986, 77.7066),
     "MAA": ("Chennai International", "Chennai", "IN", 12.9941, 80.1709),
-    "CCU": ("Netaji Subhash Chandra Bose International", "Kolkata", "IN", 22.6520, 88.4463),
+    "CCU": (
+        "Netaji Subhash Chandra Bose International",
+        "Kolkata",
+        "IN",
+        22.6520,
+        88.4463,
+    ),
     "HYD": ("Rajiv Gandhi International", "Hyderabad", "IN", 17.2403, 78.4294),
     "CMB": ("Bandaranaike International", "Colombo", "LK", 7.1808, 79.8841),
-
     # ==========================================================================
     # OCEANIA
     # ==========================================================================
@@ -205,7 +234,6 @@ AIRPORTS: dict[str, Tuple[str, str, str, float, float]] = {
     "AKL": ("Auckland", "Auckland", "NZ", -37.0082, 174.7850),
     "WLG": ("Wellington", "Wellington", "NZ", -41.3272, 174.8052),
     "CHC": ("Christchurch", "Christchurch", "NZ", -43.4864, 172.5369),
-
     # ==========================================================================
     # SOUTH AMERICA
     # ==========================================================================
@@ -219,7 +247,6 @@ AIRPORTS: dict[str, Tuple[str, str, str, float, float]] = {
     "CUN": ("Cancún International", "Cancún", "MX", 21.0365, -86.8771),
     "GDL": ("Guadalajara International", "Guadalajara", "MX", 20.5218, -103.3111),
     "PTY": ("Tocumen International", "Panama City", "PA", 9.0714, -79.3835),
-
     # ==========================================================================
     # AFRICA
     # ==========================================================================
@@ -294,8 +321,7 @@ def calculate_flight_distance(origin: str, destination: str) -> Optional[float]:
         return None
 
     return haversine_distance(
-        origin_data[3], origin_data[4],
-        dest_data[3], dest_data[4]
+        origin_data[3], origin_data[4], dest_data[3], dest_data[4]
     )
 
 
@@ -303,7 +329,9 @@ def calculate_flight_distance(origin: str, destination: str) -> Optional[float]:
 ISRAEL_AIRPORTS = {"TLV", "ETM", "VDA", "HFA", "SDV"}
 
 
-def classify_flight_distance(distance_km: float, origin: str = None, destination: str = None) -> str:
+def classify_flight_distance(
+    distance_km: float, origin: str = None, destination: str = None
+) -> str:
     """
     Classify flight distance as domestic, short, medium, or long haul.
 
@@ -353,7 +381,9 @@ def classify_flight_distance(distance_km: float, origin: str = None, destination
         return "long"
 
 
-def get_flight_emission_key(origin: str, destination: str, cabin_class: str = "economy") -> Optional[str]:
+def get_flight_emission_key(
+    origin: str, destination: str, cabin_class: str = "economy"
+) -> Optional[str]:
     """
     Get the appropriate emission factor activity key for a flight route.
 
@@ -397,17 +427,17 @@ def search_airports(query: str, limit: int = 10) -> list[dict]:
     results = []
 
     for code, (name, city, country, lat, lon) in AIRPORTS.items():
-        if (query in code or
-            query in name.upper() or
-            query in city.upper()):
-            results.append({
-                "iata_code": code,
-                "name": name,
-                "city": city,
-                "country": country,
-                "latitude": lat,
-                "longitude": lon,
-            })
+        if query in code or query in name.upper() or query in city.upper():
+            results.append(
+                {
+                    "iata_code": code,
+                    "name": name,
+                    "city": city,
+                    "country": country,
+                    "latitude": lat,
+                    "longitude": lon,
+                }
+            )
             if len(results) >= limit:
                 break
 
@@ -417,6 +447,7 @@ def search_airports(query: str, limit: int = 10) -> list[dict]:
 # =============================================================================
 # AIRPORT STATISTICS
 # =============================================================================
+
 
 def get_airport_stats() -> dict:
     """Get statistics about the airport database."""
@@ -435,13 +466,19 @@ def get_airport_stats() -> dict:
 if __name__ == "__main__":
     # Test distance calculation
     tlv_to_lhr = calculate_flight_distance("TLV", "LHR")
-    print(f"TLV → LHR: {tlv_to_lhr:.0f} km ({classify_flight_distance(tlv_to_lhr)} haul)")
+    print(
+        f"TLV → LHR: {tlv_to_lhr:.0f} km ({classify_flight_distance(tlv_to_lhr)} haul)"
+    )
 
     jfk_to_lax = calculate_flight_distance("JFK", "LAX")
-    print(f"JFK → LAX: {jfk_to_lax:.0f} km ({classify_flight_distance(jfk_to_lax)} haul)")
+    print(
+        f"JFK → LAX: {jfk_to_lax:.0f} km ({classify_flight_distance(jfk_to_lax)} haul)"
+    )
 
     lhr_to_syd = calculate_flight_distance("LHR", "SYD")
-    print(f"LHR → SYD: {lhr_to_syd:.0f} km ({classify_flight_distance(lhr_to_syd)} haul)")
+    print(
+        f"LHR → SYD: {lhr_to_syd:.0f} km ({classify_flight_distance(lhr_to_syd)} haul)"
+    )
 
     # Test search
     print("\nSearch for 'london':")
@@ -450,14 +487,22 @@ if __name__ == "__main__":
 
     # Test Israel flight classification
     tlv_to_etm = calculate_flight_distance("TLV", "ETM")
-    print(f"\nTLV → ETM: {tlv_to_etm:.0f} km ({classify_flight_distance(tlv_to_etm, 'TLV', 'ETM')} haul)")
+    print(
+        f"\nTLV → ETM: {tlv_to_etm:.0f} km ({classify_flight_distance(tlv_to_etm, 'TLV', 'ETM')} haul)"
+    )
 
     tlv_to_lhr_haul = classify_flight_distance(tlv_to_lhr, "TLV", "LHR")
-    print(f"TLV → LHR: {tlv_to_lhr:.0f} km ({tlv_to_lhr_haul} haul - Israel international = always long)")
+    print(
+        f"TLV → LHR: {tlv_to_lhr:.0f} km ({tlv_to_lhr_haul} haul - Israel international = always long)"
+    )
 
     lhr_to_cdg = calculate_flight_distance("LHR", "CDG")
-    print(f"LHR → CDG: {lhr_to_cdg:.0f} km ({classify_flight_distance(lhr_to_cdg, 'LHR', 'CDG')} haul)")
+    print(
+        f"LHR → CDG: {lhr_to_cdg:.0f} km ({classify_flight_distance(lhr_to_cdg, 'LHR', 'CDG')} haul)"
+    )
 
     # Stats
     stats = get_airport_stats()
-    print(f"\nDatabase: {stats['total_airports']} airports in {stats['countries_covered']} countries")
+    print(
+        f"\nDatabase: {stats['total_airports']} airports in {stats['countries_covered']} countries"
+    )

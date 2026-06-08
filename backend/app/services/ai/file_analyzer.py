@@ -11,7 +11,7 @@ Analyzes uploaded files to detect:
 
 import pandas as pd
 import io
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -26,6 +26,7 @@ class FileType(str, Enum):
 @dataclass
 class SheetAnalysis:
     """Analysis result for a single sheet"""
+
     sheet_name: str
     header_row: int  # 0-indexed
     data_start_row: int  # 0-indexed
@@ -43,6 +44,7 @@ class SheetAnalysis:
 @dataclass
 class FileAnalysis:
     """Complete file analysis result"""
+
     file_type: FileType
     file_name: str
     sheets: List[SheetAnalysis]
@@ -61,45 +63,129 @@ class FileAnalyzer:
 
     # Keywords that indicate a header row
     HEADER_KEYWORDS = [
-        'date', 'month', 'year', 'period', 'description', 'quantity', 'amount',
-        'unit', 'type', 'category', 'scope', 'site', 'location', 'country',
-        'fuel', 'electricity', 'gas', 'diesel', 'consumption', 'emission',
-        'co2', 'kg', 'kwh', 'liters', 'tonnes', 'km', 'flights', 'waste',
+        "date",
+        "month",
+        "year",
+        "period",
+        "description",
+        "quantity",
+        "amount",
+        "unit",
+        "type",
+        "category",
+        "scope",
+        "site",
+        "location",
+        "country",
+        "fuel",
+        "electricity",
+        "gas",
+        "diesel",
+        "consumption",
+        "emission",
+        "co2",
+        "kg",
+        "kwh",
+        "liters",
+        "tonnes",
+        "km",
+        "flights",
+        "waste",
         # Hebrew keywords
-        'תאריך', 'חודש', 'שנה', 'תיאור', 'כמות', 'יחידה', 'סוג', 'קטגוריה',
-        'אתר', 'מיקום', 'מדינה', 'דלק', 'חשמל', 'גז', 'סולר', 'צריכה',
+        "תאריך",
+        "חודש",
+        "שנה",
+        "תיאור",
+        "כמות",
+        "יחידה",
+        "סוג",
+        "קטגוריה",
+        "אתר",
+        "מיקום",
+        "מדינה",
+        "דלק",
+        "חשמל",
+        "גז",
+        "סולר",
+        "צריכה",
     ]
 
     # Sheet names that typically don't contain data
     METADATA_SHEET_NAMES = [
-        'intro', 'introduction', 'instructions', 'help', 'readme',
-        'totals', 'summary', 'overview', 'contents', 'index',
-        'template', 'example', 'sample', 'notes', 'definitions',
+        "intro",
+        "introduction",
+        "instructions",
+        "help",
+        "readme",
+        "totals",
+        "summary",
+        "overview",
+        "contents",
+        "index",
+        "template",
+        "example",
+        "sample",
+        "notes",
+        "definitions",
     ]
 
     # Patterns to detect scope from sheet names
     SCOPE_PATTERNS = {
-        1: ['scope 1', 'scope1', '1-', '1 -', 'mobile', 'combustion', 'fugitive', 'refrigerant'],
-        2: ['scope 2', 'scope2', '2-', '2 -', 'electricity', 'heat', 'steam', 'cooling'],
-        3: ['scope 3', 'scope3', '3-', '3 -', 'cat.', 'cat ', 'category', 'upstream', 'downstream',
-            'waste', 'travel', 'commut', 'freight', 'transport', 'purchased', 'capital'],
+        1: [
+            "scope 1",
+            "scope1",
+            "1-",
+            "1 -",
+            "mobile",
+            "combustion",
+            "fugitive",
+            "refrigerant",
+        ],
+        2: [
+            "scope 2",
+            "scope2",
+            "2-",
+            "2 -",
+            "electricity",
+            "heat",
+            "steam",
+            "cooling",
+        ],
+        3: [
+            "scope 3",
+            "scope3",
+            "3-",
+            "3 -",
+            "cat.",
+            "cat ",
+            "category",
+            "upstream",
+            "downstream",
+            "waste",
+            "travel",
+            "commut",
+            "freight",
+            "transport",
+            "purchased",
+            "capital",
+        ],
     }
 
     # Category patterns
     CATEGORY_PATTERNS = {
-        '1.1': ['stationary', 'combustion', 'fuel', 'boiler', 'heating'],
-        '1.2': ['mobile', 'vehicle', 'fleet', 'car', 'truck', 'van'],
-        '1.3': ['fugitive', 'refrigerant', 'leak', 'r-', 'r134', 'r410', 'ac', 'hvac'],
-        '2': ['electricity', 'power', 'grid', 'kwh'],
-        '3.1': ['purchased good', 'goods & service', 'procurement', 'supplier'],
-        '3.2': ['capital good', 'capital equipment', 'asset'],
-        '3.3': ['fuel and energy', 'wtt', 'well-to-tank', 't&d'],
-        '3.4': ['upstream transport', 'upstream dist', 'inbound'],
-        '3.5': ['waste', 'disposal', 'landfill', 'recycl'],
-        '3.6': ['business travel', 'flight', 'hotel', 'air travel'],
-        '3.7': ['commut', 'employee travel', 'staff travel', 'telework'],
-        '3.9': ['downstream transport', 'downstream dist', 'outbound', 'delivery'],
-        '3.12': ['end of life', 'end-of-life', 'eol', 'product disposal'],
+        "1.1": ["stationary", "combustion", "fuel", "boiler", "heating"],
+        "1.2": ["mobile", "vehicle", "fleet", "car", "truck", "van"],
+        "1.3": ["fugitive", "refrigerant", "leak", "r-", "r134", "r410", "ac", "hvac"],
+        "2": ["electricity", "power", "grid", "kwh"],
+        "3.1": ["purchased good", "goods & service", "procurement", "supplier"],
+        "3.2": ["capital good", "capital equipment", "asset"],
+        "3.3": ["fuel and energy", "wtt", "well-to-tank", "t&d"],
+        "3.4": ["upstream transport", "upstream dist", "inbound"],
+        "3.5": ["waste", "disposal", "landfill", "recycl"],
+        "3.6": ["business travel", "flight", "hotel", "air travel"],
+        "3.7": ["commut", "employee travel", "staff travel", "telework"],
+        "3.9": ["downstream transport", "downstream dist", "outbound", "delivery"],
+        "3.12": ["end of life", "end-of-life", "eol", "product disposal"],
     }
 
     def analyze(self, file_content: bytes, filename: str) -> FileAnalysis:
@@ -127,15 +213,15 @@ class FileAnalyzer:
                 total_sheets=0,
                 data_sheets=0,
                 estimated_total_rows=0,
-                errors=[f"Unknown file type: {filename}"]
+                errors=[f"Unknown file type: {filename}"],
             )
 
     def _detect_file_type(self, filename: str) -> FileType:
         """Detect file type from filename extension"""
         lower_name = filename.lower()
-        if lower_name.endswith('.csv'):
+        if lower_name.endswith(".csv"):
             return FileType.CSV
-        elif lower_name.endswith(('.xlsx', '.xls', '.xlsm')):
+        elif lower_name.endswith((".xlsx", ".xls", ".xlsm")):
             return FileType.EXCEL_MULTI  # Will be refined after reading
         return FileType.UNKNOWN
 
@@ -143,14 +229,14 @@ class FileAnalyzer:
         """Analyze a CSV file"""
         try:
             # Try different encodings
-            for encoding in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+            for encoding in ["utf-8", "utf-8-sig", "latin-1", "cp1252"]:
                 try:
                     content = file_content.decode(encoding)
                     break
                 except UnicodeDecodeError:
                     continue
             else:
-                content = file_content.decode('utf-8', errors='replace')
+                content = file_content.decode("utf-8", errors="replace")
 
             # Read CSV with pandas
             df = pd.read_csv(io.StringIO(content), header=None, nrows=100)
@@ -169,7 +255,7 @@ class FileAnalyzer:
                 total_rows=len(df_full),
                 columns=list(df_full.columns),
                 column_types=self._detect_column_types(df_full),
-                sample_data=df_full.head(5).to_dict('records'),
+                sample_data=df_full.head(5).to_dict("records"),
                 is_empty=len(df_full) == 0,
             )
 
@@ -190,7 +276,7 @@ class FileAnalyzer:
                 total_sheets=0,
                 data_sheets=0,
                 estimated_total_rows=0,
-                errors=[f"Failed to parse CSV: {str(e)}"]
+                errors=[f"Failed to parse CSV: {str(e)}"],
             )
 
     def _analyze_excel(self, file_content: bytes, filename: str) -> FileAnalysis:
@@ -208,14 +294,21 @@ class FileAnalyzer:
                     sheet_analysis = self._analyze_sheet(xl, sheet_name)
                     sheets.append(sheet_analysis)
 
-                    if not sheet_analysis.is_empty and not sheet_analysis.is_metadata_only:
+                    if (
+                        not sheet_analysis.is_empty
+                        and not sheet_analysis.is_metadata_only
+                    ):
                         total_data_rows += sheet_analysis.total_rows
                 except Exception as e:
                     warnings.append(f"Failed to analyze sheet '{sheet_name}': {str(e)}")
 
             # Determine if single or multi sheet
-            data_sheets = [s for s in sheets if not s.is_empty and not s.is_metadata_only]
-            file_type = FileType.EXCEL_SINGLE if len(data_sheets) <= 1 else FileType.EXCEL_MULTI
+            data_sheets = [
+                s for s in sheets if not s.is_empty and not s.is_metadata_only
+            ]
+            file_type = (
+                FileType.EXCEL_SINGLE if len(data_sheets) <= 1 else FileType.EXCEL_MULTI
+            )
 
             return FileAnalysis(
                 file_type=file_type,
@@ -235,7 +328,7 @@ class FileAnalyzer:
                 total_sheets=0,
                 data_sheets=0,
                 estimated_total_rows=0,
-                errors=[f"Failed to parse Excel: {str(e)}"]
+                errors=[f"Failed to parse Excel: {str(e)}"],
             )
 
     def _analyze_sheet(self, xl: pd.ExcelFile, sheet_name: str) -> SheetAnalysis:
@@ -267,10 +360,10 @@ class FileAnalyzer:
         df = pd.read_excel(xl, sheet_name=sheet_name, header=header_row)
 
         # Clean empty rows
-        df = df.dropna(how='all')
+        df = df.dropna(how="all")
 
         # Remove rows that are all empty strings
-        df = df[~df.apply(lambda row: all(str(v).strip() == '' for v in row), axis=1)]
+        df = df[~df.apply(lambda row: all(str(v).strip() == "" for v in row), axis=1)]
 
         # Detect scope and category from sheet name
         detected_scope = self._detect_scope_from_name(sheet_name)
@@ -282,9 +375,9 @@ class FileAnalyzer:
             data_start_row=header_row + 1,
             data_end_row=header_row + 1 + len(df),
             total_rows=len(df),
-            columns=[str(c) for c in df.columns if not str(c).startswith('Unnamed')],
+            columns=[str(c) for c in df.columns if not str(c).startswith("Unnamed")],
             column_types=self._detect_column_types(df),
-            sample_data=df.head(5).to_dict('records'),
+            sample_data=df.head(5).to_dict("records"),
             is_empty=len(df) == 0,
             is_metadata_only=False,
             detected_scope=detected_scope,
@@ -309,19 +402,23 @@ class FileAnalyzer:
                 continue
 
             # Check for header keywords
-            row_text = ' '.join(str(v).lower() for v in row if pd.notna(v))
+            row_text = " ".join(str(v).lower() for v in row if pd.notna(v))
             for keyword in self.HEADER_KEYWORDS:
                 if keyword in row_text:
                     score += 10
 
             # Headers typically have string values
-            string_count = sum(1 for v in row if pd.notna(v) and isinstance(v, str) and len(str(v)) > 1)
+            string_count = sum(
+                1 for v in row if pd.notna(v) and isinstance(v, str) and len(str(v)) > 1
+            )
             score += string_count * 2
 
             # Check if next row has numeric data (indicates this is header)
             if idx + 1 < len(df):
                 next_row = df.iloc[idx + 1]
-                numeric_count = sum(1 for v in next_row if pd.notna(v) and self._is_numeric(v))
+                numeric_count = sum(
+                    1 for v in next_row if pd.notna(v) and self._is_numeric(v)
+                )
                 score += numeric_count * 3
 
             # Penalize rows with mostly numbers (likely data, not header)
@@ -339,7 +436,7 @@ class FileAnalyzer:
         if isinstance(value, (int, float)):
             return True
         try:
-            float(str(value).replace(',', ''))
+            float(str(value).replace(",", ""))
             return True
         except (ValueError, TypeError):
             return False
@@ -383,7 +480,8 @@ class FileAnalyzer:
 
         # Check for explicit category number (e.g., "Cat. 4", "Cat.5")
         import re
-        cat_match = re.search(r'cat\.?\s*(\d+)', name_lower)
+
+        cat_match = re.search(r"cat\.?\s*(\d+)", name_lower)
         if cat_match:
             cat_num = int(cat_match.group(1))
             return f"3.{cat_num}"
@@ -399,28 +497,29 @@ class FileAnalyzer:
         """Detect the data type of each column"""
         types = {}
         for col in df.columns:
-            if str(col).startswith('Unnamed'):
+            if str(col).startswith("Unnamed"):
                 continue
 
             sample = df[col].dropna().head(10)
             if sample.empty:
-                types[str(col)] = 'empty'
+                types[str(col)] = "empty"
             elif all(self._is_numeric(v) for v in sample):
-                types[str(col)] = 'numeric'
+                types[str(col)] = "numeric"
             elif all(isinstance(v, str) and self._looks_like_date(v) for v in sample):
-                types[str(col)] = 'date'
+                types[str(col)] = "date"
             else:
-                types[str(col)] = 'text'
+                types[str(col)] = "text"
         return types
 
     def _looks_like_date(self, value: str) -> bool:
         """Check if a string looks like a date"""
         import re
+
         date_patterns = [
-            r'\d{4}-\d{2}-\d{2}',  # 2024-01-15
-            r'\d{2}/\d{2}/\d{4}',  # 15/01/2024
-            r'\d{2}-\d{2}-\d{4}',  # 15-01-2024
-            r'(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)',  # Month names
+            r"\d{4}-\d{2}-\d{2}",  # 2024-01-15
+            r"\d{2}/\d{2}/\d{4}",  # 15/01/2024
+            r"\d{2}-\d{2}-\d{4}",  # 15-01-2024
+            r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",  # Month names
         ]
         value_lower = str(value).lower()
         return any(re.search(p, value_lower) for p in date_patterns)

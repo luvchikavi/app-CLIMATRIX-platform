@@ -1,6 +1,7 @@
 """
 Pytest configuration and fixtures for CLIMATRIX tests.
 """
+
 import pytest
 from typing import AsyncGenerator
 from uuid import uuid4
@@ -11,9 +12,7 @@ from sqlmodel import SQLModel
 
 from app.main import app
 from app.database import get_session
-from app.config import settings
 from app.api.auth import get_password_hash
-
 
 # Use in-memory SQLite for tests
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"

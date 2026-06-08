@@ -2,6 +2,7 @@
 Decarbonization Pathways Service.
 Analyzes client's emission profile and generates personalized recommendations.
 """
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
@@ -11,14 +12,13 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.core import Organization, ReportingPeriod, Site
-from app.models.emission import Activity, Emission, EmissionFactor
+from app.models.core import ReportingPeriod, Site
+from app.models.emission import Activity, Emission
 from app.models.decarbonization import (
     DecarbonizationTarget,
     Initiative,
     Scenario,
     ScenarioInitiative,
-    RoadmapMilestone,
     EmissionCheckpoint,
     EmissionSource,
     EmissionProfileAnalysis,
@@ -26,7 +26,6 @@ from app.models.decarbonization import (
     InitiativeCategory,
     TargetFramework,
 )
-
 
 # ============================================================================
 # ACTIVITY KEY DISPLAY NAMES
@@ -39,24 +38,20 @@ ACTIVITY_KEY_DISPLAY_NAMES = {
     "diesel_stationary": "Diesel (Stationary)",
     "lpg_volume": "LPG",
     "fuel_oil_volume": "Fuel Oil",
-
     # Scope 1 - Mobile Combustion
     "diesel_volume": "Fleet Diesel",
     "petrol_volume": "Fleet Petrol/Gasoline",
     "company_car_km": "Company Vehicles (Distance)",
-
     # Scope 1 - Fugitive
     "refrigerant_r134a": "Refrigerant R-134a",
     "refrigerant_r410a": "Refrigerant R-410A",
     "refrigerant_r32": "Refrigerant R-32",
-
     # Scope 2
     "electricity_kwh": "Purchased Electricity",
     "electricity_renewable": "Renewable Electricity",
     "steam_kwh": "Purchased Steam",
     "heating_kwh": "District Heating",
     "cooling_kwh": "District Cooling",
-
     # Scope 3.1 - Purchased Goods
     "purchased_goods_plastic": "Purchased Plastics",
     "purchased_goods_steel": "Purchased Steel",
@@ -66,13 +61,11 @@ ACTIVITY_KEY_DISPLAY_NAMES = {
     "purchased_goods_electronics": "Purchased Electronics",
     "purchased_goods_textiles": "Purchased Textiles",
     "purchased_services_spend": "Purchased Services (Spend)",
-
     # Scope 3.3 - Fuel & Energy
     "wtt_electricity": "Well-to-Tank (Electricity)",
     "wtt_natural_gas": "Well-to-Tank (Natural Gas)",
     "wtt_diesel": "Well-to-Tank (Diesel)",
     "td_losses": "T&D Losses",
-
     # Scope 3.4 - Upstream Transport
     "upstream_transport_road": "Upstream Transport (Road)",
     "upstream_transport_sea": "Upstream Transport (Sea)",
@@ -81,14 +74,12 @@ ACTIVITY_KEY_DISPLAY_NAMES = {
     "truck_freight_tkm": "Truck Freight",
     "sea_freight_tkm": "Sea Freight",
     "air_freight_tkm": "Air Freight",
-
     # Scope 3.5 - Waste
     "waste_landfill_mixed": "Waste to Landfill (Mixed)",
     "waste_landfill_organic": "Waste to Landfill (Organic)",
     "waste_recycling": "Waste Recycling",
     "waste_incineration": "Waste Incineration",
     "waste_composting": "Waste Composting",
-
     # Scope 3.6 - Business Travel
     "flight_economy_km": "Flights (Economy)",
     "flight_business_km": "Flights (Business)",
@@ -97,13 +88,11 @@ ACTIVITY_KEY_DISPLAY_NAMES = {
     "rail_km": "Rail Travel",
     "rental_car_km": "Rental Cars",
     "taxi_km": "Taxi/Rideshare",
-
     # Scope 3.7 - Employee Commuting
     "commute_car_km": "Employee Commute (Car)",
     "commute_public_transit": "Employee Commute (Public Transit)",
     "commute_cycling": "Employee Commute (Cycling)",
     "remote_work_days": "Remote Work",
-
     # Scope 3.9 - Downstream Transport
     "downstream_transport_road": "Downstream Transport (Road)",
     "downstream_transport_sea": "Downstream Transport (Sea)",
@@ -112,12 +101,15 @@ ACTIVITY_KEY_DISPLAY_NAMES = {
 
 def get_activity_display_name(activity_key: str) -> str:
     """Get human-readable display name for an activity key."""
-    return ACTIVITY_KEY_DISPLAY_NAMES.get(activity_key, activity_key.replace("_", " ").title())
+    return ACTIVITY_KEY_DISPLAY_NAMES.get(
+        activity_key, activity_key.replace("_", " ").title()
+    )
 
 
 # ============================================================================
 # EMISSION PROFILE ANALYSIS SERVICE
 # ============================================================================
+
 
 class EmissionProfileService:
     """Service for analyzing organization's emission profile."""
@@ -181,7 +173,9 @@ class EmissionProfileService:
         total_co2e_kg = Decimal("0")
         scope_totals = {1: Decimal("0"), 2: Decimal("0"), 3: Decimal("0")}
         by_category: dict[str, Decimal] = {}
-        by_activity_key: dict[str, dict] = {}  # {key: {total, count, scope, category, quality_sum}}
+        by_activity_key: dict[str, dict] = (
+            {}
+        )  # {key: {total, count, scope, category, quality_sum}}
         by_site: dict[str, Decimal] = {}
 
         # Get site names for display
@@ -196,7 +190,9 @@ class EmissionProfileService:
 
             total_co2e_kg += co2e_kg
             scope_totals[scope] = scope_totals.get(scope, Decimal("0")) + co2e_kg
-            by_category[category_code] = by_category.get(category_code, Decimal("0")) + co2e_kg
+            by_category[category_code] = (
+                by_category.get(category_code, Decimal("0")) + co2e_kg
+            )
 
             # Track by activity key with metadata
             if activity_key not in by_activity_key:
@@ -220,20 +216,30 @@ class EmissionProfileService:
         sources_list = []
         for activity_key, data in by_activity_key.items():
             total_tonnes = data["total"] / Decimal("1000")
-            pct = (data["total"] / total_co2e_kg * Decimal("100")) if total_co2e_kg > 0 else Decimal("0")
-            avg_quality = Decimal(data["quality_sum"]) / Decimal(data["count"]) if data["count"] > 0 else None
+            pct = (
+                (data["total"] / total_co2e_kg * Decimal("100"))
+                if total_co2e_kg > 0
+                else Decimal("0")
+            )
+            avg_quality = (
+                Decimal(data["quality_sum"]) / Decimal(data["count"])
+                if data["count"] > 0
+                else None
+            )
 
-            sources_list.append(EmissionSource(
-                activity_key=activity_key,
-                display_name=get_activity_display_name(activity_key),
-                scope=data["scope"],
-                category_code=data["category"],
-                total_co2e_kg=data["total"],
-                total_co2e_tonnes=total_tonnes,
-                percentage_of_total=round(pct, 2),
-                activity_count=data["count"],
-                data_quality_avg=round(avg_quality, 1) if avg_quality else None,
-            ))
+            sources_list.append(
+                EmissionSource(
+                    activity_key=activity_key,
+                    display_name=get_activity_display_name(activity_key),
+                    scope=data["scope"],
+                    category_code=data["category"],
+                    total_co2e_kg=data["total"],
+                    total_co2e_tonnes=total_tonnes,
+                    percentage_of_total=round(pct, 2),
+                    activity_count=data["count"],
+                    data_quality_avg=round(avg_quality, 1) if avg_quality else None,
+                )
+            )
 
         # Sort by total emissions descending
         sources_list.sort(key=lambda x: x.total_co2e_kg, reverse=True)
@@ -269,7 +275,9 @@ class EmissionProfileService:
             prev_total = prev_total_kg / Decimal("1000")
 
             if prev_total_kg > 0:
-                change = ((total_co2e_kg - prev_total_kg) / prev_total_kg) * Decimal("100")
+                change = ((total_co2e_kg - prev_total_kg) / prev_total_kg) * Decimal(
+                    "100"
+                )
                 yoy_change = round(change, 1)
                 if change > Decimal("5"):
                     trend_direction = "increasing"
@@ -288,9 +296,17 @@ class EmissionProfileService:
             scope1_co2e_tonnes=round(scope_totals[1] / Decimal("1000"), 2),
             scope2_co2e_tonnes=round(scope_totals[2] / Decimal("1000"), 2),
             scope3_co2e_tonnes=round(scope_totals[3] / Decimal("1000"), 2),
-            emissions_by_category={k: round(v / Decimal("1000"), 2) for k, v in by_category.items()},
-            emissions_by_activity_key={k: round(v["total"] / Decimal("1000"), 2) for k, v in by_activity_key.items()},
-            emissions_by_site={sites.get(k, k): round(v / Decimal("1000"), 2) for k, v in by_site.items()},
+            emissions_by_category={
+                k: round(v / Decimal("1000"), 2) for k, v in by_category.items()
+            },
+            emissions_by_activity_key={
+                k: round(v["total"] / Decimal("1000"), 2)
+                for k, v in by_activity_key.items()
+            },
+            emissions_by_site={
+                sites.get(k, k): round(v / Decimal("1000"), 2)
+                for k, v in by_site.items()
+            },
             top_sources=sources_list[:10],  # Top 10 sources
             yoy_change_percent=yoy_change,
             trend_direction=trend_direction,
@@ -301,6 +317,7 @@ class EmissionProfileService:
 # ============================================================================
 # RECOMMENDATION ENGINE
 # ============================================================================
+
 
 class RecommendationEngine:
     """
@@ -351,7 +368,8 @@ class RecommendationEngine:
         for source in profile.top_sources:
             # Find initiatives that apply to this activity_key
             matching_initiatives = [
-                init for init in initiatives
+                init
+                for init in initiatives
                 if source.activity_key in init.applicable_activity_keys
                 or source.scope in init.applicable_scopes
             ]
@@ -359,13 +377,22 @@ class RecommendationEngine:
             for initiative in matching_initiatives:
                 # Check minimum relevance threshold
                 if initiative.min_emissions_for_relevance_tco2e:
-                    if source.total_co2e_tonnes < initiative.min_emissions_for_relevance_tco2e:
+                    if (
+                        source.total_co2e_tonnes
+                        < initiative.min_emissions_for_relevance_tco2e
+                    ):
                         continue
 
                 # Step 4: Calculate personalized reduction potential
-                median_reduction_pct = initiative.typical_reduction_percent_median / Decimal("100")
-                min_reduction_pct = initiative.typical_reduction_percent_min / Decimal("100")
-                max_reduction_pct = initiative.typical_reduction_percent_max / Decimal("100")
+                median_reduction_pct = (
+                    initiative.typical_reduction_percent_median / Decimal("100")
+                )
+                min_reduction_pct = initiative.typical_reduction_percent_min / Decimal(
+                    "100"
+                )
+                max_reduction_pct = initiative.typical_reduction_percent_max / Decimal(
+                    "100"
+                )
 
                 potential_reduction = source.total_co2e_tonnes * median_reduction_pct
                 reduction_low = source.total_co2e_tonnes * min_reduction_pct
@@ -373,7 +400,8 @@ class RecommendationEngine:
 
                 reduction_pct_of_total = (
                     (potential_reduction / profile.total_co2e_tonnes * Decimal("100"))
-                    if profile.total_co2e_tonnes > 0 else Decimal("0")
+                    if profile.total_co2e_tonnes > 0
+                    else Decimal("0")
                 )
 
                 # Calculate financials if available
@@ -383,23 +411,35 @@ class RecommendationEngine:
                 roi = None
 
                 if initiative.typical_capex_per_tco2e_reduced:
-                    estimated_capex = potential_reduction * initiative.typical_capex_per_tco2e_reduced
+                    estimated_capex = (
+                        potential_reduction * initiative.typical_capex_per_tco2e_reduced
+                    )
 
                 if initiative.typical_opex_change_percent and estimated_capex:
                     # Assume savings based on capex and opex change
                     # This is simplified - real calculation would use energy prices
-                    estimated_savings = abs(initiative.typical_opex_change_percent / Decimal("100") * estimated_capex)
+                    estimated_savings = abs(
+                        initiative.typical_opex_change_percent
+                        / Decimal("100")
+                        * estimated_capex
+                    )
 
                     if estimated_savings > 0:
                         payback = estimated_capex / estimated_savings
                         # 10-year ROI
-                        roi = ((estimated_savings * 10 - estimated_capex) / estimated_capex * Decimal("100"))
+                        roi = (
+                            (estimated_savings * 10 - estimated_capex)
+                            / estimated_capex
+                            * Decimal("100")
+                        )
 
                 # Step 5: Calculate scores
                 impact_score = min(10, int(reduction_pct_of_total / Decimal("3")) + 1)
 
                 complexity_scores = {"low": 9, "medium": 6, "high": 3}
-                feasibility_score = complexity_scores.get(initiative.complexity.value, 5)
+                feasibility_score = complexity_scores.get(
+                    initiative.complexity.value, 5
+                )
 
                 priority_score = int((impact_score * 0.6 + feasibility_score * 0.4))
 
@@ -411,32 +451,38 @@ class RecommendationEngine:
                     f"{initiative.typical_reduction_percent_max:.0f}%."
                 )
 
-                recommendations.append(PersonalizedRecommendation(
-                    initiative_id=initiative.id,
-                    initiative_name=initiative.name,
-                    initiative_category=initiative.category.value,
-                    initiative_description=initiative.short_description,
-                    target_activity_key=source.activity_key,
-                    target_source_name=source.display_name,
-                    target_source_emissions_tco2e=source.total_co2e_tonnes,
-                    target_source_percent_of_total=source.percentage_of_total,
-                    potential_reduction_tco2e=round(potential_reduction, 1),
-                    potential_reduction_low_tco2e=round(reduction_low, 1),
-                    potential_reduction_high_tco2e=round(reduction_high, 1),
-                    reduction_as_percent_of_total=round(reduction_pct_of_total, 1),
-                    estimated_capex=round(estimated_capex, 0) if estimated_capex else None,
-                    estimated_annual_savings=round(estimated_savings, 0) if estimated_savings else None,
-                    payback_years=round(payback, 1) if payback else None,
-                    roi_percent=round(roi, 0) if roi else None,
-                    impact_score=impact_score,
-                    feasibility_score=feasibility_score,
-                    priority_score=priority_score,
-                    complexity=initiative.complexity.value,
-                    implementation_months_min=initiative.implementation_time_months_min,
-                    implementation_months_max=initiative.implementation_time_months_max,
-                    co_benefits=initiative.co_benefits,
-                    relevance_explanation=relevance,
-                ))
+                recommendations.append(
+                    PersonalizedRecommendation(
+                        initiative_id=initiative.id,
+                        initiative_name=initiative.name,
+                        initiative_category=initiative.category.value,
+                        initiative_description=initiative.short_description,
+                        target_activity_key=source.activity_key,
+                        target_source_name=source.display_name,
+                        target_source_emissions_tco2e=source.total_co2e_tonnes,
+                        target_source_percent_of_total=source.percentage_of_total,
+                        potential_reduction_tco2e=round(potential_reduction, 1),
+                        potential_reduction_low_tco2e=round(reduction_low, 1),
+                        potential_reduction_high_tco2e=round(reduction_high, 1),
+                        reduction_as_percent_of_total=round(reduction_pct_of_total, 1),
+                        estimated_capex=(
+                            round(estimated_capex, 0) if estimated_capex else None
+                        ),
+                        estimated_annual_savings=(
+                            round(estimated_savings, 0) if estimated_savings else None
+                        ),
+                        payback_years=round(payback, 1) if payback else None,
+                        roi_percent=round(roi, 0) if roi else None,
+                        impact_score=impact_score,
+                        feasibility_score=feasibility_score,
+                        priority_score=priority_score,
+                        complexity=initiative.complexity.value,
+                        implementation_months_min=initiative.implementation_time_months_min,
+                        implementation_months_max=initiative.implementation_time_months_max,
+                        co_benefits=initiative.co_benefits,
+                        relevance_explanation=relevance,
+                    )
+                )
 
         # Sort by priority score (highest first)
         recommendations.sort(key=lambda r: r.priority_score, reverse=True)
@@ -457,13 +503,16 @@ class RecommendationEngine:
 # TARGET CALCULATION SERVICE
 # ============================================================================
 
+
 class TargetCalculationService:
     """Service for calculating SBTi-aligned targets."""
 
     # SBTi reduction rates (annual, from 2020 baseline)
     SBTI_RATES = {
-        TargetFramework.SBTI_1_5C: Decimal("4.2"),      # 4.2% per year = 42% by 2030
-        TargetFramework.SBTI_WELL_BELOW_2C: Decimal("2.5"),  # 2.5% per year = 25% by 2030
+        TargetFramework.SBTI_1_5C: Decimal("4.2"),  # 4.2% per year = 42% by 2030
+        TargetFramework.SBTI_WELL_BELOW_2C: Decimal(
+            "2.5"
+        ),  # 2.5% per year = 25% by 2030
     }
 
     @staticmethod
@@ -491,12 +540,16 @@ class TargetCalculationService:
                 total_years = 2050 - base_year
                 reduction_pct = Decimal("90") * Decimal(years) / Decimal(total_years)
         else:
-            annual_rate = TargetCalculationService.SBTI_RATES.get(framework, Decimal("4.2"))
+            annual_rate = TargetCalculationService.SBTI_RATES.get(
+                framework, Decimal("4.2")
+            )
             years = target_year - base_year
             reduction_pct = annual_rate * Decimal(years)
 
         reduction_pct = min(reduction_pct, Decimal("100"))
-        target_emissions = base_year_emissions * (Decimal("1") - reduction_pct / Decimal("100"))
+        target_emissions = base_year_emissions * (
+            Decimal("1") - reduction_pct / Decimal("100")
+        )
 
         return round(target_emissions, 2), round(reduction_pct, 1)
 
@@ -531,6 +584,7 @@ class TargetCalculationService:
 # SCENARIO SERVICE
 # ============================================================================
 
+
 class ScenarioService:
     """Service for managing decarbonization scenarios."""
 
@@ -552,7 +606,9 @@ class ScenarioService:
 
         # Get initiatives
         initiatives_result = await session.execute(
-            select(ScenarioInitiative).where(ScenarioInitiative.scenario_id == scenario_id)
+            select(ScenarioInitiative).where(
+                ScenarioInitiative.scenario_id == scenario_id
+            )
         )
         initiatives = initiatives_result.scalars().all()
 
@@ -576,22 +632,32 @@ class ScenarioService:
 
         # Target achievement
         target_result = await session.execute(
-            select(DecarbonizationTarget).where(DecarbonizationTarget.id == scenario.target_id)
+            select(DecarbonizationTarget).where(
+                DecarbonizationTarget.id == scenario.target_id
+            )
         )
         target = target_result.scalar_one_or_none()
 
         target_achievement = Decimal("0")
         if target:
-            required_reduction = target.base_year_emissions_tco2e - target.target_emissions_tco2e
+            required_reduction = (
+                target.base_year_emissions_tco2e - target.target_emissions_tco2e
+            )
             if required_reduction > 0:
-                target_achievement = (total_reduction / required_reduction) * Decimal("100")
+                target_achievement = (total_reduction / required_reduction) * Decimal(
+                    "100"
+                )
 
         return {
             "total_reduction_tco2e": round(total_reduction, 1),
             "total_investment": round(total_investment, 0),
             "total_annual_savings": round(total_savings, 0),
-            "weighted_payback_years": round(weighted_payback, 1) if weighted_payback else None,
-            "target_achievement_percent": round(min(target_achievement, Decimal("200")), 1),
+            "weighted_payback_years": (
+                round(weighted_payback, 1) if weighted_payback else None
+            ),
+            "target_achievement_percent": round(
+                min(target_achievement, Decimal("200")), 1
+            ),
         }
 
     @staticmethod
@@ -621,6 +687,7 @@ class ScenarioService:
 # ============================================================================
 # PROGRESS TRACKING SERVICE
 # ============================================================================
+
 
 class ProgressTrackingService:
     """Service for tracking progress against targets."""
@@ -664,13 +731,16 @@ class ProgressTrackingService:
             target.base_year,
             target.target_year,
         )
-        planned_emissions = trajectory.get(checkpoint_year, target.base_year_emissions_tco2e)
+        planned_emissions = trajectory.get(
+            checkpoint_year, target.base_year_emissions_tco2e
+        )
 
         # Calculate variance
         variance = actual_emissions - planned_emissions
         variance_pct = (
             (variance / planned_emissions * Decimal("100"))
-            if planned_emissions > 0 else Decimal("0")
+            if planned_emissions > 0
+            else Decimal("0")
         )
 
         # Determine if on track (within 5% of plan)

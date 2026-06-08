@@ -1,4 +1,5 @@
 """CLI entry point."""
+
 import typer
 from app.cli.seed import app as seed_app
 

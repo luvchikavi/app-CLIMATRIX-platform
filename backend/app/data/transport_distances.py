@@ -8,8 +8,8 @@ Sources:
 - Sea distances: Sea-distances.org, UNCTAD
 - Land distances: Regional averages from trade data
 """
-from decimal import Decimal
 
+from decimal import Decimal
 
 # =============================================================================
 # TRANSPORT DISTANCE MATRIX
@@ -97,7 +97,6 @@ TRANSPORT_DISTANCES = {
         "source": "Shanghai-Sydney",
         "notes": "Direct Pacific route",
     },
-
     # =========================================================================
     # FROM INDIA
     # =========================================================================
@@ -145,7 +144,6 @@ TRANSPORT_DISTANCES = {
         "source": "Mumbai-Hamburg",
         "notes": "Via Suez Canal",
     },
-
     # =========================================================================
     # FROM TURKEY
     # =========================================================================
@@ -182,7 +180,6 @@ TRANSPORT_DISTANCES = {
         "source": "Istanbul-Hamburg",
         "notes": "Road transport common via Balkans",
     },
-
     # =========================================================================
     # FROM GERMANY (Intra-Europe)
     # =========================================================================
@@ -230,7 +227,6 @@ TRANSPORT_DISTANCES = {
         "source": "Frankfurt-Paris road",
         "notes": "Road dominant for intra-Europe",
     },
-
     # =========================================================================
     # FROM NETHERLANDS
     # =========================================================================
@@ -256,7 +252,6 @@ TRANSPORT_DISTANCES = {
         "source": "Rotterdam-Felixstowe",
         "notes": "Very short sea crossing",
     },
-
     # =========================================================================
     # FROM UNITED STATES
     # =========================================================================
@@ -293,7 +288,6 @@ TRANSPORT_DISTANCES = {
         "source": "New York-Hamburg",
         "notes": "Transatlantic",
     },
-
     # =========================================================================
     # FROM VIETNAM
     # =========================================================================
@@ -319,7 +313,6 @@ TRANSPORT_DISTANCES = {
         "source": "Ho Chi Minh-LA",
         "notes": "Pacific route",
     },
-
     # =========================================================================
     # FROM SOUTH KOREA
     # =========================================================================
@@ -345,7 +338,6 @@ TRANSPORT_DISTANCES = {
         "source": "Busan-LA",
         "notes": "Pacific route",
     },
-
     # =========================================================================
     # FROM TAIWAN
     # =========================================================================
@@ -371,7 +363,6 @@ TRANSPORT_DISTANCES = {
         "source": "Kaohsiung-LA",
         "notes": "Pacific route",
     },
-
     # =========================================================================
     # FROM ITALY
     # =========================================================================
@@ -386,7 +377,6 @@ TRANSPORT_DISTANCES = {
         "source": "Genoa-Haifa",
         "notes": "Short Mediterranean route",
     },
-
     # =========================================================================
     # FROM SPAIN
     # =========================================================================
@@ -401,7 +391,6 @@ TRANSPORT_DISTANCES = {
         "source": "Barcelona-Haifa",
         "notes": "Via Mediterranean",
     },
-
     # =========================================================================
     # FROM BRAZIL
     # =========================================================================
@@ -427,7 +416,6 @@ TRANSPORT_DISTANCES = {
         "source": "Santos-New York",
         "notes": "Via Atlantic",
     },
-
     # =========================================================================
     # FROM JAPAN
     # =========================================================================
@@ -464,7 +452,6 @@ TRANSPORT_DISTANCES = {
         "source": "Tokyo-Hamburg",
         "notes": "Via Suez or around Cape",
     },
-
     # =========================================================================
     # FROM SOUTH AFRICA
     # =========================================================================
@@ -501,7 +488,6 @@ TRANSPORT_DISTANCES = {
         "source": "Durban-New York",
         "notes": "Via Atlantic",
     },
-
     # =========================================================================
     # FROM SOUTHEAST ASIA (Thailand, Indonesia, Malaysia)
     # =========================================================================
@@ -549,7 +535,6 @@ TRANSPORT_DISTANCES = {
         "source": "Port Klang-Haifa",
         "notes": "Via Suez Canal",
     },
-
     # =========================================================================
     # FROM EASTERN EUROPE
     # =========================================================================
@@ -597,7 +582,6 @@ TRANSPORT_DISTANCES = {
         "source": "Constanta-Haifa",
         "notes": "Black Sea to Mediterranean",
     },
-
     # =========================================================================
     # FROM MENA
     # =========================================================================
@@ -645,7 +629,6 @@ TRANSPORT_DISTANCES = {
         "source": "Jeddah-Haifa",
         "notes": "Via Red Sea",
     },
-
     # =========================================================================
     # REVERSE ROUTES (key existing pairs)
     # =========================================================================
@@ -746,12 +729,12 @@ TRANSPORT_DISTANCES = {
 # =============================================================================
 
 TRANSPORT_EMISSION_FACTORS = {
-    "sea_container": Decimal("0.016"),      # kg CO2e per tonne-km
-    "sea_bulk": Decimal("0.004"),           # kg CO2e per tonne-km (bulk carriers)
-    "road_hgv": Decimal("0.107"),           # kg CO2e per tonne-km (HGV >7.5t)
-    "road_van": Decimal("0.605"),           # kg CO2e per tonne-km (Van <3.5t)
-    "rail_freight": Decimal("0.028"),       # kg CO2e per tonne-km
-    "air_freight": Decimal("1.130"),        # kg CO2e per tonne-km
+    "sea_container": Decimal("0.016"),  # kg CO2e per tonne-km
+    "sea_bulk": Decimal("0.004"),  # kg CO2e per tonne-km (bulk carriers)
+    "road_hgv": Decimal("0.107"),  # kg CO2e per tonne-km (HGV >7.5t)
+    "road_van": Decimal("0.605"),  # kg CO2e per tonne-km (Van <3.5t)
+    "rail_freight": Decimal("0.028"),  # kg CO2e per tonne-km
+    "air_freight": Decimal("1.130"),  # kg CO2e per tonne-km
 }
 
 
@@ -759,7 +742,10 @@ TRANSPORT_EMISSION_FACTORS = {
 # HELPER FUNCTIONS
 # =============================================================================
 
-def get_transport_distance(origin_country: str, destination_country: str) -> dict | None:
+
+def get_transport_distance(
+    origin_country: str, destination_country: str
+) -> dict | None:
     """
     Get default transport distances between two countries.
 
@@ -780,7 +766,7 @@ def calculate_transport_emissions(
     origin_country: str,
     destination_country: str,
     weight_tonnes: Decimal,
-    transport_mode: str = "auto"
+    transport_mode: str = "auto",
 ) -> dict | None:
     """
     Calculate transport emissions for a shipment.
@@ -804,10 +790,14 @@ def calculate_transport_emissions(
 
     # Calculate each leg
     origin_land_ef = TRANSPORT_EMISSION_FACTORS["road_hgv"]
-    sea_ef = TRANSPORT_EMISSION_FACTORS.get(transport_mode, TRANSPORT_EMISSION_FACTORS["sea_container"])
+    sea_ef = TRANSPORT_EMISSION_FACTORS.get(
+        transport_mode, TRANSPORT_EMISSION_FACTORS["sea_container"]
+    )
     dest_land_ef = TRANSPORT_EMISSION_FACTORS["road_hgv"]
 
-    origin_land_emissions = weight_tonnes * Decimal(distances["origin_land_km"]) * origin_land_ef
+    origin_land_emissions = (
+        weight_tonnes * Decimal(distances["origin_land_km"]) * origin_land_ef
+    )
 
     # Sea or air emissions
     if transport_mode == "air_freight" and distances.get("air_distance_km"):
@@ -818,7 +808,9 @@ def calculate_transport_emissions(
         main_ef = sea_ef
 
     main_leg_emissions = weight_tonnes * Decimal(main_distance) * main_ef
-    dest_land_emissions = weight_tonnes * Decimal(distances["destination_land_km"]) * dest_land_ef
+    dest_land_emissions = (
+        weight_tonnes * Decimal(distances["destination_land_km"]) * dest_land_ef
+    )
 
     total_emissions = origin_land_emissions + main_leg_emissions + dest_land_emissions
 
@@ -827,7 +819,6 @@ def calculate_transport_emissions(
         "destination_country": destination_country,
         "weight_tonnes": weight_tonnes,
         "transport_mode": transport_mode,
-
         "legs": [
             {
                 "leg": "origin_land",
@@ -848,10 +839,10 @@ def calculate_transport_emissions(
                 "emissions_kg": float(dest_land_emissions),
             },
         ],
-
-        "total_distance_km": distances["origin_land_km"] + main_distance + distances["destination_land_km"],
+        "total_distance_km": distances["origin_land_km"]
+        + main_distance
+        + distances["destination_land_km"],
         "total_emissions_kg": float(total_emissions),
-
         "formula": f"{weight_tonnes} tonnes × {distances['origin_land_km']} km (road) + {main_distance} km ({transport_mode}) + {distances['destination_land_km']} km (road)",
         "source": distances.get("source", "Default matrix"),
     }
@@ -888,12 +879,14 @@ if __name__ == "__main__":
     # Test transport emissions calculation
     result = calculate_transport_emissions("CN", "IL", Decimal("1.0"))
     if result:
-        print(f"China → Israel (1 tonne):")
+        print("China → Israel (1 tonne):")
         print(f"  Total distance: {result['total_distance_km']} km")
         print(f"  Total emissions: {result['total_emissions_kg']:.1f} kg CO2e")
-        print(f"  Legs:")
-        for leg in result['legs']:
-            print(f"    {leg['leg']}: {leg['distance_km']} km ({leg['mode']}) = {leg['emissions_kg']:.1f} kg")
+        print("  Legs:")
+        for leg in result["legs"]:
+            print(
+                f"    {leg['leg']}: {leg['distance_km']} km ({leg['mode']}) = {leg['emissions_kg']:.1f} kg"
+            )
 
     print(f"\nTransport matrix: {len(TRANSPORT_DISTANCES)} routes")
     stats = get_transport_stats()

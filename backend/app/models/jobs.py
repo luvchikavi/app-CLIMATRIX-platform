@@ -3,6 +3,7 @@ Background job tracking models.
 
 Tracks the status of async jobs like file imports.
 """
+
 from datetime import datetime
 from enum import Enum
 from typing import Optional
@@ -13,6 +14,7 @@ from sqlmodel import SQLModel, Field, Column, JSON
 
 class JobStatus(str, Enum):
     """Status of a background job."""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -22,6 +24,7 @@ class JobStatus(str, Enum):
 
 class JobType(str, Enum):
     """Type of background job."""
+
     IMPORT_CSV = "import_csv"
     IMPORT_EXCEL = "import_excel"
     RECALCULATE = "recalculate"
@@ -34,6 +37,7 @@ class ImportJob(SQLModel, table=True):
 
     Stores progress and results for async import processing.
     """
+
     __tablename__ = "import_jobs"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -94,7 +98,9 @@ class ImportJob(SQLModel, table=True):
         self.completed_at = datetime.utcnow()
         self.error_message = error
 
-    def update_progress(self, processed: int, successful: int = None, failed: int = None):
+    def update_progress(
+        self, processed: int, successful: int = None, failed: int = None
+    ):
         """Update progress counters."""
         self.processed_rows = processed
         if successful is not None:

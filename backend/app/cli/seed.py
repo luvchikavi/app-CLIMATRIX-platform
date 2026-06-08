@@ -7,8 +7,8 @@ Usage:
     python -m app.cli db create-superuser --email X --password Y
     python -m app.cli db create-user EMAIL PASSWORD
 """
+
 import asyncio
-import os
 from uuid import uuid4
 
 import typer
@@ -18,16 +18,26 @@ from sqlmodel import select
 from app.config import settings
 from app.models.core import Organization, User, UserRole
 from app.models.emission import (
-    EmissionFactor, UnitConversion, FuelPrice,
-    Airport, TransportDistanceMatrix, CurrencyConversion,
-    GridEmissionFactor, HotelEmissionFactor, RefrigerantGWP, WasteDisposalFactor,
+    EmissionFactor,
+    UnitConversion,
+    FuelPrice,
+    Airport,
+    TransportDistanceMatrix,
+    CurrencyConversion,
+    GridEmissionFactor,
+    HotelEmissionFactor,
+    RefrigerantGWP,
+    WasteDisposalFactor,
 )
 from app.data import EMISSION_FACTORS, UNIT_CONVERSIONS, FUEL_PRICES
 from app.data.airports import AIRPORTS
 from app.data.transport_distances import TRANSPORT_DISTANCES
 from app.data.reference_data import (
-    CURRENCY_RATES, GRID_EMISSION_FACTORS, HOTEL_EMISSION_FACTORS,
-    REFRIGERANT_GWP, WASTE_DISPOSAL_FACTORS,
+    CURRENCY_RATES,
+    GRID_EMISSION_FACTORS,
+    HOTEL_EMISSION_FACTORS,
+    REFRIGERANT_GWP,
+    WASTE_DISPOSAL_FACTORS,
 )
 from app.api.auth import get_password_hash
 
@@ -50,6 +60,7 @@ async def seed_database(session: AsyncSession, force: bool = False) -> dict:
     if force:
         typer.echo("Clearing existing data...")
         from sqlalchemy import delete
+
         await session.execute(delete(EmissionFactor))
         await session.execute(delete(UnitConversion))
         await session.execute(delete(FuelPrice))
@@ -83,14 +94,20 @@ async def seed_database(session: AsyncSession, force: bool = False) -> dict:
 
 @app.command()
 def seed(
-    check_only: bool = typer.Option(False, "--check-only", help="Only check if seeding needed"),
-    force: bool = typer.Option(False, "--force", help="Force re-seed even if data exists"),
+    check_only: bool = typer.Option(
+        False, "--check-only", help="Only check if seeding needed"
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Force re-seed even if data exists"
+    ),
 ):
     """Seed emission factors and reference data."""
 
     async def run():
         engine = create_async_engine(settings.async_database_url)
-        async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async_session = async_sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
 
         async with async_session() as session:
             if check_only:
@@ -117,10 +134,21 @@ def seed(
 
 @app.command()
 def create_superuser(
-    email: str = typer.Option(..., "--email", "-e", help="Super admin email", prompt=True),
-    password: str = typer.Option(..., "--password", "-p", help="Super admin password", prompt=True, hide_input=True),
+    email: str = typer.Option(
+        ..., "--email", "-e", help="Super admin email", prompt=True
+    ),
+    password: str = typer.Option(
+        ...,
+        "--password",
+        "-p",
+        help="Super admin password",
+        prompt=True,
+        hide_input=True,
+    ),
     name: str = typer.Option("", "--name", "-n", help="Full name"),
-    org_name: str = typer.Option("", "--org-name", help="Organization name (created if no org exists)"),
+    org_name: str = typer.Option(
+        "", "--org-name", help="Organization name (created if no org exists)"
+    ),
 ):
     """Create or update a super admin user.
 
@@ -133,13 +161,13 @@ def create_superuser(
 
     async def run():
         engine = create_async_engine(settings.async_database_url)
-        async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async_session = async_sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
 
         async with async_session() as session:
             # Check if user already exists
-            result = await session.execute(
-                select(User).where(User.email == email)
-            )
+            result = await session.execute(select(User).where(User.email == email))
             existing_user = result.scalar_one_or_none()
 
             if existing_user:
@@ -193,19 +221,21 @@ def create_user(
     password: str = typer.Argument(..., help="User password"),
     name: str = typer.Option("", help="Full name"),
     role: str = typer.Option("editor", help="Role: viewer, editor, admin"),
-    org_id: str = typer.Option(None, help="Organization ID (uses first org if not specified)"),
+    org_id: str = typer.Option(
+        None, help="Organization ID (uses first org if not specified)"
+    ),
 ):
     """Create a new user."""
 
     async def run():
         engine = create_async_engine(settings.async_database_url)
-        async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async_session = async_sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
 
         async with async_session() as session:
             # Check if user already exists
-            result = await session.execute(
-                select(User).where(User.email == email)
-            )
+            result = await session.execute(select(User).where(User.email == email))
             if result.scalar_one_or_none():
                 typer.echo(f"User {email} already exists.")
                 raise typer.Exit(code=1)
@@ -213,13 +243,18 @@ def create_user(
             # Get organization
             if org_id:
                 from uuid import UUID
-                result = await session.execute(select(Organization).where(Organization.id == UUID(org_id)))
+
+                result = await session.execute(
+                    select(Organization).where(Organization.id == UUID(org_id))
+                )
             else:
                 result = await session.execute(select(Organization).limit(1))
 
             org = result.scalar_one_or_none()
             if not org:
-                typer.echo("No organization found. Run 'seed' first or create a superuser.")
+                typer.echo(
+                    "No organization found. Run 'seed' first or create a superuser."
+                )
                 raise typer.Exit(code=1)
 
             # Create user
@@ -243,13 +278,17 @@ def create_user(
 
 @app.command()
 def seed_fuel_prices(
-    force: bool = typer.Option(False, "--force", help="Force re-seed even if data exists"),
+    force: bool = typer.Option(
+        False, "--force", help="Force re-seed even if data exists"
+    ),
 ):
     """Seed fuel prices only (for existing databases)."""
 
     async def run():
         engine = create_async_engine(settings.async_database_url)
-        async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async_session = async_sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
 
         async with async_session() as session:
             # Check if fuel prices already exist
@@ -264,6 +303,7 @@ def seed_fuel_prices(
             if force and existing:
                 typer.echo("Clearing existing fuel prices...")
                 from sqlalchemy import delete
+
                 await session.execute(delete(FuelPrice))
 
             # Seed fuel prices
@@ -284,7 +324,9 @@ def seed_fuel_prices(
 
 @app.command()
 def seed_scope3_reference(
-    force: bool = typer.Option(False, "--force", help="Force re-seed even if data exists"),
+    force: bool = typer.Option(
+        False, "--force", help="Force re-seed even if data exists"
+    ),
 ):
     """Seed Scope 3 reference data tables."""
     from datetime import date
@@ -292,7 +334,9 @@ def seed_scope3_reference(
 
     async def run():
         engine = create_async_engine(settings.async_database_url)
-        async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async_session = async_sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
 
         async with async_session() as session:
             stats = {
@@ -309,12 +353,15 @@ def seed_scope3_reference(
             existing = result.scalar_one_or_none()
 
             if existing and not force:
-                typer.echo("Scope 3 reference data already seeded. Use --force to re-seed.")
+                typer.echo(
+                    "Scope 3 reference data already seeded. Use --force to re-seed."
+                )
                 raise typer.Exit(code=0)
 
             if force:
                 typer.echo("Clearing existing Scope 3 reference data...")
                 from sqlalchemy import delete
+
                 await session.execute(delete(WasteDisposalFactor))
                 await session.execute(delete(RefrigerantGWP))
                 await session.execute(delete(HotelEmissionFactor))
@@ -343,6 +390,7 @@ def seed_scope3_reference(
 
             typer.echo("Seeding transport distance matrix...")
             from datetime import datetime
+
             for route_key, route_data in TRANSPORT_DISTANCES.items():
                 origin, destination = route_key
                 transport = TransportDistanceMatrix(

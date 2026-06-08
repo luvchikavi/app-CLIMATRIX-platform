@@ -9,7 +9,6 @@ Also calculates Scope 3.3 components:
 - T&D losses: emissions from electricity lost in transmission & distribution
 - WTT of T&D: upstream emissions for electricity lost in T&D
 """
-from decimal import Decimal
 
 from app.models.emission import EmissionFactor
 from app.services.calculation.normalizer import NormalizedQuantity
@@ -46,11 +45,24 @@ class ElectricityCalculator(BaseCalculator):
         # Try to extract from activity_key
         key = factor.activity_key.lower()
         country_map = {
-            "il": "IL", "uk": "UK", "gb": "UK", "us": "US",
-            "de": "DE", "fr": "FR", "es": "ES", "it": "IT",
-            "nl": "NL", "pl": "PL", "eu": "EU", "au": "AU",
-            "ca": "CA", "cn": "CN", "in": "IN", "jp": "JP",
-            "kr": "KR", "br": "BR",
+            "il": "IL",
+            "uk": "UK",
+            "gb": "UK",
+            "us": "US",
+            "de": "DE",
+            "fr": "FR",
+            "es": "ES",
+            "it": "IT",
+            "nl": "NL",
+            "pl": "PL",
+            "eu": "EU",
+            "au": "AU",
+            "ca": "CA",
+            "cn": "CN",
+            "in": "IN",
+            "jp": "JP",
+            "kr": "KR",
+            "br": "BR",
         }
         for code, country in country_map.items():
             if f"_{code}" in key or key.endswith(f"_{code}"):
@@ -75,9 +87,7 @@ class ElectricityCalculator(BaseCalculator):
                 "Using Noga voluntary mechanism grid factor (Israel)"
             )
         elif "uk" in factor.activity_key.lower() or factor.region == "UK":
-            result.warnings.append(
-                "Using UK National Grid factor"
-            )
+            result.warnings.append("Using UK National Grid factor")
         elif factor.region == "Global":
             result.warnings.append(
                 "Using global average grid factor. Consider using region-specific factor for accuracy."
@@ -92,6 +102,7 @@ class ElectricityCalculator(BaseCalculator):
         # Calculate T&D and T&D WTT from per-country factors
         try:
             from app.data.reference_data import get_wtt_td_factors
+
             country_code = self._get_country_code(factor)
             td_factors = get_wtt_td_factors(country_code)
 

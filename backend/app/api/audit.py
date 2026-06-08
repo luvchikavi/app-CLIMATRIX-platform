@@ -2,6 +2,7 @@
 Audit log API endpoints.
 Provides read access to audit trail for compliance and monitoring.
 """
+
 from datetime import datetime
 from typing import Annotated, Optional
 from uuid import UUID
@@ -10,18 +11,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.database import get_session
 from app.models.core import User, UserRole, AuditAction
 from app.api.auth import get_current_user
 from app.services.audit import AuditService
-
 
 router = APIRouter(prefix="/audit", tags=["Audit"])
 
 
 class AuditLogResponse(BaseModel):
     """Audit log entry response."""
+
     id: str
     action: str
     resource_type: str
@@ -35,6 +35,7 @@ class AuditLogResponse(BaseModel):
 
 class AuditLogsListResponse(BaseModel):
     """Paginated audit logs response."""
+
     items: list[AuditLogResponse]
     total: int
     limit: int
@@ -43,6 +44,7 @@ class AuditLogsListResponse(BaseModel):
 
 class AuditStatsResponse(BaseModel):
     """Audit statistics response."""
+
     total_events: int
     events_by_action: dict[str, int]
     events_by_resource: dict[str, int]
@@ -183,9 +185,7 @@ async def get_audit_actions(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     """Get list of available audit action types."""
-    return {
-        "actions": [action.value for action in AuditAction]
-    }
+    return {"actions": [action.value for action in AuditAction]}
 
 
 @router.get("/resource-types")
@@ -203,6 +203,4 @@ async def get_resource_types(
         .distinct()
     )
 
-    return {
-        "resource_types": [row[0] for row in result.all()]
-    }
+    return {"resource_types": [row[0] for row in result.all()]}

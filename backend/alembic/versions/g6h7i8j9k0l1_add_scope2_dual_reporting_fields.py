@@ -8,12 +8,13 @@ Adds supplier_name and supplier_ef to activities table,
 and location_co2e_kg and market_co2e_kg to emissions table
 for GHG Protocol Scope 2 dual reporting.
 """
+
 import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = 'g6h7i8j9k0l1'
-down_revision = 'f1a2b3c4d5e6'
+revision = "g6h7i8j9k0l1"
+down_revision = "f1a2b3c4d5e6"
 branch_labels = None
 depends_on = None
 

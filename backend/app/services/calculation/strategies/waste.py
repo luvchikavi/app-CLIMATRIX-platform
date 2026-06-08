@@ -14,7 +14,7 @@ Disposal methods:
 
 GHG Protocol: Scope 3, Categories 5 and 12
 """
-from decimal import Decimal
+
 from typing import Optional
 
 from app.models.emission import EmissionFactor
@@ -88,9 +88,7 @@ class WasteCalculator(BaseCalculator):
         co2e_kg = mass_kg * factor.co2e_factor
 
         # Build formula
-        formula = (
-            f"{normalized.original_quantity} {normalized.original_unit}"
-        )
+        formula = f"{normalized.original_quantity} {normalized.original_unit}"
         if normalized.conversion_applied:
             formula += f" → {mass_kg:.2f} kg"
         formula += f" × {factor.co2e_factor} kg CO2e/kg = {co2e_kg:.2f} kg CO2e"

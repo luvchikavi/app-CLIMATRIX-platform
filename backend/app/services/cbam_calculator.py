@@ -9,9 +9,9 @@ Implements EU CBAM (Carbon Border Adjustment Mechanism) calculations:
 
 Reference: EU Regulation 2023/956 and Implementing Regulation 2023/1773
 """
+
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
-from datetime import date
 
 from app.data.cbam_data import (
     get_default_see_by_cn_code,
@@ -84,7 +84,9 @@ class CBAMCalculator:
         elif defaults and use_default_values:
             direct_see = defaults["direct_see"]
             result["calculation_method"] = "default"
-            result["warnings"].append(f"Using EU default direct SEE: {direct_see} tCO2e/t")
+            result["warnings"].append(
+                f"Using EU default direct SEE: {direct_see} tCO2e/t"
+            )
         else:
             direct_see = Decimal("0")
             result["warnings"].append("No direct SEE available - using zero")
@@ -103,7 +105,9 @@ class CBAMCalculator:
             indirect_see = (electricity_consumption_mwh * grid_factor) / mass_tonnes
         elif defaults and use_default_values:
             indirect_see = defaults["indirect_see"]
-            result["warnings"].append(f"Using EU default indirect SEE: {indirect_see} tCO2e/t")
+            result["warnings"].append(
+                f"Using EU default indirect SEE: {indirect_see} tCO2e/t"
+            )
         else:
             indirect_see = Decimal("0")
             result["warnings"].append("No indirect SEE available - using zero")
@@ -120,14 +124,16 @@ class CBAMCalculator:
         )
         total_emissions = direct_emissions + indirect_emissions
 
-        result.update({
-            "direct_see": direct_see,
-            "indirect_see": indirect_see,
-            "total_see": total_see,
-            "direct_emissions_tco2e": direct_emissions,
-            "indirect_emissions_tco2e": indirect_emissions,
-            "total_emissions_tco2e": total_emissions,
-        })
+        result.update(
+            {
+                "direct_see": direct_see,
+                "indirect_see": indirect_see,
+                "total_see": total_see,
+                "direct_emissions_tco2e": direct_emissions,
+                "indirect_emissions_tco2e": indirect_emissions,
+                "total_emissions_tco2e": total_emissions,
+            }
+        )
 
         return result
 
@@ -209,13 +215,15 @@ class CBAMCalculator:
         net_cbam_cost = max(Decimal("0"), gross_cbam_cost - deduction_eur)
         net_emissions = max(Decimal("0"), eu_covered_emissions - deduction_tco2e)
 
-        result.update({
-            "deduction_tco2e": deduction_tco2e,
-            "net_emissions_tco2e": net_emissions,
-            "gross_cbam_cost_eur": gross_cbam_cost,
-            "deduction_eur": deduction_eur,
-            "net_cbam_cost_eur": net_cbam_cost,
-        })
+        result.update(
+            {
+                "deduction_tco2e": deduction_tco2e,
+                "net_emissions_tco2e": net_emissions,
+                "gross_cbam_cost_eur": gross_cbam_cost,
+                "deduction_eur": deduction_eur,
+                "net_cbam_cost_eur": net_cbam_cost,
+            }
+        )
 
         return result
 
@@ -369,23 +377,27 @@ def aggregate_quarterly_report(
     from collections import defaultdict
 
     # Aggregate by sector
-    by_sector = defaultdict(lambda: {
-        "mass_tonnes": Decimal("0"),
-        "direct_emissions_tco2e": Decimal("0"),
-        "indirect_emissions_tco2e": Decimal("0"),
-        "total_emissions_tco2e": Decimal("0"),
-        "import_count": 0,
-        "cn_codes": set(),
-        "countries": set(),
-    })
+    by_sector = defaultdict(
+        lambda: {
+            "mass_tonnes": Decimal("0"),
+            "direct_emissions_tco2e": Decimal("0"),
+            "indirect_emissions_tco2e": Decimal("0"),
+            "total_emissions_tco2e": Decimal("0"),
+            "import_count": 0,
+            "cn_codes": set(),
+            "countries": set(),
+        }
+    )
 
     # Aggregate by CN code
-    by_cn_code = defaultdict(lambda: {
-        "mass_tonnes": Decimal("0"),
-        "total_emissions_tco2e": Decimal("0"),
-        "import_count": 0,
-        "countries": set(),
-    })
+    by_cn_code = defaultdict(
+        lambda: {
+            "mass_tonnes": Decimal("0"),
+            "total_emissions_tco2e": Decimal("0"),
+            "import_count": 0,
+            "countries": set(),
+        }
+    )
 
     total_mass = Decimal("0")
     total_emissions = Decimal("0")
@@ -492,12 +504,14 @@ def aggregate_annual_declaration(
     total_certificates = Decimal("0")
     total_cost = Decimal("0")
 
-    by_sector = defaultdict(lambda: {
-        "gross_emissions_tco2e": Decimal("0"),
-        "net_emissions_tco2e": Decimal("0"),
-        "certificates_required": Decimal("0"),
-        "estimated_cost_eur": Decimal("0"),
-    })
+    by_sector = defaultdict(
+        lambda: {
+            "gross_emissions_tco2e": Decimal("0"),
+            "net_emissions_tco2e": Decimal("0"),
+            "certificates_required": Decimal("0"),
+            "estimated_cost_eur": Decimal("0"),
+        }
+    )
 
     for imp in imports:
         summary = imp.get("summary", {})
@@ -509,8 +523,16 @@ def aggregate_annual_declaration(
         net_em = deduction.get("net_emissions_tco2e", Decimal("0"))
         deduction_em = deduction.get("deduction_tco2e", Decimal("0"))
 
-        cert_count = Decimal(str(certs.get("fractional_certificates", net_em))) if certs else net_em
-        cert_cost = Decimal(str(certs.get("estimated_cost_eur", net_em * avg_ets_price))) if certs else net_em * avg_ets_price
+        cert_count = (
+            Decimal(str(certs.get("fractional_certificates", net_em)))
+            if certs
+            else net_em
+        )
+        cert_cost = (
+            Decimal(str(certs.get("estimated_cost_eur", net_em * avg_ets_price)))
+            if certs
+            else net_em * avg_ets_price
+        )
 
         total_gross_emissions += gross_em
         total_net_emissions += net_em

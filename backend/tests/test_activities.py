@@ -1,6 +1,7 @@
 """
 Tests for activities and emission calculations.
 """
+
 import pytest
 from httpx import AsyncClient
 

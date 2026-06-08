@@ -3,6 +3,7 @@ Organization API endpoints.
 
 Manage organization settings including region configuration.
 """
+
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
@@ -17,7 +18,6 @@ from app.database import get_session
 from app.models.core import User, Organization, Site
 from app.models.emission import Activity, Emission
 
-
 router = APIRouter()
 
 
@@ -25,8 +25,10 @@ router = APIRouter()
 # Schemas
 # ============================================================================
 
+
 class OrganizationResponse(BaseModel):
     """Organization details response."""
+
     id: str
     name: str
     country_code: str | None
@@ -37,6 +39,7 @@ class OrganizationResponse(BaseModel):
 
 class OrganizationUpdate(BaseModel):
     """Update organization settings."""
+
     name: str | None = None
     country_code: str | None = None
     industry_code: str | None = None
@@ -46,6 +49,7 @@ class OrganizationUpdate(BaseModel):
 
 class SiteResponse(BaseModel):
     """Site details response."""
+
     id: str
     name: str
     country_code: str | None
@@ -56,6 +60,7 @@ class SiteResponse(BaseModel):
 
 class SiteCreate(BaseModel):
     """Create site request."""
+
     name: str
     country_code: str | None = None
     address: str | None = None
@@ -64,17 +69,38 @@ class SiteCreate(BaseModel):
 
 # Supported regions for emission factors
 SUPPORTED_REGIONS = [
-    {"code": "Global", "name": "Global Average", "description": "Uses worldwide average emission factors"},
-    {"code": "UK", "name": "United Kingdom", "description": "DEFRA emission factors for UK"},
-    {"code": "US", "name": "United States", "description": "EPA emission factors for US"},
-    {"code": "EU", "name": "European Union", "description": "EU average emission factors"},
-    {"code": "IL", "name": "Israel", "description": "Israel-specific grid and energy factors"},
+    {
+        "code": "Global",
+        "name": "Global Average",
+        "description": "Uses worldwide average emission factors",
+    },
+    {
+        "code": "UK",
+        "name": "United Kingdom",
+        "description": "DEFRA emission factors for UK",
+    },
+    {
+        "code": "US",
+        "name": "United States",
+        "description": "EPA emission factors for US",
+    },
+    {
+        "code": "EU",
+        "name": "European Union",
+        "description": "EU average emission factors",
+    },
+    {
+        "code": "IL",
+        "name": "Israel",
+        "description": "Israel-specific grid and energy factors",
+    },
 ]
 
 
 # ============================================================================
 # Endpoints
 # ============================================================================
+
 
 @router.get("/organization", response_model=OrganizationResponse)
 async def get_organization(
@@ -108,7 +134,9 @@ async def update_organization(
     """Update organization settings."""
     # Check user has admin role
     if current_user.role.value not in ["admin", "super_admin"]:
-        raise HTTPException(status_code=403, detail="Only admins can update organization settings")
+        raise HTTPException(
+            status_code=403, detail="Only admins can update organization settings"
+        )
 
     query = select(Organization).where(Organization.id == current_user.organization_id)
     result = await session.execute(query)
@@ -123,7 +151,7 @@ async def update_organization(
         if data.default_region not in valid_regions:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid region. Supported regions: {', '.join(valid_regions)}"
+                detail=f"Invalid region. Supported regions: {', '.join(valid_regions)}",
             )
 
     # Update fields
@@ -160,6 +188,7 @@ async def get_supported_regions():
 # ============================================================================
 # Sites
 # ============================================================================
+
 
 @router.get("/organization/sites", response_model=list[SiteResponse])
 async def list_sites(
@@ -240,6 +269,7 @@ async def delete_site(
 
 class SiteDetailResponse(BaseModel):
     """Site details with emission statistics."""
+
     id: str
     name: str
     country_code: str | None
@@ -320,6 +350,7 @@ async def get_site_detail(
 
 class SiteEmissionSummary(BaseModel):
     """Emission summary for one site in the breakdown."""
+
     site_id: str
     site_name: str
     total_co2e_kg: float
@@ -393,16 +424,18 @@ async def get_sites_emission_breakdown(
         if not site:
             continue
         total = sum(data["scope_totals"].values())
-        summaries.append(SiteEmissionSummary(
-            site_id=str(sid),
-            site_name=site.name,
-            total_co2e_kg=float(total),
-            total_co2e_tonnes=float(total / 1000),
-            scope_1_co2e_kg=float(data["scope_totals"][1]),
-            scope_2_co2e_kg=float(data["scope_totals"][2]),
-            scope_3_co2e_kg=float(data["scope_totals"][3]),
-            activity_count=data["activity_count"],
-        ))
+        summaries.append(
+            SiteEmissionSummary(
+                site_id=str(sid),
+                site_name=site.name,
+                total_co2e_kg=float(total),
+                total_co2e_tonnes=float(total / 1000),
+                scope_1_co2e_kg=float(data["scope_totals"][1]),
+                scope_2_co2e_kg=float(data["scope_totals"][2]),
+                scope_3_co2e_kg=float(data["scope_totals"][3]),
+                activity_count=data["activity_count"],
+            )
+        )
 
     # Sort by total emissions descending
     summaries.sort(key=lambda s: s.total_co2e_kg, reverse=True)

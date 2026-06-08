@@ -2,6 +2,7 @@
 Admin API endpoints for super users.
 Provides access to all organizations, users, and activity logs.
 """
+
 from datetime import datetime
 from typing import Annotated, Optional
 from uuid import UUID
@@ -12,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, func
 
 from app.database import get_session
-from app.models.core import User, Organization, UserRole, ReportingPeriod, Site
+from app.models.core import User, Organization, UserRole, ReportingPeriod
 from app.models.emission import Activity, Emission
 from app.api.auth import get_current_user, get_password_hash
 
@@ -23,21 +24,20 @@ router = APIRouter()
 # Super Admin Check
 # ============================================================================
 
+
 async def require_super_admin(
-    current_user: Annotated[User, Depends(get_current_user)]
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
     """Require super admin role for access."""
     if current_user.role != UserRole.SUPER_ADMIN:
-        raise HTTPException(
-            status_code=403,
-            detail="Super admin access required"
-        )
+        raise HTTPException(status_code=403, detail="Super admin access required")
     return current_user
 
 
 # ============================================================================
 # Response Schemas
 # ============================================================================
+
 
 class OrganizationSummary(BaseModel):
     id: str
@@ -90,6 +90,7 @@ class AdminStats(BaseModel):
 
 class CreateUserRequest(BaseModel):
     """Request to create a new user."""
+
     email: str
     password: str
     full_name: str
@@ -99,6 +100,7 @@ class CreateUserRequest(BaseModel):
 
 class CreateUserResponse(BaseModel):
     """Response after creating a user."""
+
     id: str
     email: str
     full_name: str
@@ -111,6 +113,7 @@ class CreateUserResponse(BaseModel):
 # ============================================================================
 # Admin Endpoints
 # ============================================================================
+
 
 @router.get("/stats", response_model=AdminStats)
 async def get_admin_stats(
@@ -142,6 +145,7 @@ async def get_admin_stats(
 
     # Activities this month
     from datetime import date
+
     first_of_month = date.today().replace(day=1)
     month_result = await session.execute(
         select(func.count(Activity.id)).where(Activity.created_at >= first_of_month)
@@ -154,7 +158,7 @@ async def get_admin_stats(
         total_activities=total_activities,
         total_co2e_tonnes=total_co2e_kg / 1000,
         active_organizations=active_orgs,
-        activities_this_month=activities_this_month
+        activities_this_month=activities_this_month,
     )
 
 
@@ -178,7 +182,7 @@ async def create_user(
     except ValueError:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid role: {data.role}. Must be one of: viewer, editor, admin"
+            detail=f"Invalid role: {data.role}. Must be one of: viewer, editor, admin",
         )
 
     # Check if email already exists
@@ -187,8 +191,7 @@ async def create_user(
     )
     if existing_result.scalar_one_or_none():
         raise HTTPException(
-            status_code=400,
-            detail=f"Email {data.email} is already registered"
+            status_code=400, detail=f"Email {data.email} is already registered"
         )
 
     # Determine organization
@@ -227,12 +230,13 @@ async def create_user(
         role=new_user.role.value,
         organization_id=str(org.id),
         organization_name=org.name,
-        created_at=new_user.created_at
+        created_at=new_user.created_at,
     )
 
 
 class UpdatePasswordRequest(BaseModel):
     """Request to update a user's password."""
+
     email: str
     new_password: str
 
@@ -247,13 +251,13 @@ async def update_user_password(
     Update a user's password (super admin only).
     """
     # Find user by email
-    result = await session.execute(
-        select(User).where(User.email == data.email)
-    )
+    result = await session.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=404, detail=f"User with email {data.email} not found")
+        raise HTTPException(
+            status_code=404, detail=f"User with email {data.email} not found"
+        )
 
     # Update password
     user.hashed_password = get_password_hash(data.new_password)
@@ -271,7 +275,10 @@ async def list_all_organizations(
 ):
     """List all organizations with summary statistics."""
     result = await session.execute(
-        select(Organization).offset(skip).limit(limit).order_by(Organization.created_at.desc())
+        select(Organization)
+        .offset(skip)
+        .limit(limit)
+        .order_by(Organization.created_at.desc())
     )
     organizations = result.scalars().all()
 
@@ -282,7 +289,9 @@ async def list_all_organizations(
             select(func.count(User.id)).where(User.organization_id == org.id)
         )
         period_count = await session.execute(
-            select(func.count(ReportingPeriod.id)).where(ReportingPeriod.organization_id == org.id)
+            select(func.count(ReportingPeriod.id)).where(
+                ReportingPeriod.organization_id == org.id
+            )
         )
         activity_count = await session.execute(
             select(func.count(Activity.id)).where(Activity.organization_id == org.id)
@@ -295,18 +304,20 @@ async def list_all_organizations(
             .where(Activity.organization_id == org.id)
         )
 
-        summaries.append(OrganizationSummary(
-            id=str(org.id),
-            name=org.name,
-            country_code=org.country_code,
-            default_region=org.default_region,
-            is_active=org.is_active,
-            created_at=org.created_at,
-            user_count=user_count.scalar() or 0,
-            period_count=period_count.scalar() or 0,
-            activity_count=activity_count.scalar() or 0,
-            total_co2e_kg=emission_sum.scalar() or 0
-        ))
+        summaries.append(
+            OrganizationSummary(
+                id=str(org.id),
+                name=org.name,
+                country_code=org.country_code,
+                default_region=org.default_region,
+                is_active=org.is_active,
+                created_at=org.created_at,
+                user_count=user_count.scalar() or 0,
+                period_count=period_count.scalar() or 0,
+                activity_count=activity_count.scalar() or 0,
+                total_co2e_kg=emission_sum.scalar() or 0,
+            )
+        )
 
     return summaries
 
@@ -318,7 +329,9 @@ async def get_organization_details(
     _: Annotated[User, Depends(require_super_admin)],
 ):
     """Get detailed information about a specific organization."""
-    result = await session.execute(select(Organization).where(Organization.id == org_id))
+    result = await session.execute(
+        select(Organization).where(Organization.id == org_id)
+    )
     org = result.scalar_one_or_none()
 
     if not org:
@@ -329,7 +342,9 @@ async def get_organization_details(
         select(func.count(User.id)).where(User.organization_id == org.id)
     )
     period_count = await session.execute(
-        select(func.count(ReportingPeriod.id)).where(ReportingPeriod.organization_id == org.id)
+        select(func.count(ReportingPeriod.id)).where(
+            ReportingPeriod.organization_id == org.id
+        )
     )
     activity_count = await session.execute(
         select(func.count(Activity.id)).where(Activity.organization_id == org.id)
@@ -350,7 +365,7 @@ async def get_organization_details(
         user_count=user_count.scalar() or 0,
         period_count=period_count.scalar() or 0,
         activity_count=activity_count.scalar() or 0,
-        total_co2e_kg=emission_sum.scalar() or 0
+        total_co2e_kg=emission_sum.scalar() or 0,
     )
 
 
@@ -363,7 +378,9 @@ async def list_all_users(
     org_id: Optional[UUID] = None,
 ):
     """List all users across all organizations."""
-    query = select(User, Organization.name).join(Organization, User.organization_id == Organization.id)
+    query = select(User, Organization.name).join(
+        Organization, User.organization_id == Organization.id
+    )
 
     if org_id:
         query = query.where(User.organization_id == org_id)
@@ -382,7 +399,7 @@ async def list_all_users(
             organization_id=str(user.organization_id),
             organization_name=org_name,
             created_at=user.created_at,
-            last_login=user.last_login
+            last_login=user.last_login,
         )
         for user, org_name in rows
     ]
@@ -426,7 +443,7 @@ async def list_all_activities(
             unit=activity.unit,
             co2e_kg=float(co2e_kg) if co2e_kg else None,
             activity_date=activity.activity_date.isoformat(),
-            created_at=activity.created_at
+            created_at=activity.created_at,
         )
         for activity, org_name, co2e_kg in rows
     ]
@@ -440,7 +457,9 @@ async def get_organization_report(
 ):
     """Get full emissions report for a specific organization."""
     # Verify organization exists
-    org_result = await session.execute(select(Organization).where(Organization.id == org_id))
+    org_result = await session.execute(
+        select(Organization).where(Organization.id == org_id)
+    )
     org = org_result.scalar_one_or_none()
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -461,16 +480,18 @@ async def get_organization_report(
     for activity, emission in rows:
         co2e = float(emission.co2e_kg) if emission else 0
         scope_totals[activity.scope] += co2e
-        activities_by_scope[activity.scope].append({
-            "id": str(activity.id),
-            "category_code": activity.category_code,
-            "activity_key": activity.activity_key,
-            "description": activity.description,
-            "quantity": float(activity.quantity),
-            "unit": activity.unit,
-            "co2e_kg": co2e,
-            "activity_date": activity.activity_date.isoformat()
-        })
+        activities_by_scope[activity.scope].append(
+            {
+                "id": str(activity.id),
+                "category_code": activity.category_code,
+                "activity_key": activity.activity_key,
+                "description": activity.description,
+                "quantity": float(activity.quantity),
+                "unit": activity.unit,
+                "co2e_kg": co2e,
+                "activity_date": activity.activity_date.isoformat(),
+            }
+        )
 
     total_co2e = sum(scope_totals.values())
 
@@ -478,7 +499,7 @@ async def get_organization_report(
         "organization": {
             "id": str(org.id),
             "name": org.name,
-            "country_code": org.country_code
+            "country_code": org.country_code,
         },
         "total_co2e_kg": total_co2e,
         "total_co2e_tonnes": total_co2e / 1000,
@@ -486,17 +507,17 @@ async def get_organization_report(
             "scope_1": {
                 "total_co2e_kg": scope_totals[1],
                 "activity_count": len(activities_by_scope[1]),
-                "activities": activities_by_scope[1]
+                "activities": activities_by_scope[1],
             },
             "scope_2": {
                 "total_co2e_kg": scope_totals[2],
                 "activity_count": len(activities_by_scope[2]),
-                "activities": activities_by_scope[2]
+                "activities": activities_by_scope[2],
             },
             "scope_3": {
                 "total_co2e_kg": scope_totals[3],
                 "activity_count": len(activities_by_scope[3]),
-                "activities": activities_by_scope[3]
-            }
-        }
+                "activities": activities_by_scope[3],
+            },
+        },
     }

@@ -1,6 +1,7 @@
 """
 Tests for reports and period management.
 """
+
 import pytest
 from httpx import AsyncClient
 

@@ -2,6 +2,7 @@
 Reference Data API endpoints.
 Provides emission factors, activity options, and unit information.
 """
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -19,8 +20,10 @@ router = APIRouter()
 # Schemas
 # ============================================================================
 
+
 class EmissionFactorResponse(BaseModel):
     """Emission factor response."""
+
     id: str
     activity_key: str
     display_name: str
@@ -36,6 +39,7 @@ class EmissionFactorResponse(BaseModel):
 
 class ActivityOptionResponse(BaseModel):
     """Activity option for a category - includes emission factor for preview calculations."""
+
     id: str
     activity_key: str
     display_name: str
@@ -52,6 +56,7 @@ class ActivityOptionResponse(BaseModel):
 
 class UnitInfoResponse(BaseModel):
     """Unit information for an activity type."""
+
     activity_key: str
     expected_unit: str
     allowed_units: list[str]
@@ -60,6 +65,7 @@ class UnitInfoResponse(BaseModel):
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
 
 def normalize_category_code(category_code: str) -> str:
     """
@@ -84,6 +90,7 @@ def normalize_category_code(category_code: str) -> str:
 # ============================================================================
 # Endpoints
 # ============================================================================
+
 
 @router.get("/emission-factors", response_model=list[EmissionFactorResponse])
 async def list_emission_factors(
@@ -176,9 +183,10 @@ async def get_emission_factor(
 
     if not factor:
         from fastapi import HTTPException
+
         raise HTTPException(
             status_code=404,
-            detail=f"No emission factor found for activity_key='{activity_key}' in region='{region}'"
+            detail=f"No emission factor found for activity_key='{activity_key}' in region='{region}'",
         )
 
     return EmissionFactorResponse(
@@ -196,7 +204,9 @@ async def get_emission_factor(
     )
 
 
-@router.get("/activity-options/{category_code}", response_model=list[ActivityOptionResponse])
+@router.get(
+    "/activity-options/{category_code}", response_model=list[ActivityOptionResponse]
+)
 async def get_activity_options(
     category_code: str,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -268,9 +278,10 @@ async def get_unit_info(
 
     if not factor:
         from fastapi import HTTPException
+
         raise HTTPException(
             status_code=404,
-            detail=f"No emission factor found for activity_key='{activity_key}'"
+            detail=f"No emission factor found for activity_key='{activity_key}'",
         )
 
     # Define allowed units per category
@@ -298,8 +309,10 @@ async def get_unit_info(
 # Airport/Flight Distance Endpoints
 # ============================================================================
 
+
 class AirportResponse(BaseModel):
     """Airport information."""
+
     iata_code: str
     name: str
     city: str
@@ -310,6 +323,7 @@ class AirportResponse(BaseModel):
 
 class FlightDistanceResponse(BaseModel):
     """Flight distance calculation result."""
+
     origin: AirportResponse
     destination: AirportResponse
     distance_km: float
@@ -320,7 +334,9 @@ class FlightDistanceResponse(BaseModel):
 
 @router.get("/airports/search", response_model=list[AirportResponse])
 async def search_airports(
-    q: str = Query(..., min_length=2, description="Search term (IATA code, city, or airport name)"),
+    q: str = Query(
+        ..., min_length=2, description="Search term (IATA code, city, or airport name)"
+    ),
     limit: int = Query(10, le=50),
 ):
     """
@@ -343,6 +359,7 @@ async def get_airport_statistics():
     Get statistics about the airport database coverage.
     """
     from app.data import get_airport_stats
+
     return get_airport_stats()
 
 
@@ -360,7 +377,7 @@ async def get_airport(iata_code: str):
     if not airport_data:
         raise HTTPException(
             status_code=404,
-            detail=f"Airport not found: '{iata_code}'. Use /reference/airports/search to find valid codes."
+            detail=f"Airport not found: '{iata_code}'. Use /reference/airports/search to find valid codes.",
         )
 
     name, city, country, lat, lon = airport_data
@@ -376,9 +393,15 @@ async def get_airport(iata_code: str):
 
 @router.get("/flight-distance", response_model=FlightDistanceResponse)
 async def calculate_flight_distance(
-    origin: str = Query(..., min_length=3, max_length=3, description="Origin IATA code"),
-    destination: str = Query(..., min_length=3, max_length=3, description="Destination IATA code"),
-    cabin_class: str = Query("economy", description="Cabin class: economy, premium_economy, business, first"),
+    origin: str = Query(
+        ..., min_length=3, max_length=3, description="Origin IATA code"
+    ),
+    destination: str = Query(
+        ..., min_length=3, max_length=3, description="Destination IATA code"
+    ),
+    cabin_class: str = Query(
+        "economy", description="Cabin class: economy, premium_economy, business, first"
+    ),
 ):
     """
     Calculate flight distance between two airports and suggest emission factor.
@@ -402,9 +425,13 @@ async def calculate_flight_distance(
     dest_data = do_get_airport(destination)
 
     if not origin_data:
-        raise HTTPException(status_code=404, detail=f"Origin airport not found: '{origin}'")
+        raise HTTPException(
+            status_code=404, detail=f"Origin airport not found: '{origin}'"
+        )
     if not dest_data:
-        raise HTTPException(status_code=404, detail=f"Destination airport not found: '{destination}'")
+        raise HTTPException(
+            status_code=404, detail=f"Destination airport not found: '{destination}'"
+        )
 
     distance = do_calc_distance(origin, destination)
     haul_type = classify_flight_distance(distance, origin, destination)
@@ -441,8 +468,10 @@ async def calculate_flight_distance(
 # Fuel Price Endpoints (For Spend-to-Quantity Conversion)
 # ============================================================================
 
+
 class FuelPriceResponse(BaseModel):
     """Fuel price information."""
+
     id: str
     fuel_type: str
     price_per_unit: float
@@ -457,6 +486,7 @@ class FuelPriceResponse(BaseModel):
 
 class SpendConversionRequest(BaseModel):
     """Request for spend-to-quantity conversion."""
+
     fuel_type: str
     spend_amount: float
     currency: str
@@ -465,6 +495,7 @@ class SpendConversionRequest(BaseModel):
 
 class SpendConversionResponse(BaseModel):
     """Result of spend-to-quantity conversion."""
+
     fuel_type: str
     spend_amount: float
     currency: str
@@ -543,12 +574,9 @@ async def get_fuel_price(
     from fastapi import HTTPException
 
     # Build query with region preference
-    query = (
-        select(FuelPrice)
-        .where(
-            FuelPrice.fuel_type == fuel_type,
-            FuelPrice.is_active == True,
-        )
+    query = select(FuelPrice).where(
+        FuelPrice.fuel_type == fuel_type,
+        FuelPrice.is_active == True,
     )
 
     if currency:
@@ -566,7 +594,7 @@ async def get_fuel_price(
     if not price:
         raise HTTPException(
             status_code=404,
-            detail=f"No fuel price found for fuel_type='{fuel_type}' in region='{region}'"
+            detail=f"No fuel price found for fuel_type='{fuel_type}' in region='{region}'",
         )
 
     return FuelPriceResponse(
@@ -634,7 +662,7 @@ async def convert_spend_to_quantity(
         raise HTTPException(
             status_code=404,
             detail=f"No fuel price found for {request.fuel_type} in {request.currency}. "
-                   f"Available currencies can be found at GET /reference/fuel-prices?fuel_type={request.fuel_type}"
+            f"Available currencies can be found at GET /reference/fuel-prices?fuel_type={request.fuel_type}",
         )
 
     # Calculate quantity
@@ -657,8 +685,10 @@ async def convert_spend_to_quantity(
 # Market-Based Scope 2 Endpoints
 # ============================================================================
 
+
 class PowerProducerResponse(BaseModel):
     """Power producer for market-based Scope 2."""
+
     id: str
     producer_name_en: str
     producer_name_he: str | None = None
@@ -672,6 +702,7 @@ class PowerProducerResponse(BaseModel):
 
 class MarketFactorResponse(BaseModel):
     """Market-based emission factor response."""
+
     country_code: str
     country_name: str
     market_factor_co2e_per_kwh: float
@@ -683,6 +714,7 @@ class MarketFactorResponse(BaseModel):
 
 class TransportRouteResponse(BaseModel):
     """Transport route with distance breakdown."""
+
     origin_country: str
     destination_country: str
     sea_distance_km: int
@@ -698,7 +730,9 @@ class TransportRouteResponse(BaseModel):
 @router.get("/power-producers", response_model=list[PowerProducerResponse])
 async def list_power_producers(
     session: Annotated[AsyncSession, Depends(get_session)],
-    country: str = Query(..., min_length=2, max_length=2, description="2-letter country code"),
+    country: str = Query(
+        ..., min_length=2, max_length=2, description="2-letter country code"
+    ),
     year: int | None = Query(None, description="Filter by reporting year"),
 ):
     """
@@ -712,12 +746,9 @@ async def list_power_producers(
     """
     from app.models.emission import PowerProducer
 
-    query = (
-        select(PowerProducer)
-        .where(
-            PowerProducer.country_code == country.upper(),
-            PowerProducer.is_active == True,
-        )
+    query = select(PowerProducer).where(
+        PowerProducer.country_code == country.upper(),
+        PowerProducer.is_active == True,
     )
 
     if year is not None:
@@ -746,8 +777,12 @@ async def list_power_producers(
 
 @router.get("/market-factor", response_model=MarketFactorResponse)
 async def get_market_factor(
-    country: str = Query(..., min_length=2, max_length=2, description="2-letter country code"),
-    subregion: str | None = Query(None, description="eGRID subregion for US (e.g., CAMX, ERCT)"),
+    country: str = Query(
+        ..., min_length=2, max_length=2, description="2-letter country code"
+    ),
+    subregion: str | None = Query(
+        None, description="eGRID subregion for US (e.g., CAMX, ERCT)"
+    ),
 ):
     """
     Get market-based emission factor for a country/region.
@@ -836,16 +871,19 @@ async def get_market_factor(
         )
 
     from fastapi import HTTPException
+
     raise HTTPException(
         status_code=404,
-        detail=f"No market-based or location-based factor found for country '{country_upper}'"
+        detail=f"No market-based or location-based factor found for country '{country_upper}'",
     )
 
 
 @router.get("/transport-routes", response_model=list[TransportRouteResponse])
 async def list_transport_routes(
     origin: str | None = Query(None, description="Filter by origin country code"),
-    destination: str | None = Query(None, description="Filter by destination country code"),
+    destination: str | None = Query(
+        None, description="Filter by destination country code"
+    ),
 ):
     """
     List available transport routes with distance breakdowns.
@@ -861,26 +899,32 @@ async def list_transport_routes(
             continue
         if destination and dest != destination.upper():
             continue
-        results.append(TransportRouteResponse(
-            origin_country=orig,
-            destination_country=dest,
-            sea_distance_km=data["sea_distance_km"],
-            origin_land_km=data["origin_land_km"],
-            destination_land_km=data["destination_land_km"],
-            total_distance_km=data["total_distance_km"],
-            transport_mode=data["transport_mode"],
-            air_distance_km=data.get("air_distance_km"),
-            rail_distance_km=data.get("rail_distance_km"),
-            source=data.get("source", "Default matrix"),
-        ))
+        results.append(
+            TransportRouteResponse(
+                origin_country=orig,
+                destination_country=dest,
+                sea_distance_km=data["sea_distance_km"],
+                origin_land_km=data["origin_land_km"],
+                destination_land_km=data["destination_land_km"],
+                total_distance_km=data["total_distance_km"],
+                transport_mode=data["transport_mode"],
+                air_distance_km=data.get("air_distance_km"),
+                rail_distance_km=data.get("rail_distance_km"),
+                source=data.get("source", "Default matrix"),
+            )
+        )
 
     return results
 
 
 @router.get("/transport-distance", response_model=TransportRouteResponse)
 async def get_transport_distance(
-    origin: str = Query(..., min_length=2, max_length=2, description="Origin country code"),
-    destination: str = Query(..., min_length=2, max_length=2, description="Destination country code"),
+    origin: str = Query(
+        ..., min_length=2, max_length=2, description="Origin country code"
+    ),
+    destination: str = Query(
+        ..., min_length=2, max_length=2, description="Destination country code"
+    ),
 ):
     """
     Get transport distance between two countries.
@@ -897,7 +941,7 @@ async def get_transport_distance(
         raise HTTPException(
             status_code=404,
             detail=f"No transport route found for {origin.upper()} -> {destination.upper()}. "
-                   "Use GET /reference/transport-routes for available pairs."
+            "Use GET /reference/transport-routes for available pairs.",
         )
 
     return TransportRouteResponse(
@@ -918,8 +962,10 @@ async def get_transport_distance(
 # Israel Commuting City Distance Lookup
 # =============================================================================
 
+
 class IsraelCityResponse(BaseModel):
     """Israel city with commuting distances."""
+
     key: str
     name_en: str
     name_he: str
@@ -931,6 +977,7 @@ class IsraelCityResponse(BaseModel):
 
 class CommutingDistanceResponse(BaseModel):
     """Commuting distance result."""
+
     city: str
     office_city: str
     distance_km: int
@@ -982,7 +1029,10 @@ async def search_israel_cities(
 @router.get("/commuting-distance", response_model=CommutingDistanceResponse)
 async def get_commuting_distance(
     city: str = Query(..., description="City name (Hebrew or English)"),
-    office_city: str = Query(default="tel_aviv", description="Office city: tel_aviv, jerusalem, haifa, beer_sheva"),
+    office_city: str = Query(
+        default="tel_aviv",
+        description="Office city: tel_aviv, jerusalem, haifa, beer_sheva",
+    ),
 ):
     """
     Get commuting distance for an Israeli city to an office location.
@@ -997,7 +1047,7 @@ async def get_commuting_distance(
         raise HTTPException(
             status_code=404,
             detail=f"City '{city}' not found or no distance data for office city '{office_city}'. "
-                   "Use GET /reference/israel-cities to search available cities."
+            "Use GET /reference/israel-cities to search available cities.",
         )
 
     return CommutingDistanceResponse(

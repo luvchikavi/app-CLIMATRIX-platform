@@ -4,6 +4,7 @@ Spend Calculator - Scope 3.1 (Purchased Goods) and 3.2 (Capital Goods).
 Handles: Spend-based calculations using EEIO (Economic Input-Output) factors.
 Formula: spend_amount × EEIO_factor
 """
+
 from app.models.emission import EmissionFactor
 from app.services.calculation.normalizer import NormalizedQuantity
 from app.services.calculation.result import CalculationResult
@@ -56,7 +57,7 @@ class SpendCalculator(BaseCalculator):
         # EEIO factors are typically sourced from EPA or academic studies
         if "eeio" in factor.source.lower() or "useeio" in factor.source.lower():
             result.warnings.append(
-                f"Using US EEIO factors. May need adjustment for non-US purchases."
+                "Using US EEIO factors. May need adjustment for non-US purchases."
             )
 
         return result

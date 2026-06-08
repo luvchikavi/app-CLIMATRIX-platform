@@ -21,8 +21,14 @@ ISRAEL_CITIES: dict[str, dict] = {
         "name_he": "תל אביב",
         "name_en": "Tel Aviv",
         "aliases": [
-            "tel-aviv", "telaviv", "tel aviv yafo", "tel aviv-yafo",
-            "tel aviv jaffa", "tlv", "תל אביב יפו", "תל-אביב",
+            "tel-aviv",
+            "telaviv",
+            "tel aviv yafo",
+            "tel aviv-yafo",
+            "tel aviv jaffa",
+            "tlv",
+            "תל אביב יפו",
+            "תל-אביב",
         ],
         "distance_to_tel_aviv": 0,
         "distance_to_jerusalem": 66,
@@ -51,8 +57,14 @@ ISRAEL_CITIES: dict[str, dict] = {
         "name_he": "באר שבע",
         "name_en": "Beer Sheva",
         "aliases": [
-            "be'er sheva", "beersheva", "beer-sheva", "beersheba",
-            "be'er sheba", "באר שבע", "באר-שבע", "b7",
+            "be'er sheva",
+            "beersheva",
+            "beer-sheva",
+            "beersheba",
+            "be'er sheba",
+            "באר שבע",
+            "באר-שבע",
+            "b7",
         ],
         "distance_to_tel_aviv": 109,
         "distance_to_jerusalem": 99,
@@ -90,8 +102,12 @@ ISRAEL_CITIES: dict[str, dict] = {
         "name_he": "פתח תקווה",
         "name_en": "Petah Tikva",
         "aliases": [
-            "petach tikva", "petach tiqwa", "petah tiqwa",
-            "פתח תקווה", "פתח-תקווה", "פ\"ת",
+            "petach tikva",
+            "petach tiqwa",
+            "petah tiqwa",
+            "פתח תקווה",
+            "פתח-תקווה",
+            'פ"ת',
         ],
         "distance_to_tel_aviv": 14,
         "distance_to_jerusalem": 47,
@@ -102,8 +118,11 @@ ISRAEL_CITIES: dict[str, dict] = {
         "name_he": "ראשון לציון",
         "name_en": "Rishon LeZion",
         "aliases": [
-            "rishon le-zion", "rishon le zion", "rishon letsion",
-            "ראשון לציון", "ראשל\"צ",
+            "rishon le-zion",
+            "rishon le zion",
+            "rishon letsion",
+            "ראשון לציון",
+            'ראשל"צ',
         ],
         "distance_to_tel_aviv": 15,
         "distance_to_jerusalem": 46,
@@ -186,8 +205,11 @@ ISRAEL_CITIES: dict[str, dict] = {
         "name_he": "מודיעין",
         "name_en": "Modiin",
         "aliases": [
-            "modi'in", "modiin-maccabim-reut", "modiin maccabim reut",
-            "מודיעין", "מודיעין-מכבים-רעות",
+            "modi'in",
+            "modiin-maccabim-reut",
+            "modiin maccabim reut",
+            "מודיעין",
+            "מודיעין-מכבים-רעות",
         ],
         "distance_to_tel_aviv": 39,
         "distance_to_jerusalem": 30,
@@ -288,8 +310,11 @@ ISRAEL_CITIES: dict[str, dict] = {
         "name_he": "קריית שמונה",
         "name_en": "Kiryat Shmona",
         "aliases": [
-            "qiryat shmona", "kiryat shemona", "kiriat shmona",
-            "קריית שמונה", "קרית שמונה",
+            "qiryat shmona",
+            "kiryat shemona",
+            "kiriat shmona",
+            "קריית שמונה",
+            "קרית שמונה",
         ],
         "distance_to_tel_aviv": 192,
         "distance_to_jerusalem": 200,
@@ -330,6 +355,7 @@ ISRAEL_CITIES: dict[str, dict] = {
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _normalize(text: str) -> str:
     """Lower-case, strip, and collapse whitespace / punctuation for matching."""
     text = text.strip().lower()
@@ -352,6 +378,7 @@ def _matches(query_norm: str, city: dict) -> bool:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def search_cities(query: str) -> list[dict]:
     """Search for cities matching *query* using fuzzy matching.

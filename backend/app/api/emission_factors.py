@@ -5,6 +5,7 @@ Governance endpoints for viewing, creating, editing, and approving emission fact
 Only SUPER_ADMIN and ADMIN can approve/reject factors.
 EDITOR can create drafts and submit for approval.
 """
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
@@ -27,8 +28,10 @@ router = APIRouter(prefix="/emission-factors", tags=["Emission Factors"])
 # SCHEMAS
 # =============================================================================
 
+
 class EmissionFactorCreate(BaseModel):
     """Schema for creating a new emission factor."""
+
     scope: int = Field(ge=1, le=3)
     category_code: str = Field(max_length=10)
     subcategory: Optional[str] = None
@@ -49,6 +52,7 @@ class EmissionFactorCreate(BaseModel):
 
 class EmissionFactorUpdate(BaseModel):
     """Schema for updating an emission factor."""
+
     display_name: Optional[str] = None
     co2_factor: Optional[Decimal] = None
     ch4_factor: Optional[Decimal] = None
@@ -63,6 +67,7 @@ class EmissionFactorUpdate(BaseModel):
 
 class EmissionFactorResponse(BaseModel):
     """Schema for emission factor response."""
+
     id: UUID
     scope: int
     category_code: str
@@ -96,6 +101,7 @@ class EmissionFactorResponse(BaseModel):
 
 class EmissionFactorListResponse(BaseModel):
     """Paginated list of emission factors."""
+
     items: List[EmissionFactorResponse]
     total: int
     page: int
@@ -105,12 +111,14 @@ class EmissionFactorListResponse(BaseModel):
 
 class ApprovalAction(BaseModel):
     """Schema for approval/rejection."""
+
     reason: Optional[str] = Field(None, max_length=500)
 
 
 # =============================================================================
 # ENDPOINTS
 # =============================================================================
+
 
 @router.get("", response_model=EmissionFactorListResponse)
 async def list_emission_factors(
@@ -142,8 +150,8 @@ async def list_emission_factors(
     if search:
         search_pattern = f"%{search}%"
         query = query.where(
-            (EmissionFactor.activity_key.ilike(search_pattern)) |
-            (EmissionFactor.display_name.ilike(search_pattern))
+            (EmissionFactor.activity_key.ilike(search_pattern))
+            | (EmissionFactor.display_name.ilike(search_pattern))
         )
 
     # Count total
@@ -153,7 +161,9 @@ async def list_emission_factors(
 
     # Apply pagination
     offset = (page - 1) * page_size
-    query = query.order_by(EmissionFactor.scope, EmissionFactor.category_code, EmissionFactor.activity_key)
+    query = query.order_by(
+        EmissionFactor.scope, EmissionFactor.category_code, EmissionFactor.activity_key
+    )
     query = query.offset(offset).limit(page_size)
 
     result = await session.execute(query)
@@ -180,7 +190,9 @@ async def list_pending_approvals(
     Only ADMIN and SUPER_ADMIN can view pending approvals.
     """
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        raise HTTPException(status_code=403, detail="Only admins can view pending approvals")
+        raise HTTPException(
+            status_code=403, detail="Only admins can view pending approvals"
+        )
 
     query = (
         select(EmissionFactor)
@@ -252,7 +264,9 @@ async def create_emission_factor(
     - ADMIN/SUPER_ADMIN can create and auto-approve
     """
     if current_user.role == UserRole.VIEWER:
-        raise HTTPException(status_code=403, detail="Viewers cannot create emission factors")
+        raise HTTPException(
+            status_code=403, detail="Viewers cannot create emission factors"
+        )
 
     # Check for duplicate activity_key + region + year
     existing = await session.execute(
@@ -260,13 +274,15 @@ async def create_emission_factor(
             EmissionFactor.activity_key == data.activity_key,
             EmissionFactor.region == data.region,
             EmissionFactor.year == data.year,
-            EmissionFactor.status.in_([EmissionFactorStatus.APPROVED, EmissionFactorStatus.PENDING_APPROVAL]),
+            EmissionFactor.status.in_(
+                [EmissionFactorStatus.APPROVED, EmissionFactorStatus.PENDING_APPROVAL]
+            ),
         )
     )
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=400,
-            detail=f"Emission factor already exists for {data.activity_key} in {data.region} for {data.year}"
+            detail=f"Emission factor already exists for {data.activity_key} in {data.region} for {data.year}",
         )
 
     # Determine initial status based on user role
@@ -310,7 +326,9 @@ async def update_emission_factor(
     - Goes to draft status unless user is admin
     """
     if current_user.role == UserRole.VIEWER:
-        raise HTTPException(status_code=403, detail="Viewers cannot edit emission factors")
+        raise HTTPException(
+            status_code=403, detail="Viewers cannot edit emission factors"
+        )
 
     # Get existing factor
     result = await session.execute(
@@ -342,10 +360,18 @@ async def update_emission_factor(
         subcategory=old_factor.subcategory,
         activity_key=old_factor.activity_key,
         display_name=data.display_name or old_factor.display_name,
-        co2_factor=data.co2_factor if data.co2_factor is not None else old_factor.co2_factor,
-        ch4_factor=data.ch4_factor if data.ch4_factor is not None else old_factor.ch4_factor,
-        n2o_factor=data.n2o_factor if data.n2o_factor is not None else old_factor.n2o_factor,
-        co2e_factor=data.co2e_factor if data.co2e_factor is not None else old_factor.co2e_factor,
+        co2_factor=(
+            data.co2_factor if data.co2_factor is not None else old_factor.co2_factor
+        ),
+        ch4_factor=(
+            data.ch4_factor if data.ch4_factor is not None else old_factor.ch4_factor
+        ),
+        n2o_factor=(
+            data.n2o_factor if data.n2o_factor is not None else old_factor.n2o_factor
+        ),
+        co2e_factor=(
+            data.co2e_factor if data.co2e_factor is not None else old_factor.co2e_factor
+        ),
         activity_unit=data.activity_unit or old_factor.activity_unit,
         factor_unit=data.factor_unit or old_factor.factor_unit,
         source=data.source or old_factor.source,
@@ -386,7 +412,9 @@ async def submit_for_approval(
         raise HTTPException(status_code=404, detail="Emission factor not found")
 
     if factor.status != EmissionFactorStatus.DRAFT:
-        raise HTTPException(status_code=400, detail="Only draft factors can be submitted for approval")
+        raise HTTPException(
+            status_code=400, detail="Only draft factors can be submitted for approval"
+        )
 
     factor.status = EmissionFactorStatus.PENDING_APPROVAL
     factor.submitted_at = datetime.utcnow()
@@ -410,7 +438,9 @@ async def approve_emission_factor(
     Only ADMIN and SUPER_ADMIN can approve.
     """
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        raise HTTPException(status_code=403, detail="Only admins can approve emission factors")
+        raise HTTPException(
+            status_code=403, detail="Only admins can approve emission factors"
+        )
 
     result = await session.execute(
         select(EmissionFactor).where(EmissionFactor.id == factor_id)
@@ -421,7 +451,9 @@ async def approve_emission_factor(
         raise HTTPException(status_code=404, detail="Emission factor not found")
 
     if factor.status != EmissionFactorStatus.PENDING_APPROVAL:
-        raise HTTPException(status_code=400, detail="Only pending factors can be approved")
+        raise HTTPException(
+            status_code=400, detail="Only pending factors can be approved"
+        )
 
     # Archive any existing approved factor with same key/region/year
     existing_query = select(EmissionFactor).where(
@@ -460,7 +492,9 @@ async def reject_emission_factor(
     Only ADMIN and SUPER_ADMIN can reject.
     """
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        raise HTTPException(status_code=403, detail="Only admins can reject emission factors")
+        raise HTTPException(
+            status_code=403, detail="Only admins can reject emission factors"
+        )
 
     result = await session.execute(
         select(EmissionFactor).where(EmissionFactor.id == factor_id)
@@ -471,7 +505,9 @@ async def reject_emission_factor(
         raise HTTPException(status_code=404, detail="Emission factor not found")
 
     if factor.status != EmissionFactorStatus.PENDING_APPROVAL:
-        raise HTTPException(status_code=400, detail="Only pending factors can be rejected")
+        raise HTTPException(
+            status_code=400, detail="Only pending factors can be rejected"
+        )
 
     factor.status = EmissionFactorStatus.REJECTED
     factor.rejected_at = datetime.utcnow()
@@ -495,7 +531,9 @@ async def archive_emission_factor(
     Only ADMIN and SUPER_ADMIN can archive.
     """
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        raise HTTPException(status_code=403, detail="Only admins can archive emission factors")
+        raise HTTPException(
+            status_code=403, detail="Only admins can archive emission factors"
+        )
 
     result = await session.execute(
         select(EmissionFactor).where(EmissionFactor.id == factor_id)

@@ -11,12 +11,16 @@ Each strategy handles a specific category of emissions:
 - FlightCalculator: Scope 3.6 (business travel - flights)
 - LeasedAssetsCalculator: Scope 3.8, 3.13, 3.14 (leased assets & franchises)
 """
+
 from app.services.calculation.strategies.base import BaseCalculator
 from app.services.calculation.strategies.fuel import FuelCalculator
 from app.services.calculation.strategies.electricity import ElectricityCalculator
 from app.services.calculation.strategies.spend import SpendCalculator
 from app.services.calculation.strategies.flight import FlightCalculator
-from app.services.calculation.strategies.transport import TransportCalculator, FreightCalculator
+from app.services.calculation.strategies.transport import (
+    TransportCalculator,
+    FreightCalculator,
+)
 from app.services.calculation.strategies.waste import WasteCalculator
 from app.services.calculation.strategies.refrigerant import RefrigerantCalculator
 from app.services.calculation.strategies.leased_assets import LeasedAssetsCalculator

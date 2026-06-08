@@ -7,7 +7,7 @@ Extracts structured emission data from:
 - Invoice/receipt text
 - Multi-language inputs
 """
-import json
+
 import re
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -19,6 +19,7 @@ from app.services.ai.claude_service import ClaudeService
 @dataclass
 class ExtractedActivity:
     """Single extracted activity from unstructured data."""
+
     activity_key: str
     quantity: Decimal
     unit: str
@@ -33,6 +34,7 @@ class ExtractedActivity:
 @dataclass
 class ExtractionResult:
     """Complete extraction result."""
+
     success: bool
     activities: list[ExtractedActivity]
     unmatched_text: list[str]  # Parts that couldn't be extracted
@@ -155,7 +157,7 @@ Be careful with units - distinguish between m³ (cubic meters), m3, m (meters)."
                 ai_notes=data.get("notes"),
             )
 
-        except (KeyError, TypeError, ValueError) as e:
+        except (KeyError, TypeError, ValueError):
             return self._regex_extract(text)
 
     def _regex_extract(self, text: str) -> ExtractionResult:
@@ -172,32 +174,61 @@ Be careful with units - distinguish between m³ (cubic meters), m3, m (meters)."
         # Examples: "1500 m³ natural gas", "25000 kWh electricity"
         patterns = [
             # Natural gas
-            (r'([\d,\.]+)\s*(m³|m3|cubic\s*meters?)\s*(?:of\s*)?(natural\s*gas|gas)',
-             "natural_gas_volume", 1, "1.1", "m³"),
-
+            (
+                r"([\d,\.]+)\s*(m³|m3|cubic\s*meters?)\s*(?:of\s*)?(natural\s*gas|gas)",
+                "natural_gas_volume",
+                1,
+                "1.1",
+                "m³",
+            ),
             # Electricity
-            (r'([\d,\.]+)\s*(kwh|mwh|gwh)\s*(?:of\s*)?(electricity|electric|power)?',
-             "electricity_global", 2, "2", "kWh"),
-
+            (
+                r"([\d,\.]+)\s*(kwh|mwh|gwh)\s*(?:of\s*)?(electricity|electric|power)?",
+                "electricity_global",
+                2,
+                "2",
+                "kWh",
+            ),
             # Diesel
-            (r'([\d,\.]+)\s*(liters?|litres?|L|gallons?|gal)\s*(?:of\s*)?(diesel)',
-             "diesel_volume", 1, "1.1", "liters"),
-
+            (
+                r"([\d,\.]+)\s*(liters?|litres?|L|gallons?|gal)\s*(?:of\s*)?(diesel)",
+                "diesel_volume",
+                1,
+                "1.1",
+                "liters",
+            ),
             # Petrol/Gasoline
-            (r'([\d,\.]+)\s*(liters?|litres?|L|gallons?|gal)\s*(?:of\s*)?(petrol|gasoline)',
-             "petrol_vehicle_liters", 1, "1.2", "liters"),
-
+            (
+                r"([\d,\.]+)\s*(liters?|litres?|L|gallons?|gal)\s*(?:of\s*)?(petrol|gasoline)",
+                "petrol_vehicle_liters",
+                1,
+                "1.2",
+                "liters",
+            ),
             # LPG
-            (r'([\d,\.]+)\s*(liters?|litres?|L|kg)\s*(?:of\s*)?(lpg|propane)',
-             "lpg_volume", 1, "1.1", "liters"),
-
+            (
+                r"([\d,\.]+)\s*(liters?|litres?|L|kg)\s*(?:of\s*)?(lpg|propane)",
+                "lpg_volume",
+                1,
+                "1.1",
+                "liters",
+            ),
             # Waste
-            (r'([\d,\.]+)\s*(kg|tonnes?|tons?)\s*(?:of\s*)?(waste|garbage|refuse)',
-             "waste_mixed_landfill", 3, "3.5", "kg"),
-
+            (
+                r"([\d,\.]+)\s*(kg|tonnes?|tons?)\s*(?:of\s*)?(waste|garbage|refuse)",
+                "waste_mixed_landfill",
+                3,
+                "3.5",
+                "kg",
+            ),
             # Distance (for vehicles)
-            (r'([\d,\.]+)\s*(km|kilometers?|kilometres?|miles?|mi)\s*(?:driven|traveled|travelled)?',
-             "petrol_vehicle_km", 1, "1.2", "km"),
+            (
+                r"([\d,\.]+)\s*(km|kilometers?|kilometres?|miles?|mi)\s*(?:driven|traveled|travelled)?",
+                "petrol_vehicle_km",
+                1,
+                "1.2",
+                "km",
+            ),
         ]
 
         text_lower = text.lower()
@@ -228,23 +259,31 @@ Be careful with units - distinguish between m³ (cubic meters), m3, m (meters)."
                         unit = "kg"
                     elif unit_found in ["tonnes", "tonne", "tons", "ton"]:
                         unit = "tonnes"
-                    elif unit_found in ["km", "kilometers", "kilometres", "kilometer", "kilometre"]:
+                    elif unit_found in [
+                        "km",
+                        "kilometers",
+                        "kilometres",
+                        "kilometer",
+                        "kilometre",
+                    ]:
                         unit = "km"
                     elif unit_found in ["miles", "mile", "mi"]:
                         unit = "miles"
 
-                    activities.append(ExtractedActivity(
-                        activity_key=activity_key,
-                        quantity=quantity,
-                        unit=unit,
-                        description=match.group(0),
-                        scope=scope,
-                        category_code=category,
-                        confidence=0.6,
-                        source_text=match.group(0),
-                        warnings=["Extracted via regex pattern matching"],
-                    ))
-                except (ValueError, IndexError) as e:
+                    activities.append(
+                        ExtractedActivity(
+                            activity_key=activity_key,
+                            quantity=quantity,
+                            unit=unit,
+                            description=match.group(0),
+                            scope=scope,
+                            category_code=category,
+                            confidence=0.6,
+                            source_text=match.group(0),
+                            warnings=["Extracted via regex pattern matching"],
+                        )
+                    )
+                except (ValueError, IndexError):
                     warnings.append(f"Failed to parse: {match.group(0)}")
 
         if not activities:

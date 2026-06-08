@@ -2,6 +2,7 @@
 Database connection and session management.
 Uses SQLModel with async SQLAlchemy.
 """
+
 import logging
 import os
 from typing import AsyncGenerator
@@ -22,8 +23,6 @@ def run_migrations() -> None:
     try:
         from alembic.config import Config
         from alembic import command
-        from alembic.script import ScriptDirectory
-        from alembic.runtime.migration import MigrationContext
         from sqlalchemy import create_engine, inspect, text
 
         # Get the directory where this file is located
@@ -32,7 +31,7 @@ def run_migrations() -> None:
 
         if os.path.exists(alembic_ini):
             # Check if alembic.ini has content
-            with open(alembic_ini, 'r') as f:
+            with open(alembic_ini, "r") as f:
                 content = f.read().strip()
             if not content:
                 logger.warning("alembic.ini is empty, skipping Alembic migrations")
@@ -50,14 +49,18 @@ def run_migrations() -> None:
                 has_version = "alembic_version" in tables
                 current_rev = None
                 if has_version:
-                    result = conn.execute(text("SELECT version_num FROM alembic_version LIMIT 1"))
+                    result = conn.execute(
+                        text("SELECT version_num FROM alembic_version LIMIT 1")
+                    )
                     row = result.first()
                     current_rev = row[0] if row else None
             sync_engine.dispose()
 
             if has_tables and not current_rev:
                 # DB was created outside of Alembic — stamp at comprehensive baseline
-                logger.info("Database exists but no Alembic revision found. Stamping at baseline f1a2b3c4d5e6...")
+                logger.info(
+                    "Database exists but no Alembic revision found. Stamping at baseline f1a2b3c4d5e6..."
+                )
                 command.stamp(alembic_cfg, "f1a2b3c4d5e6")
                 logger.info("Stamped successfully.")
 
@@ -65,7 +68,9 @@ def run_migrations() -> None:
             command.upgrade(alembic_cfg, "head")
             logger.info("Migrations completed successfully!")
         else:
-            logger.warning(f"alembic.ini not found at {alembic_ini}, skipping migrations")
+            logger.warning(
+                f"alembic.ini not found at {alembic_ini}, skipping migrations"
+            )
     except Exception as e:
         logger.error(f"Failed to run migrations: {e}")
 
@@ -148,9 +153,17 @@ async def update_existing_emission_factors(session) -> None:
 
     updated_count = 0
     fields_to_check = [
-        "co2_factor", "ch4_factor", "n2o_factor", "co2e_factor",
-        "display_name", "source", "activity_unit", "factor_unit",
-        "region", "year", "notes",
+        "co2_factor",
+        "ch4_factor",
+        "n2o_factor",
+        "co2e_factor",
+        "display_name",
+        "source",
+        "activity_unit",
+        "factor_unit",
+        "region",
+        "year",
+        "notes",
     ]
 
     for db_ef in db_factors:
@@ -184,7 +197,9 @@ async def seed_power_producers(session) -> None:
     from decimal import Decimal
 
     # Get existing producers: (name_en, year) -> PowerProducer
-    result = await session.execute(select(PowerProducer).where(PowerProducer.country_code == "IL"))
+    result = await session.execute(
+        select(PowerProducer).where(PowerProducer.country_code == "IL")
+    )
     existing = {}
     for p in result.scalars().all():
         existing[(p.producer_name_en, p.year)] = p
@@ -231,7 +246,9 @@ async def seed_if_needed() -> None:
         # Check if already seeded
         result = await session.execute(select(EmissionFactor).limit(1))
         if result.scalar_one_or_none():
-            logger.info("Database already seeded, checking for missing/outdated factors...")
+            logger.info(
+                "Database already seeded, checking for missing/outdated factors..."
+            )
             # Add any missing emission factors
             await add_missing_emission_factors(session)
             # Update existing factors if code values have changed

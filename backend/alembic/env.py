@@ -1,4 +1,5 @@
 """Alembic migration environment."""
+
 import asyncio
 from logging.config import fileConfig
 
@@ -22,6 +23,7 @@ if config.config_file_name is not None:
 
 # Import SQLModel metadata for auto-generation
 from sqlmodel import SQLModel
+
 target_metadata = SQLModel.metadata
 
 

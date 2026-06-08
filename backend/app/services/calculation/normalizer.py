@@ -4,6 +4,7 @@ Stage 1: Unit Normalization Service
 Uses Pint library for physics-grade unit conversions.
 Converts user input to the unit expected by the emission factor.
 """
+
 from decimal import Decimal
 from typing import NamedTuple
 
@@ -23,6 +24,7 @@ ureg.define("tonne_km = tonne * kilometer = tkm")
 
 class NormalizedQuantity(NamedTuple):
     """Result of unit normalization."""
+
     quantity: Decimal
     unit: str
     original_quantity: Decimal
@@ -45,7 +47,6 @@ UNIT_ALIASES = {
     "gal": "gallon",
     "us_gallon": "gallon",
     "uk_gallon": "imperial_gallon",
-
     # Mass
     "kg": "kilogram",
     "kilograms": "kilogram",
@@ -55,7 +56,6 @@ UNIT_ALIASES = {
     "metric tons": "tonne",
     "lbs": "pound",
     "pounds": "pound",
-
     # Energy
     "kwh": "kilowatt_hour",
     "kWh": "kilowatt_hour",
@@ -67,14 +67,12 @@ UNIT_ALIASES = {
     "MJ": "megajoule",
     "gj": "gigajoule",
     "GJ": "gigajoule",
-
     # Distance
     "km": "kilometer",
     "kilometers": "kilometer",
     "kilometres": "kilometer",
     "mi": "mile",
     "miles": "mile",
-
     # Currency (pass-through, no conversion)
     "usd": "USD",
     "USD": "USD",
@@ -84,7 +82,6 @@ UNIT_ALIASES = {
     "GBP": "GBP",
     "ils": "ILS",
     "ILS": "ILS",
-
     # Special units
     "nights": "nights",
     "night": "nights",
@@ -135,10 +132,7 @@ class UnitNormalizer:
         return UNIT_ALIASES.get(unit, unit)
 
     def normalize(
-        self,
-        quantity: Decimal,
-        input_unit: str,
-        target_unit: str
+        self, quantity: Decimal, input_unit: str, target_unit: str
     ) -> NormalizedQuantity:
         """
         Convert quantity from input_unit to target_unit.
@@ -193,7 +187,10 @@ class UnitNormalizer:
             )
 
         # Non-convertible units (counts, special units)
-        if input_resolved in NON_CONVERTIBLE_UNITS or target_resolved in NON_CONVERTIBLE_UNITS:
+        if (
+            input_resolved in NON_CONVERTIBLE_UNITS
+            or target_resolved in NON_CONVERTIBLE_UNITS
+        ):
             if input_resolved != target_resolved:
                 raise UnitConversionError(
                     f"Cannot convert between '{input_unit}' and '{target_unit}'. "
@@ -213,7 +210,11 @@ class UnitNormalizer:
             input_qty = float(quantity) * self.ureg(input_resolved)
             output_qty = input_qty.to(target_resolved)
             converted = Decimal(str(output_qty.magnitude))
-            factor = Decimal(str(output_qty.magnitude / float(quantity))) if quantity else Decimal("1")
+            factor = (
+                Decimal(str(output_qty.magnitude / float(quantity)))
+                if quantity
+                else Decimal("1")
+            )
 
             return NormalizedQuantity(
                 quantity=converted,
@@ -237,4 +238,5 @@ class UnitNormalizer:
 
 class UnitConversionError(Exception):
     """Raised when unit conversion fails."""
+
     pass

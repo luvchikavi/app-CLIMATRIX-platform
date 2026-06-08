@@ -10,6 +10,7 @@ Usage:
     python scripts/smoke_test.py --base-url https://api.climatrix.io
     python scripts/smoke_test.py --base-url https://api.climatrix.io --email test@example.com --password s3cret
 """
+
 import argparse
 import json
 import sys
@@ -35,8 +36,13 @@ def log(name: str, status: str, detail: str = ""):
     print(line)
 
 
-def request(url: str, method: str = "GET", data: dict | None = None,
-            headers: dict | None = None, timeout: int = 15) -> tuple[int, dict | str]:
+def request(
+    url: str,
+    method: str = "GET",
+    data: dict | None = None,
+    headers: dict | None = None,
+    timeout: int = 15,
+) -> tuple[int, dict | str]:
     """Simple HTTP request. Returns (status_code, parsed_json_or_body)."""
     hdrs = headers or {}
     body = None
@@ -62,12 +68,17 @@ def request(url: str, method: str = "GET", data: dict | None = None,
 
 # ─── Test Functions ──────────────────────────────────────────────────
 
+
 def test_health(base: str):
     """1. Health endpoint responds."""
     try:
         code, body = request(f"{base}/health")
         if code == 200 and isinstance(body, dict) and body.get("status") == "healthy":
-            log("Health endpoint", "pass", f"v{body.get('version')} ({body.get('environment')})")
+            log(
+                "Health endpoint",
+                "pass",
+                f"v{body.get('version')} ({body.get('environment')})",
+            )
         else:
             log("Health endpoint", "fail", f"status={code} body={body}")
     except Exception as e:
@@ -132,14 +143,18 @@ def test_register_login(base: str, email: str, password: str) -> str | None:
     test_password = password or f"SmokeT3st!{ts}"
 
     try:
-        code, body = request(f"{base}/api/auth/register", method="POST", data={
-            "email": test_email,
-            "password": test_password,
-            "full_name": "Smoke Test",
-            "organization_name": f"Smoke Test Org {ts}",
-            "country": "United States",
-            "industry": "Technology",
-        })
+        code, body = request(
+            f"{base}/api/auth/register",
+            method="POST",
+            data={
+                "email": test_email,
+                "password": test_password,
+                "full_name": "Smoke Test",
+                "organization_name": f"Smoke Test Org {ts}",
+                "country": "United States",
+                "industry": "Technology",
+            },
+        )
         if code in (200, 201):
             token = body.get("access_token") if isinstance(body, dict) else None
             if token:
@@ -157,10 +172,14 @@ def test_register_login(base: str, email: str, password: str) -> str | None:
 
     # If registration was skipped (user exists), try login
     try:
-        code, body = request(f"{base}/api/auth/login", method="POST", data={
-            "email": test_email,
-            "password": test_password,
-        })
+        code, body = request(
+            f"{base}/api/auth/login",
+            method="POST",
+            data={
+                "email": test_email,
+                "password": test_password,
+            },
+        )
         if code == 200 and isinstance(body, dict) and body.get("access_token"):
             log("Login user", "pass", test_email)
             return body["access_token"]
@@ -203,11 +222,16 @@ def test_periods(base: str, token: str) -> str | None:
     ts = int(time.time())
 
     try:
-        code, body = request(f"{base}/api/periods", method="POST", data={
-            "name": f"Smoke Test {ts}",
-            "start_date": "2024-01-01",
-            "end_date": "2024-12-31",
-        }, headers=headers)
+        code, body = request(
+            f"{base}/api/periods",
+            method="POST",
+            data={
+                "name": f"Smoke Test {ts}",
+                "start_date": "2024-01-01",
+                "end_date": "2024-12-31",
+            },
+            headers=headers,
+        )
         if code in (200, 201) and isinstance(body, dict) and body.get("id"):
             log("Create period", "pass", f"id={body['id']}")
             return body["id"]
@@ -233,9 +257,15 @@ def test_activities(base: str, token: str, period_id: str):
     """8. List activities for a period."""
     headers = {"Authorization": f"Bearer {token}"}
     try:
-        code, body = request(f"{base}/api/activities?period_id={period_id}", headers=headers)
+        code, body = request(
+            f"{base}/api/activities?period_id={period_id}", headers=headers
+        )
         if code == 200 and isinstance(body, (list, dict)):
-            items = body if isinstance(body, list) else body.get("items", body.get("activities", []))
+            items = (
+                body
+                if isinstance(body, list)
+                else body.get("items", body.get("activities", []))
+            )
             log("List activities", "pass", f"{len(items)} activities")
         else:
             log("List activities", "fail", f"status={code}")
@@ -247,7 +277,9 @@ def test_reports(base: str, token: str, period_id: str):
     """9. Reports endpoint returns data."""
     headers = {"Authorization": f"Bearer {token}"}
     try:
-        code, body = request(f"{base}/api/reports/summary?period_id={period_id}", headers=headers)
+        code, body = request(
+            f"{base}/api/reports/summary?period_id={period_id}", headers=headers
+        )
         if code == 200:
             log("Reports summary", "pass")
         else:
@@ -266,7 +298,9 @@ def test_emission_factors(base: str, token: str):
             if len(items) > 0:
                 log("Emission factors", "pass", f"{len(items)}+ factors in DB")
             else:
-                log("Emission factors", "fail", "0 factors — database may not be seeded")
+                log(
+                    "Emission factors", "fail", "0 factors — database may not be seeded"
+                )
         else:
             log("Emission factors", "fail", f"status={code}")
     except Exception as e:
@@ -296,8 +330,15 @@ def test_billing_config(base: str, token: str):
         code, body = request(f"{base}/api/billing/config", headers=headers)
         if code == 200 and isinstance(body, dict):
             has_key = bool(body.get("publishable_key"))
-            log("Billing config", "pass" if has_key else "skip",
-                "Stripe configured" if has_key else "Stripe not configured (ok for dev)")
+            log(
+                "Billing config",
+                "pass" if has_key else "skip",
+                (
+                    "Stripe configured"
+                    if has_key
+                    else "Stripe not configured (ok for dev)"
+                ),
+            )
         elif code == 404:
             log("Billing config", "skip", "endpoint not found")
         else:
@@ -308,19 +349,28 @@ def test_billing_config(base: str, token: str):
 
 # ─── Main ────────────────────────────────────────────────────────────
 
+
 def main():
     parser = argparse.ArgumentParser(description="CLIMATRIX Production Smoke Test")
-    parser.add_argument("--base-url", default="http://localhost:8000",
-                        help="Base URL of the backend API (no trailing slash)")
-    parser.add_argument("--email", default="", help="Test user email (auto-generated if empty)")
-    parser.add_argument("--password", default="", help="Test user password (auto-generated if empty)")
-    parser.add_argument("--origin", default="https://climatrix.io",
-                        help="Origin header for CORS test")
+    parser.add_argument(
+        "--base-url",
+        default="http://localhost:8000",
+        help="Base URL of the backend API (no trailing slash)",
+    )
+    parser.add_argument(
+        "--email", default="", help="Test user email (auto-generated if empty)"
+    )
+    parser.add_argument(
+        "--password", default="", help="Test user password (auto-generated if empty)"
+    )
+    parser.add_argument(
+        "--origin", default="https://climatrix.io", help="Origin header for CORS test"
+    )
     args = parser.parse_args()
 
     base = args.base_url.rstrip("/")
     print(f"\n{'='*60}")
-    print(f"  CLIMATRIX Smoke Test")
+    print("  CLIMATRIX Smoke Test")
     print(f"  Target: {base}")
     print(f"{'='*60}\n")
 

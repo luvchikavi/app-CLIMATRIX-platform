@@ -2,7 +2,8 @@
 Decarbonization Pathways API endpoints.
 Provides data-driven reduction planning based on client's actual emission profile.
 """
-from datetime import datetime, date
+
+from datetime import date
 from decimal import Decimal
 from typing import Annotated, Optional
 from uuid import UUID
@@ -13,13 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.database import get_session
-from app.models.core import User, UserRole
+from app.models.core import User
 from app.models.decarbonization import (
     DecarbonizationTarget,
     Initiative,
     Scenario,
     ScenarioInitiative,
-    RoadmapMilestone,
     EmissionCheckpoint,
     EmissionProfileAnalysis,
     PersonalizedRecommendation,
@@ -27,8 +27,6 @@ from app.models.decarbonization import (
     TargetFramework,
     InitiativeCategory,
     ScenarioType,
-    InitiativeStatus,
-    MilestoneStatus,
 )
 from app.api.auth import get_current_user
 from app.services.decarbonization import (
@@ -39,13 +37,13 @@ from app.services.decarbonization import (
     ProgressTrackingService,
 )
 
-
 router = APIRouter(prefix="/decarbonization", tags=["Decarbonization Pathways"])
 
 
 # ============================================================================
 # RESPONSE MODELS
 # ============================================================================
+
 
 class TargetResponse(BaseModel):
     id: str
@@ -77,8 +75,12 @@ class TargetCreateRequest(BaseModel):
     base_year_period_id: Optional[str] = None
     base_year_emissions_tco2e: Decimal
     target_year: int
-    target_reduction_percent: Optional[Decimal] = None  # Auto-calculated if framework is SBTi
-    target_emissions_tco2e: Optional[Decimal] = None    # Auto-calculated if framework is SBTi
+    target_reduction_percent: Optional[Decimal] = (
+        None  # Auto-calculated if framework is SBTi
+    )
+    target_emissions_tco2e: Optional[Decimal] = (
+        None  # Auto-calculated if framework is SBTi
+    )
     includes_scope1: bool = True
     includes_scope2: bool = True
     includes_scope3: bool = False
@@ -187,6 +189,7 @@ class CheckpointResponse(BaseModel):
 # EMISSION PROFILE ENDPOINTS
 # ============================================================================
 
+
 @router.get("/profile", response_model=EmissionProfileAnalysis)
 async def get_emission_profile(
     current_user: Annotated[User, Depends(get_current_user)],
@@ -211,6 +214,7 @@ async def get_emission_profile(
 # ============================================================================
 # RECOMMENDATIONS ENDPOINTS
 # ============================================================================
+
 
 @router.get("/recommendations", response_model=list[PersonalizedRecommendation])
 async def get_recommendations(
@@ -237,6 +241,7 @@ async def get_recommendations(
 # ============================================================================
 # TARGETS ENDPOINTS
 # ============================================================================
+
 
 @router.get("/targets", response_model=list[TargetResponse])
 async def list_targets(
@@ -287,18 +292,27 @@ async def create_target(
     For SBTi frameworks, target emissions are auto-calculated.
     """
     # Auto-calculate target if using SBTi framework
-    if request.framework in [TargetFramework.SBTI_1_5C, TargetFramework.SBTI_WELL_BELOW_2C, TargetFramework.NET_ZERO]:
-        target_emissions, reduction_pct = TargetCalculationService.calculate_target_emissions(
-            base_year_emissions=request.base_year_emissions_tco2e,
-            base_year=request.base_year,
-            target_year=request.target_year,
-            framework=request.framework,
+    if request.framework in [
+        TargetFramework.SBTI_1_5C,
+        TargetFramework.SBTI_WELL_BELOW_2C,
+        TargetFramework.NET_ZERO,
+    ]:
+        target_emissions, reduction_pct = (
+            TargetCalculationService.calculate_target_emissions(
+                base_year_emissions=request.base_year_emissions_tco2e,
+                base_year=request.base_year,
+                target_year=request.target_year,
+                framework=request.framework,
+            )
         )
     else:
-        if request.target_reduction_percent is None or request.target_emissions_tco2e is None:
+        if (
+            request.target_reduction_percent is None
+            or request.target_emissions_tco2e is None
+        ):
             raise HTTPException(
                 status_code=400,
-                detail="Custom targets require target_reduction_percent and target_emissions_tco2e"
+                detail="Custom targets require target_reduction_percent and target_emissions_tco2e",
             )
         target_emissions = request.target_emissions_tco2e
         reduction_pct = request.target_reduction_percent
@@ -310,7 +324,9 @@ async def create_target(
         target_type=request.target_type,
         framework=request.framework,
         base_year=request.base_year,
-        base_year_period_id=UUID(request.base_year_period_id) if request.base_year_period_id else None,
+        base_year_period_id=(
+            UUID(request.base_year_period_id) if request.base_year_period_id else None
+        ),
         base_year_emissions_tco2e=request.base_year_emissions_tco2e,
         target_year=request.target_year,
         target_reduction_percent=reduction_pct,
@@ -448,6 +464,7 @@ async def delete_target(
 # INITIATIVES LIBRARY ENDPOINTS
 # ============================================================================
 
+
 @router.get("/initiatives", response_model=list[InitiativeResponse])
 async def list_initiatives(
     current_user: Annotated[User, Depends(get_current_user)],
@@ -538,6 +555,7 @@ async def get_initiative(
 # SCENARIOS ENDPOINTS
 # ============================================================================
 
+
 @router.get("/scenarios", response_model=list[ScenarioResponse])
 async def list_scenarios(
     current_user: Annotated[User, Depends(get_current_user)],
@@ -545,7 +563,9 @@ async def list_scenarios(
     target_id: Optional[UUID] = Query(default=None),
 ):
     """List all scenarios for the organization."""
-    query = select(Scenario).where(Scenario.organization_id == current_user.organization_id)
+    query = select(Scenario).where(
+        Scenario.organization_id == current_user.organization_id
+    )
 
     if target_id:
         query = query.where(Scenario.target_id == target_id)
@@ -561,21 +581,23 @@ async def list_scenarios(
         )
         initiatives_count = len(init_result.scalars().all())
 
-        response.append(ScenarioResponse(
-            id=str(s.id),
-            name=s.name,
-            description=s.description,
-            scenario_type=s.scenario_type.value,
-            is_active=s.is_active,
-            total_reduction_tco2e=s.total_reduction_tco2e,
-            total_investment=s.total_investment,
-            total_annual_savings=s.total_annual_savings,
-            weighted_payback_years=s.weighted_payback_years,
-            target_achievement_percent=s.target_achievement_percent,
-            carbon_price_scenario=s.carbon_price_scenario,
-            created_at=s.created_at.isoformat(),
-            initiatives_count=initiatives_count,
-        ))
+        response.append(
+            ScenarioResponse(
+                id=str(s.id),
+                name=s.name,
+                description=s.description,
+                scenario_type=s.scenario_type.value,
+                is_active=s.is_active,
+                total_reduction_tco2e=s.total_reduction_tco2e,
+                total_investment=s.total_investment,
+                total_annual_savings=s.total_annual_savings,
+                weighted_payback_years=s.weighted_payback_years,
+                target_achievement_percent=s.target_achievement_percent,
+                carbon_price_scenario=s.carbon_price_scenario,
+                created_at=s.created_at.isoformat(),
+                initiatives_count=initiatives_count,
+            )
+        )
 
     return response
 
@@ -664,7 +686,9 @@ async def activate_scenario(
     return {"message": "Scenario activated"}
 
 
-@router.post("/scenarios/{scenario_id}/initiatives", response_model=ScenarioInitiativeResponse)
+@router.post(
+    "/scenarios/{scenario_id}/initiatives", response_model=ScenarioInitiativeResponse
+)
 async def add_initiative_to_scenario(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -727,19 +751,34 @@ async def add_initiative_to_scenario(
         initiative_id=str(scenario_initiative.initiative_id),
         initiative_name=initiative.name,
         target_activity_key=scenario_initiative.target_activity_key,
-        target_site_id=str(scenario_initiative.target_site_id) if scenario_initiative.target_site_id else None,
+        target_site_id=(
+            str(scenario_initiative.target_site_id)
+            if scenario_initiative.target_site_id
+            else None
+        ),
         expected_reduction_tco2e=scenario_initiative.expected_reduction_tco2e,
         expected_reduction_percent=scenario_initiative.expected_reduction_percent,
         capex=scenario_initiative.capex,
         annual_savings=scenario_initiative.annual_savings,
-        implementation_start=scenario_initiative.implementation_start.isoformat() if scenario_initiative.implementation_start else None,
-        implementation_end=scenario_initiative.implementation_end.isoformat() if scenario_initiative.implementation_end else None,
+        implementation_start=(
+            scenario_initiative.implementation_start.isoformat()
+            if scenario_initiative.implementation_start
+            else None
+        ),
+        implementation_end=(
+            scenario_initiative.implementation_end.isoformat()
+            if scenario_initiative.implementation_end
+            else None
+        ),
         status=scenario_initiative.status.value,
         priority_order=scenario_initiative.priority_order,
     )
 
 
-@router.get("/scenarios/{scenario_id}/initiatives", response_model=list[ScenarioInitiativeResponse])
+@router.get(
+    "/scenarios/{scenario_id}/initiatives",
+    response_model=list[ScenarioInitiativeResponse],
+)
 async def list_scenario_initiatives(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -775,8 +814,12 @@ async def list_scenario_initiatives(
             expected_reduction_percent=si.expected_reduction_percent,
             capex=si.capex,
             annual_savings=si.annual_savings,
-            implementation_start=si.implementation_start.isoformat() if si.implementation_start else None,
-            implementation_end=si.implementation_end.isoformat() if si.implementation_end else None,
+            implementation_start=(
+                si.implementation_start.isoformat() if si.implementation_start else None
+            ),
+            implementation_end=(
+                si.implementation_end.isoformat() if si.implementation_end else None
+            ),
             status=si.status.value,
             priority_order=si.priority_order,
         )
@@ -852,6 +895,7 @@ async def delete_scenario(
 # ============================================================================
 # PROGRESS TRACKING ENDPOINTS
 # ============================================================================
+
 
 @router.get("/progress/checkpoints", response_model=list[CheckpointResponse])
 async def list_checkpoints(

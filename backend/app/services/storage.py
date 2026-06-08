@@ -1,6 +1,7 @@
 """
 File storage service supporting local filesystem and S3-compatible storage.
 """
+
 import os
 import io
 import logging
@@ -22,8 +23,9 @@ class StorageService:
     def s3_client(self):
         if self._s3_client is None:
             import boto3
+
             self._s3_client = boto3.client(
-                's3',
+                "s3",
                 region_name=settings.s3_region,
                 endpoint_url=settings.s3_endpoint_url or None,
                 aws_access_key_id=settings.s3_access_key_id,
@@ -31,14 +33,21 @@ class StorageService:
             )
         return self._s3_client
 
-    async def upload_file(self, file_data: bytes | BinaryIO, key: str, content_type: str = "application/octet-stream") -> str:
+    async def upload_file(
+        self,
+        file_data: bytes | BinaryIO,
+        key: str,
+        content_type: str = "application/octet-stream",
+    ) -> str:
         """Upload a file and return its storage key."""
         if self.backend == "s3":
             if isinstance(file_data, bytes):
                 file_data = io.BytesIO(file_data)
             self.s3_client.upload_fileobj(
-                file_data, settings.s3_bucket_name, key,
-                ExtraArgs={"ContentType": content_type}
+                file_data,
+                settings.s3_bucket_name,
+                key,
+                ExtraArgs={"ContentType": content_type},
             )
             logger.info(f"Uploaded to S3: {key}")
             return key
@@ -49,10 +58,10 @@ class StorageService:
             file_path = os.path.join(local_dir, key)
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             if isinstance(file_data, bytes):
-                with open(file_path, 'wb') as f:
+                with open(file_path, "wb") as f:
                     f.write(file_data)
             else:
-                with open(file_path, 'wb') as f:
+                with open(file_path, "wb") as f:
                     f.write(file_data.read())
             logger.info(f"Saved locally: {file_path}")
             return key
@@ -60,12 +69,14 @@ class StorageService:
     async def download_file(self, key: str) -> bytes:
         """Download a file by key and return its contents."""
         if self.backend == "s3":
-            response = self.s3_client.get_object(Bucket=settings.s3_bucket_name, Key=key)
-            return response['Body'].read()
+            response = self.s3_client.get_object(
+                Bucket=settings.s3_bucket_name, Key=key
+            )
+            return response["Body"].read()
         else:
             local_dir = os.path.join(os.path.dirname(__file__), "..", "..", "uploads")
             file_path = os.path.join(local_dir, key)
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 return f.read()
 
     async def file_exists(self, key: str) -> bool:
@@ -96,12 +107,14 @@ class StorageService:
                 return True
             return False
 
-    async def get_presigned_url(self, key: str, expires_in: int = 3600) -> Optional[str]:
+    async def get_presigned_url(
+        self, key: str, expires_in: int = 3600
+    ) -> Optional[str]:
         """Get a presigned URL for direct download (S3 only)."""
         if self.backend == "s3":
             return self.s3_client.generate_presigned_url(
-                'get_object',
-                Params={'Bucket': settings.s3_bucket_name, 'Key': key},
+                "get_object",
+                Params={"Bucket": settings.s3_bucket_name, "Key": key},
                 ExpiresIn=expires_in,
             )
         return None

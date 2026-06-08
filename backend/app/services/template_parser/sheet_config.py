@@ -4,6 +4,7 @@ Sheet configuration for template parser.
 Defines how each sheet in the template should be parsed,
 including column mappings and activity_key resolution.
 """
+
 from dataclasses import dataclass
 from typing import Callable, Optional
 
@@ -11,20 +12,21 @@ from typing import Callable, Optional
 @dataclass
 class SheetConfig:
     """Configuration for parsing a single sheet."""
+
     sheet_name: str
     scope: int
     category_code: str
     header_row: int = 5  # Row where headers are (1-indexed)
-    
+
     # Column name mappings (template column -> standard field)
     column_map: dict = None
-    
+
     # How to determine activity_key from row data
     activity_key_resolver: Optional[Callable] = None
-    
+
     # Whether this sheet uses spend-based calculation
     is_spend_based: bool = False
-    
+
     # Default unit if not specified
     default_unit: str = None
 
@@ -33,6 +35,7 @@ class SheetConfig:
 # Activity Key Resolvers
 # =============================================================================
 
+
 def _extract_supplier_ef(row: dict) -> None:
     """
     Extract supplier emission factor from row if provided.
@@ -40,12 +43,17 @@ def _extract_supplier_ef(row: dict) -> None:
     Stores the parsed value in row['_supplier_ef'] for the calculation pipeline to use.
     Works for any scope - Scope 1 (fuels, refrigerants) and Scope 2 (electricity, heat).
     """
-    supplier_ef = row.get('supplier_ef') or row.get('Supplier Emission Factor') or row.get('Supplier EF (kg CO2e/unit)') or row.get('Supplier EF (kg CO2e/kg)')
-    if supplier_ef is not None and supplier_ef != '':
+    supplier_ef = (
+        row.get("supplier_ef")
+        or row.get("Supplier Emission Factor")
+        or row.get("Supplier EF (kg CO2e/unit)")
+        or row.get("Supplier EF (kg CO2e/kg)")
+    )
+    if supplier_ef is not None and supplier_ef != "":
         try:
             ef_value = float(supplier_ef)
             if ef_value > 0:
-                row['_supplier_ef'] = ef_value
+                row["_supplier_ef"] = ef_value
         except (ValueError, TypeError):
             pass
 
@@ -56,37 +64,39 @@ def resolve_stationary_fuel(row: dict) -> tuple[str, str]:
     _extract_supplier_ef(row)
 
     # Support both legacy and generated template column names
-    fuel_type = (row.get('Fuel_Type') or row.get('Fuel Type') or '').lower().strip()
-    calc_type = (row.get('Calc_Type') or row.get('Method') or '').lower().strip()
-    input_unit = (row.get('Physical_Unit') or row.get('Unit/Currency') or '').lower().strip()
+    fuel_type = (row.get("Fuel_Type") or row.get("Fuel Type") or "").lower().strip()
+    calc_type = (row.get("Calc_Type") or row.get("Method") or "").lower().strip()
+    input_unit = (
+        (row.get("Physical_Unit") or row.get("Unit/Currency") or "").lower().strip()
+    )
 
     # Spend-based - use spend_other as generic spend factor
-    if calc_type == 'spend':
-        return 'spend_other', 'USD'
+    if calc_type == "spend":
+        return "spend_other", "USD"
 
     # Check if user provided energy units (kWh, MWh, MMBTU, etc.)
-    is_energy_unit = 'kwh' in input_unit or 'mwh' in input_unit or 'wh' in input_unit
-    is_mmbtu = 'mmbtu' in input_unit or 'mm btu' in input_unit
+    is_energy_unit = "kwh" in input_unit or "mwh" in input_unit or "wh" in input_unit
+    is_mmbtu = "mmbtu" in input_unit or "mm btu" in input_unit
 
     # Natural gas can be in volume (m3), energy (kWh), or MMBTU
-    if 'natural gas' in fuel_type:
+    if "natural gas" in fuel_type:
         if is_mmbtu:
-            return 'natural_gas_mmbtu', 'MMBTU'
+            return "natural_gas_mmbtu", "MMBTU"
         elif is_energy_unit:
-            return 'natural_gas_kwh', 'kWh'
+            return "natural_gas_kwh", "kWh"
         else:
-            return 'natural_gas_volume', 'm3'
+            return "natural_gas_volume", "m3"
 
     # Physical-based fuel mapping (using existing activity_keys from emission_factors)
     fuel_map = {
-        'diesel': ('diesel_liters', 'liters'),
-        'petrol': ('petrol_liters', 'liters'),
-        'gasoline': ('petrol_liters', 'liters'),
-        'lpg': ('lpg_liters', 'liters'),
-        'coal': ('coal_kg', 'kg'),
-        'fuel oil': ('fuel_oil_liters', 'liters'),
-        'kerosene': ('diesel_liters', 'liters'),  # Use diesel as proxy
-        'burning oil': ('diesel_liters', 'liters'),  # Use diesel as proxy
+        "diesel": ("diesel_liters", "liters"),
+        "petrol": ("petrol_liters", "liters"),
+        "gasoline": ("petrol_liters", "liters"),
+        "lpg": ("lpg_liters", "liters"),
+        "coal": ("coal_kg", "kg"),
+        "fuel oil": ("fuel_oil_liters", "liters"),
+        "kerosene": ("diesel_liters", "liters"),  # Use diesel as proxy
+        "burning oil": ("diesel_liters", "liters"),  # Use diesel as proxy
     }
 
     for key, (activity_key, unit) in fuel_map.items():
@@ -95,10 +105,10 @@ def resolve_stationary_fuel(row: dict) -> tuple[str, str]:
 
     # Default fallback - check unit type
     if is_mmbtu:
-        return 'natural_gas_mmbtu', 'MMBTU'
+        return "natural_gas_mmbtu", "MMBTU"
     if is_energy_unit:
-        return 'natural_gas_kwh', 'kWh'
-    return 'natural_gas_volume', 'm3'
+        return "natural_gas_kwh", "kWh"
+    return "natural_gas_volume", "m3"
 
 
 def resolve_mobile_fuel(row: dict) -> tuple[str, str]:
@@ -108,58 +118,79 @@ def resolve_mobile_fuel(row: dict) -> tuple[str, str]:
 
     # Support both legacy and generated template column names
     # After column mapping, values are stored with mapped names (vehicle_type, fuel_type, etc.)
-    vehicle_type = (row.get('vehicle_type') or row.get('Vehicle_Type') or row.get('Vehicle Type') or '').lower().strip()
-    fuel_type = (row.get('fuel_type') or row.get('Fuel_Type') or row.get('Fuel Type') or '').lower().strip()
-    calc_type = (row.get('calc_type') or row.get('Calc_Type') or row.get('Method') or '').lower().strip()
-    unit = (row.get('unit') or row.get('Physical_Unit') or row.get('Unit/Currency') or '').lower().strip()
+    vehicle_type = (
+        (
+            row.get("vehicle_type")
+            or row.get("Vehicle_Type")
+            or row.get("Vehicle Type")
+            or ""
+        )
+        .lower()
+        .strip()
+    )
+    fuel_type = (
+        (row.get("fuel_type") or row.get("Fuel_Type") or row.get("Fuel Type") or "")
+        .lower()
+        .strip()
+    )
+    calc_type = (
+        (row.get("calc_type") or row.get("Calc_Type") or row.get("Method") or "")
+        .lower()
+        .strip()
+    )
+    unit = (
+        (row.get("unit") or row.get("Physical_Unit") or row.get("Unit/Currency") or "")
+        .lower()
+        .strip()
+    )
 
     # Spend-based - use spend_other as generic spend factor
-    if calc_type == 'spend':
-        return 'spend_other', 'USD'
+    if calc_type == "spend":
+        return "spend_other", "USD"
 
     # If unit is liters/gallons, use fuel-based (direct fuel consumption)
-    if 'liter' in unit or 'gallon' in unit:
-        if 'diesel' in fuel_type:
-            return 'diesel_liters', 'liters'
-        elif 'petrol' in fuel_type or 'gasoline' in fuel_type:
-            return 'petrol_liters', 'liters'
-        elif 'urea' in fuel_type or 'adblue' in fuel_type or 'def' in fuel_type:
+    if "liter" in unit or "gallon" in unit:
+        if "diesel" in fuel_type:
+            return "diesel_liters", "liters"
+        elif "petrol" in fuel_type or "gasoline" in fuel_type:
+            return "petrol_liters", "liters"
+        elif "urea" in fuel_type or "adblue" in fuel_type or "def" in fuel_type:
             # Urea/AdBlue/DEF (Diesel Exhaust Fluid) - used for NOx reduction
             # Has its own emission factor for production/transport
-            return 'urea_liters', 'liters'
+            return "urea_liters", "liters"
 
     # Distance-based by vehicle type (using existing activity_keys from emission_factors)
     vehicle_map = {
-        'passenger car': {
-            'petrol': 'car_petrol_km',
-            'gasoline': 'car_petrol_km',
-            'diesel': 'car_diesel_km',
-            'hybrid': 'car_hybrid_km',
-            'electric': 'car_hybrid_km',  # Use hybrid as proxy for electric
+        "passenger car": {
+            "petrol": "car_petrol_km",
+            "gasoline": "car_petrol_km",
+            "diesel": "car_diesel_km",
+            "hybrid": "car_hybrid_km",
+            "electric": "car_hybrid_km",  # Use hybrid as proxy for electric
         },
-        'car': {
-            'petrol': 'car_petrol_km',
-            'gasoline': 'car_petrol_km',
-            'diesel': 'car_diesel_km',
+        "car": {
+            "petrol": "car_petrol_km",
+            "gasoline": "car_petrol_km",
+            "diesel": "car_diesel_km",
         },
-        'van': {
-            'diesel': 'van_diesel_km',
-            'petrol': 'van_diesel_km',  # Use van_diesel as proxy
+        "van": {
+            "diesel": "van_diesel_km",
+            "petrol": "van_diesel_km",  # Use van_diesel as proxy
         },
-        'light truck': {
-            'diesel': 'van_diesel_km',  # Use van as proxy for light truck
+        "light truck": {
+            "diesel": "van_diesel_km",  # Use van as proxy for light truck
         },
-        'truck': {
-            'diesel': 'hgv_diesel_km',
+        "truck": {
+            "diesel": "hgv_diesel_km",
         },
-        'hgv': {
-            'diesel': 'hgv_diesel_km',
+        "hgv": {
+            "diesel": "hgv_diesel_km",
         },
-        'bus': {
-            'diesel': 'commute_bus',  # Use commute_bus as proxy
+        "bus": {
+            "diesel": "commute_bus",  # Use commute_bus as proxy
         },
-        'motorcycle': {
-            'petrol': 'car_petrol_km',  # Use car_petrol as proxy
+        "motorcycle": {
+            "petrol": "car_petrol_km",  # Use car_petrol as proxy
         },
     }
 
@@ -167,12 +198,12 @@ def resolve_mobile_fuel(row: dict) -> tuple[str, str]:
         if v_key in vehicle_type:
             for f_key, activity_key in fuel_options.items():
                 if f_key in fuel_type:
-                    return activity_key, 'km'
+                    return activity_key, "km"
             # Default to first option
-            return list(fuel_options.values())[0], 'km'
+            return list(fuel_options.values())[0], "km"
 
     # Default: petrol car
-    return 'car_petrol_km', 'km'
+    return "car_petrol_km", "km"
 
 
 def resolve_refrigerant(row: dict) -> tuple[str, str]:
@@ -181,100 +212,97 @@ def resolve_refrigerant(row: dict) -> tuple[str, str]:
     _extract_supplier_ef(row)
 
     # Support both legacy and generated template column names
-    gas_type = (row.get('Gas_Type') or row.get('Refrigerant Type') or '').upper().strip()
+    gas_type = (
+        (row.get("Gas_Type") or row.get("Refrigerant Type") or "").upper().strip()
+    )
 
     # Map all refrigerants to their correct activity_keys from emission_factors
     refrigerant_map = {
         # HFCs (individual)
-        'R-134A': 'refrigerant_r134a',
-        'R134A': 'refrigerant_r134a',
-        'R-32': 'refrigerant_r32',
-        'R32': 'refrigerant_r32',
-        'HFC-23': 'refrigerant_hfc23',
-        'HFC23': 'refrigerant_hfc23',
-        'HFC-125': 'refrigerant_hfc125',
-        'R-125': 'refrigerant_hfc125',
-        'HFC-143A': 'refrigerant_hfc143a',
-        'R-143A': 'refrigerant_hfc143a',
-        'HFC-152A': 'refrigerant_hfc152a',
-        'R-152A': 'refrigerant_hfc152a',
-        'HFC-227EA': 'refrigerant_r227ea',
-        'R-227EA': 'refrigerant_r227ea',
-        'FM-200': 'refrigerant_r227ea',
-
+        "R-134A": "refrigerant_r134a",
+        "R134A": "refrigerant_r134a",
+        "R-32": "refrigerant_r32",
+        "R32": "refrigerant_r32",
+        "HFC-23": "refrigerant_hfc23",
+        "HFC23": "refrigerant_hfc23",
+        "HFC-125": "refrigerant_hfc125",
+        "R-125": "refrigerant_hfc125",
+        "HFC-143A": "refrigerant_hfc143a",
+        "R-143A": "refrigerant_hfc143a",
+        "HFC-152A": "refrigerant_hfc152a",
+        "R-152A": "refrigerant_hfc152a",
+        "HFC-227EA": "refrigerant_r227ea",
+        "R-227EA": "refrigerant_r227ea",
+        "FM-200": "refrigerant_r227ea",
         # Blends
-        'R-410A': 'refrigerant_r410a',
-        'R410A': 'refrigerant_r410a',
-        'R-404A': 'refrigerant_r404a',
-        'R404A': 'refrigerant_r404a',
-        'R-407A': 'refrigerant_r407a',
-        'R407A': 'refrigerant_r407a',
-        'R-407C': 'refrigerant_r407c',
-        'R407C': 'refrigerant_r407c',
-        'R-407F': 'refrigerant_r407f',
-        'R407F': 'refrigerant_r407f',
-        'R-417A': 'refrigerant_r417a',
-        'R417A': 'refrigerant_r417a',
-        'R-422D': 'refrigerant_r422d',
-        'R422D': 'refrigerant_r422d',
-        'R-507A': 'refrigerant_r507a',
-        'R507A': 'refrigerant_r507a',
-        'R-507': 'refrigerant_r507a',
-        'R507': 'refrigerant_r507a',
-        'R-508B': 'refrigerant_r508b',
-        'R508B': 'refrigerant_r508b',
-
+        "R-410A": "refrigerant_r410a",
+        "R410A": "refrigerant_r410a",
+        "R-404A": "refrigerant_r404a",
+        "R404A": "refrigerant_r404a",
+        "R-407A": "refrigerant_r407a",
+        "R407A": "refrigerant_r407a",
+        "R-407C": "refrigerant_r407c",
+        "R407C": "refrigerant_r407c",
+        "R-407F": "refrigerant_r407f",
+        "R407F": "refrigerant_r407f",
+        "R-417A": "refrigerant_r417a",
+        "R417A": "refrigerant_r417a",
+        "R-422D": "refrigerant_r422d",
+        "R422D": "refrigerant_r422d",
+        "R-507A": "refrigerant_r507a",
+        "R507A": "refrigerant_r507a",
+        "R-507": "refrigerant_r507a",
+        "R507": "refrigerant_r507a",
+        "R-508B": "refrigerant_r508b",
+        "R508B": "refrigerant_r508b",
         # HCFCs (phased out)
-        'R-22': 'refrigerant_r123',  # Use R-123 as HCFC proxy
-        'R22': 'refrigerant_r123',
-        'R-123': 'refrigerant_r123',
-        'R123': 'refrigerant_r123',
-        'HCFC-123': 'refrigerant_r123',
-        'HCFC-22': 'refrigerant_r123',
-
+        "R-22": "refrigerant_r123",  # Use R-123 as HCFC proxy
+        "R22": "refrigerant_r123",
+        "R-123": "refrigerant_r123",
+        "R123": "refrigerant_r123",
+        "HCFC-123": "refrigerant_r123",
+        "HCFC-22": "refrigerant_r123",
         # HFOs (low GWP)
-        'R-1234YF': 'refrigerant_r1234yf',
-        'R1234YF': 'refrigerant_r1234yf',
-        'R-1234ZE': 'refrigerant_r1234ze',
-        'R1234ZE': 'refrigerant_r1234ze',
-
+        "R-1234YF": "refrigerant_r1234yf",
+        "R1234YF": "refrigerant_r1234yf",
+        "R-1234ZE": "refrigerant_r1234ze",
+        "R1234ZE": "refrigerant_r1234ze",
         # Natural refrigerants
-        'R-290': 'refrigerant_r290',
-        'R290': 'refrigerant_r290',
-        'PROPANE': 'refrigerant_r290',
-        'R-600A': 'refrigerant_r600a',
-        'R600A': 'refrigerant_r600a',
-        'ISOBUTANE': 'refrigerant_r600a',
-        'R-717': 'refrigerant_r717',
-        'R717': 'refrigerant_r717',
-        'AMMONIA': 'refrigerant_r717',
-        'R-744': 'refrigerant_r744',
-        'R744': 'refrigerant_r744',
-
+        "R-290": "refrigerant_r290",
+        "R290": "refrigerant_r290",
+        "PROPANE": "refrigerant_r290",
+        "R-600A": "refrigerant_r600a",
+        "R600A": "refrigerant_r600a",
+        "ISOBUTANE": "refrigerant_r600a",
+        "R-717": "refrigerant_r717",
+        "R717": "refrigerant_r717",
+        "AMMONIA": "refrigerant_r717",
+        "R-744": "refrigerant_r744",
+        "R744": "refrigerant_r744",
         # Other gases
-        'SF6': 'refrigerant_sf6',
-        'NF3': 'refrigerant_nf3',
-        'HALON-1211': 'refrigerant_halon1211',
-        'HALON1211': 'refrigerant_halon1211',
+        "SF6": "refrigerant_sf6",
+        "NF3": "refrigerant_nf3",
+        "HALON-1211": "refrigerant_halon1211",
+        "HALON1211": "refrigerant_halon1211",
     }
 
     # Try exact match first (most reliable)
     if gas_type in refrigerant_map:
-        return refrigerant_map[gas_type], 'kg'
+        return refrigerant_map[gas_type], "kg"
 
     # Try substring match (for values like "R-507A Blend", "R410A System")
     for key, activity_key in refrigerant_map.items():
         if key in gas_type:
-            return activity_key, 'kg'
+            return activity_key, "kg"
 
     # Also try normalised form: strip hyphens and spaces (e.g. "R 507" -> "R507")
-    normalised = gas_type.replace('-', '').replace(' ', '')
+    normalised = gas_type.replace("-", "").replace(" ", "")
     if normalised in refrigerant_map:
-        return refrigerant_map[normalised], 'kg'
+        return refrigerant_map[normalised], "kg"
 
     # No match — return None so caller can handle the error instead of silently
     # defaulting to a wrong refrigerant. Fall back to generic HFC as last resort.
-    return 'refrigerant_r410a', 'kg'
+    return "refrigerant_r410a", "kg"
 
 
 def resolve_electricity(row: dict) -> tuple[str, str]:
@@ -288,75 +316,102 @@ def resolve_electricity(row: dict) -> tuple[str, str]:
     If Power Producer is specified (Israel), looks up the producer's market-based EF.
     """
     # Support both legacy and generated template column names
-    calc_type = (row.get('calc_type') or row.get('Calc_Type') or row.get('Method') or '').lower().strip()
-    country = (row.get('country_code') or row.get('Country') or row.get('Country/Region') or '').upper().strip()
-    electricity_type = (row.get('electricity_type') or row.get('Electricity Type') or row.get('Type') or '').lower().strip()
+    calc_type = (
+        (row.get("calc_type") or row.get("Calc_Type") or row.get("Method") or "")
+        .lower()
+        .strip()
+    )
+    country = (
+        (
+            row.get("country_code")
+            or row.get("Country")
+            or row.get("Country/Region")
+            or ""
+        )
+        .upper()
+        .strip()
+    )
+    electricity_type = (
+        (
+            row.get("electricity_type")
+            or row.get("Electricity Type")
+            or row.get("Type")
+            or ""
+        )
+        .lower()
+        .strip()
+    )
 
     # Extract supplier EF if provided (for market-based Scope 2)
     _extract_supplier_ef(row)
 
     # Check for power_producer (Israel market-based)
-    power_producer = (row.get('power_producer') or row.get('Power Producer') or '').strip()
-    if power_producer and (country == 'IL' or not country):
+    power_producer = (
+        row.get("power_producer") or row.get("Power Producer") or ""
+    ).strip()
+    if power_producer and (country == "IL" or not country):
         from app.data.reference_data import ISRAEL_POWER_PRODUCERS_BY_NAME
+
         producer_data = ISRAEL_POWER_PRODUCERS_BY_NAME.get(power_producer.lower())
         if producer_data:
             # Use the most recent year available
-            year = max(producer_data['years'].keys())
-            row['_supplier_ef'] = float(producer_data['years'][year])
-            row['_supplier_name'] = power_producer
+            year = max(producer_data["years"].keys())
+            row["_supplier_ef"] = float(producer_data["years"][year])
+            row["_supplier_name"] = power_producer
             # Return IL activity key so location-based is also calculated
-            return 'electricity_il', 'kWh'
+            return "electricity_il", "kWh"
 
     # Spend-based - use spend_other as generic spend factor
-    if calc_type == 'spend':
-        return 'spend_other', 'USD'
+    if calc_type == "spend":
+        return "spend_other", "USD"
 
     # Check for renewable electricity (100% Renewable)
-    if '100%' in electricity_type and 'renewable' in electricity_type:
-        return 'electricity_renewable', 'kWh'  # Zero emission certified renewable
+    if "100%" in electricity_type and "renewable" in electricity_type:
+        return "electricity_renewable", "kWh"  # Zero emission certified renewable
 
     # Extract country code from Country column or electricity type
-    if not country and ' - ' in str(row.get('electricity_type') or row.get('Type') or ''):
-        type_val = str(row.get('electricity_type') or row.get('Type') or '')
-        country = type_val.split(' - ')[0].strip().upper()
+    if not country and " - " in str(
+        row.get("electricity_type") or row.get("Type") or ""
+    ):
+        type_val = str(row.get("electricity_type") or row.get("Type") or "")
+        country = type_val.split(" - ")[0].strip().upper()
 
     # Map country codes to activity keys (using existing activity_keys from emission_factors)
     country_map = {
-        'IL': 'electricity_il',
-        'US': 'electricity_us',
-        'UK': 'electricity_uk',
-        'GB': 'electricity_uk',
-        'DE': 'electricity_de',
-        'FR': 'electricity_fr',
-        'EU': 'electricity_eu',
-        'GLOBAL': 'electricity_global',
-        'AU': 'electricity_au',
-        'CA': 'electricity_ca',
-        'CN': 'electricity_cn',
-        'ES': 'electricity_es',
-        'IN': 'electricity_in',
-        'IT': 'electricity_it',
-        'JP': 'electricity_jp',
-        'KR': 'electricity_kr',
-        'NL': 'electricity_nl',
-        'PL': 'electricity_pl',
-        'SG': 'electricity_sg',
+        "IL": "electricity_il",
+        "US": "electricity_us",
+        "UK": "electricity_uk",
+        "GB": "electricity_uk",
+        "DE": "electricity_de",
+        "FR": "electricity_fr",
+        "EU": "electricity_eu",
+        "GLOBAL": "electricity_global",
+        "AU": "electricity_au",
+        "CA": "electricity_ca",
+        "CN": "electricity_cn",
+        "ES": "electricity_es",
+        "IN": "electricity_in",
+        "IT": "electricity_it",
+        "JP": "electricity_jp",
+        "KR": "electricity_kr",
+        "NL": "electricity_nl",
+        "PL": "electricity_pl",
+        "SG": "electricity_sg",
     }
 
     # If supplier EF is provided but we have a country, keep the country-specific key
     # This preserves the country info for dual reporting (location vs market)
     # The pipeline will use supplier_ef for the calculation when present
-    if row.get('_supplier_ef') and country:
-        activity_key = country_map.get(country, 'electricity_supplier')
-        return activity_key, 'kWh'
+    if row.get("_supplier_ef") and country:
+        activity_key = country_map.get(country, "electricity_supplier")
+        return activity_key, "kWh"
 
     # If supplier EF but no country, fall back to generic supplier key
-    if row.get('_supplier_ef'):
-        return 'electricity_supplier', 'kWh'
+    if row.get("_supplier_ef"):
+        return "electricity_supplier", "kWh"
 
-    activity_key = country_map.get(country, 'electricity_il')  # Default to Israel
-    return activity_key, 'kWh'
+    activity_key = country_map.get(country, "electricity_il")  # Default to Israel
+    return activity_key, "kWh"
 
 
 def resolve_heat_steam(row: dict) -> tuple[str, str]:
@@ -372,161 +427,179 @@ def resolve_heat_steam(row: dict) -> tuple[str, str]:
     If Supplier Emission Factor is provided, uses custom EF for calculation.
     """
     # Support both legacy and generated template column names
-    energy_type = (row.get('energy_type') or row.get('Energy_Type') or row.get('Energy Type') or row.get('Type') or '').lower().strip()
-    cooling_type = (row.get('cooling_type') or row.get('Cooling Type') or '').lower().strip()
-    calc_type = (row.get('calc_type') or row.get('Calc_Type') or row.get('Method') or '').lower().strip()
+    energy_type = (
+        (
+            row.get("energy_type")
+            or row.get("Energy_Type")
+            or row.get("Energy Type")
+            or row.get("Type")
+            or ""
+        )
+        .lower()
+        .strip()
+    )
+    cooling_type = (
+        (row.get("cooling_type") or row.get("Cooling Type") or "").lower().strip()
+    )
+    calc_type = (
+        (row.get("calc_type") or row.get("Calc_Type") or row.get("Method") or "")
+        .lower()
+        .strip()
+    )
 
     # Extract supplier EF if provided (for market-based Scope 2)
     _extract_supplier_ef(row)
 
     # Spend-based - use spend_other as generic spend factor
-    if calc_type == 'spend':
-        return 'spend_other', 'USD'
+    if calc_type == "spend":
+        return "spend_other", "USD"
 
     # If supplier EF is provided, use custom calculation
-    if row.get('_supplier_ef'):
-        return 'energy_supplier', 'kWh'  # Use supplier-specific factor
+    if row.get("_supplier_ef"):
+        return "energy_supplier", "kWh"  # Use supplier-specific factor
 
     # Determine type from energy_type or cooling_type
     type_str = energy_type or cooling_type
 
     # Use existing activity_keys from emission_factors
-    if 'cooling' in type_str or 'chill' in type_str:
-        return 'district_cooling_kwh', 'kWh'
-    elif 'steam' in type_str:
-        return 'steam_kwh', 'kWh'
+    if "cooling" in type_str or "chill" in type_str:
+        return "district_cooling_kwh", "kWh"
+    elif "steam" in type_str:
+        return "steam_kwh", "kWh"
     else:
-        return 'district_heat_kwh', 'kWh'
+        return "district_heat_kwh", "kWh"
 
 
 def resolve_waste(row: dict) -> tuple[str, str]:
     """Resolve activity_key for waste."""
-    treatment = (row.get('Treatment') or '').lower().strip()
-    waste_type = (row.get('Waste_Type') or '').lower().strip()
-    
-    if 'recycl' in treatment:
-        if 'paper' in waste_type:
-            return 'waste_recycled_paper', 'kg'
-        elif 'plastic' in waste_type:
-            return 'waste_recycled_plastic', 'kg'
+    treatment = (row.get("Treatment") or "").lower().strip()
+    waste_type = (row.get("Waste_Type") or "").lower().strip()
+
+    if "recycl" in treatment:
+        if "paper" in waste_type:
+            return "waste_recycled_paper", "kg"
+        elif "plastic" in waste_type:
+            return "waste_recycled_plastic", "kg"
         else:
-            return 'waste_recycled_mixed', 'kg'
-    elif 'inciner' in treatment or 'combust' in treatment:
-        return 'waste_incineration', 'kg'
+            return "waste_recycled_mixed", "kg"
+    elif "inciner" in treatment or "combust" in treatment:
+        return "waste_incineration", "kg"
     else:  # Landfill
-        return 'waste_landfill_mixed', 'kg'
+        return "waste_landfill_mixed", "kg"
 
 
 def resolve_transport(row: dict) -> tuple[str, str]:
     """Resolve activity_key for transport/freight."""
-    transport_mode = (row.get('Transport_Mode') or '').lower().strip()
-    
-    if 'ship' in transport_mode or 'sea' in transport_mode:
-        return 'sea_freight_container', 'tonne.km'
-    elif 'air' in transport_mode or 'plane' in transport_mode:
-        return 'air_freight', 'tonne.km'
-    elif 'rail' in transport_mode or 'train' in transport_mode:
-        return 'rail_freight', 'tonne.km'
-    elif 'van' in transport_mode:
-        return 'road_freight_van', 'tonne.km'
+    transport_mode = (row.get("Transport_Mode") or "").lower().strip()
+
+    if "ship" in transport_mode or "sea" in transport_mode:
+        return "sea_freight_container", "tonne.km"
+    elif "air" in transport_mode or "plane" in transport_mode:
+        return "air_freight", "tonne.km"
+    elif "rail" in transport_mode or "train" in transport_mode:
+        return "rail_freight", "tonne.km"
+    elif "van" in transport_mode:
+        return "road_freight_van", "tonne.km"
     else:  # Default to truck
-        return 'road_freight_hgv', 'tonne.km'
+        return "road_freight_hgv", "tonne.km"
 
 
 def resolve_flight(row: dict) -> tuple[str, str]:
     """Resolve activity_key for business travel flights."""
-    travel_class = (row.get('Class') or '').lower().strip()
-    distance = row.get('Distance_km') or 0
-    
+    travel_class = (row.get("Class") or "").lower().strip()
+    distance = row.get("Distance_km") or 0
+
     # Determine short vs long haul (threshold: 3700 km)
     is_long_haul = distance > 3700 if distance else True
-    
-    if 'business' in travel_class:
-        return 'flight_long_business' if is_long_haul else 'flight_short_economy', 'km'
+
+    if "business" in travel_class:
+        return "flight_long_business" if is_long_haul else "flight_short_economy", "km"
     else:  # Economy
-        return 'flight_long_economy' if is_long_haul else 'flight_short_economy', 'km'
+        return "flight_long_economy" if is_long_haul else "flight_short_economy", "km"
 
 
 def resolve_hotel(row: dict) -> tuple[str, str]:
     """Resolve activity_key for hotel stays."""
-    return 'hotel_night', 'nights'
+    return "hotel_night", "nights"
 
 
 def resolve_commute(row: dict) -> tuple[str, str]:
     """Resolve activity_key for employee commuting."""
-    transport_mode = (row.get('Transport_Mode') or '').lower().strip()
-    
+    transport_mode = (row.get("Transport_Mode") or "").lower().strip()
+
     commute_map = {
-        'car': 'commute_car_petrol',
-        'petrol': 'commute_car_petrol',
-        'diesel': 'commute_car_petrol',  # Using petrol as proxy
-        'bus': 'commute_bus',
-        'rail': 'commute_rail',
-        'train': 'commute_rail',
-        'bicycle': 'commute_bicycle',
-        'bike': 'commute_bicycle',
-        'walk': 'commute_bicycle',  # Zero emission
+        "car": "commute_car_petrol",
+        "petrol": "commute_car_petrol",
+        "diesel": "commute_car_petrol",  # Using petrol as proxy
+        "bus": "commute_bus",
+        "rail": "commute_rail",
+        "train": "commute_rail",
+        "bicycle": "commute_bicycle",
+        "bike": "commute_bicycle",
+        "walk": "commute_bicycle",  # Zero emission
     }
-    
+
     for key, activity_key in commute_map.items():
         if key in transport_mode:
-            return activity_key, 'km'
-    
-    return 'commute_car_petrol', 'km'
+            return activity_key, "km"
+
+    return "commute_car_petrol", "km"
 
 
-def resolve_spend_generic(row: dict, default_key: str = 'spend_other') -> tuple[str, str]:
+def resolve_spend_generic(
+    row: dict, default_key: str = "spend_other"
+) -> tuple[str, str]:
     """Resolve activity_key for spend-based categories."""
-    return default_key, 'USD'
+    return default_key, "USD"
 
 
 def resolve_purchased_goods(row: dict) -> tuple[str, str]:
     """Resolve activity_key for 3.1 Purchased Goods & Services."""
-    category = (row.get('Category') or '').lower().strip()
-    method = (row.get('Method') or '').lower().strip()
+    category = (row.get("Category") or "").lower().strip()
+    method = (row.get("Method") or "").lower().strip()
 
     # If spend-based
-    if method == 'spend' or 'spend' in category:
+    if method == "spend" or "spend" in category:
         spend_map = {
-            'office supplies': ('spend_office_supplies', 'USD'),
-            'it equipment': ('spend_it_equipment', 'USD'),
-            'professional services': ('spend_professional_services', 'USD'),
-            'food & beverages': ('spend_food_beverages', 'USD'),
+            "office supplies": ("spend_office_supplies", "USD"),
+            "it equipment": ("spend_it_equipment", "USD"),
+            "professional services": ("spend_professional_services", "USD"),
+            "food & beverages": ("spend_food_beverages", "USD"),
         }
         for key, result in spend_map.items():
             if key in category:
                 return result
-        return 'spend_other', 'USD'
+        return "spend_other", "USD"
 
     # Physical-based materials
     material_map = {
-        'steel': ('steel_purchased_kg', 'kg'),
-        'aluminum (primary)': ('aluminum_primary_purchased_kg', 'kg'),
-        'aluminum - primary': ('aluminum_primary_purchased_kg', 'kg'),
-        'aluminum (recycled)': ('aluminum_recycled_purchased_kg', 'kg'),
-        'aluminum - recycled': ('aluminum_recycled_purchased_kg', 'kg'),
-        'plastic - pet': ('plastic_pet_purchased_kg', 'kg'),
-        'plastic - hdpe': ('plastic_hdpe_purchased_kg', 'kg'),
-        'plastic - generic': ('plastic_generic_purchased_kg', 'kg'),
-        'plastic': ('plastic_generic_purchased_kg', 'kg'),
-        'paper (virgin)': ('paper_virgin_purchased_kg', 'kg'),
-        'paper - virgin': ('paper_virgin_purchased_kg', 'kg'),
-        'paper (recycled)': ('paper_recycled_purchased_kg', 'kg'),
-        'paper - recycled': ('paper_recycled_purchased_kg', 'kg'),
-        'cardboard': ('cardboard_purchased_kg', 'kg'),
-        'glass': ('glass_purchased_kg', 'kg'),
-        'concrete': ('concrete_purchased_kg', 'kg'),
-        'textiles - cotton': ('textiles_cotton_purchased_kg', 'kg'),
-        'cotton': ('textiles_cotton_purchased_kg', 'kg'),
-        'textiles - polyester': ('textiles_polyester_purchased_kg', 'kg'),
-        'polyester': ('textiles_polyester_purchased_kg', 'kg'),
-        'electronics': ('electronics_purchased_kg', 'kg'),
-        'food - meat': ('food_meat_purchased_kg', 'kg'),
-        'meat': ('food_meat_purchased_kg', 'kg'),
-        'food - dairy': ('food_dairy_purchased_kg', 'kg'),
-        'dairy': ('food_dairy_purchased_kg', 'kg'),
-        'food - vegetables': ('food_vegetables_purchased_kg', 'kg'),
-        'vegetables': ('food_vegetables_purchased_kg', 'kg'),
+        "steel": ("steel_purchased_kg", "kg"),
+        "aluminum (primary)": ("aluminum_primary_purchased_kg", "kg"),
+        "aluminum - primary": ("aluminum_primary_purchased_kg", "kg"),
+        "aluminum (recycled)": ("aluminum_recycled_purchased_kg", "kg"),
+        "aluminum - recycled": ("aluminum_recycled_purchased_kg", "kg"),
+        "plastic - pet": ("plastic_pet_purchased_kg", "kg"),
+        "plastic - hdpe": ("plastic_hdpe_purchased_kg", "kg"),
+        "plastic - generic": ("plastic_generic_purchased_kg", "kg"),
+        "plastic": ("plastic_generic_purchased_kg", "kg"),
+        "paper (virgin)": ("paper_virgin_purchased_kg", "kg"),
+        "paper - virgin": ("paper_virgin_purchased_kg", "kg"),
+        "paper (recycled)": ("paper_recycled_purchased_kg", "kg"),
+        "paper - recycled": ("paper_recycled_purchased_kg", "kg"),
+        "cardboard": ("cardboard_purchased_kg", "kg"),
+        "glass": ("glass_purchased_kg", "kg"),
+        "concrete": ("concrete_purchased_kg", "kg"),
+        "textiles - cotton": ("textiles_cotton_purchased_kg", "kg"),
+        "cotton": ("textiles_cotton_purchased_kg", "kg"),
+        "textiles - polyester": ("textiles_polyester_purchased_kg", "kg"),
+        "polyester": ("textiles_polyester_purchased_kg", "kg"),
+        "electronics": ("electronics_purchased_kg", "kg"),
+        "food - meat": ("food_meat_purchased_kg", "kg"),
+        "meat": ("food_meat_purchased_kg", "kg"),
+        "food - dairy": ("food_dairy_purchased_kg", "kg"),
+        "dairy": ("food_dairy_purchased_kg", "kg"),
+        "food - vegetables": ("food_vegetables_purchased_kg", "kg"),
+        "vegetables": ("food_vegetables_purchased_kg", "kg"),
     }
 
     for key, result in material_map.items():
@@ -534,238 +607,240 @@ def resolve_purchased_goods(row: dict) -> tuple[str, str]:
             return result
 
     # Default to spend_other
-    return 'spend_other', 'USD'
+    return "spend_other", "USD"
 
 
 def resolve_capital_goods(row: dict) -> tuple[str, str]:
     """Resolve activity_key for 3.2 Capital Goods."""
-    asset_type = (row.get('Asset Type') or '').lower().strip()
-    method = (row.get('Method') or '').lower().strip()
+    asset_type = (row.get("Asset Type") or "").lower().strip()
+    method = (row.get("Method") or "").lower().strip()
 
     # Spend-based
-    if method == 'spend' or 'spend' in asset_type:
-        if 'construction' in asset_type:
-            return 'spend_construction', 'USD'
-        return 'spend_capital_equipment', 'USD'
+    if method == "spend" or "spend" in asset_type:
+        if "construction" in asset_type:
+            return "spend_construction", "USD"
+        return "spend_capital_equipment", "USD"
 
     # Physical-based
     asset_map = {
-        'vehicle - car': ('capital_vehicle_unit', 'unit'),
-        'car': ('capital_vehicle_unit', 'unit'),
-        'vehicle - truck': ('capital_truck_unit', 'unit'),
-        'truck': ('capital_truck_unit', 'unit'),
-        'hgv': ('capital_truck_unit', 'unit'),
-        'computer': ('capital_computer_unit', 'unit'),
-        'laptop': ('capital_computer_unit', 'unit'),
-        'server': ('capital_server_unit', 'unit'),
-        'building': ('capital_building_m2', 'm2'),
+        "vehicle - car": ("capital_vehicle_unit", "unit"),
+        "car": ("capital_vehicle_unit", "unit"),
+        "vehicle - truck": ("capital_truck_unit", "unit"),
+        "truck": ("capital_truck_unit", "unit"),
+        "hgv": ("capital_truck_unit", "unit"),
+        "computer": ("capital_computer_unit", "unit"),
+        "laptop": ("capital_computer_unit", "unit"),
+        "server": ("capital_server_unit", "unit"),
+        "building": ("capital_building_m2", "m2"),
     }
 
     for key, result in asset_map.items():
         if key in asset_type:
             return result
 
-    return 'spend_capital_equipment', 'USD'
+    return "spend_capital_equipment", "USD"
 
 
 def resolve_upstream_transport(row: dict) -> tuple[str, str]:
     """Resolve activity_key for 3.4 Upstream Transportation."""
-    mode = (row.get('Transport Mode') or '').lower().strip()
-    method = (row.get('Method') or '').lower().strip()
+    mode = (row.get("Transport Mode") or "").lower().strip()
+    method = (row.get("Method") or "").lower().strip()
 
     # Spend-based
-    if method == 'spend':
+    if method == "spend":
         spend_map = {
-            'road': ('freight_spend_road', 'USD'),
-            'hgv': ('freight_spend_road', 'USD'),
-            'van': ('freight_spend_road', 'USD'),
-            'motorcycle': ('freight_spend_courier', 'USD'),
-            'motorbike': ('freight_spend_courier', 'USD'),
-            'scooter': ('freight_spend_courier', 'USD'),
-            'air': ('freight_spend_air', 'USD'),
-            'sea': ('freight_spend_sea', 'USD'),
-            'courier': ('freight_spend_courier', 'USD'),
-            'parcel': ('freight_spend_courier', 'USD'),
+            "road": ("freight_spend_road", "USD"),
+            "hgv": ("freight_spend_road", "USD"),
+            "van": ("freight_spend_road", "USD"),
+            "motorcycle": ("freight_spend_courier", "USD"),
+            "motorbike": ("freight_spend_courier", "USD"),
+            "scooter": ("freight_spend_courier", "USD"),
+            "air": ("freight_spend_air", "USD"),
+            "sea": ("freight_spend_sea", "USD"),
+            "courier": ("freight_spend_courier", "USD"),
+            "parcel": ("freight_spend_courier", "USD"),
         }
         for key, result in spend_map.items():
             if key in mode:
                 return result
-        return 'freight_spend_road', 'USD'
+        return "freight_spend_road", "USD"
 
     # Distance-based (tonne-km or km for motorcycles)
     distance_map = {
-        'road - hgv': ('road_freight_hgv', 'tonne-km'),
-        'hgv': ('road_freight_hgv', 'tonne-km'),
-        'road - van': ('road_freight_van', 'tonne-km'),
-        'van': ('road_freight_van', 'tonne-km'),
-        'motorcycle': ('road_freight_motorcycle', 'km'),
-        'motorbike': ('road_freight_motorcycle', 'km'),
-        'road - motorcycle': ('road_freight_motorcycle', 'km'),
-        'road - motorbike': ('road_freight_motorcycle', 'km'),
-        'scooter': ('road_freight_motorcycle', 'km'),
-        'rail': ('rail_freight', 'tonne-km'),
-        'sea - container': ('sea_freight_container', 'tonne-km'),
-        'container': ('sea_freight_container', 'tonne-km'),
-        'sea - bulk': ('sea_freight_bulk', 'tonne-km'),
-        'bulk': ('sea_freight_bulk', 'tonne-km'),
-        'air': ('air_freight', 'tonne-km'),
-        'courier': ('road_freight_van', 'tonne-km'),
+        "road - hgv": ("road_freight_hgv", "tonne-km"),
+        "hgv": ("road_freight_hgv", "tonne-km"),
+        "road - van": ("road_freight_van", "tonne-km"),
+        "van": ("road_freight_van", "tonne-km"),
+        "motorcycle": ("road_freight_motorcycle", "km"),
+        "motorbike": ("road_freight_motorcycle", "km"),
+        "road - motorcycle": ("road_freight_motorcycle", "km"),
+        "road - motorbike": ("road_freight_motorcycle", "km"),
+        "scooter": ("road_freight_motorcycle", "km"),
+        "rail": ("rail_freight", "tonne-km"),
+        "sea - container": ("sea_freight_container", "tonne-km"),
+        "container": ("sea_freight_container", "tonne-km"),
+        "sea - bulk": ("sea_freight_bulk", "tonne-km"),
+        "bulk": ("sea_freight_bulk", "tonne-km"),
+        "air": ("air_freight", "tonne-km"),
+        "courier": ("road_freight_van", "tonne-km"),
     }
 
     for key, result in distance_map.items():
         if key in mode:
             return result
 
-    return 'road_freight_hgv', 'tonne-km'
+    return "road_freight_hgv", "tonne-km"
 
 
 def resolve_waste_v2(row: dict) -> tuple[str, str]:
     """Resolve activity_key for 3.5 Waste (enhanced version)."""
-    waste_type = (row.get('Waste Type') or '').lower().strip()
-    treatment = (row.get('Treatment Method') or row.get('Treatment') or '').lower().strip()
+    waste_type = (row.get("Waste Type") or "").lower().strip()
+    treatment = (
+        (row.get("Treatment Method") or row.get("Treatment") or "").lower().strip()
+    )
 
     # Treatment-based resolution
-    if 'landfill' in treatment:
-        if 'food' in waste_type or 'organic' in waste_type:
-            return 'waste_landfill_food', 'kg'
-        return 'waste_landfill_mixed', 'kg'
+    if "landfill" in treatment:
+        if "food" in waste_type or "organic" in waste_type:
+            return "waste_landfill_food", "kg"
+        return "waste_landfill_mixed", "kg"
 
-    if 'recycl' in treatment:
-        if 'paper' in waste_type or 'cardboard' in waste_type:
-            return 'waste_recycled_paper', 'kg'
-        if 'plastic' in waste_type:
-            return 'waste_recycled_plastic', 'kg'
-        if 'metal' in waste_type:
-            return 'waste_recycled_metal', 'kg'
-        if 'glass' in waste_type:
-            return 'waste_recycled_glass', 'kg'
-        return 'waste_recycled_mixed', 'kg'
+    if "recycl" in treatment:
+        if "paper" in waste_type or "cardboard" in waste_type:
+            return "waste_recycled_paper", "kg"
+        if "plastic" in waste_type:
+            return "waste_recycled_plastic", "kg"
+        if "metal" in waste_type:
+            return "waste_recycled_metal", "kg"
+        if "glass" in waste_type:
+            return "waste_recycled_glass", "kg"
+        return "waste_recycled_mixed", "kg"
 
-    if 'inciner' in treatment or 'combust' in treatment:
-        return 'waste_incineration', 'kg'
+    if "inciner" in treatment or "combust" in treatment:
+        return "waste_incineration", "kg"
 
-    if 'compost' in treatment:
-        return 'waste_composted_food', 'kg'
+    if "compost" in treatment:
+        return "waste_composted_food", "kg"
 
-    if 'anaerobic' in treatment:
-        return 'waste_anaerobic_food', 'kg'
+    if "anaerobic" in treatment:
+        return "waste_anaerobic_food", "kg"
 
     # Type-based fallback
-    if 'electronic' in waste_type or 'weee' in waste_type:
-        return 'waste_ewaste', 'kg'
+    if "electronic" in waste_type or "weee" in waste_type:
+        return "waste_ewaste", "kg"
 
-    if 'construction' in waste_type:
-        return 'waste_construction', 'kg'
+    if "construction" in waste_type:
+        return "waste_construction", "kg"
 
-    return 'waste_landfill_mixed', 'kg'
+    return "waste_landfill_mixed", "kg"
 
 
 def resolve_flight_v2(row: dict) -> tuple[str, str]:
     """Resolve activity_key for 3.6 Business Travel - Flights (enhanced)."""
-    cabin_class = (row.get('Cabin Class') or row.get('Class') or '').lower().strip()
+    cabin_class = (row.get("Cabin Class") or row.get("Class") or "").lower().strip()
 
     # Determine distance from airports if possible
-    from_airport = row.get('From Airport') or ''
-    to_airport = row.get('To Airport') or ''
+    row.get("From Airport") or ""
+    row.get("To Airport") or ""
 
     # Approximate: if we have airport codes, we'll calculate distance later
     # For now, assume long-haul for safety
     is_long_haul = True
 
-    if 'first' in cabin_class:
-        return 'flight_long_first', 'km'
-    elif 'business' in cabin_class:
+    if "first" in cabin_class:
+        return "flight_long_first", "km"
+    elif "business" in cabin_class:
         if is_long_haul:
-            return 'flight_long_business', 'km'
+            return "flight_long_business", "km"
         else:
-            return 'flight_short_business', 'km'
+            return "flight_short_business", "km"
     else:  # Economy
         if is_long_haul:
-            return 'flight_long_economy', 'km'
+            return "flight_long_economy", "km"
         else:
-            return 'flight_short_economy', 'km'
+            return "flight_short_economy", "km"
 
 
 def resolve_commute_v2(row: dict) -> tuple[str, str]:
     """Resolve activity_key for 3.7 Employee Commuting (enhanced)."""
-    mode = (row.get('Transport Mode') or '').lower().strip()
+    mode = (row.get("Transport Mode") or "").lower().strip()
 
     commute_map = {
-        'car - petrol': ('commute_car_petrol', 'km'),
-        'petrol': ('commute_car_petrol', 'km'),
-        'car - diesel': ('commute_car_petrol', 'km'),  # Use petrol as proxy
-        'diesel': ('commute_car_petrol', 'km'),
-        'car - hybrid': ('commute_car_petrol', 'km'),  # Use petrol as proxy
-        'hybrid': ('commute_car_petrol', 'km'),
-        'car - electric': ('commute_car_electric', 'km'),
-        'electric': ('commute_car_electric', 'km'),
-        'bus': ('commute_bus', 'km'),
-        'rail': ('commute_rail', 'km'),
-        'metro': ('commute_rail', 'km'),
-        'train': ('commute_rail', 'km'),
-        'motorcycle': ('commute_motorcycle', 'km'),
-        'e-bike': ('commute_ebike', 'km'),
-        'ebike': ('commute_ebike', 'km'),
-        'bicycle': ('commute_bicycle', 'km'),
-        'bike': ('commute_bicycle', 'km'),
-        'walk': ('commute_bicycle', 'km'),  # Zero emission
-        'work from home': ('commute_wfh_day', 'day'),
-        'wfh': ('commute_wfh_day', 'day'),
+        "car - petrol": ("commute_car_petrol", "km"),
+        "petrol": ("commute_car_petrol", "km"),
+        "car - diesel": ("commute_car_petrol", "km"),  # Use petrol as proxy
+        "diesel": ("commute_car_petrol", "km"),
+        "car - hybrid": ("commute_car_petrol", "km"),  # Use petrol as proxy
+        "hybrid": ("commute_car_petrol", "km"),
+        "car - electric": ("commute_car_electric", "km"),
+        "electric": ("commute_car_electric", "km"),
+        "bus": ("commute_bus", "km"),
+        "rail": ("commute_rail", "km"),
+        "metro": ("commute_rail", "km"),
+        "train": ("commute_rail", "km"),
+        "motorcycle": ("commute_motorcycle", "km"),
+        "e-bike": ("commute_ebike", "km"),
+        "ebike": ("commute_ebike", "km"),
+        "bicycle": ("commute_bicycle", "km"),
+        "bike": ("commute_bicycle", "km"),
+        "walk": ("commute_bicycle", "km"),  # Zero emission
+        "work from home": ("commute_wfh_day", "day"),
+        "wfh": ("commute_wfh_day", "day"),
     }
 
     for key, result in commute_map.items():
         if key in mode:
             return result
 
-    return 'commute_car_petrol', 'km'
+    return "commute_car_petrol", "km"
 
 
 def resolve_leased_assets(row: dict) -> tuple[str, str]:
     """Resolve activity_key for 3.8 Upstream Leased Assets."""
-    asset_type = (row.get('Asset Type') or '').lower().strip()
-    method = (row.get('Method') or '').lower().strip()
+    asset_type = (row.get("Asset Type") or "").lower().strip()
+    method = (row.get("Method") or "").lower().strip()
 
     # Area-based
-    if method == 'area' or 'm2' in str(row.get('Unit') or '').lower():
+    if method == "area" or "m2" in str(row.get("Unit") or "").lower():
         asset_map = {
-            'office': ('leased_office_m2_year', 'm2-year'),
-            'warehouse': ('leased_warehouse_m2_year', 'm2-year'),
-            'retail': ('leased_retail_m2_year', 'm2-year'),
-            'data center': ('leased_datacenter_m2_year', 'm2-year'),
-            'datacenter': ('leased_datacenter_m2_year', 'm2-year'),
+            "office": ("leased_office_m2_year", "m2-year"),
+            "warehouse": ("leased_warehouse_m2_year", "m2-year"),
+            "retail": ("leased_retail_m2_year", "m2-year"),
+            "data center": ("leased_datacenter_m2_year", "m2-year"),
+            "datacenter": ("leased_datacenter_m2_year", "m2-year"),
         }
 
         for key, result in asset_map.items():
             if key in asset_type:
                 return result
 
-        return 'leased_office_m2_year', 'm2-year'
+        return "leased_office_m2_year", "m2-year"
 
     # Energy-based - use electricity factors
     # This would use the country's grid factor
-    return 'electricity_global', 'kWh'
+    return "electricity_global", "kWh"
 
 
 def resolve_downstream_transport(row: dict) -> tuple[str, str]:
     """Resolve activity_key for 3.9 Downstream Transportation."""
-    mode = (row.get('Transport Mode') or '').lower().strip()
-    method = (row.get('Method') or '').lower().strip()
+    mode = (row.get("Transport Mode") or "").lower().strip()
+    method = (row.get("Method") or "").lower().strip()
 
     # Same logic as upstream, but uses delivery_ keys where available
-    if method == 'spend':
-        if 'air' in mode:
-            return 'freight_spend_air', 'USD'
-        if 'sea' in mode:
-            return 'freight_spend_sea', 'USD'
-        return 'freight_spend_road', 'USD'
+    if method == "spend":
+        if "air" in mode:
+            return "freight_spend_air", "USD"
+        if "sea" in mode:
+            return "freight_spend_sea", "USD"
+        return "freight_spend_road", "USD"
 
     # Distance-based
-    if 'van' in mode:
-        return 'delivery_van', 'tonne-km'
-    if 'hgv' in mode or 'truck' in mode:
-        return 'delivery_hgv', 'tonne-km'
+    if "van" in mode:
+        return "delivery_van", "tonne-km"
+    if "hgv" in mode or "truck" in mode:
+        return "delivery_hgv", "tonne-km"
 
-    return 'delivery_van', 'tonne-km'
+    return "delivery_van", "tonne-km"
 
 
 # =============================================================================
@@ -780,773 +855,735 @@ def resolve_downstream_transport(row: dict) -> tuple[str, str]:
 
 GENERATED_TEMPLATE_COLUMN_MAP_STATIONARY = {
     # Template v1.0.1: Fuel Type | Method | Description | Quantity/Amount | Unit/Currency | Date | Site (Optional) | Supplier EF | Comments
-    'Fuel Type': 'fuel_type',
-    'Method': 'calc_type',
-    'Description': 'description',
-    'Quantity/Amount': 'quantity',
-    'Unit/Currency': 'unit',
-    'Date': 'activity_date',
-    'Site (Optional)': 'site',
-    'Site': 'site',
-    'Supplier EF (kg CO2e/unit)': 'supplier_ef',
-    'Supplier Emission Factor': 'supplier_ef',
-    'Comments': 'comments',
+    "Fuel Type": "fuel_type",
+    "Method": "calc_type",
+    "Description": "description",
+    "Quantity/Amount": "quantity",
+    "Unit/Currency": "unit",
+    "Date": "activity_date",
+    "Site (Optional)": "site",
+    "Site": "site",
+    "Supplier EF (kg CO2e/unit)": "supplier_ef",
+    "Supplier Emission Factor": "supplier_ef",
+    "Comments": "comments",
 }
 
 GENERATED_TEMPLATE_COLUMN_MAP_MOBILE = {
     # Template v1.0.1: Type | Phyiscal | Spent base | Description | Quantity/Amount | Unit/Currency | Date | Supplier EF | Comments
     # Note: "Phyiscal" is intentionally misspelled in template, contains fuel type (Petrol, Diesel, Urea, etc.)
     # Note: "Spent base" = Physical or Spend method
-    'Type': 'vehicle_type',           # Vehicle type: Car, Van, LGV, HGV, Motorcycle, Bus, (Fuel Only)
-    'Phyiscal': 'fuel_type',          # Fuel type (misspelled column): Petrol, Diesel, Urea, etc.
-    'Physical': 'fuel_type',          # Correct spelling variant
-    'Spent base': 'calc_type',        # Calculation method: Physical or Spend
-    'Description': 'description',
-    'Quantity/Amount': 'quantity',
-    'Unit/Currency': 'unit',
-    'Date': 'activity_date',
-    'Supplier EF (kg CO2e/unit)': 'supplier_ef',
-    'Supplier Emission Factor': 'supplier_ef',
-    'Comments': 'comments',
+    "Type": "vehicle_type",  # Vehicle type: Car, Van, LGV, HGV, Motorcycle, Bus, (Fuel Only)
+    "Phyiscal": "fuel_type",  # Fuel type (misspelled column): Petrol, Diesel, Urea, etc.
+    "Physical": "fuel_type",  # Correct spelling variant
+    "Spent base": "calc_type",  # Calculation method: Physical or Spend
+    "Description": "description",
+    "Quantity/Amount": "quantity",
+    "Unit/Currency": "unit",
+    "Date": "activity_date",
+    "Supplier EF (kg CO2e/unit)": "supplier_ef",
+    "Supplier Emission Factor": "supplier_ef",
+    "Comments": "comments",
     # Legacy column names (for backwards compatibility)
-    'Vehicle Type': 'vehicle_type',
-    'Fuel Type': 'fuel_type',
-    'Method': 'calc_type',
+    "Vehicle Type": "vehicle_type",
+    "Fuel Type": "fuel_type",
+    "Method": "calc_type",
 }
 
 GENERATED_TEMPLATE_COLUMN_MAP_FUGITIVE = {
     # Template v1.0.1: Type | Method | Description | Quantity/Amount | Unit/Currency | Date | Supplier EF | Comments
-    'Type': 'gas_type',               # Refrigerant type: R-134a, R-410A, R-32, etc.
-    'Refrigerant Type': 'gas_type',   # Legacy column name
-    'Method': 'calc_type',
-    'Description': 'description',
-    'Quantity/Amount': 'quantity',
-    'Unit/Currency': 'unit',
-    'Date': 'activity_date',
-    'Supplier EF (kg CO2e/kg)': 'supplier_ef',
-    'Supplier Emission Factor': 'supplier_ef',
-    'Comments': 'comments',
+    "Type": "gas_type",  # Refrigerant type: R-134a, R-410A, R-32, etc.
+    "Refrigerant Type": "gas_type",  # Legacy column name
+    "Method": "calc_type",
+    "Description": "description",
+    "Quantity/Amount": "quantity",
+    "Unit/Currency": "unit",
+    "Date": "activity_date",
+    "Supplier EF (kg CO2e/kg)": "supplier_ef",
+    "Supplier Emission Factor": "supplier_ef",
+    "Comments": "comments",
 }
 
 GENERATED_TEMPLATE_COLUMN_MAP_ELECTRICITY = {
     # Template v1.0.1: Type | Method | Country | Description | Supplier Name | Supplier Emission Factor | Quantity/Amount | Unit/Currency | Date | Comments
-    'Type': 'electricity_type',       # Grid Electricity (Location-based), Supplier Specific (Market-based), 100% Renewable
-    'Electricity Type': 'electricity_type',  # Legacy column name
-    'Method': 'calc_type',            # Physical or Spend
-    'Country': 'country_code',        # Country code: IL, US, UK, etc.
-    'Country/Region': 'country_code', # Legacy column name
-    'Description': 'description',
-    'Supplier Name': 'supplier_name', # Electricity supplier name (IEC, Dorad, OPC, etc.)
-    'Power Producer': 'power_producer',  # Specific power producer (Phase 2 market-based)
-    'Market Method': 'market_method',    # Market-based method: residual_mix, supplier_specific, ppa, rec
-    'Supplier Emission Factor': 'supplier_ef',  # Custom emission factor (kg CO2e/kWh)
-    'Quantity/Amount': 'quantity',
-    'Unit/Currency': 'unit',
-    'Date': 'activity_date',
-    'Comments': 'comments',
+    "Type": "electricity_type",  # Grid Electricity (Location-based), Supplier Specific (Market-based), 100% Renewable
+    "Electricity Type": "electricity_type",  # Legacy column name
+    "Method": "calc_type",  # Physical or Spend
+    "Country": "country_code",  # Country code: IL, US, UK, etc.
+    "Country/Region": "country_code",  # Legacy column name
+    "Description": "description",
+    "Supplier Name": "supplier_name",  # Electricity supplier name (IEC, Dorad, OPC, etc.)
+    "Power Producer": "power_producer",  # Specific power producer (Phase 2 market-based)
+    "Market Method": "market_method",  # Market-based method: residual_mix, supplier_specific, ppa, rec
+    "Supplier Emission Factor": "supplier_ef",  # Custom emission factor (kg CO2e/kWh)
+    "Quantity/Amount": "quantity",
+    "Unit/Currency": "unit",
+    "Date": "activity_date",
+    "Comments": "comments",
 }
 
 GENERATED_TEMPLATE_COLUMN_MAP_HEAT_STEAM = {
     # Template v1.0.1: Type | Method | Description | Supplier Name | Supplier Emission Factor | Quantity/Amount | Unit/Currency | Date | Comments
-    'Type': 'energy_type',            # District Heating, Steam
-    'Energy Type': 'energy_type',     # Legacy column name
-    'Method': 'calc_type',
-    'Description': 'description',
-    'Supplier Name': 'supplier_name', # Heat/steam supplier name
-    'Supplier Emission Factor': 'supplier_ef',  # Custom emission factor (kg CO2e/kWh)
-    'Quantity/Amount': 'quantity',
-    'Unit/Currency': 'unit',
-    'Date': 'activity_date',
-    'Comments': 'comments',
+    "Type": "energy_type",  # District Heating, Steam
+    "Energy Type": "energy_type",  # Legacy column name
+    "Method": "calc_type",
+    "Description": "description",
+    "Supplier Name": "supplier_name",  # Heat/steam supplier name
+    "Supplier Emission Factor": "supplier_ef",  # Custom emission factor (kg CO2e/kWh)
+    "Quantity/Amount": "quantity",
+    "Unit/Currency": "unit",
+    "Date": "activity_date",
+    "Comments": "comments",
 }
 
 GENERATED_TEMPLATE_COLUMN_MAP_COOLING = {
     # Template v1.0.1: Type | Method | Description | Supplier Name | Supplier Emission Factor | Quantity/Amount | Unit/Currency | Date | Comments
-    'Type': 'cooling_type',           # Chilled Water, District Cooling
-    'Cooling Type': 'cooling_type',   # Legacy column name
-    'Method': 'calc_type',
-    'Description': 'description',
-    'Supplier Name': 'supplier_name', # Cooling supplier name
-    'Supplier Emission Factor': 'supplier_ef',  # Custom emission factor (kg CO2e/kWh)
-    'Quantity/Amount': 'quantity',
-    'Unit/Currency': 'unit',
-    'Date': 'activity_date',
-    'Comments': 'comments',
+    "Type": "cooling_type",  # Chilled Water, District Cooling
+    "Cooling Type": "cooling_type",  # Legacy column name
+    "Method": "calc_type",
+    "Description": "description",
+    "Supplier Name": "supplier_name",  # Cooling supplier name
+    "Supplier Emission Factor": "supplier_ef",  # Custom emission factor (kg CO2e/kWh)
+    "Quantity/Amount": "quantity",
+    "Unit/Currency": "unit",
+    "Date": "activity_date",
+    "Comments": "comments",
 }
 
 SHEET_CONFIGS = {
     # =========================================================================
     # Original sheet names (for legacy templates)
     # =========================================================================
-    'Scope1_Stationary': SheetConfig(
-        sheet_name='Scope1_Stationary',
+    "Scope1_Stationary": SheetConfig(
+        sheet_name="Scope1_Stationary",
         scope=1,
-        category_code='1.1',
+        category_code="1.1",
         header_row=5,
         column_map={
-            'Site': 'site',
-            'Description': 'description',
-            'Fuel_Type': 'fuel_type',
-            'Year': 'year',
-            'Calc_Type': 'calc_type',
-            'Physical_Amount': 'quantity',
-            'Physical_Unit': 'unit',
-            'Spend_Amount': 'spend_amount',
-            'Spend_Currency': 'spend_currency',
-            'Comment': 'comment',
+            "Site": "site",
+            "Description": "description",
+            "Fuel_Type": "fuel_type",
+            "Year": "year",
+            "Calc_Type": "calc_type",
+            "Physical_Amount": "quantity",
+            "Physical_Unit": "unit",
+            "Spend_Amount": "spend_amount",
+            "Spend_Currency": "spend_currency",
+            "Comment": "comment",
         },
         activity_key_resolver=resolve_stationary_fuel,
     ),
-
     # =========================================================================
     # Generated template sheet names (from generate_template.py)
     # Headers at row 3, row 4 is sample data (contains "SAMPLE" - auto-skipped), data starts at row 5+
     # =========================================================================
-    '1.1 Stationary': SheetConfig(
-        sheet_name='1.1 Stationary',
+    "1.1 Stationary": SheetConfig(
+        sheet_name="1.1 Stationary",
         scope=1,
-        category_code='1.1',
+        category_code="1.1",
         header_row=3,  # Headers at row 3 in template
         column_map=GENERATED_TEMPLATE_COLUMN_MAP_STATIONARY,
         activity_key_resolver=resolve_stationary_fuel,
     ),
-    
-    'Scope1_Mobile': SheetConfig(
-        sheet_name='Scope1_Mobile',
+    "Scope1_Mobile": SheetConfig(
+        sheet_name="Scope1_Mobile",
         scope=1,
-        category_code='1.2',
+        category_code="1.2",
         header_row=5,
         column_map={
-            'Site': 'site',
-            'Description': 'description',
-            'Vehicle_Type': 'vehicle_type',
-            'Fuel_Type': 'fuel_type',
-            'Year': 'year',
-            'Calc_Type': 'calc_type',
-            'Physical_Amount': 'quantity',
-            'Physical_Unit': 'unit',
-            'Spend_Amount': 'spend_amount',
-            'Spend_Currency': 'spend_currency',
-            'Comment': 'comment',
+            "Site": "site",
+            "Description": "description",
+            "Vehicle_Type": "vehicle_type",
+            "Fuel_Type": "fuel_type",
+            "Year": "year",
+            "Calc_Type": "calc_type",
+            "Physical_Amount": "quantity",
+            "Physical_Unit": "unit",
+            "Spend_Amount": "spend_amount",
+            "Spend_Currency": "spend_currency",
+            "Comment": "comment",
         },
         activity_key_resolver=resolve_mobile_fuel,
     ),
-
-    '1.2 Mobile': SheetConfig(
-        sheet_name='1.2 Mobile',
+    "1.2 Mobile": SheetConfig(
+        sheet_name="1.2 Mobile",
         scope=1,
-        category_code='1.2',
+        category_code="1.2",
         header_row=3,  # Headers at row 3 in template
         column_map=GENERATED_TEMPLATE_COLUMN_MAP_MOBILE,
         activity_key_resolver=resolve_mobile_fuel,
     ),
-
-    'Scope1_Fugitive': SheetConfig(
-        sheet_name='Scope1_Fugitive',
+    "Scope1_Fugitive": SheetConfig(
+        sheet_name="Scope1_Fugitive",
         scope=1,
-        category_code='1.3',
+        category_code="1.3",
         header_row=5,
         column_map={
-            'Site': 'site',
-            'Description': 'description',
-            'Source_Type': 'source_type',
-            'Gas_Type': 'gas_type',
-            'Year': 'year',
-            'Calc_Type': 'calc_type',
-            'Physical_Amount': 'quantity',
-            'Physical_Unit': 'unit',
-            'Spend_Amount': 'spend_amount',
-            'Spend_Currency': 'spend_currency',
-            'Comment': 'comment',
+            "Site": "site",
+            "Description": "description",
+            "Source_Type": "source_type",
+            "Gas_Type": "gas_type",
+            "Year": "year",
+            "Calc_Type": "calc_type",
+            "Physical_Amount": "quantity",
+            "Physical_Unit": "unit",
+            "Spend_Amount": "spend_amount",
+            "Spend_Currency": "spend_currency",
+            "Comment": "comment",
         },
         activity_key_resolver=resolve_refrigerant,
     ),
-
-    '1.3 Fugitive': SheetConfig(
-        sheet_name='1.3 Fugitive',
+    "1.3 Fugitive": SheetConfig(
+        sheet_name="1.3 Fugitive",
         scope=1,
-        category_code='1.3',
+        category_code="1.3",
         header_row=3,  # Headers at row 3 in template
         column_map=GENERATED_TEMPLATE_COLUMN_MAP_FUGITIVE,
         activity_key_resolver=resolve_refrigerant,
     ),
-
-    'Scope2_Electricity': SheetConfig(
-        sheet_name='Scope2_Electricity',
+    "Scope2_Electricity": SheetConfig(
+        sheet_name="Scope2_Electricity",
         scope=2,
-        category_code='2.1',
+        category_code="2.1",
         header_row=5,
         column_map={
-            'Site': 'site',
-            'Description': 'description',
-            'Source': 'source',
-            'Year': 'year',
-            'Calc_Type': 'calc_type',
-            'Physical_Amount': 'quantity',
-            'Physical_Unit': 'unit',
-            'Spend_Amount': 'spend_amount',
-            'Spend_Currency': 'spend_currency',
-            'Comment': 'comment',
+            "Site": "site",
+            "Description": "description",
+            "Source": "source",
+            "Year": "year",
+            "Calc_Type": "calc_type",
+            "Physical_Amount": "quantity",
+            "Physical_Unit": "unit",
+            "Spend_Amount": "spend_amount",
+            "Spend_Currency": "spend_currency",
+            "Comment": "comment",
         },
         activity_key_resolver=resolve_electricity,
     ),
-
-    '2.1 Electricity': SheetConfig(
-        sheet_name='2.1 Electricity',
+    "2.1 Electricity": SheetConfig(
+        sheet_name="2.1 Electricity",
         scope=2,
-        category_code='2.1',
+        category_code="2.1",
         header_row=3,  # Headers at row 3 in template
         column_map=GENERATED_TEMPLATE_COLUMN_MAP_ELECTRICITY,
         activity_key_resolver=resolve_electricity,
     ),
-
-    'Scope2_HeatSteam': SheetConfig(
-        sheet_name='Scope2_HeatSteam',
+    "Scope2_HeatSteam": SheetConfig(
+        sheet_name="Scope2_HeatSteam",
         scope=2,
-        category_code='2.2',
+        category_code="2.2",
         header_row=5,
         column_map={
-            'Site': 'site',
-            'Description': 'description',
-            'Energy_Type': 'energy_type',
-            'Year': 'year',
-            'Calc_Type': 'calc_type',
-            'Physical_Amount': 'quantity',
-            'Physical_Unit': 'unit',
-            'Spend_Amount': 'spend_amount',
-            'Spend_Currency': 'spend_currency',
-            'Comment': 'comment',
+            "Site": "site",
+            "Description": "description",
+            "Energy_Type": "energy_type",
+            "Year": "year",
+            "Calc_Type": "calc_type",
+            "Physical_Amount": "quantity",
+            "Physical_Unit": "unit",
+            "Spend_Amount": "spend_amount",
+            "Spend_Currency": "spend_currency",
+            "Comment": "comment",
         },
         activity_key_resolver=resolve_heat_steam,
     ),
-
-    '2.2 Heat-Steam': SheetConfig(
-        sheet_name='2.2 Heat-Steam',
+    "2.2 Heat-Steam": SheetConfig(
+        sheet_name="2.2 Heat-Steam",
         scope=2,
-        category_code='2.2',
+        category_code="2.2",
         header_row=3,  # Headers at row 3 in template
         column_map=GENERATED_TEMPLATE_COLUMN_MAP_HEAT_STEAM,
         activity_key_resolver=resolve_heat_steam,
     ),
-
-    '2.3 Cooling': SheetConfig(
-        sheet_name='2.3 Cooling',
+    "2.3 Cooling": SheetConfig(
+        sheet_name="2.3 Cooling",
         scope=2,
-        category_code='2.3',
+        category_code="2.3",
         header_row=3,  # Headers at row 3 in template
         column_map=GENERATED_TEMPLATE_COLUMN_MAP_COOLING,
         activity_key_resolver=resolve_heat_steam,  # Handles cooling, supplier EF, and spend-based
     ),
-
-    'Cat1_RawMaterials': SheetConfig(
-        sheet_name='Cat1_RawMaterials',
+    "Cat1_RawMaterials": SheetConfig(
+        sheet_name="Cat1_RawMaterials",
         scope=3,
-        category_code='3.1',
+        category_code="3.1",
         header_row=5,
         column_map={
-            'Site': 'site',
-            'Description': 'description',
-            'Year': 'year',
-            'Calc_Type': 'calc_type',
-            'Physical_Amount': 'quantity',
-            'Physical_Unit': 'unit',
-            'Spend_Amount': 'spend_amount',
-            'Spend_Currency': 'spend_currency',
-            'Comment': 'comment',
+            "Site": "site",
+            "Description": "description",
+            "Year": "year",
+            "Calc_Type": "calc_type",
+            "Physical_Amount": "quantity",
+            "Physical_Unit": "unit",
+            "Spend_Amount": "spend_amount",
+            "Spend_Currency": "spend_currency",
+            "Comment": "comment",
         },
-        activity_key_resolver=lambda row: resolve_spend_generic(row, 'spend_other'),
+        activity_key_resolver=lambda row: resolve_spend_generic(row, "spend_other"),
         is_spend_based=True,
     ),
-    
-    'Cat1_Services': SheetConfig(
-        sheet_name='Cat1_Services',
+    "Cat1_Services": SheetConfig(
+        sheet_name="Cat1_Services",
         scope=3,
-        category_code='3.1',
+        category_code="3.1",
         header_row=5,
         column_map={
-            'Site': 'site',
-            'Description': 'description',
-            'Year': 'year',
-            'Calc_Type': 'calc_type',
-            'Physical_Amount': 'quantity',
-            'Physical_Unit': 'unit',
-            'Spend_Amount': 'spend_amount',
-            'Spend_Currency': 'spend_currency',
-            'Comment': 'comment',
+            "Site": "site",
+            "Description": "description",
+            "Year": "year",
+            "Calc_Type": "calc_type",
+            "Physical_Amount": "quantity",
+            "Physical_Unit": "unit",
+            "Spend_Amount": "spend_amount",
+            "Spend_Currency": "spend_currency",
+            "Comment": "comment",
         },
-        activity_key_resolver=lambda row: ('spend_professional_services', 'USD'),
+        activity_key_resolver=lambda row: ("spend_professional_services", "USD"),
         is_spend_based=True,
     ),
-    
-    'Cat2_CapitalGoods': SheetConfig(
-        sheet_name='Cat2_CapitalGoods',
+    "Cat2_CapitalGoods": SheetConfig(
+        sheet_name="Cat2_CapitalGoods",
         scope=3,
-        category_code='3.2',
+        category_code="3.2",
         header_row=5,
         column_map={
-            'Site': 'site',
-            'Description': 'description',
-            'Year': 'year',
-            'Calc_Type': 'calc_type',
-            'Physical_Amount': 'quantity',
-            'Physical_Unit': 'unit',
-            'Spend_Amount': 'spend_amount',
-            'Spend_Currency': 'spend_currency',
-            'Comment': 'comment',
+            "Site": "site",
+            "Description": "description",
+            "Year": "year",
+            "Calc_Type": "calc_type",
+            "Physical_Amount": "quantity",
+            "Physical_Unit": "unit",
+            "Spend_Amount": "spend_amount",
+            "Spend_Currency": "spend_currency",
+            "Comment": "comment",
         },
-        activity_key_resolver=lambda row: ('spend_capital_equipment', 'USD'),
+        activity_key_resolver=lambda row: ("spend_capital_equipment", "USD"),
         is_spend_based=True,
     ),
-    
-    'Cat4_9_Transport': SheetConfig(
-        sheet_name='Cat4_9_Transport',
+    "Cat4_9_Transport": SheetConfig(
+        sheet_name="Cat4_9_Transport",
         scope=3,
-        category_code='3.4',
+        category_code="3.4",
         header_row=5,
         column_map={
-            'Site': 'site',
-            'Description': 'description',
-            'Transport_Mode': 'transport_mode',
-            'Distance_km': 'distance_km',
-            'Year': 'year',
-            'Calc_Type': 'calc_type',
-            'Physical_Amount': 'quantity',
-            'Physical_Unit': 'unit',
-            'Spend_Amount': 'spend_amount',
-            'Spend_Currency': 'spend_currency',
-            'Comment': 'comment',
+            "Site": "site",
+            "Description": "description",
+            "Transport_Mode": "transport_mode",
+            "Distance_km": "distance_km",
+            "Year": "year",
+            "Calc_Type": "calc_type",
+            "Physical_Amount": "quantity",
+            "Physical_Unit": "unit",
+            "Spend_Amount": "spend_amount",
+            "Spend_Currency": "spend_currency",
+            "Comment": "comment",
         },
         activity_key_resolver=resolve_transport,
     ),
-    
-    'Cat5_Waste': SheetConfig(
-        sheet_name='Cat5_Waste',
+    "Cat5_Waste": SheetConfig(
+        sheet_name="Cat5_Waste",
         scope=3,
-        category_code='3.5',
+        category_code="3.5",
         header_row=5,
         column_map={
-            'Site': 'site',
-            'Description': 'description',
-            'Waste_Type': 'waste_type',
-            'Treatment': 'treatment',
-            'Year': 'year',
-            'Calc_Type': 'calc_type',
-            'Physical_Amount': 'quantity',
-            'Physical_Unit': 'unit',
-            'Spend_Amount': 'spend_amount',
-            'Spend_Currency': 'spend_currency',
-            'Comment': 'comment',
+            "Site": "site",
+            "Description": "description",
+            "Waste_Type": "waste_type",
+            "Treatment": "treatment",
+            "Year": "year",
+            "Calc_Type": "calc_type",
+            "Physical_Amount": "quantity",
+            "Physical_Unit": "unit",
+            "Spend_Amount": "spend_amount",
+            "Spend_Currency": "spend_currency",
+            "Comment": "comment",
         },
         activity_key_resolver=resolve_waste,
     ),
-    
-    'Cat6_BusinessTravel': SheetConfig(
-        sheet_name='Cat6_BusinessTravel',
+    "Cat6_BusinessTravel": SheetConfig(
+        sheet_name="Cat6_BusinessTravel",
         scope=3,
-        category_code='3.6',
+        category_code="3.6",
         header_row=5,
         column_map={
-            'Site': 'site',
-            'Description': 'description',
-            'Travel_Type': 'travel_type',
-            'Trip_Type': 'trip_type',
-            'From_Airport': 'from_airport',
-            'To_Airport': 'to_airport',
-            'Distance_km': 'distance_km',
-            'Class': 'travel_class',
-            'Year': 'year',
-            'Calc_Type': 'calc_type',
-            'Physical_Amount': 'quantity',
-            'Physical_Unit': 'unit',
-            'Spend_Amount': 'spend_amount',
-            'Spend_Currency': 'spend_currency',
-            'Comment': 'comment',
+            "Site": "site",
+            "Description": "description",
+            "Travel_Type": "travel_type",
+            "Trip_Type": "trip_type",
+            "From_Airport": "from_airport",
+            "To_Airport": "to_airport",
+            "Distance_km": "distance_km",
+            "Class": "travel_class",
+            "Year": "year",
+            "Calc_Type": "calc_type",
+            "Physical_Amount": "quantity",
+            "Physical_Unit": "unit",
+            "Spend_Amount": "spend_amount",
+            "Spend_Currency": "spend_currency",
+            "Comment": "comment",
         },
         activity_key_resolver=resolve_flight,
     ),
-    
-    'Cat6_Hotels': SheetConfig(
-        sheet_name='Cat6_Hotels',
+    "Cat6_Hotels": SheetConfig(
+        sheet_name="Cat6_Hotels",
         scope=3,
-        category_code='3.6',
+        category_code="3.6",
         header_row=5,
         column_map={
-            'Site': 'site',
-            'Description': 'description',
-            'Country': 'country',
-            'Nights': 'nights',
-            'Year': 'year',
-            'Calc_Type': 'calc_type',
-            'Physical_Amount': 'quantity',
-            'Physical_Unit': 'unit',
-            'Spend_Amount': 'spend_amount',
-            'Spend_Currency': 'spend_currency',
-            'Comment': 'comment',
+            "Site": "site",
+            "Description": "description",
+            "Country": "country",
+            "Nights": "nights",
+            "Year": "year",
+            "Calc_Type": "calc_type",
+            "Physical_Amount": "quantity",
+            "Physical_Unit": "unit",
+            "Spend_Amount": "spend_amount",
+            "Spend_Currency": "spend_currency",
+            "Comment": "comment",
         },
         activity_key_resolver=resolve_hotel,
     ),
-    
-    'Cat7_Commuting': SheetConfig(
-        sheet_name='Cat7_Commuting',
+    "Cat7_Commuting": SheetConfig(
+        sheet_name="Cat7_Commuting",
         scope=3,
-        category_code='3.7',
+        category_code="3.7",
         header_row=5,
         column_map={
-            'Site': 'site',
-            'Description': 'description',
-            'Transport_Mode': 'transport_mode',
-            'Employees': 'employees',
-            'Working_Days': 'working_days',
-            'Avg_Distance_km': 'avg_distance_km',
-            'Year': 'year',
-            'Calc_Type': 'calc_type',
-            'Physical_Amount': 'quantity',
-            'Physical_Unit': 'unit',
-            'Spend_Amount': 'spend_amount',
-            'Spend_Currency': 'spend_currency',
-            'Comment': 'comment',
+            "Site": "site",
+            "Description": "description",
+            "Transport_Mode": "transport_mode",
+            "Employees": "employees",
+            "Working_Days": "working_days",
+            "Avg_Distance_km": "avg_distance_km",
+            "Year": "year",
+            "Calc_Type": "calc_type",
+            "Physical_Amount": "quantity",
+            "Physical_Unit": "unit",
+            "Spend_Amount": "spend_amount",
+            "Spend_Currency": "spend_currency",
+            "Comment": "comment",
         },
         activity_key_resolver=resolve_commute,
     ),
-    
-    'Cat12_EndOfLife': SheetConfig(
-        sheet_name='Cat12_EndOfLife',
+    "Cat12_EndOfLife": SheetConfig(
+        sheet_name="Cat12_EndOfLife",
         scope=3,
-        category_code='3.12',
+        category_code="3.12",
         header_row=5,
         column_map={
-            'Site': 'site',
-            'Description': 'description',
-            'Product_Type': 'product_type',
-            'Treatment': 'treatment',
-            'Year': 'year',
-            'Calc_Type': 'calc_type',
-            'Physical_Amount': 'quantity',
-            'Physical_Unit': 'unit',
-            'Spend_Amount': 'spend_amount',
-            'Spend_Currency': 'spend_currency',
-            'Comment': 'comment',
+            "Site": "site",
+            "Description": "description",
+            "Product_Type": "product_type",
+            "Treatment": "treatment",
+            "Year": "year",
+            "Calc_Type": "calc_type",
+            "Physical_Amount": "quantity",
+            "Physical_Unit": "unit",
+            "Spend_Amount": "spend_amount",
+            "Spend_Currency": "spend_currency",
+            "Comment": "comment",
         },
         activity_key_resolver=resolve_waste,  # Same as waste
     ),
-
     # =========================================================================
     # NEW SCOPE 3 TEMPLATE SHEETS (v1 - January 2025)
     # =========================================================================
-
-    '3.1 Purchased Goods': SheetConfig(
-        sheet_name='3.1 Purchased Goods',
+    "3.1 Purchased Goods": SheetConfig(
+        sheet_name="3.1 Purchased Goods",
         scope=3,
-        category_code='3.1',
+        category_code="3.1",
         header_row=4,
         column_map={
-            'Description': 'description',
-            'Category': 'category',
-            'Method': 'calc_type',
-            'Quantity/Amount': 'quantity',
-            'Unit/Currency': 'unit',
-            'Supplier (Optional)': 'supplier',
-            'Date (Optional)': 'activity_date',
-            'Site (Optional)': 'site',
+            "Description": "description",
+            "Category": "category",
+            "Method": "calc_type",
+            "Quantity/Amount": "quantity",
+            "Unit/Currency": "unit",
+            "Supplier (Optional)": "supplier",
+            "Date (Optional)": "activity_date",
+            "Site (Optional)": "site",
         },
         activity_key_resolver=resolve_purchased_goods,
     ),
-
-    '3.2 Capital Goods': SheetConfig(
-        sheet_name='3.2 Capital Goods',
+    "3.2 Capital Goods": SheetConfig(
+        sheet_name="3.2 Capital Goods",
         scope=3,
-        category_code='3.2',
+        category_code="3.2",
         header_row=4,
         column_map={
-            'Description': 'description',
-            'Asset Type': 'asset_type',
-            'Method': 'calc_type',
-            'Quantity/Amount': 'quantity',
-            'Unit/Currency': 'unit',
-            'Purchase Date': 'activity_date',
-            'Expected Lifetime (Years)': 'lifetime',
+            "Description": "description",
+            "Asset Type": "asset_type",
+            "Method": "calc_type",
+            "Quantity/Amount": "quantity",
+            "Unit/Currency": "unit",
+            "Purchase Date": "activity_date",
+            "Expected Lifetime (Years)": "lifetime",
         },
         activity_key_resolver=resolve_capital_goods,
     ),
-
-    '3.4 Upstream Transport': SheetConfig(
-        sheet_name='3.4 Upstream Transport',
+    "3.4 Upstream Transport": SheetConfig(
+        sheet_name="3.4 Upstream Transport",
         scope=3,
-        category_code='3.4',
+        category_code="3.4",
         header_row=4,
         column_map={
-            'Description': 'description',
-            'Transport Mode': 'transport_mode',
-            'Method': 'calc_type',
-            'Weight (tonnes)': 'weight',
-            'Distance (km)': 'distance',
-            'Origin Country': 'origin_country',
-            'Destination Country': 'destination_country',
-            'International Mode': 'international_mode',
-            'Spend Amount': 'spend_amount',
-            'Currency': 'currency',
-            'Date': 'activity_date',
+            "Description": "description",
+            "Transport Mode": "transport_mode",
+            "Method": "calc_type",
+            "Weight (tonnes)": "weight",
+            "Distance (km)": "distance",
+            "Origin Country": "origin_country",
+            "Destination Country": "destination_country",
+            "International Mode": "international_mode",
+            "Spend Amount": "spend_amount",
+            "Currency": "currency",
+            "Date": "activity_date",
         },
         activity_key_resolver=resolve_upstream_transport,
     ),
-
-    '3.5 Waste': SheetConfig(
-        sheet_name='3.5 Waste',
+    "3.5 Waste": SheetConfig(
+        sheet_name="3.5 Waste",
         scope=3,
-        category_code='3.5',
+        category_code="3.5",
         header_row=4,
         column_map={
-            'Description': 'description',
-            'Waste Type': 'waste_type',
-            'Treatment Method': 'treatment',
-            'Quantity': 'quantity',
-            'Unit': 'unit',
-            'Date': 'activity_date',
-            'Site (Optional)': 'site',
+            "Description": "description",
+            "Waste Type": "waste_type",
+            "Treatment Method": "treatment",
+            "Quantity": "quantity",
+            "Unit": "unit",
+            "Date": "activity_date",
+            "Site (Optional)": "site",
         },
         activity_key_resolver=resolve_waste_v2,
     ),
-
-    '3.6 Flights': SheetConfig(
-        sheet_name='3.6 Flights',
+    "3.6 Flights": SheetConfig(
+        sheet_name="3.6 Flights",
         scope=3,
-        category_code='3.6',
+        category_code="3.6",
         header_row=4,
         column_map={
-            'Description': 'description',
-            'From Airport': 'from_airport',
-            'To Airport': 'to_airport',
-            'Trip Type': 'trip_type',
-            'Cabin Class': 'travel_class',
-            'Number of Trips': 'quantity',
-            'Date': 'activity_date',
-            'Traveler (Optional)': 'traveler',
+            "Description": "description",
+            "From Airport": "from_airport",
+            "To Airport": "to_airport",
+            "Trip Type": "trip_type",
+            "Cabin Class": "travel_class",
+            "Number of Trips": "quantity",
+            "Date": "activity_date",
+            "Traveler (Optional)": "traveler",
         },
         activity_key_resolver=resolve_flight_v2,
     ),
-
-    '3.6 Hotels': SheetConfig(
-        sheet_name='3.6 Hotels',
+    "3.6 Hotels": SheetConfig(
+        sheet_name="3.6 Hotels",
         scope=3,
-        category_code='3.6',
+        category_code="3.6",
         header_row=4,
         column_map={
-            'Description': 'description',
-            'Country': 'country',
-            'Number of Nights': 'quantity',
-            'Number of Rooms': 'rooms',
-            'Date': 'activity_date',
-            'Traveler (Optional)': 'traveler',
+            "Description": "description",
+            "Country": "country",
+            "Number of Nights": "quantity",
+            "Number of Rooms": "rooms",
+            "Date": "activity_date",
+            "Traveler (Optional)": "traveler",
         },
         activity_key_resolver=resolve_hotel,
     ),
-
-    '3.7 Commuting': SheetConfig(
-        sheet_name='3.7 Commuting',
+    "3.7 Commuting": SheetConfig(
+        sheet_name="3.7 Commuting",
         scope=3,
-        category_code='3.7',
+        category_code="3.7",
         header_row=4,
         column_map={
-            'Site/Department': 'site',
-            'Transport Mode': 'transport_mode',
-            'Number of Employees': 'employees',
-            'Avg Distance (km one-way)': 'avg_distance_km',
-            'City/Zone (Israel)': 'city_zone',
-            'Working Days/Year': 'working_days',
-            'Year': 'year',
-            'Comments': 'comment',
+            "Site/Department": "site",
+            "Transport Mode": "transport_mode",
+            "Number of Employees": "employees",
+            "Avg Distance (km one-way)": "avg_distance_km",
+            "City/Zone (Israel)": "city_zone",
+            "Working Days/Year": "working_days",
+            "Year": "year",
+            "Comments": "comment",
         },
         activity_key_resolver=resolve_commute_v2,
     ),
-
-    '3.8 Leased Assets': SheetConfig(
-        sheet_name='3.8 Leased Assets',
+    "3.8 Leased Assets": SheetConfig(
+        sheet_name="3.8 Leased Assets",
         scope=3,
-        category_code='3.8',
+        category_code="3.8",
         header_row=4,
         column_map={
-            'Description': 'description',
-            'Asset Type': 'asset_type',
-            'Method': 'calc_type',
-            'Quantity': 'quantity',
-            'Unit': 'unit',
-            'Country/Region': 'country',
-            'Tenant Scope 1 CO2e (kg)': 'tenant_scope1_co2e',
-            'Tenant Scope 2 CO2e (kg)': 'tenant_scope2_co2e',
-            'Year': 'year',
+            "Description": "description",
+            "Asset Type": "asset_type",
+            "Method": "calc_type",
+            "Quantity": "quantity",
+            "Unit": "unit",
+            "Country/Region": "country",
+            "Tenant Scope 1 CO2e (kg)": "tenant_scope1_co2e",
+            "Tenant Scope 2 CO2e (kg)": "tenant_scope2_co2e",
+            "Year": "year",
         },
         activity_key_resolver=resolve_leased_assets,
     ),
-
-    '3.9 Downstream Transport': SheetConfig(
-        sheet_name='3.9 Downstream Transport',
+    "3.9 Downstream Transport": SheetConfig(
+        sheet_name="3.9 Downstream Transport",
         scope=3,
-        category_code='3.9',
+        category_code="3.9",
         header_row=4,
         column_map={
-            'Description': 'description',
-            'Transport Mode': 'transport_mode',
-            'Method': 'calc_type',
-            'Weight (tonnes)': 'weight',
-            'Distance (km)': 'distance',
-            'Origin Country': 'origin_country',
-            'Destination Country': 'destination_country',
-            'International Mode': 'international_mode',
-            'Spend Amount': 'spend_amount',
-            'Currency': 'currency',
-            'Date': 'activity_date',
+            "Description": "description",
+            "Transport Mode": "transport_mode",
+            "Method": "calc_type",
+            "Weight (tonnes)": "weight",
+            "Distance (km)": "distance",
+            "Origin Country": "origin_country",
+            "Destination Country": "destination_country",
+            "International Mode": "international_mode",
+            "Spend Amount": "spend_amount",
+            "Currency": "currency",
+            "Date": "activity_date",
         },
         activity_key_resolver=resolve_downstream_transport,
     ),
-
     # =========================================================================
     # V3 TEMPLATE SHEETS (Short names: 3.1, 3.2, etc.)
     # These support [Physical]/[Spend] prefix format in Activity Type column
     # Headers at row 4, data starts at row 8
     # =========================================================================
-
-    '3.1': SheetConfig(
-        sheet_name='3.1',
+    "3.1": SheetConfig(
+        sheet_name="3.1",
         scope=3,
-        category_code='3.1',
+        category_code="3.1",
         header_row=4,
         column_map={
-            'Method': 'calc_type',
-            'Activity Type': 'activity_type',
-            'Description': 'description',
-            'Quantity': 'quantity',
-            'Unit': 'unit',
-            'Date': 'activity_date',
-            'Site': 'site',
-            'Notes': 'comment',
+            "Method": "calc_type",
+            "Activity Type": "activity_type",
+            "Description": "description",
+            "Quantity": "quantity",
+            "Unit": "unit",
+            "Date": "activity_date",
+            "Site": "site",
+            "Notes": "comment",
         },
-        activity_key_resolver=lambda row: resolve_v3_activity(row, '3.1'),
+        activity_key_resolver=lambda row: resolve_v3_activity(row, "3.1"),
     ),
-
-    '3.2': SheetConfig(
-        sheet_name='3.2',
+    "3.2": SheetConfig(
+        sheet_name="3.2",
         scope=3,
-        category_code='3.2',
+        category_code="3.2",
         header_row=4,
         column_map={
-            'Method': 'calc_type',
-            'Activity Type': 'activity_type',
-            'Description': 'description',
-            'Quantity': 'quantity',
-            'Unit': 'unit',
-            'Date': 'activity_date',
-            'Site': 'site',
-            'Notes': 'comment',
+            "Method": "calc_type",
+            "Activity Type": "activity_type",
+            "Description": "description",
+            "Quantity": "quantity",
+            "Unit": "unit",
+            "Date": "activity_date",
+            "Site": "site",
+            "Notes": "comment",
         },
-        activity_key_resolver=lambda row: resolve_v3_activity(row, '3.2'),
+        activity_key_resolver=lambda row: resolve_v3_activity(row, "3.2"),
     ),
-
-    '3.4': SheetConfig(
-        sheet_name='3.4',
+    "3.4": SheetConfig(
+        sheet_name="3.4",
         scope=3,
-        category_code='3.4',
+        category_code="3.4",
         header_row=4,
         column_map={
-            'Method': 'calc_type',
-            'Activity Type': 'activity_type',
-            'Description': 'description',
-            'Quantity': 'quantity',
-            'Unit': 'unit',
-            'Date': 'activity_date',
-            'Site': 'site',
-            'Notes': 'comment',
+            "Method": "calc_type",
+            "Activity Type": "activity_type",
+            "Description": "description",
+            "Quantity": "quantity",
+            "Unit": "unit",
+            "Date": "activity_date",
+            "Site": "site",
+            "Notes": "comment",
         },
-        activity_key_resolver=lambda row: resolve_v3_activity(row, '3.4'),
+        activity_key_resolver=lambda row: resolve_v3_activity(row, "3.4"),
     ),
-
-    '3.5': SheetConfig(
-        sheet_name='3.5',
+    "3.5": SheetConfig(
+        sheet_name="3.5",
         scope=3,
-        category_code='3.5',
+        category_code="3.5",
         header_row=4,
         column_map={
-            'Method': 'calc_type',
-            'Activity Type': 'activity_type',
-            'Description': 'description',
-            'Quantity': 'quantity',
-            'Unit': 'unit',
-            'Date': 'activity_date',
-            'Site': 'site',
-            'Notes': 'comment',
+            "Method": "calc_type",
+            "Activity Type": "activity_type",
+            "Description": "description",
+            "Quantity": "quantity",
+            "Unit": "unit",
+            "Date": "activity_date",
+            "Site": "site",
+            "Notes": "comment",
         },
-        activity_key_resolver=lambda row: resolve_v3_activity(row, '3.5'),
+        activity_key_resolver=lambda row: resolve_v3_activity(row, "3.5"),
     ),
-
-    '3.6': SheetConfig(
-        sheet_name='3.6',
+    "3.6": SheetConfig(
+        sheet_name="3.6",
         scope=3,
-        category_code='3.6',
+        category_code="3.6",
         header_row=4,
         column_map={
-            'Method': 'calc_type',
-            'Activity Type': 'activity_type',
-            'Description': 'description',
-            'Quantity': 'quantity',
-            'Unit': 'unit',
-            'Date': 'activity_date',
-            'Site': 'site',
-            'Notes': 'comment',
+            "Method": "calc_type",
+            "Activity Type": "activity_type",
+            "Description": "description",
+            "Quantity": "quantity",
+            "Unit": "unit",
+            "Date": "activity_date",
+            "Site": "site",
+            "Notes": "comment",
         },
-        activity_key_resolver=lambda row: resolve_v3_activity(row, '3.6'),
+        activity_key_resolver=lambda row: resolve_v3_activity(row, "3.6"),
     ),
-
-    '3.7': SheetConfig(
-        sheet_name='3.7',
+    "3.7": SheetConfig(
+        sheet_name="3.7",
         scope=3,
-        category_code='3.7',
+        category_code="3.7",
         header_row=4,
         column_map={
-            'Method': 'calc_type',
-            'Activity Type': 'activity_type',
-            'Description': 'description',
-            'Quantity': 'quantity',
-            'Unit': 'unit',
-            'Date': 'activity_date',
-            'Site': 'site',
-            'Notes': 'comment',
+            "Method": "calc_type",
+            "Activity Type": "activity_type",
+            "Description": "description",
+            "Quantity": "quantity",
+            "Unit": "unit",
+            "Date": "activity_date",
+            "Site": "site",
+            "Notes": "comment",
         },
-        activity_key_resolver=lambda row: resolve_v3_activity(row, '3.7'),
+        activity_key_resolver=lambda row: resolve_v3_activity(row, "3.7"),
     ),
-
-    '3.8': SheetConfig(
-        sheet_name='3.8',
+    "3.8": SheetConfig(
+        sheet_name="3.8",
         scope=3,
-        category_code='3.8',
+        category_code="3.8",
         header_row=4,
         column_map={
-            'Method': 'calc_type',
-            'Activity Type': 'activity_type',
-            'Description': 'description',
-            'Quantity': 'quantity',
-            'Unit': 'unit',
-            'Date': 'activity_date',
-            'Site': 'site',
-            'Notes': 'comment',
+            "Method": "calc_type",
+            "Activity Type": "activity_type",
+            "Description": "description",
+            "Quantity": "quantity",
+            "Unit": "unit",
+            "Date": "activity_date",
+            "Site": "site",
+            "Notes": "comment",
         },
-        activity_key_resolver=lambda row: resolve_v3_activity(row, '3.8'),
+        activity_key_resolver=lambda row: resolve_v3_activity(row, "3.8"),
     ),
-
-    '3.9': SheetConfig(
-        sheet_name='3.9',
+    "3.9": SheetConfig(
+        sheet_name="3.9",
         scope=3,
-        category_code='3.9',
+        category_code="3.9",
         header_row=4,
         column_map={
-            'Method': 'calc_type',
-            'Activity Type': 'activity_type',
-            'Description': 'description',
-            'Quantity': 'quantity',
-            'Unit': 'unit',
-            'Date': 'activity_date',
-            'Site': 'site',
-            'Notes': 'comment',
+            "Method": "calc_type",
+            "Activity Type": "activity_type",
+            "Description": "description",
+            "Quantity": "quantity",
+            "Unit": "unit",
+            "Date": "activity_date",
+            "Site": "site",
+            "Notes": "comment",
         },
-        activity_key_resolver=lambda row: resolve_v3_activity(row, '3.9'),
+        activity_key_resolver=lambda row: resolve_v3_activity(row, "3.9"),
     ),
 }
 
@@ -1568,16 +1605,17 @@ def get_all_sheet_configs() -> dict[str, SheetConfig]:
 
 # Sheet name aliases for client files that use shortened names
 SHEET_NAME_ALIASES = {
-    '3.10 Processing': '3.10 Processing of Sold Products',
-    '3.11 Use of Products': '3.11 Use of Sold Products',
-    '3.12 End-of-Life': '3.12 End-of-Life Treatment',
-    '3.13 Leased to Others': '3.13 Downstream Leased Assets',
+    "3.10 Processing": "3.10 Processing of Sold Products",
+    "3.11 Use of Products": "3.11 Use of Sold Products",
+    "3.12 End-of-Life": "3.12 End-of-Life Treatment",
+    "3.13 Leased to Others": "3.13 Downstream Leased Assets",
 }
 
 
 # =============================================================================
 # V3 Template Resolver - Handles [Physical]/[Spend] prefix format
 # =============================================================================
+
 
 def resolve_v3_activity(row: dict, category: str) -> tuple[str, str]:
     """
@@ -1589,52 +1627,48 @@ def resolve_v3_activity(row: dict, category: str) -> tuple[str, str]:
 
     This resolver extracts the activity name and maps to backend activity_key.
     """
-    activity_type = (row.get('Activity Type') or '').strip()
-    method = (row.get('Method') or '').lower().strip()
+    activity_type = (row.get("Activity Type") or "").strip()
 
     # Extract the actual activity name by removing [Physical]/[Spend] prefix
-    if activity_type.startswith('[Physical] '):
+    if activity_type.startswith("[Physical] "):
         activity_name = activity_type[11:].strip()  # Remove "[Physical] "
-        method = 'physical'
-    elif activity_type.startswith('[Spend] '):
+    elif activity_type.startswith("[Spend] "):
         activity_name = activity_type[8:].strip()  # Remove "[Spend] "
-        method = 'spend'
-    elif activity_type.startswith('[Energy] '):
+    elif activity_type.startswith("[Energy] "):
         activity_name = activity_type[9:].strip()  # Remove "[Energy] "
-        method = 'energy'
     else:
         activity_name = activity_type
 
     activity_lower = activity_name.lower()
 
     # Category-specific mappings
-    if category == '3.1':
+    if category == "3.1":
         # Purchased Goods & Services
         physical_map = {
-            'steel': ('steel_purchased_kg', 'kg'),
-            'aluminum (primary)': ('aluminum_primary_purchased_kg', 'kg'),
-            'aluminum (recycled)': ('aluminum_recycled_purchased_kg', 'kg'),
-            'plastic - pet': ('plastic_pet_purchased_kg', 'kg'),
-            'plastic - hdpe': ('plastic_hdpe_purchased_kg', 'kg'),
-            'plastic - average': ('plastic_generic_purchased_kg', 'kg'),
-            'paper (virgin)': ('paper_virgin_purchased_kg', 'kg'),
-            'paper (recycled)': ('paper_recycled_purchased_kg', 'kg'),
-            'cardboard': ('cardboard_purchased_kg', 'kg'),
-            'glass': ('glass_purchased_kg', 'kg'),
-            'concrete': ('concrete_purchased_kg', 'kg'),
-            'textiles - cotton': ('textiles_cotton_purchased_kg', 'kg'),
-            'textiles - polyester': ('textiles_polyester_purchased_kg', 'kg'),
-            'electronics': ('electronics_purchased_kg', 'kg'),
-            'food - meat': ('food_meat_purchased_kg', 'kg'),
-            'food - dairy': ('food_dairy_purchased_kg', 'kg'),
-            'food - vegetables': ('food_vegetables_purchased_kg', 'kg'),
+            "steel": ("steel_purchased_kg", "kg"),
+            "aluminum (primary)": ("aluminum_primary_purchased_kg", "kg"),
+            "aluminum (recycled)": ("aluminum_recycled_purchased_kg", "kg"),
+            "plastic - pet": ("plastic_pet_purchased_kg", "kg"),
+            "plastic - hdpe": ("plastic_hdpe_purchased_kg", "kg"),
+            "plastic - average": ("plastic_generic_purchased_kg", "kg"),
+            "paper (virgin)": ("paper_virgin_purchased_kg", "kg"),
+            "paper (recycled)": ("paper_recycled_purchased_kg", "kg"),
+            "cardboard": ("cardboard_purchased_kg", "kg"),
+            "glass": ("glass_purchased_kg", "kg"),
+            "concrete": ("concrete_purchased_kg", "kg"),
+            "textiles - cotton": ("textiles_cotton_purchased_kg", "kg"),
+            "textiles - polyester": ("textiles_polyester_purchased_kg", "kg"),
+            "electronics": ("electronics_purchased_kg", "kg"),
+            "food - meat": ("food_meat_purchased_kg", "kg"),
+            "food - dairy": ("food_dairy_purchased_kg", "kg"),
+            "food - vegetables": ("food_vegetables_purchased_kg", "kg"),
         }
         spend_map = {
-            'office supplies': ('spend_office_supplies', 'USD'),
-            'it equipment': ('spend_it_equipment', 'USD'),
-            'professional services': ('spend_professional_services', 'USD'),
-            'food & beverages': ('spend_food_beverages', 'USD'),
-            'other purchases': ('spend_other', 'USD'),
+            "office supplies": ("spend_office_supplies", "USD"),
+            "it equipment": ("spend_it_equipment", "USD"),
+            "professional services": ("spend_professional_services", "USD"),
+            "food & beverages": ("spend_food_beverages", "USD"),
+            "other purchases": ("spend_other", "USD"),
         }
 
         for key, result in physical_map.items():
@@ -1643,20 +1677,20 @@ def resolve_v3_activity(row: dict, category: str) -> tuple[str, str]:
         for key, result in spend_map.items():
             if key in activity_lower:
                 return result
-        return ('spend_other', 'USD')
+        return ("spend_other", "USD")
 
-    elif category == '3.2':
+    elif category == "3.2":
         # Capital Goods
         physical_map = {
-            'vehicle - car': ('capital_vehicle_unit', 'unit'),
-            'vehicle - truck': ('capital_truck_unit', 'unit'),
-            'computer/laptop': ('capital_computer_unit', 'unit'),
-            'server': ('capital_server_unit', 'unit'),
-            'building': ('capital_building_m2', 'm2'),
+            "vehicle - car": ("capital_vehicle_unit", "unit"),
+            "vehicle - truck": ("capital_truck_unit", "unit"),
+            "computer/laptop": ("capital_computer_unit", "unit"),
+            "server": ("capital_server_unit", "unit"),
+            "building": ("capital_building_m2", "m2"),
         }
         spend_map = {
-            'equipment': ('spend_capital_equipment', 'USD'),
-            'construction': ('spend_construction', 'USD'),
+            "equipment": ("spend_capital_equipment", "USD"),
+            "construction": ("spend_construction", "USD"),
         }
 
         for key, result in physical_map.items():
@@ -1665,23 +1699,23 @@ def resolve_v3_activity(row: dict, category: str) -> tuple[str, str]:
         for key, result in spend_map.items():
             if key in activity_lower:
                 return result
-        return ('spend_capital_equipment', 'USD')
+        return ("spend_capital_equipment", "USD")
 
-    elif category == '3.4':
+    elif category == "3.4":
         # Upstream Transport
         physical_map = {
-            'road - hgv': ('road_freight_hgv', 'tonne-km'),
-            'road - van': ('road_freight_van', 'tonne-km'),
-            'rail': ('rail_freight', 'tonne-km'),
-            'sea - container': ('sea_freight_container', 'tonne-km'),
-            'sea - bulk': ('sea_freight_bulk', 'tonne-km'),
-            'air freight': ('air_freight', 'tonne-km'),
+            "road - hgv": ("road_freight_hgv", "tonne-km"),
+            "road - van": ("road_freight_van", "tonne-km"),
+            "rail": ("rail_freight", "tonne-km"),
+            "sea - container": ("sea_freight_container", "tonne-km"),
+            "sea - bulk": ("sea_freight_bulk", "tonne-km"),
+            "air freight": ("air_freight", "tonne-km"),
         }
         spend_map = {
-            'road freight (spend)': ('freight_spend_road', 'USD'),
-            'air freight (spend)': ('freight_spend_air', 'USD'),
-            'sea freight (spend)': ('freight_spend_sea', 'USD'),
-            'courier': ('freight_spend_courier', 'USD'),
+            "road freight (spend)": ("freight_spend_road", "USD"),
+            "air freight (spend)": ("freight_spend_air", "USD"),
+            "sea freight (spend)": ("freight_spend_sea", "USD"),
+            "courier": ("freight_spend_courier", "USD"),
         }
 
         for key, result in physical_map.items():
@@ -1690,26 +1724,26 @@ def resolve_v3_activity(row: dict, category: str) -> tuple[str, str]:
         for key, result in spend_map.items():
             if key in activity_lower:
                 return result
-        return ('road_freight_hgv', 'tonne-km')
+        return ("road_freight_hgv", "tonne-km")
 
-    elif category == '3.5':
+    elif category == "3.5":
         # Waste
         physical_map = {
-            'mixed waste - landfill': ('waste_landfill_mixed', 'kg'),
-            'mixed waste - recycled': ('waste_recycled_mixed', 'kg'),
-            'mixed waste - incinerated': ('waste_incineration', 'kg'),
-            'paper/cardboard - recycled': ('waste_recycled_paper', 'kg'),
-            'plastic - recycled': ('waste_recycled_plastic', 'kg'),
-            'metal - recycled': ('waste_recycled_metal', 'kg'),
-            'glass - recycled': ('waste_recycled_glass', 'kg'),
-            'food waste - landfill': ('waste_landfill_food', 'kg'),
-            'food waste - composted': ('waste_composted_food', 'kg'),
-            'food waste - anaerobic': ('waste_anaerobic_food', 'kg'),
-            'electronic waste': ('waste_ewaste', 'kg'),
-            'construction': ('waste_construction', 'kg'),
+            "mixed waste - landfill": ("waste_landfill_mixed", "kg"),
+            "mixed waste - recycled": ("waste_recycled_mixed", "kg"),
+            "mixed waste - incinerated": ("waste_incineration", "kg"),
+            "paper/cardboard - recycled": ("waste_recycled_paper", "kg"),
+            "plastic - recycled": ("waste_recycled_plastic", "kg"),
+            "metal - recycled": ("waste_recycled_metal", "kg"),
+            "glass - recycled": ("waste_recycled_glass", "kg"),
+            "food waste - landfill": ("waste_landfill_food", "kg"),
+            "food waste - composted": ("waste_composted_food", "kg"),
+            "food waste - anaerobic": ("waste_anaerobic_food", "kg"),
+            "electronic waste": ("waste_ewaste", "kg"),
+            "construction": ("waste_construction", "kg"),
         }
         spend_map = {
-            'waste disposal (spend)': ('waste_disposal_spend', 'USD'),
+            "waste disposal (spend)": ("waste_disposal_spend", "USD"),
         }
 
         for key, result in physical_map.items():
@@ -1718,29 +1752,29 @@ def resolve_v3_activity(row: dict, category: str) -> tuple[str, str]:
         for key, result in spend_map.items():
             if key in activity_lower:
                 return result
-        return ('waste_landfill_mixed', 'kg')
+        return ("waste_landfill_mixed", "kg")
 
-    elif category == '3.6':
+    elif category == "3.6":
         # Business Travel
         physical_map = {
-            'short-haul flight - economy': ('flight_short_economy', 'passenger-km'),
-            'short-haul flight - business': ('flight_short_business', 'passenger-km'),
-            'long-haul flight - economy': ('flight_long_economy', 'passenger-km'),
-            'long-haul flight - business': ('flight_long_business', 'passenger-km'),
-            'long-haul flight - first': ('flight_long_first', 'passenger-km'),
-            'hotel stay': ('hotel_night', 'nights'),
-            'rail - domestic': ('rail_domestic_km', 'passenger-km'),
-            'rail - international': ('rail_international_km', 'passenger-km'),
-            'rental car': ('rental_car_km', 'km'),
-            'taxi': ('taxi_km', 'km'),
+            "short-haul flight - economy": ("flight_short_economy", "passenger-km"),
+            "short-haul flight - business": ("flight_short_business", "passenger-km"),
+            "long-haul flight - economy": ("flight_long_economy", "passenger-km"),
+            "long-haul flight - business": ("flight_long_business", "passenger-km"),
+            "long-haul flight - first": ("flight_long_first", "passenger-km"),
+            "hotel stay": ("hotel_night", "nights"),
+            "rail - domestic": ("rail_domestic_km", "passenger-km"),
+            "rail - international": ("rail_international_km", "passenger-km"),
+            "rental car": ("rental_car_km", "km"),
+            "taxi": ("taxi_km", "km"),
         }
         spend_map = {
-            'air travel (spend)': ('travel_spend_air', 'USD'),
-            'hotel (spend)': ('travel_spend_hotel', 'USD'),
-            'car rental (spend)': ('travel_spend_car_rental', 'USD'),
-            'rail (spend)': ('travel_spend_rail', 'USD'),
-            'taxi/rideshare': ('travel_spend_taxi', 'USD'),
-            'general travel': ('travel_spend_general', 'USD'),
+            "air travel (spend)": ("travel_spend_air", "USD"),
+            "hotel (spend)": ("travel_spend_hotel", "USD"),
+            "car rental (spend)": ("travel_spend_car_rental", "USD"),
+            "rail (spend)": ("travel_spend_rail", "USD"),
+            "taxi/rideshare": ("travel_spend_taxi", "USD"),
+            "general travel": ("travel_spend_general", "USD"),
         }
 
         for key, result in physical_map.items():
@@ -1749,25 +1783,25 @@ def resolve_v3_activity(row: dict, category: str) -> tuple[str, str]:
         for key, result in spend_map.items():
             if key in activity_lower:
                 return result
-        return ('travel_spend_general', 'USD')
+        return ("travel_spend_general", "USD")
 
-    elif category == '3.7':
+    elif category == "3.7":
         # Commuting
         physical_map = {
-            'car - petrol': ('commute_car_petrol', 'km'),
-            'car - diesel': ('commute_car_diesel', 'km'),
-            'car - hybrid': ('commute_car_hybrid', 'km'),
-            'car - electric': ('commute_car_electric', 'km'),
-            'bus': ('commute_bus', 'km'),
-            'rail/metro': ('commute_rail', 'km'),
-            'motorcycle': ('commute_motorcycle', 'km'),
-            'e-bike': ('commute_ebike', 'km'),
-            'bicycle': ('commute_bicycle', 'km'),
-            'walk': ('commute_walk', 'km'),
-            'work from home': ('commute_wfh_day', 'days'),
+            "car - petrol": ("commute_car_petrol", "km"),
+            "car - diesel": ("commute_car_diesel", "km"),
+            "car - hybrid": ("commute_car_hybrid", "km"),
+            "car - electric": ("commute_car_electric", "km"),
+            "bus": ("commute_bus", "km"),
+            "rail/metro": ("commute_rail", "km"),
+            "motorcycle": ("commute_motorcycle", "km"),
+            "e-bike": ("commute_ebike", "km"),
+            "bicycle": ("commute_bicycle", "km"),
+            "walk": ("commute_walk", "km"),
+            "work from home": ("commute_wfh_day", "days"),
         }
         spend_map = {
-            'commuting reimbursement': ('commute_spend_general', 'USD'),
+            "commuting reimbursement": ("commute_spend_general", "USD"),
         }
 
         for key, result in physical_map.items():
@@ -1776,21 +1810,21 @@ def resolve_v3_activity(row: dict, category: str) -> tuple[str, str]:
         for key, result in spend_map.items():
             if key in activity_lower:
                 return result
-        return ('commute_car_petrol', 'km')
+        return ("commute_car_petrol", "km")
 
-    elif category == '3.8':
+    elif category == "3.8":
         # Leased Assets
         physical_map = {
-            'office space': ('leased_office_m2_year', 'm2-year'),
-            'warehouse': ('leased_warehouse_m2_year', 'm2-year'),
-            'retail space': ('leased_retail_m2_year', 'm2-year'),
-            'data center': ('leased_datacenter_m2_year', 'm2-year'),
+            "office space": ("leased_office_m2_year", "m2-year"),
+            "warehouse": ("leased_warehouse_m2_year", "m2-year"),
+            "retail space": ("leased_retail_m2_year", "m2-year"),
+            "data center": ("leased_datacenter_m2_year", "m2-year"),
         }
         energy_map = {
-            'known electricity use': ('leased_electricity_kwh', 'kWh'),
+            "known electricity use": ("leased_electricity_kwh", "kWh"),
         }
         spend_map = {
-            'leased property rent': ('leased_spend_rent', 'USD'),
+            "leased property rent": ("leased_spend_rent", "USD"),
         }
 
         for key, result in physical_map.items():
@@ -1802,18 +1836,18 @@ def resolve_v3_activity(row: dict, category: str) -> tuple[str, str]:
         for key, result in spend_map.items():
             if key in activity_lower:
                 return result
-        return ('leased_office_m2_year', 'm2-year')
+        return ("leased_office_m2_year", "m2-year")
 
-    elif category == '3.9':
+    elif category == "3.9":
         # Downstream Transport
         physical_map = {
-            'delivery van': ('delivery_van', 'tonne-km'),
-            'delivery hgv': ('delivery_hgv', 'tonne-km'),
+            "delivery van": ("delivery_van", "tonne-km"),
+            "delivery hgv": ("delivery_hgv", "tonne-km"),
         }
         spend_map = {
-            'delivery - road (spend)': ('delivery_spend_road', 'USD'),
-            'delivery - courier (spend)': ('delivery_spend_courier', 'USD'),
-            'delivery - general (spend)': ('delivery_spend_general', 'USD'),
+            "delivery - road (spend)": ("delivery_spend_road", "USD"),
+            "delivery - courier (spend)": ("delivery_spend_courier", "USD"),
+            "delivery - general (spend)": ("delivery_spend_general", "USD"),
         }
 
         for key, result in physical_map.items():
@@ -1822,15 +1856,16 @@ def resolve_v3_activity(row: dict, category: str) -> tuple[str, str]:
         for key, result in spend_map.items():
             if key in activity_lower:
                 return result
-        return ('delivery_spend_general', 'USD')
+        return ("delivery_spend_general", "USD")
 
     # Default fallback
-    return ('spend_other', 'USD')
+    return ("spend_other", "USD")
 
 
 # =============================================================================
 # V4 TEMPLATE RESOLVERS (January 2025 - Full GHG Protocol Implementation)
 # =============================================================================
+
 
 def resolve_v4_purchased_goods(row: dict) -> tuple[str, str]:
     """
@@ -1843,140 +1878,142 @@ def resolve_v4_purchased_goods(row: dict) -> tuple[str, str]:
 
     Returns: (activity_key, unit)
     """
-    method = (row.get('Method') or '').strip().lower()
+    method = (row.get("Method") or "").strip().lower()
 
     # =========================================================================
     # METHOD 1: SUPPLIER-SPECIFIC
     # User provides their own emission factor (from EPD or supplier)
     # =========================================================================
-    if method == 'supplier-specific':
-        supplier_ef = row.get('supplier_ef') or row.get('Supplier EF (kg CO2e/unit)')
+    if method == "supplier-specific":
+        supplier_ef = row.get("supplier_ef") or row.get("Supplier EF (kg CO2e/unit)")
         if supplier_ef:
             # activity_key signals to use row['Supplier EF'] directly
-            unit = (row.get('Unit') or 'kg').strip()
-            return ('supplier_specific_3_1', unit)
+            unit = (row.get("Unit") or "kg").strip()
+            return ("supplier_specific_3_1", unit)
         # No supplier EF provided - treat as physical method using generic factor
-        method = 'physical'
+        method = "physical"
 
     # =========================================================================
     # METHOD 2: SPEND
     # EEIO-based factors per spend category
     # =========================================================================
-    if method == 'spend':
-        category = (row.get('Category') or '').strip().lower()
+    if method == "spend":
+        category = (row.get("Category") or "").strip().lower()
 
         # Direct mapping: Category → activity_key
         spend_map = {
-            'office supplies': 'spend_office_supplies',
-            'it equipment': 'spend_it_equipment',
-            'it services': 'spend_it_services',
-            'professional services': 'spend_professional_services',
-            'legal services': 'spend_legal_services',
-            'marketing': 'spend_marketing',
-            'food & catering': 'spend_food_beverages',
-            'food & beverages': 'spend_food_beverages',
-            'cleaning services': 'spend_cleaning_services',
-            'telecommunications': 'spend_telecommunications',
-            'insurance': 'spend_insurance',
-            'banking': 'spend_banking',
-            'printing': 'spend_printing',
-            'furniture': 'spend_furniture',
-            'chemicals': 'spend_chemicals',
-            'other': 'spend_other',
+            "office supplies": "spend_office_supplies",
+            "it equipment": "spend_it_equipment",
+            "it services": "spend_it_services",
+            "professional services": "spend_professional_services",
+            "legal services": "spend_legal_services",
+            "marketing": "spend_marketing",
+            "food & catering": "spend_food_beverages",
+            "food & beverages": "spend_food_beverages",
+            "cleaning services": "spend_cleaning_services",
+            "telecommunications": "spend_telecommunications",
+            "insurance": "spend_insurance",
+            "banking": "spend_banking",
+            "printing": "spend_printing",
+            "furniture": "spend_furniture",
+            "chemicals": "spend_chemicals",
+            "other": "spend_other",
         }
 
-        activity_key = spend_map.get(category, 'spend_other')
-        return (activity_key, 'USD')
+        activity_key = spend_map.get(category, "spend_other")
+        return (activity_key, "USD")
 
     # =========================================================================
     # METHOD 3: PHYSICAL
     # Material-based factors (kg CO2e per kg)
     # =========================================================================
-    if method == 'physical':
-        material_type = (row.get('Material Type') or row.get('Sub-Category') or '').strip().lower()
+    if method == "physical":
+        material_type = (
+            (row.get("Material Type") or row.get("Sub-Category") or "").strip().lower()
+        )
 
         # Direct mapping: Material Type → activity_key
         physical_map = {
             # Metals
-            'steel - primary': 'steel_purchased_kg',
-            'steel - recycled': 'steel_recycled_purchased_kg',
-            'steel': 'steel_purchased_kg',
-            'aluminum - primary': 'aluminum_primary_purchased_kg',
-            'aluminum - recycled': 'aluminum_recycled_purchased_kg',
-            'aluminum': 'aluminum_primary_purchased_kg',
-            'copper': 'copper_purchased_kg',
+            "steel - primary": "steel_purchased_kg",
+            "steel - recycled": "steel_recycled_purchased_kg",
+            "steel": "steel_purchased_kg",
+            "aluminum - primary": "aluminum_primary_purchased_kg",
+            "aluminum - recycled": "aluminum_recycled_purchased_kg",
+            "aluminum": "aluminum_primary_purchased_kg",
+            "copper": "copper_purchased_kg",
             # Plastics
-            'pet': 'plastic_pet_purchased_kg',
-            'hdpe': 'plastic_hdpe_purchased_kg',
-            'pvc': 'plastic_pvc_purchased_kg',
-            'pp': 'plastic_pp_purchased_kg',
-            'ldpe': 'plastic_ldpe_purchased_kg',
-            'plastic - average': 'plastic_generic_purchased_kg',
-            'average/mixed': 'plastic_generic_purchased_kg',
+            "pet": "plastic_pet_purchased_kg",
+            "hdpe": "plastic_hdpe_purchased_kg",
+            "pvc": "plastic_pvc_purchased_kg",
+            "pp": "plastic_pp_purchased_kg",
+            "ldpe": "plastic_ldpe_purchased_kg",
+            "plastic - average": "plastic_generic_purchased_kg",
+            "average/mixed": "plastic_generic_purchased_kg",
             # Paper & Cardboard
-            'paper - virgin': 'paper_virgin_purchased_kg',
-            'virgin paper': 'paper_virgin_purchased_kg',
-            'paper - recycled': 'paper_recycled_purchased_kg',
-            'recycled paper': 'paper_recycled_purchased_kg',
-            'paper products': 'paper_virgin_purchased_kg',
-            'paper': 'paper_virgin_purchased_kg',
-            'cardboard': 'cardboard_purchased_kg',
+            "paper - virgin": "paper_virgin_purchased_kg",
+            "virgin paper": "paper_virgin_purchased_kg",
+            "paper - recycled": "paper_recycled_purchased_kg",
+            "recycled paper": "paper_recycled_purchased_kg",
+            "paper products": "paper_virgin_purchased_kg",
+            "paper": "paper_virgin_purchased_kg",
+            "cardboard": "cardboard_purchased_kg",
             # Glass
-            'glass - primary': 'glass_purchased_kg',
-            'primary glass': 'glass_purchased_kg',
-            'glass - recycled': 'glass_recycled_purchased_kg',
-            'recycled glass': 'glass_recycled_purchased_kg',
-            'glass': 'glass_purchased_kg',
+            "glass - primary": "glass_purchased_kg",
+            "primary glass": "glass_purchased_kg",
+            "glass - recycled": "glass_recycled_purchased_kg",
+            "recycled glass": "glass_recycled_purchased_kg",
+            "glass": "glass_purchased_kg",
             # Textiles
-            'cotton': 'textiles_cotton_purchased_kg',
-            'polyester': 'textiles_polyester_purchased_kg',
-            'textiles - mixed': 'textiles_mixed_purchased_kg',
+            "cotton": "textiles_cotton_purchased_kg",
+            "polyester": "textiles_polyester_purchased_kg",
+            "textiles - mixed": "textiles_mixed_purchased_kg",
             # Food
-            'beef': 'food_meat_purchased_kg',
-            'meat': 'food_meat_purchased_kg',
-            'poultry': 'food_poultry_purchased_kg',
-            'dairy': 'food_dairy_purchased_kg',
-            'vegetables': 'food_vegetables_purchased_kg',
-            'food - mixed': 'food_mixed_purchased_kg',
-            'mixed food': 'food_mixed_purchased_kg',
+            "beef": "food_meat_purchased_kg",
+            "meat": "food_meat_purchased_kg",
+            "poultry": "food_poultry_purchased_kg",
+            "dairy": "food_dairy_purchased_kg",
+            "vegetables": "food_vegetables_purchased_kg",
+            "food - mixed": "food_mixed_purchased_kg",
+            "mixed food": "food_mixed_purchased_kg",
             # Electronics
-            'electronics': 'electronics_purchased_kg',
-            'average electronics': 'electronics_purchased_kg',
+            "electronics": "electronics_purchased_kg",
+            "average electronics": "electronics_purchased_kg",
             # Construction
-            'cement': 'cement_purchased_kg',
-            'portland cement': 'cement_purchased_kg',
-            'concrete': 'concrete_purchased_kg',
+            "cement": "cement_purchased_kg",
+            "portland cement": "cement_purchased_kg",
+            "concrete": "concrete_purchased_kg",
             # Wood
-            'wood': 'wood_purchased_kg',
-            'timber': 'wood_purchased_kg',
-            'softwood': 'wood_purchased_kg',
-            'hardwood': 'wood_purchased_kg',
+            "wood": "wood_purchased_kg",
+            "timber": "wood_purchased_kg",
+            "softwood": "wood_purchased_kg",
+            "hardwood": "wood_purchased_kg",
             # Chemicals
-            'chemicals': 'chemicals_purchased_kg',
-            'industrial chemicals': 'chemicals_purchased_kg',
+            "chemicals": "chemicals_purchased_kg",
+            "industrial chemicals": "chemicals_purchased_kg",
         }
 
         activity_key = physical_map.get(material_type)
         if activity_key:
-            return (activity_key, 'kg')
+            return (activity_key, "kg")
 
         # Fallback: try to match by category if material type not found
-        category = (row.get('Category') or '').strip().lower()
+        category = (row.get("Category") or "").strip().lower()
         category_fallback = {
-            'metals': 'steel_purchased_kg',
-            'raw materials': 'steel_purchased_kg',
-            'plastics': 'plastic_generic_purchased_kg',
-            'paper & cardboard': 'paper_virgin_purchased_kg',
-            'office supplies': 'paper_virgin_purchased_kg',
-            'glass': 'glass_purchased_kg',
-            'textiles': 'textiles_cotton_purchased_kg',
-            'electronics': 'electronics_purchased_kg',
-            'it equipment': 'electronics_purchased_kg',
-            'food & beverages': 'food_mixed_purchased_kg',
-            'food & catering': 'food_mixed_purchased_kg',
-            'chemicals': 'chemicals_purchased_kg',
-            'concrete & cement': 'concrete_purchased_kg',
-            'wood & timber': 'wood_purchased_kg',
+            "metals": "steel_purchased_kg",
+            "raw materials": "steel_purchased_kg",
+            "plastics": "plastic_generic_purchased_kg",
+            "paper & cardboard": "paper_virgin_purchased_kg",
+            "office supplies": "paper_virgin_purchased_kg",
+            "glass": "glass_purchased_kg",
+            "textiles": "textiles_cotton_purchased_kg",
+            "electronics": "electronics_purchased_kg",
+            "it equipment": "electronics_purchased_kg",
+            "food & beverages": "food_mixed_purchased_kg",
+            "food & catering": "food_mixed_purchased_kg",
+            "chemicals": "chemicals_purchased_kg",
+            "concrete & cement": "concrete_purchased_kg",
+            "wood & timber": "wood_purchased_kg",
         }
 
         activity_key = category_fallback.get(category)
@@ -1987,13 +2024,13 @@ def resolve_v4_purchased_goods(row: dict) -> tuple[str, str]:
                     activity_key = val
                     break
         if not activity_key:
-            activity_key = 'plastic_generic_purchased_kg'  # safe generic fallback
-        return (activity_key, 'kg')
+            activity_key = "plastic_generic_purchased_kg"  # safe generic fallback
+        return (activity_key, "kg")
 
     # =========================================================================
     # FALLBACK: Unknown method - default to spend_other
     # =========================================================================
-    return ('spend_other', 'USD')
+    return ("spend_other", "USD")
 
 
 def resolve_v4_capital_goods(row: dict) -> tuple[str, str]:
@@ -2005,39 +2042,39 @@ def resolve_v4_capital_goods(row: dict) -> tuple[str, str]:
     2. Spend - Invoice amount (USD)
     3. Supplier-Specific - User provides their own emission factor
     """
-    method = (row.get('Method') or '').lower().strip()
-    asset_category = (row.get('Asset Category') or '').lower().strip()
-    asset_type = (row.get('Asset Type') or '').lower().strip()
+    method = (row.get("Method") or "").lower().strip()
+    asset_category = (row.get("Asset Category") or "").lower().strip()
+    asset_type = (row.get("Asset Type") or "").lower().strip()
 
     # =================================================================
     # METHOD 1: SUPPLIER-SPECIFIC
     # User provides their own emission factor from EPD or supplier data
     # =================================================================
-    if method == 'supplier-specific':
+    if method == "supplier-specific":
         # Get user's unit, default to 'unit'
-        unit = (row.get('Unit') or 'unit').strip()
-        return ('supplier_specific_3_2', unit)
+        unit = (row.get("Unit") or "unit").strip()
+        return ("supplier_specific_3_2", unit)
 
     # =================================================================
     # METHOD 2: SPEND-BASED (EEIO)
     # Uses Economic Input-Output model for spend categories
     # =================================================================
-    if method == 'spend':
+    if method == "spend":
         # Map asset category to spend activity_key
         spend_category_map = {
-            'vehicles': 'spend_capital_equipment',
-            'it equipment': 'spend_capital_equipment',
-            'machinery': 'spend_capital_equipment',
-            'buildings': 'spend_construction',
-            'furniture': 'spend_capital_equipment',
-            'hvac': 'spend_capital_equipment',
-            'solar': 'spend_capital_equipment',
-            'equipment': 'spend_capital_equipment',
+            "vehicles": "spend_capital_equipment",
+            "it equipment": "spend_capital_equipment",
+            "machinery": "spend_capital_equipment",
+            "buildings": "spend_construction",
+            "furniture": "spend_capital_equipment",
+            "hvac": "spend_capital_equipment",
+            "solar": "spend_capital_equipment",
+            "equipment": "spend_capital_equipment",
         }
         for key, activity_key in spend_category_map.items():
             if key in asset_category:
-                return (activity_key, 'USD')
-        return ('spend_capital_equipment', 'USD')
+                return (activity_key, "USD")
+        return ("spend_capital_equipment", "USD")
 
     # =================================================================
     # METHOD 3: PHYSICAL (Asset-based)
@@ -2045,37 +2082,37 @@ def resolve_v4_capital_goods(row: dict) -> tuple[str, str]:
     # =================================================================
     asset_map = {
         # Vehicles
-        'small car': ('capital_vehicle_unit', 'unit'),
-        'medium car': ('capital_vehicle_unit', 'unit'),
-        'large car': ('capital_vehicle_unit', 'unit'),
-        'suv': ('capital_vehicle_unit', 'unit'),
-        'delivery van': ('capital_vehicle_unit', 'unit'),
-        'van': ('capital_vehicle_unit', 'unit'),
-        'truck': ('capital_truck_unit', 'unit'),
-        'hgv': ('capital_truck_unit', 'unit'),
+        "small car": ("capital_vehicle_unit", "unit"),
+        "medium car": ("capital_vehicle_unit", "unit"),
+        "large car": ("capital_vehicle_unit", "unit"),
+        "suv": ("capital_vehicle_unit", "unit"),
+        "delivery van": ("capital_vehicle_unit", "unit"),
+        "van": ("capital_vehicle_unit", "unit"),
+        "truck": ("capital_truck_unit", "unit"),
+        "hgv": ("capital_truck_unit", "unit"),
         # IT Equipment
-        'laptop': ('capital_computer_unit', 'unit'),
-        'desktop': ('capital_computer_unit', 'unit'),
-        'monitor': ('capital_computer_unit', 'unit'),
-        'server': ('capital_server_unit', 'unit'),
-        'smartphone': ('capital_computer_unit', 'unit'),
-        'tablet': ('capital_computer_unit', 'unit'),
-        'printer': ('capital_computer_unit', 'unit'),
-        'manufacturing machinery': ('capital_vehicle_unit', 'unit'),
-        'machinery': ('capital_vehicle_unit', 'unit'),
+        "laptop": ("capital_computer_unit", "unit"),
+        "desktop": ("capital_computer_unit", "unit"),
+        "monitor": ("capital_computer_unit", "unit"),
+        "server": ("capital_server_unit", "unit"),
+        "smartphone": ("capital_computer_unit", "unit"),
+        "tablet": ("capital_computer_unit", "unit"),
+        "printer": ("capital_computer_unit", "unit"),
+        "manufacturing machinery": ("capital_vehicle_unit", "unit"),
+        "machinery": ("capital_vehicle_unit", "unit"),
         # Buildings
-        'office building': ('capital_building_m2', 'm2'),
-        'office': ('capital_building_m2', 'm2'),
-        'warehouse': ('capital_building_m2', 'm2'),
-        'retail': ('capital_building_m2', 'm2'),
-        'industrial': ('capital_building_m2', 'm2'),
+        "office building": ("capital_building_m2", "m2"),
+        "office": ("capital_building_m2", "m2"),
+        "warehouse": ("capital_building_m2", "m2"),
+        "retail": ("capital_building_m2", "m2"),
+        "industrial": ("capital_building_m2", "m2"),
         # Other
-        'hvac': ('capital_vehicle_unit', 'unit'),
-        'solar pv': ('capital_vehicle_unit', 'kW'),
-        'solar panel': ('capital_vehicle_unit', 'kW'),
-        'office desk': ('capital_vehicle_unit', 'unit'),
-        'office chair': ('capital_vehicle_unit', 'unit'),
-        'furniture': ('capital_vehicle_unit', 'unit'),
+        "hvac": ("capital_vehicle_unit", "unit"),
+        "solar pv": ("capital_vehicle_unit", "kW"),
+        "solar panel": ("capital_vehicle_unit", "kW"),
+        "office desk": ("capital_vehicle_unit", "unit"),
+        "office chair": ("capital_vehicle_unit", "unit"),
+        "furniture": ("capital_vehicle_unit", "unit"),
     }
 
     for key, result in asset_map.items():
@@ -2084,18 +2121,18 @@ def resolve_v4_capital_goods(row: dict) -> tuple[str, str]:
 
     # Fallback based on asset category
     category_fallback = {
-        'vehicles': ('capital_vehicle_unit', 'unit'),
-        'it equipment': ('capital_computer_unit', 'unit'),
-        'buildings': ('capital_building_m2', 'm2'),
-        'furniture': ('capital_vehicle_unit', 'unit'),
-        'machinery': ('capital_vehicle_unit', 'unit'),
-        'equipment': ('capital_vehicle_unit', 'unit'),
+        "vehicles": ("capital_vehicle_unit", "unit"),
+        "it equipment": ("capital_computer_unit", "unit"),
+        "buildings": ("capital_building_m2", "m2"),
+        "furniture": ("capital_vehicle_unit", "unit"),
+        "machinery": ("capital_vehicle_unit", "unit"),
+        "equipment": ("capital_vehicle_unit", "unit"),
     }
     for key, result in category_fallback.items():
         if key in asset_category:
             return result
 
-    return ('capital_vehicle_unit', 'unit')
+    return ("capital_vehicle_unit", "unit")
 
 
 def resolve_v4_transport(row: dict) -> tuple[str, str]:
@@ -2107,72 +2144,88 @@ def resolve_v4_transport(row: dict) -> tuple[str, str]:
     2. Spend - Invoice amount (USD)
     3. Supplier-Specific - User provides their own emission factor
     """
-    method = (row.get('Method') or '').lower().strip()
-    transport_mode = (row.get('Transport Mode') or '').lower().strip()
+    method = (row.get("Method") or "").lower().strip()
+    transport_mode = (row.get("Transport Mode") or "").lower().strip()
 
     # METHOD 1: SUPPLIER-SPECIFIC
     # User provides their own emission factor (e.g., from logistics provider)
-    if method == 'supplier-specific':
+    if method == "supplier-specific":
         # Unit is tonne-km by default, or user can specify
-        unit = (row.get('Unit') or 'tonne-km').strip()
-        return ('supplier_specific_3_4', unit)
+        unit = (row.get("Unit") or "tonne-km").strip()
+        return ("supplier_specific_3_4", unit)
 
     # METHOD 2: SPEND-BASED (EEIO)
-    if method == 'spend':
+    if method == "spend":
         spend_map = {
-            'road': ('freight_spend_road', 'USD'),
-            'hgv': ('freight_spend_road', 'USD'),
-            'van': ('freight_spend_road', 'USD'),
-            'motorcycle': ('freight_spend_courier', 'USD'),
-            'motorbike': ('freight_spend_courier', 'USD'),
-            'scooter': ('freight_spend_courier', 'USD'),
-            'rail': ('freight_spend_rail', 'USD'),
-            'sea': ('freight_spend_sea', 'USD'),
-            'air': ('freight_spend_air', 'USD'),
+            "road": ("freight_spend_road", "USD"),
+            "hgv": ("freight_spend_road", "USD"),
+            "van": ("freight_spend_road", "USD"),
+            "motorcycle": ("freight_spend_courier", "USD"),
+            "motorbike": ("freight_spend_courier", "USD"),
+            "scooter": ("freight_spend_courier", "USD"),
+            "rail": ("freight_spend_rail", "USD"),
+            "sea": ("freight_spend_sea", "USD"),
+            "air": ("freight_spend_air", "USD"),
         }
         for key, result in spend_map.items():
             if key in transport_mode:
                 return result
-        return ('freight_spend_road', 'USD')
+        return ("freight_spend_road", "USD")
 
     # METHOD 3: DISTANCE-BASED (default)
     distance_map = {
-        'road-hgv': ('road_freight_hgv', 'tonne-km'),
-        'road-van': ('road_freight_van', 'tonne-km'),
-        'road-lgv': ('road_freight_van', 'tonne-km'),
-        'road-motorcycle': ('road_freight_motorcycle', 'km'),
-        'road-motorbike': ('road_freight_motorcycle', 'km'),
-        'motorcycle': ('road_freight_motorcycle', 'km'),
-        'motorbike': ('road_freight_motorcycle', 'km'),
-        'scooter': ('road_freight_motorcycle', 'km'),
-        'rail': ('rail_freight', 'tonne-km'),
-        'sea-container': ('sea_freight_container', 'tonne-km'),
-        'sea-bulk': ('sea_freight_bulk', 'tonne-km'),
-        'sea-tanker': ('sea_freight_tanker', 'tonne-km'),
-        'air': ('air_freight', 'tonne-km'),
-        'air-long': ('air_freight_long', 'tonne-km'),
-        'air-short': ('air_freight_short', 'tonne-km'),
+        "road-hgv": ("road_freight_hgv", "tonne-km"),
+        "road-van": ("road_freight_van", "tonne-km"),
+        "road-lgv": ("road_freight_van", "tonne-km"),
+        "road-motorcycle": ("road_freight_motorcycle", "km"),
+        "road-motorbike": ("road_freight_motorcycle", "km"),
+        "motorcycle": ("road_freight_motorcycle", "km"),
+        "motorbike": ("road_freight_motorcycle", "km"),
+        "scooter": ("road_freight_motorcycle", "km"),
+        "rail": ("rail_freight", "tonne-km"),
+        "sea-container": ("sea_freight_container", "tonne-km"),
+        "sea-bulk": ("sea_freight_bulk", "tonne-km"),
+        "sea-tanker": ("sea_freight_tanker", "tonne-km"),
+        "air": ("air_freight", "tonne-km"),
+        "air-long": ("air_freight_long", "tonne-km"),
+        "air-short": ("air_freight_short", "tonne-km"),
     }
 
     for key, result in distance_map.items():
-        if key in transport_mode.lower().replace(' ', '-'):
+        if key in transport_mode.lower().replace(" ", "-"):
             return result
 
     # Fallback: try to match just the mode
-    if 'motorcycle' in transport_mode or 'motorbike' in transport_mode or 'scooter' in transport_mode:
-        return ('road_freight_motorcycle', 'km')
-    if 'van' in transport_mode or 'lgv' in transport_mode:
-        return ('road_freight_van', 'tonne-km')
-    if 'hgv' in transport_mode or 'truck' in transport_mode or 'lorry' in transport_mode:
-        return ('road_freight_hgv', 'tonne-km')
-    if 'rail' in transport_mode or 'train' in transport_mode:
-        return ('rail_freight', 'tonne-km')
-    if 'sea' in transport_mode or 'ship' in transport_mode or 'maritime' in transport_mode:
-        return ('sea_freight_container', 'tonne-km')
-    if 'air' in transport_mode or 'plane' in transport_mode or 'flight' in transport_mode:
-        return ('air_freight', 'tonne-km')
+    if (
+        "motorcycle" in transport_mode
+        or "motorbike" in transport_mode
+        or "scooter" in transport_mode
+    ):
+        return ("road_freight_motorcycle", "km")
+    if "van" in transport_mode or "lgv" in transport_mode:
+        return ("road_freight_van", "tonne-km")
+    if (
+        "hgv" in transport_mode
+        or "truck" in transport_mode
+        or "lorry" in transport_mode
+    ):
+        return ("road_freight_hgv", "tonne-km")
+    if "rail" in transport_mode or "train" in transport_mode:
+        return ("rail_freight", "tonne-km")
+    if (
+        "sea" in transport_mode
+        or "ship" in transport_mode
+        or "maritime" in transport_mode
+    ):
+        return ("sea_freight_container", "tonne-km")
+    if (
+        "air" in transport_mode
+        or "plane" in transport_mode
+        or "flight" in transport_mode
+    ):
+        return ("air_freight", "tonne-km")
 
-    return ('road_freight_hgv', 'tonne-km')
+    return ("road_freight_hgv", "tonne-km")
 
 
 def resolve_v4_waste(row: dict) -> tuple[str, str]:
@@ -2184,60 +2237,60 @@ def resolve_v4_waste(row: dict) -> tuple[str, str]:
     2. Spend - Disposal cost (USD)
     3. Supplier-Specific - User provides own EF from waste contractor
     """
-    method = (row.get('Method') or '').lower().strip()
-    waste_type = (row.get('Waste Type') or '').lower().strip()
-    treatment = (row.get('Treatment Method') or '').lower().strip()
+    method = (row.get("Method") or "").lower().strip()
+    waste_type = (row.get("Waste Type") or "").lower().strip()
+    treatment = (row.get("Treatment Method") or "").lower().strip()
 
     # METHOD 1: SUPPLIER-SPECIFIC
     # User provides their own emission factor (e.g., from waste contractor report)
-    if method == 'supplier-specific':
-        unit = (row.get('Unit') or 'kg').strip()
-        return ('supplier_specific_3_5', unit)
+    if method == "supplier-specific":
+        unit = (row.get("Unit") or "kg").strip()
+        return ("supplier_specific_3_5", unit)
 
     # METHOD 2: SPEND-BASED (EEIO)
-    if method == 'spend':
-        return ('waste_disposal_spend', 'USD')
+    if method == "spend":
+        return ("waste_disposal_spend", "USD")
 
     # METHOD 3: PHYSICAL (Weight-based with treatment method)
     # Treatment + Waste Type combinations
     waste_map = {
         # Landfill
-        ('landfill', 'mixed'): ('waste_landfill_mixed', 'kg'),
-        ('landfill', 'general'): ('waste_landfill_mixed', 'kg'),
-        ('landfill', 'commercial'): ('waste_landfill_commercial', 'kg'),
-        ('landfill', 'food'): ('waste_landfill_food', 'kg'),
-        ('landfill', 'organic'): ('waste_landfill_food', 'kg'),
-        ('landfill', 'paper'): ('waste_landfill_paper', 'kg'),
-        ('landfill', 'plastic'): ('waste_landfill_plastic', 'kg'),
-        ('landfill', 'wood'): ('waste_landfill_wood', 'kg'),
-        ('landfill', 'textile'): ('waste_landfill_textile', 'kg'),
+        ("landfill", "mixed"): ("waste_landfill_mixed", "kg"),
+        ("landfill", "general"): ("waste_landfill_mixed", "kg"),
+        ("landfill", "commercial"): ("waste_landfill_commercial", "kg"),
+        ("landfill", "food"): ("waste_landfill_food", "kg"),
+        ("landfill", "organic"): ("waste_landfill_food", "kg"),
+        ("landfill", "paper"): ("waste_landfill_paper", "kg"),
+        ("landfill", "plastic"): ("waste_landfill_plastic", "kg"),
+        ("landfill", "wood"): ("waste_landfill_wood", "kg"),
+        ("landfill", "textile"): ("waste_landfill_textile", "kg"),
         # Recycling (closed-loop)
-        ('recycling', 'paper'): ('waste_recycled_paper', 'kg'),
-        ('recycling', 'cardboard'): ('waste_recycled_cardboard', 'kg'),
-        ('recycling', 'plastic'): ('waste_recycled_plastic', 'kg'),
-        ('recycling', 'metal'): ('waste_recycled_metal', 'kg'),
-        ('recycling', 'aluminium'): ('waste_recycled_aluminium', 'kg'),
-        ('recycling', 'aluminum'): ('waste_recycled_aluminium', 'kg'),
-        ('recycling', 'steel'): ('waste_recycled_steel', 'kg'),
-        ('recycling', 'glass'): ('waste_recycled_glass', 'kg'),
-        ('recycling', 'mixed'): ('waste_recycled_mixed', 'kg'),
-        ('recycling', 'wood'): ('waste_recycled_wood', 'kg'),
+        ("recycling", "paper"): ("waste_recycled_paper", "kg"),
+        ("recycling", "cardboard"): ("waste_recycled_cardboard", "kg"),
+        ("recycling", "plastic"): ("waste_recycled_plastic", "kg"),
+        ("recycling", "metal"): ("waste_recycled_metal", "kg"),
+        ("recycling", "aluminium"): ("waste_recycled_aluminium", "kg"),
+        ("recycling", "aluminum"): ("waste_recycled_aluminium", "kg"),
+        ("recycling", "steel"): ("waste_recycled_steel", "kg"),
+        ("recycling", "glass"): ("waste_recycled_glass", "kg"),
+        ("recycling", "mixed"): ("waste_recycled_mixed", "kg"),
+        ("recycling", "wood"): ("waste_recycled_wood", "kg"),
         # Incineration (with/without energy recovery)
-        ('incineration', ''): ('waste_incineration', 'kg'),
-        ('incineration', 'mixed'): ('waste_incineration', 'kg'),
-        ('incineration', 'energy recovery'): ('waste_incineration_energy', 'kg'),
+        ("incineration", ""): ("waste_incineration", "kg"),
+        ("incineration", "mixed"): ("waste_incineration", "kg"),
+        ("incineration", "energy recovery"): ("waste_incineration_energy", "kg"),
         # Composting
-        ('composting', 'food'): ('waste_composted_food', 'kg'),
-        ('composting', 'organic'): ('waste_composted_food', 'kg'),
-        ('composting', 'garden'): ('waste_composted_garden', 'kg'),
-        ('composting', 'mixed'): ('waste_composted_mixed', 'kg'),
+        ("composting", "food"): ("waste_composted_food", "kg"),
+        ("composting", "organic"): ("waste_composted_food", "kg"),
+        ("composting", "garden"): ("waste_composted_garden", "kg"),
+        ("composting", "mixed"): ("waste_composted_mixed", "kg"),
         # Anaerobic Digestion
-        ('anaerobic digestion', 'food'): ('waste_anaerobic_food', 'kg'),
-        ('anaerobic digestion', 'organic'): ('waste_anaerobic_food', 'kg'),
-        ('anaerobic', 'food'): ('waste_anaerobic_food', 'kg'),
+        ("anaerobic digestion", "food"): ("waste_anaerobic_food", "kg"),
+        ("anaerobic digestion", "organic"): ("waste_anaerobic_food", "kg"),
+        ("anaerobic", "food"): ("waste_anaerobic_food", "kg"),
         # Wastewater
-        ('wastewater', ''): ('waste_wastewater', 'm3'),
-        ('wastewater treatment', ''): ('waste_wastewater', 'm3'),
+        ("wastewater", ""): ("waste_wastewater", "m3"),
+        ("wastewater treatment", ""): ("waste_wastewater", "m3"),
     }
 
     for (t, w), result in waste_map.items():
@@ -2246,51 +2299,68 @@ def resolve_v4_waste(row: dict) -> tuple[str, str]:
 
     # Special waste types (treatment-independent)
     # Electronic waste (WEEE)
-    if 'electronic' in waste_type or 'weee' in waste_type or 'e-waste' in waste_type:
-        if 'recycl' in treatment:
-            return ('waste_ewaste_recycled', 'kg')
-        return ('waste_ewaste', 'kg')
+    if "electronic" in waste_type or "weee" in waste_type or "e-waste" in waste_type:
+        if "recycl" in treatment:
+            return ("waste_ewaste_recycled", "kg")
+        return ("waste_ewaste", "kg")
 
     # Construction & Demolition waste
-    if 'construction' in waste_type or 'demolition' in waste_type or 'c&d' in waste_type:
-        if 'recycl' in treatment:
-            return ('waste_construction_recycled', 'kg')
-        return ('waste_construction', 'kg')
+    if (
+        "construction" in waste_type
+        or "demolition" in waste_type
+        or "c&d" in waste_type
+    ):
+        if "recycl" in treatment:
+            return ("waste_construction_recycled", "kg")
+        return ("waste_construction", "kg")
 
     # Hazardous waste
-    if 'hazardous' in waste_type or 'chemical' in waste_type:
-        return ('waste_hazardous', 'kg')
+    if "hazardous" in waste_type or "chemical" in waste_type:
+        return ("waste_hazardous", "kg")
 
     # Batteries
-    if 'batter' in waste_type:
-        return ('waste_batteries', 'kg')
+    if "batter" in waste_type:
+        return ("waste_batteries", "kg")
 
     # Default fallback based on treatment
-    if 'recycl' in treatment:
-        return ('waste_recycled_mixed', 'kg')
-    if 'compost' in treatment:
-        return ('waste_composted_mixed', 'kg')
-    if 'inciner' in treatment:
-        return ('waste_incineration', 'kg')
+    if "recycl" in treatment:
+        return ("waste_recycled_mixed", "kg")
+    if "compost" in treatment:
+        return ("waste_composted_mixed", "kg")
+    if "inciner" in treatment:
+        return ("waste_incineration", "kg")
 
-    return ('waste_landfill_mixed', 'kg')
+    return ("waste_landfill_mixed", "kg")
 
 
 def resolve_v4_flights(row: dict) -> tuple[str, str]:
     """Resolve activity_key for v4 template 3.6 Flights."""
-    method = (row.get('Method') or '').lower().strip()
-    cabin_class = (row.get('Cabin Class') or row.get('cabin_class') or '').lower().strip()
-    origin = row.get('origin_airport') or row.get('Origin Airport (IATA)') or row.get('Origin Airport') or ''
-    dest = row.get('destination_airport') or row.get('Destination Airport (IATA)') or row.get('Destination Airport') or ''
+    method = (row.get("Method") or "").lower().strip()
+    cabin_class = (
+        (row.get("Cabin Class") or row.get("cabin_class") or "").lower().strip()
+    )
+    origin = (
+        row.get("origin_airport")
+        or row.get("Origin Airport (IATA)")
+        or row.get("Origin Airport")
+        or ""
+    )
+    dest = (
+        row.get("destination_airport")
+        or row.get("Destination Airport (IATA)")
+        or row.get("Destination Airport")
+        or ""
+    )
 
-    if method == 'spend':
-        return ('travel_spend_air', 'USD')
+    if method == "spend":
+        return ("travel_spend_air", "USD")
 
     # Calculate distance if airports are provided
     is_long_haul = True  # Default to long-haul
     if origin and dest:
         try:
             from app.data.airports import calculate_flight_distance
+
             distance = calculate_flight_distance(origin, dest)
             if distance and distance < 3700:
                 is_long_haul = False
@@ -2298,142 +2368,154 @@ def resolve_v4_flights(row: dict) -> tuple[str, str]:
             pass
 
     # Return factor based on class and haul type
-    if 'first' in cabin_class:
-        return ('flight_long_first', 'passenger-km')
-    elif 'business' in cabin_class:
-        return ('flight_long_business', 'passenger-km') if is_long_haul else ('flight_short_business', 'passenger-km')
-    elif 'premium' in cabin_class:
-        return ('flight_long_premium_economy', 'passenger-km') if is_long_haul else ('flight_short_economy', 'passenger-km')
+    if "first" in cabin_class:
+        return ("flight_long_first", "passenger-km")
+    elif "business" in cabin_class:
+        return (
+            ("flight_long_business", "passenger-km")
+            if is_long_haul
+            else ("flight_short_business", "passenger-km")
+        )
+    elif "premium" in cabin_class:
+        return (
+            ("flight_long_premium_economy", "passenger-km")
+            if is_long_haul
+            else ("flight_short_economy", "passenger-km")
+        )
     else:  # Economy
-        return ('flight_long_economy', 'passenger-km') if is_long_haul else ('flight_short_economy', 'passenger-km')
+        return (
+            ("flight_long_economy", "passenger-km")
+            if is_long_haul
+            else ("flight_short_economy", "passenger-km")
+        )
 
 
 def resolve_v4_hotels(row: dict) -> tuple[str, str]:
     """Resolve activity_key for v4 template 3.6 Hotels."""
-    method = (row.get('Method') or '').lower().strip()
+    method = (row.get("Method") or "").lower().strip()
 
-    if method == 'spend':
-        return ('travel_spend_hotel', 'USD')
+    if method == "spend":
+        return ("travel_spend_hotel", "USD")
 
-    return ('hotel_night', 'nights')
+    return ("hotel_night", "nights")
 
 
 def resolve_v4_other_travel(row: dict) -> tuple[str, str]:
     """Resolve activity_key for v4 template 3.6 Other Travel."""
-    travel_type = (row.get('Travel Type') or '').lower().strip()
-    method = (row.get('Method') or '').lower().strip()
+    travel_type = (row.get("Travel Type") or "").lower().strip()
+    method = (row.get("Method") or "").lower().strip()
 
-    if method == 'spend':
+    if method == "spend":
         spend_map = {
-            'rail': ('travel_spend_rail', 'USD'),
-            'taxi': ('travel_spend_taxi', 'USD'),
-            'rental': ('travel_spend_car_rental', 'USD'),
-            'bus': ('travel_spend_bus', 'USD'),
+            "rail": ("travel_spend_rail", "USD"),
+            "taxi": ("travel_spend_taxi", "USD"),
+            "rental": ("travel_spend_car_rental", "USD"),
+            "bus": ("travel_spend_bus", "USD"),
         }
         for key, result in spend_map.items():
             if key in travel_type:
                 return result
-        return ('travel_spend_general', 'USD')
+        return ("travel_spend_general", "USD")
 
     # Distance-based
     distance_map = {
-        'rail': ('rail_domestic_km', 'km'),
-        'taxi': ('taxi_km', 'km'),
-        'rental': ('rental_car_km', 'km'),
-        'bus': ('bus_km', 'km'),
+        "rail": ("rail_domestic_km", "km"),
+        "taxi": ("taxi_km", "km"),
+        "rental": ("rental_car_km", "km"),
+        "bus": ("bus_km", "km"),
     }
 
     for key, result in distance_map.items():
         if key in travel_type:
             return result
 
-    return ('rental_car_km', 'km')
+    return ("rental_car_km", "km")
 
 
 def resolve_v4_commuting(row: dict) -> tuple[str, str]:
     """Resolve activity_key for v4 template 3.7 Commuting."""
-    method = (row.get('Method') or '').lower().strip()
-    mode = (row.get('Transport Mode') or '').lower().strip()
+    method = (row.get("Method") or "").lower().strip()
+    mode = (row.get("Transport Mode") or "").lower().strip()
 
-    if method == 'spend':
-        return ('commute_spend_general', 'USD')
+    if method == "spend":
+        return ("commute_spend_general", "USD")
 
-    if method == 'average':
+    if method == "average":
         # "Average" means using average distances but still mode-specific
         # Check transport mode to select the right emission factor
         mode_avg_map = {
-            'car (petrol)': ('commute_car_petrol', 'km'),
-            'car - petrol': ('commute_car_petrol', 'km'),
-            'car (diesel)': ('commute_car_diesel', 'km'),
-            'car - diesel': ('commute_car_diesel', 'km'),
-            'car (hybrid)': ('commute_car_hybrid', 'km'),
-            'car - hybrid': ('commute_car_hybrid', 'km'),
-            'car (electric)': ('commute_car_electric', 'km'),
-            'car - electric': ('commute_car_electric', 'km'),
-            'bus': ('commute_bus', 'km'),
-            'rail': ('commute_rail', 'km'),
-            'rail / train': ('commute_rail', 'km'),
-            'metro': ('commute_rail', 'km'),
-            'motorcycle': ('commute_motorcycle', 'km'),
-            'e-bike': ('commute_ebike', 'km'),
-            'bicycle': ('commute_bicycle', 'km'),
-            'walk': ('commute_walk', 'km'),
-            'work from home': ('commute_wfh_day', 'days'),
+            "car (petrol)": ("commute_car_petrol", "km"),
+            "car - petrol": ("commute_car_petrol", "km"),
+            "car (diesel)": ("commute_car_diesel", "km"),
+            "car - diesel": ("commute_car_diesel", "km"),
+            "car (hybrid)": ("commute_car_hybrid", "km"),
+            "car - hybrid": ("commute_car_hybrid", "km"),
+            "car (electric)": ("commute_car_electric", "km"),
+            "car - electric": ("commute_car_electric", "km"),
+            "bus": ("commute_bus", "km"),
+            "rail": ("commute_rail", "km"),
+            "rail / train": ("commute_rail", "km"),
+            "metro": ("commute_rail", "km"),
+            "motorcycle": ("commute_motorcycle", "km"),
+            "e-bike": ("commute_ebike", "km"),
+            "bicycle": ("commute_bicycle", "km"),
+            "walk": ("commute_walk", "km"),
+            "work from home": ("commute_wfh_day", "days"),
         }
         for key, result in mode_avg_map.items():
             if key in mode:
                 return result
         # Default: assume car petrol for unknown average mode
-        return ('commute_car_petrol', 'km')
+        return ("commute_car_petrol", "km")
 
     # Survey-based: specific transport mode
     mode_map = {
-        'car - petrol': ('commute_car_petrol', 'km'),
-        'car - diesel': ('commute_car_diesel', 'km'),
-        'car - hybrid': ('commute_car_hybrid', 'km'),
-        'car - electric': ('commute_car_electric', 'km'),
-        'bus': ('commute_bus', 'km'),
-        'rail': ('commute_rail', 'km'),
-        'metro': ('commute_rail', 'km'),
-        'motorcycle': ('commute_motorcycle', 'km'),
-        'e-bike': ('commute_ebike', 'km'),
-        'bicycle': ('commute_bicycle', 'km'),
-        'walk': ('commute_walk', 'km'),
-        'work from home': ('commute_wfh_day', 'days'),
+        "car - petrol": ("commute_car_petrol", "km"),
+        "car - diesel": ("commute_car_diesel", "km"),
+        "car - hybrid": ("commute_car_hybrid", "km"),
+        "car - electric": ("commute_car_electric", "km"),
+        "bus": ("commute_bus", "km"),
+        "rail": ("commute_rail", "km"),
+        "metro": ("commute_rail", "km"),
+        "motorcycle": ("commute_motorcycle", "km"),
+        "e-bike": ("commute_ebike", "km"),
+        "bicycle": ("commute_bicycle", "km"),
+        "walk": ("commute_walk", "km"),
+        "work from home": ("commute_wfh_day", "days"),
     }
 
     for key, result in mode_map.items():
         if key in mode:
             return result
 
-    return ('commute_car_petrol', 'km')
+    return ("commute_car_petrol", "km")
 
 
 def resolve_v4_leased_assets(row: dict) -> tuple[str, str]:
     """Resolve activity_key for v4 template 3.8 Leased Assets."""
-    method = (row.get('Method') or '').lower().strip()
-    building_type = (row.get('Building Type') or '').lower().strip()
+    method = (row.get("Method") or "").lower().strip()
+    building_type = (row.get("Building Type") or "").lower().strip()
 
-    if method == 'spend':
-        return ('leased_spend_rent', 'USD')
+    if method == "spend":
+        return ("leased_spend_rent", "USD")
 
-    if method == 'energy':
-        return ('electricity_global', 'kWh')
+    if method == "energy":
+        return ("electricity_global", "kWh")
 
     # Area-based
     area_map = {
-        'office': ('leased_office_m2_year', 'm2-year'),
-        'warehouse': ('leased_warehouse_m2_year', 'm2-year'),
-        'retail': ('leased_retail_m2_year', 'm2-year'),
-        'industrial': ('leased_industrial_m2_year', 'm2-year'),
-        'data center': ('leased_datacenter_m2_year', 'm2-year'),
+        "office": ("leased_office_m2_year", "m2-year"),
+        "warehouse": ("leased_warehouse_m2_year", "m2-year"),
+        "retail": ("leased_retail_m2_year", "m2-year"),
+        "industrial": ("leased_industrial_m2_year", "m2-year"),
+        "data center": ("leased_datacenter_m2_year", "m2-year"),
     }
 
     for key, result in area_map.items():
         if key in building_type:
             return result
 
-    return ('leased_office_m2_year', 'm2-year')
+    return ("leased_office_m2_year", "m2-year")
 
 
 def resolve_v4_processing_sold_products(row: dict) -> tuple[str, str]:
@@ -2448,57 +2530,61 @@ def resolve_v4_processing_sold_products(row: dict) -> tuple[str, str]:
     - Average: Industry average processing factors by product type
     - Spend: Revenue-based using EEIO factors
     """
-    method = (row.get('Method') or '').lower().strip()
-    product_type = (row.get('Product Type') or row.get('Product Category') or '').lower().strip()
-    process_type = (row.get('Processing Type') or row.get('Process') or '').lower().strip()
+    method = (row.get("Method") or "").lower().strip()
+    product_type = (
+        (row.get("Product Type") or row.get("Product Category") or "").lower().strip()
+    )
+    process_type = (
+        (row.get("Processing Type") or row.get("Process") or "").lower().strip()
+    )
 
     # Spend-based method
-    if method == 'spend' or 'spend' in method:
-        return ('processing_spend_manufacturing', 'USD')
+    if method == "spend" or "spend" in method:
+        return ("processing_spend_manufacturing", "USD")
 
     # Site-specific: use energy-based factor
-    if method == 'site-specific' or 'site' in method:
-        return ('processing_energy_kwh', 'kWh')
+    if method == "site-specific" or "site" in method:
+        return ("processing_energy_kwh", "kWh")
 
     # Average-data method - map by product type
     # Processing emissions per kg of product
     product_map = {
         # Metals
-        'steel': ('processing_steel_kg', 'kg'),
-        'aluminum': ('processing_aluminum_kg', 'kg'),
-        'aluminium': ('processing_aluminum_kg', 'kg'),
-        'copper': ('processing_metal_kg', 'kg'),
-        'metal': ('processing_metal_kg', 'kg'),
+        "steel": ("processing_steel_kg", "kg"),
+        "aluminum": ("processing_aluminum_kg", "kg"),
+        "aluminium": ("processing_aluminum_kg", "kg"),
+        "copper": ("processing_metal_kg", "kg"),
+        "metal": ("processing_metal_kg", "kg"),
         # Plastics
-        'plastic': ('processing_plastic_kg', 'kg'),
-        'pet': ('processing_plastic_kg', 'kg'),
-        'hdpe': ('processing_plastic_kg', 'kg'),
-        'polymer': ('processing_plastic_kg', 'kg'),
+        "plastic": ("processing_plastic_kg", "kg"),
+        "pet": ("processing_plastic_kg", "kg"),
+        "hdpe": ("processing_plastic_kg", "kg"),
+        "polymer": ("processing_plastic_kg", "kg"),
         # Chemicals
-        'chemical': ('processing_chemical_kg', 'kg'),
-        'petrochemical': ('processing_chemical_kg', 'kg'),
+        "chemical": ("processing_chemical_kg", "kg"),
+        "petrochemical": ("processing_chemical_kg", "kg"),
         # Textiles
-        'textile': ('processing_textile_kg', 'kg'),
-        'fabric': ('processing_textile_kg', 'kg'),
-        'fiber': ('processing_textile_kg', 'kg'),
+        "textile": ("processing_textile_kg", "kg"),
+        "fabric": ("processing_textile_kg", "kg"),
+        "fiber": ("processing_textile_kg", "kg"),
         # Paper/Pulp
-        'paper': ('processing_paper_kg', 'kg'),
-        'pulp': ('processing_paper_kg', 'kg'),
-        'cardboard': ('processing_paper_kg', 'kg'),
+        "paper": ("processing_paper_kg", "kg"),
+        "pulp": ("processing_paper_kg", "kg"),
+        "cardboard": ("processing_paper_kg", "kg"),
         # Glass
-        'glass': ('processing_glass_kg', 'kg'),
+        "glass": ("processing_glass_kg", "kg"),
         # Food/Agriculture
-        'food': ('processing_food_kg', 'kg'),
-        'agricultural': ('processing_food_kg', 'kg'),
-        'grain': ('processing_food_kg', 'kg'),
+        "food": ("processing_food_kg", "kg"),
+        "agricultural": ("processing_food_kg", "kg"),
+        "grain": ("processing_food_kg", "kg"),
         # Electronics
-        'electronic': ('processing_electronics_kg', 'kg'),
-        'component': ('processing_electronics_kg', 'kg'),
-        'semiconductor': ('processing_electronics_kg', 'kg'),
+        "electronic": ("processing_electronics_kg", "kg"),
+        "component": ("processing_electronics_kg", "kg"),
+        "semiconductor": ("processing_electronics_kg", "kg"),
         # Wood
-        'wood': ('processing_wood_kg', 'kg'),
-        'timber': ('processing_wood_kg', 'kg'),
-        'lumber': ('processing_wood_kg', 'kg'),
+        "wood": ("processing_wood_kg", "kg"),
+        "timber": ("processing_wood_kg", "kg"),
+        "lumber": ("processing_wood_kg", "kg"),
     }
 
     for key, result in product_map.items():
@@ -2507,15 +2593,15 @@ def resolve_v4_processing_sold_products(row: dict) -> tuple[str, str]:
 
     # Also check process type for clues
     process_map = {
-        'melt': ('processing_metal_kg', 'kg'),
-        'smelt': ('processing_metal_kg', 'kg'),
-        'forge': ('processing_metal_kg', 'kg'),
-        'mold': ('processing_plastic_kg', 'kg'),
-        'extrude': ('processing_plastic_kg', 'kg'),
-        'weave': ('processing_textile_kg', 'kg'),
-        'assemble': ('processing_electronics_kg', 'kg'),
-        'refine': ('processing_chemical_kg', 'kg'),
-        'mill': ('processing_food_kg', 'kg'),
+        "melt": ("processing_metal_kg", "kg"),
+        "smelt": ("processing_metal_kg", "kg"),
+        "forge": ("processing_metal_kg", "kg"),
+        "mold": ("processing_plastic_kg", "kg"),
+        "extrude": ("processing_plastic_kg", "kg"),
+        "weave": ("processing_textile_kg", "kg"),
+        "assemble": ("processing_electronics_kg", "kg"),
+        "refine": ("processing_chemical_kg", "kg"),
+        "mill": ("processing_food_kg", "kg"),
     }
 
     for key, result in process_map.items():
@@ -2523,7 +2609,7 @@ def resolve_v4_processing_sold_products(row: dict) -> tuple[str, str]:
             return result
 
     # Default: generic processing factor
-    return ('processing_generic_kg', 'kg')
+    return ("processing_generic_kg", "kg")
 
 
 def resolve_v4_use_sold_products(row: dict) -> tuple[str, str]:
@@ -2538,62 +2624,66 @@ def resolve_v4_use_sold_products(row: dict) -> tuple[str, str]:
     - Fuel-Based: For fuel-consuming products (vehicles, equipment)
     - Spend: Revenue-based using EEIO factors
     """
-    method = (row.get('Method') or '').lower().strip()
-    product_type = (row.get('Product Type') or row.get('Product Category') or '').lower().strip()
-    energy_source = (row.get('Energy Source') or row.get('Fuel Type') or '').lower().strip()
+    method = (row.get("Method") or "").lower().strip()
+    product_type = (
+        (row.get("Product Type") or row.get("Product Category") or "").lower().strip()
+    )
+    energy_source = (
+        (row.get("Energy Source") or row.get("Fuel Type") or "").lower().strip()
+    )
 
     # Spend-based method
-    if method == 'spend' or 'spend' in method:
-        return ('use_phase_spend_products', 'USD')
+    if method == "spend" or "spend" in method:
+        return ("use_phase_spend_products", "USD")
 
     # Fuel-based method (for vehicles, combustion equipment)
-    if method == 'fuel' or 'fuel' in method:
+    if method == "fuel" or "fuel" in method:
         fuel_map = {
-            'petrol': ('use_phase_petrol_liters', 'liters'),
-            'gasoline': ('use_phase_petrol_liters', 'liters'),
-            'diesel': ('use_phase_diesel_liters', 'liters'),
-            'natural gas': ('use_phase_natural_gas_kwh', 'kWh'),
-            'lpg': ('use_phase_lpg_liters', 'liters'),
+            "petrol": ("use_phase_petrol_liters", "liters"),
+            "gasoline": ("use_phase_petrol_liters", "liters"),
+            "diesel": ("use_phase_diesel_liters", "liters"),
+            "natural gas": ("use_phase_natural_gas_kwh", "kWh"),
+            "lpg": ("use_phase_lpg_liters", "liters"),
         }
         for key, result in fuel_map.items():
             if key in energy_source:
                 return result
-        return ('use_phase_petrol_liters', 'liters')
+        return ("use_phase_petrol_liters", "liters")
 
     # Direct use-phase (electricity-consuming products)
     product_map = {
         # Vehicles
-        'vehicle': ('use_phase_vehicle_km', 'km'),
-        'car': ('use_phase_vehicle_km', 'km'),
-        'truck': ('use_phase_vehicle_km', 'km'),
-        'motorcycle': ('use_phase_vehicle_km', 'km'),
+        "vehicle": ("use_phase_vehicle_km", "km"),
+        "car": ("use_phase_vehicle_km", "km"),
+        "truck": ("use_phase_vehicle_km", "km"),
+        "motorcycle": ("use_phase_vehicle_km", "km"),
         # Appliances
-        'appliance': ('use_phase_electricity_kwh', 'kWh'),
-        'refrigerator': ('use_phase_electricity_kwh', 'kWh'),
-        'washing machine': ('use_phase_electricity_kwh', 'kWh'),
-        'air conditioner': ('use_phase_electricity_kwh', 'kWh'),
-        'hvac': ('use_phase_electricity_kwh', 'kWh'),
-        'heater': ('use_phase_electricity_kwh', 'kWh'),
+        "appliance": ("use_phase_electricity_kwh", "kWh"),
+        "refrigerator": ("use_phase_electricity_kwh", "kWh"),
+        "washing machine": ("use_phase_electricity_kwh", "kWh"),
+        "air conditioner": ("use_phase_electricity_kwh", "kWh"),
+        "hvac": ("use_phase_electricity_kwh", "kWh"),
+        "heater": ("use_phase_electricity_kwh", "kWh"),
         # Electronics
-        'electronic': ('use_phase_electricity_kwh', 'kWh'),
-        'computer': ('use_phase_electricity_kwh', 'kWh'),
-        'laptop': ('use_phase_electricity_kwh', 'kWh'),
-        'server': ('use_phase_electricity_kwh', 'kWh'),
-        'phone': ('use_phase_electricity_kwh', 'kWh'),
-        'tv': ('use_phase_electricity_kwh', 'kWh'),
-        'display': ('use_phase_electricity_kwh', 'kWh'),
+        "electronic": ("use_phase_electricity_kwh", "kWh"),
+        "computer": ("use_phase_electricity_kwh", "kWh"),
+        "laptop": ("use_phase_electricity_kwh", "kWh"),
+        "server": ("use_phase_electricity_kwh", "kWh"),
+        "phone": ("use_phase_electricity_kwh", "kWh"),
+        "tv": ("use_phase_electricity_kwh", "kWh"),
+        "display": ("use_phase_electricity_kwh", "kWh"),
         # Machinery
-        'machinery': ('use_phase_electricity_kwh', 'kWh'),
-        'equipment': ('use_phase_electricity_kwh', 'kWh'),
-        'motor': ('use_phase_electricity_kwh', 'kWh'),
-        'pump': ('use_phase_electricity_kwh', 'kWh'),
+        "machinery": ("use_phase_electricity_kwh", "kWh"),
+        "equipment": ("use_phase_electricity_kwh", "kWh"),
+        "motor": ("use_phase_electricity_kwh", "kWh"),
+        "pump": ("use_phase_electricity_kwh", "kWh"),
         # Buildings
-        'building': ('use_phase_building_m2_year', 'm2-year'),
-        'property': ('use_phase_building_m2_year', 'm2-year'),
+        "building": ("use_phase_building_m2_year", "m2-year"),
+        "property": ("use_phase_building_m2_year", "m2-year"),
         # Lighting
-        'lighting': ('use_phase_electricity_kwh', 'kWh'),
-        'lamp': ('use_phase_electricity_kwh', 'kWh'),
-        'bulb': ('use_phase_electricity_kwh', 'kWh'),
+        "lighting": ("use_phase_electricity_kwh", "kWh"),
+        "lamp": ("use_phase_electricity_kwh", "kWh"),
+        "bulb": ("use_phase_electricity_kwh", "kWh"),
     }
 
     for key, result in product_map.items():
@@ -2601,13 +2691,17 @@ def resolve_v4_use_sold_products(row: dict) -> tuple[str, str]:
             return result
 
     # Check energy source for clues
-    if 'electric' in energy_source or 'kwh' in energy_source:
-        return ('use_phase_electricity_kwh', 'kWh')
-    if 'fuel' in energy_source or 'petrol' in energy_source or 'diesel' in energy_source:
-        return ('use_phase_petrol_liters', 'liters')
+    if "electric" in energy_source or "kwh" in energy_source:
+        return ("use_phase_electricity_kwh", "kWh")
+    if (
+        "fuel" in energy_source
+        or "petrol" in energy_source
+        or "diesel" in energy_source
+    ):
+        return ("use_phase_petrol_liters", "liters")
 
     # Default: electricity-based (most common for consumer products)
-    return ('use_phase_electricity_kwh', 'kWh')
+    return ("use_phase_electricity_kwh", "kWh")
 
 
 def resolve_v4_end_of_life(row: dict) -> tuple[str, str]:
@@ -2622,82 +2716,86 @@ def resolve_v4_end_of_life(row: dict) -> tuple[str, str]:
     - Average: Industry average disposal factors
     - Spend: Revenue-based using EEIO factors
     """
-    method = (row.get('Method') or '').lower().strip()
-    material_type = (row.get('Material Type') or row.get('Product Material') or '').lower().strip()
-    disposal_method = (row.get('Disposal Method') or row.get('Treatment') or '').lower().strip()
+    method = (row.get("Method") or "").lower().strip()
+    material_type = (
+        (row.get("Material Type") or row.get("Product Material") or "").lower().strip()
+    )
+    disposal_method = (
+        (row.get("Disposal Method") or row.get("Treatment") or "").lower().strip()
+    )
 
     # Spend-based method
-    if method == 'spend' or 'spend' in method:
-        return ('eol_spend_disposal', 'USD')
+    if method == "spend" or "spend" in method:
+        return ("eol_spend_disposal", "USD")
 
     # Check for special material types first (before disposal method)
     # These materials have specific treatment requirements regardless of disposal method
-    if 'battery' in material_type or 'batteries' in material_type:
-        return ('eol_batteries', 'kg')
-    if 'hazard' in material_type:
-        return ('eol_hazardous', 'kg')
+    if "battery" in material_type or "batteries" in material_type:
+        return ("eol_batteries", "kg")
+    if "hazard" in material_type:
+        return ("eol_hazardous", "kg")
 
     # Map disposal method first
-    if 'recycl' in disposal_method:
+    if "recycl" in disposal_method:
         # Recycling by material type
         material_recycling_map = {
-            'metal': ('eol_recycling_metal', 'kg'),
-            'aluminum': ('eol_recycling_metal', 'kg'),
-            'steel': ('eol_recycling_metal', 'kg'),
-            'plastic': ('eol_recycling_plastic', 'kg'),
-            'paper': ('eol_recycling_paper', 'kg'),
-            'cardboard': ('eol_recycling_paper', 'kg'),
-            'glass': ('eol_recycling_glass', 'kg'),
-            'electronic': ('eol_recycling_ewaste', 'kg'),
-            'e-waste': ('eol_recycling_ewaste', 'kg'),
-            'weee': ('eol_recycling_ewaste', 'kg'),
-            'textile': ('eol_recycling_textile', 'kg'),
+            "metal": ("eol_recycling_metal", "kg"),
+            "aluminum": ("eol_recycling_metal", "kg"),
+            "steel": ("eol_recycling_metal", "kg"),
+            "plastic": ("eol_recycling_plastic", "kg"),
+            "paper": ("eol_recycling_paper", "kg"),
+            "cardboard": ("eol_recycling_paper", "kg"),
+            "glass": ("eol_recycling_glass", "kg"),
+            "electronic": ("eol_recycling_ewaste", "kg"),
+            "e-waste": ("eol_recycling_ewaste", "kg"),
+            "weee": ("eol_recycling_ewaste", "kg"),
+            "textile": ("eol_recycling_textile", "kg"),
         }
         for key, result in material_recycling_map.items():
             if key in material_type:
                 return result
-        return ('eol_recycling_mixed', 'kg')
+        return ("eol_recycling_mixed", "kg")
 
-    if 'landfill' in disposal_method:
+    if "landfill" in disposal_method:
         # Landfill by material type
         landfill_map = {
-            'organic': ('eol_landfill_organic', 'kg'),
-            'food': ('eol_landfill_organic', 'kg'),
-            'plastic': ('eol_landfill_plastic', 'kg'),
-            'paper': ('eol_landfill_paper', 'kg'),
-            'wood': ('eol_landfill_wood', 'kg'),
-            'textile': ('eol_landfill_textile', 'kg'),
+            "organic": ("eol_landfill_organic", "kg"),
+            "food": ("eol_landfill_organic", "kg"),
+            "plastic": ("eol_landfill_plastic", "kg"),
+            "paper": ("eol_landfill_paper", "kg"),
+            "wood": ("eol_landfill_wood", "kg"),
+            "textile": ("eol_landfill_textile", "kg"),
         }
         for key, result in landfill_map.items():
             if key in material_type:
                 return result
-        return ('eol_landfill_mixed', 'kg')
+        return ("eol_landfill_mixed", "kg")
 
-    if 'inciner' in disposal_method or 'combust' in disposal_method:
-        if 'energy' in disposal_method or 'recovery' in disposal_method:
-            return ('eol_incineration_energy', 'kg')
-        return ('eol_incineration', 'kg')
+    if "inciner" in disposal_method or "combust" in disposal_method:
+        if "energy" in disposal_method or "recovery" in disposal_method:
+            return ("eol_incineration_energy", "kg")
+        return ("eol_incineration", "kg")
 
-    if 'compost' in disposal_method:
-        return ('eol_composting', 'kg')
+    if "compost" in disposal_method:
+        return ("eol_composting", "kg")
 
-    if 'anaerobic' in disposal_method or 'digestion' in disposal_method:
-        return ('eol_anaerobic_digestion', 'kg')
+    if "anaerobic" in disposal_method or "digestion" in disposal_method:
+        return ("eol_anaerobic_digestion", "kg")
 
     # Material-based fallback (assume typical disposal mix)
     material_default_map = {
-        'electronic': ('eol_ewaste_mixed', 'kg'),
-        'e-waste': ('eol_ewaste_mixed', 'kg'),
-        'battery': ('eol_batteries', 'kg'),
-        'hazardous': ('eol_hazardous', 'kg'),
-        'metal': ('eol_recycling_metal', 'kg'),  # Metals typically recycled
-        'plastic': ('eol_landfill_plastic', 'kg'),  # Plastic typically landfilled
-        'paper': ('eol_recycling_paper', 'kg'),  # Paper typically recycled
-        'glass': ('eol_recycling_glass', 'kg'),  # Glass typically recycled
-        'textile': ('eol_landfill_textile', 'kg'),
-        'wood': ('eol_landfill_wood', 'kg'),
-        'organic': ('eol_composting', 'kg'),
-        'food': ('eol_composting', 'kg'),
+        "electronic": ("eol_ewaste_mixed", "kg"),
+        "e-waste": ("eol_ewaste_mixed", "kg"),
+        "battery": ("eol_batteries", "kg"),
+        "hazardous": ("eol_hazardous", "kg"),
+        "metal": ("eol_recycling_metal", "kg"),  # Metals typically recycled
+        "plastic": ("eol_landfill_plastic", "kg"),  # Plastic typically landfilled
+        "paper": ("eol_recycling_paper", "kg"),  # Paper typically recycled
+        "glass": ("eol_recycling_glass", "kg"),  # Glass typically recycled
+        "textile": ("eol_landfill_textile", "kg"),
+        "wood": ("eol_landfill_wood", "kg"),
+        "organic": ("eol_composting", "kg"),
+        "food": ("eol_composting", "kg"),
     }
 
     for key, result in material_default_map.items():
@@ -2705,7 +2803,7 @@ def resolve_v4_end_of_life(row: dict) -> tuple[str, str]:
             return result
 
     # Default: mixed waste to landfill
-    return ('eol_landfill_mixed', 'kg')
+    return ("eol_landfill_mixed", "kg")
 
 
 def resolve_v4_downstream_leased_assets(row: dict) -> tuple[str, str]:
@@ -2720,39 +2818,43 @@ def resolve_v4_downstream_leased_assets(row: dict) -> tuple[str, str]:
     - Average: Based on building/asset type and floor area
     - Spend: Based on rental income (revenue-based)
     """
-    method = (row.get('Method') or '').lower().strip()
-    asset_type = (row.get('Asset Type') or row.get('Building Type') or '').lower().strip()
+    method = (row.get("Method") or "").lower().strip()
+    asset_type = (
+        (row.get("Asset Type") or row.get("Building Type") or "").lower().strip()
+    )
 
     # Spend-based method (based on rental income)
-    if method == 'spend' or 'spend' in method or 'income' in method:
-        return ('downstream_leased_spend_income', 'USD')
+    if method == "spend" or "spend" in method or "income" in method:
+        return ("downstream_leased_spend_income", "USD")
 
     # Asset-specific: Use energy-based factor
-    if method == 'asset-specific' or 'asset' in method or 'energy' in method:
-        energy_type = (row.get('Energy Type') or row.get('Energy Source') or '').lower().strip()
-        if 'gas' in energy_type or 'natural' in energy_type:
-            return ('downstream_leased_gas_kwh', 'kWh')
-        return ('downstream_leased_electricity_kwh', 'kWh')
+    if method == "asset-specific" or "asset" in method or "energy" in method:
+        energy_type = (
+            (row.get("Energy Type") or row.get("Energy Source") or "").lower().strip()
+        )
+        if "gas" in energy_type or "natural" in energy_type:
+            return ("downstream_leased_gas_kwh", "kWh")
+        return ("downstream_leased_electricity_kwh", "kWh")
 
     # Average-data method - map by asset/building type
     asset_map = {
         # Commercial buildings
-        'office': ('downstream_leased_office_m2', 'm2'),
-        'warehouse': ('downstream_leased_warehouse_m2', 'm2'),
-        'retail': ('downstream_leased_retail_m2', 'm2'),
-        'industrial': ('downstream_leased_industrial_m2', 'm2'),
-        'data center': ('downstream_leased_datacenter_m2', 'm2'),
-        'datacenter': ('downstream_leased_datacenter_m2', 'm2'),
+        "office": ("downstream_leased_office_m2", "m2"),
+        "warehouse": ("downstream_leased_warehouse_m2", "m2"),
+        "retail": ("downstream_leased_retail_m2", "m2"),
+        "industrial": ("downstream_leased_industrial_m2", "m2"),
+        "data center": ("downstream_leased_datacenter_m2", "m2"),
+        "datacenter": ("downstream_leased_datacenter_m2", "m2"),
         # Residential
-        'residential': ('downstream_leased_residential_m2', 'm2'),
-        'apartment': ('downstream_leased_residential_m2', 'm2'),
-        'housing': ('downstream_leased_residential_m2', 'm2'),
+        "residential": ("downstream_leased_residential_m2", "m2"),
+        "apartment": ("downstream_leased_residential_m2", "m2"),
+        "housing": ("downstream_leased_residential_m2", "m2"),
         # Vehicles/Equipment
-        'vehicle': ('downstream_leased_vehicle_unit', 'unit'),
-        'car': ('downstream_leased_vehicle_unit', 'unit'),
-        'truck': ('downstream_leased_vehicle_unit', 'unit'),
-        'equipment': ('downstream_leased_equipment_unit', 'unit'),
-        'machinery': ('downstream_leased_equipment_unit', 'unit'),
+        "vehicle": ("downstream_leased_vehicle_unit", "unit"),
+        "car": ("downstream_leased_vehicle_unit", "unit"),
+        "truck": ("downstream_leased_vehicle_unit", "unit"),
+        "equipment": ("downstream_leased_equipment_unit", "unit"),
+        "machinery": ("downstream_leased_equipment_unit", "unit"),
     }
 
     for key, result in asset_map.items():
@@ -2760,7 +2862,7 @@ def resolve_v4_downstream_leased_assets(row: dict) -> tuple[str, str]:
             return result
 
     # Default: office building per m2
-    return ('downstream_leased_office_m2', 'm2')
+    return ("downstream_leased_office_m2", "m2")
 
 
 def resolve_v4_franchises(row: dict) -> tuple[str, str]:
@@ -2775,49 +2877,53 @@ def resolve_v4_franchises(row: dict) -> tuple[str, str]:
     - Average: Based on franchise type and count/floor area
     - Spend: Based on franchise revenue (revenue-based)
     """
-    method = (row.get('Method') or '').lower().strip()
-    franchise_type = (row.get('Franchise Type') or row.get('Business Type') or '').lower().strip()
+    method = (row.get("Method") or "").lower().strip()
+    franchise_type = (
+        (row.get("Franchise Type") or row.get("Business Type") or "").lower().strip()
+    )
 
     # Spend-based method (based on franchise revenue)
-    if method == 'spend' or 'spend' in method or 'revenue' in method:
-        return ('franchise_spend_revenue', 'USD')
+    if method == "spend" or "spend" in method or "revenue" in method:
+        return ("franchise_spend_revenue", "USD")
 
     # Franchise-specific: Use energy-based factor
-    if method == 'franchise-specific' or 'specific' in method or 'energy' in method:
-        energy_type = (row.get('Energy Type') or row.get('Energy Source') or '').lower().strip()
-        if 'gas' in energy_type or 'natural' in energy_type:
-            return ('franchise_gas_kwh', 'kWh')
-        if 'fuel' in energy_type or 'diesel' in energy_type or 'petrol' in energy_type:
-            return ('franchise_fuel_liters', 'liters')
-        return ('franchise_electricity_kwh', 'kWh')
+    if method == "franchise-specific" or "specific" in method or "energy" in method:
+        energy_type = (
+            (row.get("Energy Type") or row.get("Energy Source") or "").lower().strip()
+        )
+        if "gas" in energy_type or "natural" in energy_type:
+            return ("franchise_gas_kwh", "kWh")
+        if "fuel" in energy_type or "diesel" in energy_type or "petrol" in energy_type:
+            return ("franchise_fuel_liters", "liters")
+        return ("franchise_electricity_kwh", "kWh")
 
     # Average-data method - map by franchise type
     # Check specific types first before generic ones
     # Convenience must come before store
-    if 'convenience' in franchise_type:
-        return ('franchise_convenience_unit', 'unit')
+    if "convenience" in franchise_type:
+        return ("franchise_convenience_unit", "unit")
 
     franchise_map = {
         # Food service
-        'restaurant': ('franchise_restaurant_unit', 'unit'),
-        'fast food': ('franchise_fastfood_unit', 'unit'),
-        'cafe': ('franchise_cafe_unit', 'unit'),
-        'coffee': ('franchise_cafe_unit', 'unit'),
-        'food': ('franchise_restaurant_unit', 'unit'),
+        "restaurant": ("franchise_restaurant_unit", "unit"),
+        "fast food": ("franchise_fastfood_unit", "unit"),
+        "cafe": ("franchise_cafe_unit", "unit"),
+        "coffee": ("franchise_cafe_unit", "unit"),
+        "food": ("franchise_restaurant_unit", "unit"),
         # Retail (store/shop are generic, checked after convenience)
-        'retail': ('franchise_retail_m2', 'm2'),
-        'store': ('franchise_retail_m2', 'm2'),
-        'shop': ('franchise_retail_m2', 'm2'),
+        "retail": ("franchise_retail_m2", "m2"),
+        "store": ("franchise_retail_m2", "m2"),
+        "shop": ("franchise_retail_m2", "m2"),
         # Services
-        'hotel': ('franchise_hotel_room', 'room'),
-        'hospitality': ('franchise_hotel_room', 'room'),
-        'gym': ('franchise_gym_m2', 'm2'),
-        'fitness': ('franchise_gym_m2', 'm2'),
-        'service': ('franchise_service_unit', 'unit'),
+        "hotel": ("franchise_hotel_room", "room"),
+        "hospitality": ("franchise_hotel_room", "room"),
+        "gym": ("franchise_gym_m2", "m2"),
+        "fitness": ("franchise_gym_m2", "m2"),
+        "service": ("franchise_service_unit", "unit"),
         # Other
-        'office': ('franchise_office_m2', 'm2'),
-        'gas station': ('franchise_gasstation_unit', 'unit'),
-        'fuel': ('franchise_gasstation_unit', 'unit'),
+        "office": ("franchise_office_m2", "m2"),
+        "gas station": ("franchise_gasstation_unit", "unit"),
+        "fuel": ("franchise_gasstation_unit", "unit"),
     }
 
     for key, result in franchise_map.items():
@@ -2825,7 +2931,7 @@ def resolve_v4_franchises(row: dict) -> tuple[str, str]:
             return result
 
     # Default: generic franchise per unit
-    return ('franchise_generic_unit', 'unit')
+    return ("franchise_generic_unit", "unit")
 
 
 # =============================================================================
@@ -2835,404 +2941,390 @@ def resolve_v4_franchises(row: dict) -> tuple[str, str]:
 V4_SHEET_CONFIGS = {
     # 3.1 Purchased Goods - v4
     # Supports 3 methods: Physical, Spend, Supplier-Specific
-    '3.1 Purchased Goods': SheetConfig(
-        sheet_name='3.1 Purchased Goods',
+    "3.1 Purchased Goods": SheetConfig(
+        sheet_name="3.1 Purchased Goods",
         scope=3,
-        category_code='3.1',
+        category_code="3.1",
         header_row=5,  # After title (1), info (2), warning (3), blank (4), headers (5)
         column_map={
             # Common fields
-            'Method': 'calc_type',              # Physical / Spend / Supplier-Specific
-            'Description': 'description',
-            'Date': 'activity_date',
+            "Method": "calc_type",  # Physical / Spend / Supplier-Specific
+            "Description": "description",
+            "Date": "activity_date",
             # Physical method fields (Sub-Category used for material type in current template)
-            'Sub-Category': 'material_type',    # Steel, Aluminum, Plastic-PET, etc.
-            'Quantity': 'quantity',
-            'Unit': 'unit',
+            "Sub-Category": "material_type",  # Steel, Aluminum, Plastic-PET, etc.
+            "Quantity": "quantity",
+            "Unit": "unit",
             # Spend method fields
-            'Category': 'spend_category',       # Office Supplies, IT Equipment, etc.
-            'Spend Amount': 'spend_amount',
-            'Currency': 'currency',
+            "Category": "spend_category",  # Office Supplies, IT Equipment, etc.
+            "Spend Amount": "spend_amount",
+            "Currency": "currency",
             # Supplier-Specific method fields
-            'Supplier EF (kg CO2e/unit)': 'supplier_ef',
-            'EPD Reference': 'epd_reference',
+            "Supplier EF (kg CO2e/unit)": "supplier_ef",
+            "EPD Reference": "epd_reference",
             # Optional
-            'Supplier Country': 'supplier_country',
+            "Supplier Country": "supplier_country",
         },
         activity_key_resolver=resolve_v4_purchased_goods,
     ),
-
     # 3.2 Capital Goods - v4
     # Supports 3 methods: Physical, Spend, Supplier-Specific
-    '3.2 Capital Goods': SheetConfig(
-        sheet_name='3.2 Capital Goods',
+    "3.2 Capital Goods": SheetConfig(
+        sheet_name="3.2 Capital Goods",
         scope=3,
-        category_code='3.2',
+        category_code="3.2",
         header_row=5,  # Row 5 is headers (after title, instructions, method guide)
         column_map={
-            'Method': 'calc_type',
-            'Asset Category': 'asset_category',
-            'Asset Type': 'asset_type',
-            'Description': 'description',
-            'Quantity': 'quantity',
-            'Unit': 'unit',
-            'Spend Amount': 'spend_amount',
-            'Currency': 'currency',
-            'Supplier EF': 'supplier_ef',  # For Supplier-Specific method
-            'Purchase Date': 'activity_date',
-            'Date': 'activity_date',  # Alias for client files
-            'Expected Lifetime (Years)': 'lifetime',
+            "Method": "calc_type",
+            "Asset Category": "asset_category",
+            "Asset Type": "asset_type",
+            "Description": "description",
+            "Quantity": "quantity",
+            "Unit": "unit",
+            "Spend Amount": "spend_amount",
+            "Currency": "currency",
+            "Supplier EF": "supplier_ef",  # For Supplier-Specific method
+            "Purchase Date": "activity_date",
+            "Date": "activity_date",  # Alias for client files
+            "Expected Lifetime (Years)": "lifetime",
         },
         activity_key_resolver=resolve_v4_capital_goods,
     ),
-
     # 3.4 Upstream Transport - v4
     # Supports 3 methods: Distance, Spend, Supplier-Specific
-    '3.4 Upstream Transport': SheetConfig(
-        sheet_name='3.4 Upstream Transport',
+    "3.4 Upstream Transport": SheetConfig(
+        sheet_name="3.4 Upstream Transport",
         scope=3,
-        category_code='3.4',
+        category_code="3.4",
         header_row=5,  # After title, instructions, method guide
         column_map={
-            'Method': 'calc_type',
-            'Transport Mode': 'transport_mode',
-            'Description': 'description',
+            "Method": "calc_type",
+            "Transport Mode": "transport_mode",
+            "Description": "description",
             # Distance method fields
-            'Weight (tonnes)': 'weight_tonnes',
-            'Distance (km)': 'distance_km',
-            'Origin': 'origin',
-            'Destination': 'destination',
+            "Weight (tonnes)": "weight_tonnes",
+            "Distance (km)": "distance_km",
+            "Origin": "origin",
+            "Destination": "destination",
             # Client file aliases for origin/destination
-            'Origin Country': 'origin',
-            'Destination Country': 'destination',
+            "Origin Country": "origin",
+            "Destination Country": "destination",
             # Spend method fields
-            'Spend Amount': 'spend_amount',
-            'Currency': 'currency',
+            "Spend Amount": "spend_amount",
+            "Currency": "currency",
             # Supplier-Specific method fields
-            'Supplier EF': 'supplier_ef',  # kg CO2e per tonne-km
-            'Unit': 'unit',
+            "Supplier EF": "supplier_ef",  # kg CO2e per tonne-km
+            "Unit": "unit",
             # Optional
-            'Related 3.1 Entry': 'related_entry',
-            'Date': 'activity_date',
+            "Related 3.1 Entry": "related_entry",
+            "Date": "activity_date",
         },
         activity_key_resolver=resolve_v4_transport,
     ),
-
     # 3.5 Waste - v4
     # 3.5 Waste - v4
     # Supports 3 methods: Physical, Spend, Supplier-Specific
-    '3.5 Waste': SheetConfig(
-        sheet_name='3.5 Waste',
+    "3.5 Waste": SheetConfig(
+        sheet_name="3.5 Waste",
         scope=3,
-        category_code='3.5',
+        category_code="3.5",
         header_row=5,  # After title, instructions, method guide
         column_map={
-            'Method': 'calc_type',
-            'Waste Type': 'waste_type',
-            'Treatment Method': 'treatment',
-            'Description': 'description',
+            "Method": "calc_type",
+            "Waste Type": "waste_type",
+            "Treatment Method": "treatment",
+            "Description": "description",
             # Physical method fields
-            'Quantity': 'quantity',
-            'Unit': 'unit',
+            "Quantity": "quantity",
+            "Unit": "unit",
             # Spend method fields
-            'Spend Amount': 'spend_amount',
-            'Currency': 'currency',
+            "Spend Amount": "spend_amount",
+            "Currency": "currency",
             # Supplier-Specific method fields
-            'Supplier EF': 'supplier_ef',  # kg CO2e per kg
+            "Supplier EF": "supplier_ef",  # kg CO2e per kg
             # Optional
-            'Site': 'site',
-            'Date': 'activity_date',
+            "Site": "site",
+            "Date": "activity_date",
         },
         activity_key_resolver=resolve_v4_waste,
     ),
-
     # 3.6 Flights - v4
-    '3.6 Flights': SheetConfig(
-        sheet_name='3.6 Flights',
+    "3.6 Flights": SheetConfig(
+        sheet_name="3.6 Flights",
         scope=3,
-        category_code='3.6',
+        category_code="3.6",
         header_row=4,
         column_map={
-            'Method': 'calc_type',
-            'Origin Airport (IATA)': 'origin_airport',
-            'Destination Airport (IATA)': 'destination_airport',
+            "Method": "calc_type",
+            "Origin Airport (IATA)": "origin_airport",
+            "Destination Airport (IATA)": "destination_airport",
             # Client file aliases for airport columns
-            'Origin Airport': 'origin_airport',
-            'Destination Airport': 'destination_airport',
-            'Cabin Class': 'cabin_class',
-            'Trip Type': 'trip_type',
-            'Number of Passengers': 'num_passengers',
-            'Passengers': 'num_passengers',  # Client file alias
-            'Number of Trips': 'num_trips',
-            'Spend Amount': 'spend_amount',
-            'Currency': 'currency',
-            'Traveler Name': 'traveler',
-            'Date': 'activity_date',
+            "Origin Airport": "origin_airport",
+            "Destination Airport": "destination_airport",
+            "Cabin Class": "cabin_class",
+            "Trip Type": "trip_type",
+            "Number of Passengers": "num_passengers",
+            "Passengers": "num_passengers",  # Client file alias
+            "Number of Trips": "num_trips",
+            "Spend Amount": "spend_amount",
+            "Currency": "currency",
+            "Traveler Name": "traveler",
+            "Date": "activity_date",
         },
         activity_key_resolver=resolve_v4_flights,
     ),
-
     # 3.6 Hotels - v4
-    '3.6 Hotels': SheetConfig(
-        sheet_name='3.6 Hotels',
+    "3.6 Hotels": SheetConfig(
+        sheet_name="3.6 Hotels",
         scope=3,
-        category_code='3.6',
+        category_code="3.6",
         header_row=4,
         column_map={
-            'Method': 'calc_type',
-            'Number of Nights': 'num_nights',
-            'Number of Rooms': 'num_rooms',
-            'Country': 'country',
-            'Spend Amount': 'spend_amount',
-            'Currency': 'currency',
-            'Traveler Name': 'traveler',
-            'Date': 'activity_date',
+            "Method": "calc_type",
+            "Number of Nights": "num_nights",
+            "Number of Rooms": "num_rooms",
+            "Country": "country",
+            "Spend Amount": "spend_amount",
+            "Currency": "currency",
+            "Traveler Name": "traveler",
+            "Date": "activity_date",
         },
         activity_key_resolver=resolve_v4_hotels,
     ),
-
     # 3.6 Other Travel - v4
-    '3.6 Other Travel': SheetConfig(
-        sheet_name='3.6 Other Travel',
+    "3.6 Other Travel": SheetConfig(
+        sheet_name="3.6 Other Travel",
         scope=3,
-        category_code='3.6',
+        category_code="3.6",
         header_row=4,
         column_map={
-            'Travel Type': 'travel_type',
-            'Method': 'calc_type',
-            'Distance (km)': 'distance_km',
-            'Spend Amount': 'spend_amount',
-            'Currency': 'currency',
-            'Description': 'description',
-            'Date': 'activity_date',
+            "Travel Type": "travel_type",
+            "Method": "calc_type",
+            "Distance (km)": "distance_km",
+            "Spend Amount": "spend_amount",
+            "Currency": "currency",
+            "Description": "description",
+            "Date": "activity_date",
         },
         activity_key_resolver=resolve_v4_other_travel,
     ),
-
     # 3.7 Commuting - v4
-    '3.7 Commuting': SheetConfig(
-        sheet_name='3.7 Commuting',
+    "3.7 Commuting": SheetConfig(
+        sheet_name="3.7 Commuting",
         scope=3,
-        category_code='3.7',
+        category_code="3.7",
         header_row=4,
         column_map={
-            'Method': 'calc_type',
-            'Transport Mode': 'transport_mode',
-            'Number of Employees': 'num_employees',
-            'Employees': 'num_employees',  # Client file alias
-            'Avg Distance One-Way (km)': 'avg_distance_km',
-            'Avg Distance (km)': 'avg_distance_km',  # Client file alias
-            'City/Zone (Israel)': 'city_zone',
-            'Working Days/Year': 'working_days',
-            'Country': 'country',
-            '% Remote Work': 'remote_work_pct',
-            '% Remote': 'remote_work_pct',  # Client file alias
-            'Comments': 'comments',
-            'Spend Amount': 'spend_amount',
-            'Currency': 'currency',
-            'Site/Department': 'site',
-            'Year': 'year',
+            "Method": "calc_type",
+            "Transport Mode": "transport_mode",
+            "Number of Employees": "num_employees",
+            "Employees": "num_employees",  # Client file alias
+            "Avg Distance One-Way (km)": "avg_distance_km",
+            "Avg Distance (km)": "avg_distance_km",  # Client file alias
+            "City/Zone (Israel)": "city_zone",
+            "Working Days/Year": "working_days",
+            "Country": "country",
+            "% Remote Work": "remote_work_pct",
+            "% Remote": "remote_work_pct",  # Client file alias
+            "Comments": "comments",
+            "Spend Amount": "spend_amount",
+            "Currency": "currency",
+            "Site/Department": "site",
+            "Year": "year",
         },
         activity_key_resolver=resolve_v4_commuting,
     ),
-
     # 3.8 Leased Assets - v4
-    '3.8 Leased Assets': SheetConfig(
-        sheet_name='3.8 Leased Assets',
+    "3.8 Leased Assets": SheetConfig(
+        sheet_name="3.8 Leased Assets",
         scope=3,
-        category_code='3.8',
+        category_code="3.8",
         header_row=5,  # After title and warning
         column_map={
-            'Method': 'calc_type',
-            'Building Type': 'building_type',
-            'Description': 'description',
-            'Floor Area (m\u00b2)': 'floor_area_m2',
-            'Electricity (kWh)': 'electricity_kwh',
-            'Gas (kWh)': 'gas_kwh',
-            'Country': 'country',
-            'Tenant Scope 1 CO2e (kg)': 'tenant_scope1_co2e',
-            'Tenant Scope 2 CO2e (kg)': 'tenant_scope2_co2e',
-            'Spend Amount': 'spend_amount',
-            'Currency': 'currency',
-            'Year': 'year',
+            "Method": "calc_type",
+            "Building Type": "building_type",
+            "Description": "description",
+            "Floor Area (m\u00b2)": "floor_area_m2",
+            "Electricity (kWh)": "electricity_kwh",
+            "Gas (kWh)": "gas_kwh",
+            "Country": "country",
+            "Tenant Scope 1 CO2e (kg)": "tenant_scope1_co2e",
+            "Tenant Scope 2 CO2e (kg)": "tenant_scope2_co2e",
+            "Spend Amount": "spend_amount",
+            "Currency": "currency",
+            "Year": "year",
         },
         activity_key_resolver=resolve_v4_leased_assets,
     ),
-
     # 3.9 Downstream Transport - v4
-    '3.9 Downstream Transport': SheetConfig(
-        sheet_name='3.9 Downstream Transport',
+    "3.9 Downstream Transport": SheetConfig(
+        sheet_name="3.9 Downstream Transport",
         scope=3,
-        category_code='3.9',
+        category_code="3.9",
         header_row=4,
         column_map={
-            'Method': 'calc_type',
-            'Description': 'description',
-            'Weight (tonnes)': 'weight_tonnes',
-            'Origin Country': 'origin_country',
-            'Destination Country': 'destination_country',
-            'Distance (km)': 'distance_km',
-            'Transport Mode': 'transport_mode',
-            'Spend Amount': 'spend_amount',
-            'Currency': 'currency',
-            'Customer/Region': 'customer',
-            'Date': 'activity_date',
+            "Method": "calc_type",
+            "Description": "description",
+            "Weight (tonnes)": "weight_tonnes",
+            "Origin Country": "origin_country",
+            "Destination Country": "destination_country",
+            "Distance (km)": "distance_km",
+            "Transport Mode": "transport_mode",
+            "Spend Amount": "spend_amount",
+            "Currency": "currency",
+            "Customer/Region": "customer",
+            "Date": "activity_date",
         },
         activity_key_resolver=resolve_v4_transport,
     ),
-
     # 3.10 Processing of Sold Products - v4
     # Supports 3 methods: Site-specific, Average, Spend
-    '3.10 Processing of Sold Products': SheetConfig(
-        sheet_name='3.10 Processing of Sold Products',
+    "3.10 Processing of Sold Products": SheetConfig(
+        sheet_name="3.10 Processing of Sold Products",
         scope=3,
-        category_code='3.10',
+        category_code="3.10",
         header_row=5,  # After title, instructions, method guide
         column_map={
-            'Method': 'calc_type',
-            'Product Type': 'product_type',
-            'Product Category': 'product_category',
-            'Processing Type': 'process_type',
-            'Description': 'description',
+            "Method": "calc_type",
+            "Product Type": "product_type",
+            "Product Category": "product_category",
+            "Processing Type": "process_type",
+            "Description": "description",
             # Average method fields
-            'Quantity Sold': 'quantity',
-            'Unit': 'unit',
+            "Quantity Sold": "quantity",
+            "Unit": "unit",
             # Site-specific method fields
-            'Processing Energy (kWh)': 'energy_kwh',
-            'Customer/Processor': 'processor',
+            "Processing Energy (kWh)": "energy_kwh",
+            "Customer/Processor": "processor",
             # Spend method fields
-            'Revenue from Product': 'revenue',
-            'Currency': 'currency',
+            "Revenue from Product": "revenue",
+            "Currency": "currency",
             # Supplier-specific
-            'Supplier EF': 'supplier_ef',
+            "Supplier EF": "supplier_ef",
             # Optional
-            'Date': 'activity_date',
+            "Date": "activity_date",
         },
         activity_key_resolver=resolve_v4_processing_sold_products,
     ),
-
     # 3.11 Use of Sold Products - v4
     # Supports 3 methods: Direct Use-Phase, Fuel-Based, Spend
-    '3.11 Use of Sold Products': SheetConfig(
-        sheet_name='3.11 Use of Sold Products',
+    "3.11 Use of Sold Products": SheetConfig(
+        sheet_name="3.11 Use of Sold Products",
         scope=3,
-        category_code='3.11',
+        category_code="3.11",
         header_row=5,  # After title, instructions, method guide
         column_map={
-            'Method': 'calc_type',
-            'Product Type': 'product_type',
-            'Product Category': 'product_category',
-            'Description': 'description',
+            "Method": "calc_type",
+            "Product Type": "product_type",
+            "Product Category": "product_category",
+            "Description": "description",
             # Direct use-phase fields
-            'Units Sold': 'units_sold',
-            'Lifetime Energy (kWh/unit)': 'lifetime_energy',
-            'Lifetime (years)': 'lifetime_years',
+            "Units Sold": "units_sold",
+            "Lifetime Energy (kWh/unit)": "lifetime_energy",
+            "Lifetime (years)": "lifetime_years",
             # Fuel-based fields
-            'Lifetime Fuel (liters/unit)': 'lifetime_fuel',
-            'Fuel Type': 'fuel_type',
-            'Energy Source': 'energy_source',
+            "Lifetime Fuel (liters/unit)": "lifetime_fuel",
+            "Fuel Type": "fuel_type",
+            "Energy Source": "energy_source",
             # Spend method fields
-            'Revenue': 'revenue',
-            'Currency': 'currency',
+            "Revenue": "revenue",
+            "Currency": "currency",
             # Optional
-            'Date': 'activity_date',
+            "Date": "activity_date",
         },
         activity_key_resolver=resolve_v4_use_sold_products,
     ),
-
     # 3.12 End-of-Life Treatment of Sold Products - v4
     # Supports 3 methods: Waste-Type, Average, Spend
-    '3.12 End-of-Life Treatment': SheetConfig(
-        sheet_name='3.12 End-of-Life Treatment',
+    "3.12 End-of-Life Treatment": SheetConfig(
+        sheet_name="3.12 End-of-Life Treatment",
         scope=3,
-        category_code='3.12',
+        category_code="3.12",
         header_row=5,  # After title, instructions, method guide
         column_map={
-            'Method': 'calc_type',
-            'Material Type': 'material_type',
-            'Product Material': 'product_material',
-            'Disposal Method': 'disposal_method',
-            'Treatment': 'treatment',
-            'Description': 'description',
+            "Method": "calc_type",
+            "Material Type": "material_type",
+            "Product Material": "product_material",
+            "Disposal Method": "disposal_method",
+            "Treatment": "treatment",
+            "Description": "description",
             # Waste-type method fields
-            'Weight (kg)': 'weight_kg',
-            'Units Sold': 'units_sold',
-            'Unit Weight (kg)': 'unit_weight',
+            "Weight (kg)": "weight_kg",
+            "Units Sold": "units_sold",
+            "Unit Weight (kg)": "unit_weight",
             # Spend method fields
-            'Revenue': 'revenue',
-            'Currency': 'currency',
+            "Revenue": "revenue",
+            "Currency": "currency",
             # Optional
-            'Date': 'activity_date',
+            "Date": "activity_date",
         },
         activity_key_resolver=resolve_v4_end_of_life,
     ),
-
     # 3.13 Downstream Leased Assets - v4
     # Emissions from assets owned by reporting company and leased to others
     # Supports 3 methods: Asset-Specific, Average, Spend
-    '3.13 Downstream Leased Assets': SheetConfig(
-        sheet_name='3.13 Downstream Leased Assets',
+    "3.13 Downstream Leased Assets": SheetConfig(
+        sheet_name="3.13 Downstream Leased Assets",
         scope=3,
-        category_code='3.13',
+        category_code="3.13",
         header_row=5,  # After title, instructions, method guide
         column_map={
-            'Method': 'calc_type',
-            'Asset Type': 'asset_type',
-            'Building Type': 'building_type',
-            'Description': 'description',
+            "Method": "calc_type",
+            "Asset Type": "asset_type",
+            "Building Type": "building_type",
+            "Description": "description",
             # Asset-specific method fields
-            'Energy Type': 'energy_type',
-            'Energy Consumption': 'energy_consumption',
-            'Energy Unit': 'energy_unit',
+            "Energy Type": "energy_type",
+            "Energy Consumption": "energy_consumption",
+            "Energy Unit": "energy_unit",
             # Average method fields
-            'Floor Area (m2)': 'floor_area',
-            'Number of Units': 'num_units',
+            "Floor Area (m2)": "floor_area",
+            "Number of Units": "num_units",
             # Spend method fields (rental income)
-            'Rental Income': 'rental_income',
-            'Currency': 'currency',
+            "Rental Income": "rental_income",
+            "Currency": "currency",
             # Tenant emissions pass-through
-            'Tenant Scope 1 CO2e (kg)': 'tenant_scope1_co2e',
-            'Tenant Scope 2 CO2e (kg)': 'tenant_scope2_co2e',
+            "Tenant Scope 1 CO2e (kg)": "tenant_scope1_co2e",
+            "Tenant Scope 2 CO2e (kg)": "tenant_scope2_co2e",
             # Optional
-            'Tenant': 'tenant',
-            'Lessee': 'tenant',  # Client file alias
-            'Location': 'location',
-            'Date': 'activity_date',
+            "Tenant": "tenant",
+            "Lessee": "tenant",  # Client file alias
+            "Location": "location",
+            "Date": "activity_date",
         },
         activity_key_resolver=resolve_v4_downstream_leased_assets,
     ),
-
     # 3.14 Franchises - v4
     # Emissions from operation of franchises (reported by franchisor)
     # Supports 3 methods: Franchise-Specific, Average, Spend
-    '3.14 Franchises': SheetConfig(
-        sheet_name='3.14 Franchises',
+    "3.14 Franchises": SheetConfig(
+        sheet_name="3.14 Franchises",
         scope=3,
-        category_code='3.14',
+        category_code="3.14",
         header_row=5,  # After title, instructions, method guide
         column_map={
-            'Method': 'calc_type',
-            'Franchise Type': 'franchise_type',
-            'Business Type': 'business_type',
-            'Description': 'description',
+            "Method": "calc_type",
+            "Franchise Type": "franchise_type",
+            "Business Type": "business_type",
+            "Description": "description",
             # Franchise-specific method fields
-            'Energy Type': 'energy_type',
-            'Energy Consumption': 'energy_consumption',
-            'Fuel Consumption': 'fuel_consumption',
+            "Energy Type": "energy_type",
+            "Energy Consumption": "energy_consumption",
+            "Fuel Consumption": "fuel_consumption",
             # Average method fields
-            'Number of Locations': 'num_locations',
-            'Floor Area (m2)': 'floor_area',
-            'Number of Rooms': 'num_rooms',
+            "Number of Locations": "num_locations",
+            "Floor Area (m2)": "floor_area",
+            "Number of Rooms": "num_rooms",
             # Spend method fields (franchise revenue)
-            'Franchise Revenue': 'franchise_revenue',
-            'Currency': 'currency',
+            "Franchise Revenue": "franchise_revenue",
+            "Currency": "currency",
             # Tenant/franchisee emissions pass-through
-            'Tenant Scope 1 CO2e (kg)': 'tenant_scope1_co2e',
-            'Tenant Scope 2 CO2e (kg)': 'tenant_scope2_co2e',
+            "Tenant Scope 1 CO2e (kg)": "tenant_scope1_co2e",
+            "Tenant Scope 2 CO2e (kg)": "tenant_scope2_co2e",
             # Optional
-            'Franchisee Name': 'franchisee_name',
-            'Location': 'location',
-            'Date': 'activity_date',
+            "Franchisee Name": "franchisee_name",
+            "Location": "location",
+            "Date": "activity_date",
         },
         activity_key_resolver=resolve_v4_franchises,
     ),
@@ -3242,24 +3334,26 @@ V4_SHEET_CONFIGS = {
 SHEET_CONFIGS.update(V4_SHEET_CONFIGS)
 
 
-def create_auto_detect_config(sheet_name: str, headers: list[str]) -> SheetConfig | None:
+def create_auto_detect_config(
+    sheet_name: str, headers: list[str]
+) -> SheetConfig | None:
     """
     Auto-detect sheet configuration based on column headers.
 
     This is a fallback for sheets with non-standard names (like "Sheet1", "Data", etc.)
     """
-    headers_lower = [h.lower().strip() if h else '' for h in headers]
+    headers_lower = [h.lower().strip() if h else "" for h in headers]
 
     # Check for common patterns to determine sheet type
-    has_fuel_type = any('fuel' in h for h in headers_lower)
-    has_vehicle = any('vehicle' in h for h in headers_lower)
-    has_refrigerant = any('refrigerant' in h or 'gas type' in h for h in headers_lower)
-    has_electricity = any('electricity' in h or 'kwh' in h for h in headers_lower)
-    has_quantity = any('quantity' in h or 'amount' in h for h in headers_lower)
-    has_description = any('description' in h or 'desc' in h for h in headers_lower)
-    has_unit = any('unit' in h for h in headers_lower)
-    has_scope = any('scope' in h for h in headers_lower)
-    has_category = any('category' in h for h in headers_lower)
+    has_fuel_type = any("fuel" in h for h in headers_lower)
+    has_vehicle = any("vehicle" in h for h in headers_lower)
+    has_refrigerant = any("refrigerant" in h or "gas type" in h for h in headers_lower)
+    has_electricity = any("electricity" in h or "kwh" in h for h in headers_lower)
+    has_quantity = any("quantity" in h or "amount" in h for h in headers_lower)
+    any("description" in h or "desc" in h for h in headers_lower)
+    any("unit" in h for h in headers_lower)
+    any("scope" in h for h in headers_lower)
+    any("category" in h for h in headers_lower)
 
     # Build column map based on detected headers
     column_map = {}
@@ -3269,44 +3363,44 @@ def create_auto_detect_config(sheet_name: str, headers: list[str]) -> SheetConfi
         h = header.lower().strip()
 
         # Description variations
-        if 'description' in h or h == 'desc':
-            column_map[header] = 'description'
+        if "description" in h or h == "desc":
+            column_map[header] = "description"
         # Quantity variations
-        elif 'quantity' in h or 'amount' in h or h == 'qty':
-            column_map[header] = 'quantity'
+        elif "quantity" in h or "amount" in h or h == "qty":
+            column_map[header] = "quantity"
         # Unit variations
-        elif 'unit' in h or 'currency' in h:
-            column_map[header] = 'unit'
+        elif "unit" in h or "currency" in h:
+            column_map[header] = "unit"
         # Date variations
-        elif 'date' in h or 'year' in h:
-            column_map[header] = 'year' if 'year' in h else 'activity_date'
+        elif "date" in h or "year" in h:
+            column_map[header] = "year" if "year" in h else "activity_date"
         # Site variations
-        elif 'site' in h or 'location' in h or 'facility' in h:
-            column_map[header] = 'site'
+        elif "site" in h or "location" in h or "facility" in h:
+            column_map[header] = "site"
         # Scope
-        elif 'scope' in h:
-            column_map[header] = 'scope'
+        elif "scope" in h:
+            column_map[header] = "scope"
         # Category
-        elif 'category' in h:
-            column_map[header] = 'category_code'
+        elif "category" in h:
+            column_map[header] = "category_code"
         # Fuel type
-        elif 'fuel' in h:
-            column_map[header] = 'fuel_type'
+        elif "fuel" in h:
+            column_map[header] = "fuel_type"
         # Vehicle type
-        elif 'vehicle' in h:
-            column_map[header] = 'vehicle_type'
+        elif "vehicle" in h:
+            column_map[header] = "vehicle_type"
         # Method/calc type
-        elif 'method' in h or 'calc' in h:
-            column_map[header] = 'calc_type'
+        elif "method" in h or "calc" in h:
+            column_map[header] = "calc_type"
         # Refrigerant
-        elif 'refrigerant' in h or 'gas type' in h:
-            column_map[header] = 'gas_type'
+        elif "refrigerant" in h or "gas type" in h:
+            column_map[header] = "gas_type"
         # Country/Region
-        elif 'country' in h or 'region' in h:
-            column_map[header] = 'country_code'
+        elif "country" in h or "region" in h:
+            column_map[header] = "country_code"
         # Activity type/key
-        elif 'activity' in h and ('type' in h or 'key' in h):
-            column_map[header] = 'activity_key'
+        elif "activity" in h and ("type" in h or "key" in h):
+            column_map[header] = "activity_key"
 
     if not has_quantity or not column_map:
         return None
@@ -3314,24 +3408,24 @@ def create_auto_detect_config(sheet_name: str, headers: list[str]) -> SheetConfi
     # Determine scope and category based on content indicators
     # Default to a generic spend-based approach which is most flexible
     scope = 3
-    category_code = '3.1'
-    resolver = lambda row: resolve_spend_generic(row, 'spend_other')
+    category_code = "3.1"
+    resolver = lambda row: resolve_spend_generic(row, "spend_other")
 
     if has_refrigerant:
         scope = 1
-        category_code = '1.3'
+        category_code = "1.3"
         resolver = resolve_refrigerant
     elif has_vehicle:
         scope = 1
-        category_code = '1.2'
+        category_code = "1.2"
         resolver = resolve_mobile_fuel
     elif has_fuel_type and not has_vehicle:
         scope = 1
-        category_code = '1.1'
+        category_code = "1.1"
         resolver = resolve_stationary_fuel
     elif has_electricity:
         scope = 2
-        category_code = '2.1'
+        category_code = "2.1"
         resolver = resolve_electricity
 
     return SheetConfig(
@@ -3341,5 +3435,5 @@ def create_auto_detect_config(sheet_name: str, headers: list[str]) -> SheetConfi
         header_row=1,  # Will be overridden by auto-detection
         column_map=column_map,
         activity_key_resolver=resolver,
-        is_spend_based=(scope == 3 and category_code in ['3.1', '3.2']),
+        is_spend_based=(scope == 3 and category_code in ["3.1", "3.2"]),
     )

@@ -19,6 +19,7 @@ Exports:
 
 Note: Emission factors and reference data are NOT exported (will be freshly seeded).
 """
+
 import json
 import sys
 from datetime import date, datetime
@@ -36,7 +37,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from app.config import settings
 from app.models.core import Organization, User, Site, ReportingPeriod
 from app.models.emission import Activity, Emission, ImportBatch
-
 
 app = typer.Typer(help="Export CLIMATRIX data for migration")
 
@@ -57,7 +57,7 @@ def serialize_value(value):
         return [serialize_value(v) for v in value]
     elif isinstance(value, dict):
         return {k: serialize_value(v) for k, v in value.items()}
-    elif hasattr(value, 'value'):  # Enum
+    elif hasattr(value, "value"):  # Enum
         return value.value
     else:
         return value
@@ -102,7 +102,9 @@ def export_sites(session: Session, org_id: Optional[UUID] = None) -> list[dict]:
     return [model_to_dict(site) for site in sites]
 
 
-def export_reporting_periods(session: Session, org_id: Optional[UUID] = None) -> list[dict]:
+def export_reporting_periods(
+    session: Session, org_id: Optional[UUID] = None
+) -> list[dict]:
     """Export reporting periods."""
     query = select(ReportingPeriod)
     if org_id:
@@ -112,7 +114,9 @@ def export_reporting_periods(session: Session, org_id: Optional[UUID] = None) ->
     return [model_to_dict(period) for period in periods]
 
 
-def export_import_batches(session: Session, org_id: Optional[UUID] = None) -> list[dict]:
+def export_import_batches(
+    session: Session, org_id: Optional[UUID] = None
+) -> list[dict]:
     """Export import batches."""
     query = select(ImportBatch)
     if org_id:
@@ -147,8 +151,12 @@ def export_emissions(session: Session, activity_ids: list[str]) -> list[dict]:
 @app.command()
 def export_data(
     output: str = typer.Option(..., "--output", "-o", help="Output JSON file path"),
-    org_id: Optional[str] = typer.Option(None, "--org-id", help="Export single organization by ID"),
-    database_url: Optional[str] = typer.Option(None, "--database-url", help="Override database URL"),
+    org_id: Optional[str] = typer.Option(
+        None, "--org-id", help="Export single organization by ID"
+    ),
+    database_url: Optional[str] = typer.Option(
+        None, "--database-url", help="Override database URL"
+    ),
 ):
     """Export all user data to JSON file."""
 
@@ -163,7 +171,7 @@ def export_data(
 
     engine = create_engine(db_url)
 
-    typer.echo(f"Connecting to database...")
+    typer.echo("Connecting to database...")
     typer.echo(f"URL: {db_url[:50]}...")
 
     org_uuid = UUID(org_id) if org_id else None
@@ -221,7 +229,7 @@ def export_data(
             "import_batches": len(import_batches),
             "activities": len(activities),
             "emissions": len(emissions),
-        }
+        },
     }
 
     # Write to file
@@ -229,7 +237,7 @@ def export_data(
     with open(output_path, "w") as f:
         json.dump(export, f, indent=2)
 
-    typer.echo(f"\nExport complete!")
+    typer.echo("\nExport complete!")
     typer.echo(f"Output file: {output_path.absolute()}")
     typer.echo(f"Total records: {sum(export['counts'].values())}")
 

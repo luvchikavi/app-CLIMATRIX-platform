@@ -8,9 +8,9 @@ Finds the correct emission factor using ranked fallback strategies:
 
 GOVERNANCE: Only factors with status='approved' are used in calculations.
 """
+
 from enum import Enum
 from typing import NamedTuple, Optional
-from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -20,18 +20,20 @@ from app.models.emission import EmissionFactor, EmissionFactorStatus
 
 class ResolutionStrategy(str, Enum):
     """How the factor was resolved."""
-    EXACT = "exact"           # Perfect match on key + region + year
-    REGION = "region"         # Matched key + region, different year
-    GLOBAL = "global"         # Fell back to Global region
-    SUPPLIER = "supplier"     # Supplier-provided factor
-    ECOINVENT = "ecoinvent"   # EcoInvent database (stub)
+
+    EXACT = "exact"  # Perfect match on key + region + year
+    REGION = "region"  # Matched key + region, different year
+    GLOBAL = "global"  # Fell back to Global region
+    SUPPLIER = "supplier"  # Supplier-provided factor
+    ECOINVENT = "ecoinvent"  # EcoInvent database (stub)
     DEFRA_PHYSICAL = "defra_physical"  # DEFRA physical material factor
     EEIO_SPEND = "eeio_spend"  # EEIO spend-based (lowest tier)
-    NOT_FOUND = "not_found"   # No factor found
+    NOT_FOUND = "not_found"  # No factor found
 
 
 class ResolutionResult(NamedTuple):
     """Result of factor resolution."""
+
     factor: Optional[EmissionFactor]
     strategy: ResolutionStrategy
     confidence: str  # "high", "medium", "low"
@@ -81,7 +83,7 @@ class FactorResolver:
                 factor=factor,
                 strategy=ResolutionStrategy.EXACT,
                 confidence="high",
-                message=f"Exact match: {activity_key} for {region} {year}"
+                message=f"Exact match: {activity_key} for {region} {year}",
             )
 
         # Strategy 2: Region-specific (key + region, latest year)
@@ -91,7 +93,7 @@ class FactorResolver:
                 factor=factor,
                 strategy=ResolutionStrategy.REGION,
                 confidence="high",
-                message=f"Region match: {activity_key} for {region} (year {factor.year})"
+                message=f"Region match: {activity_key} for {region} (year {factor.year})",
             )
 
         # Strategy 3: Global fallback
@@ -102,7 +104,7 @@ class FactorResolver:
                     factor=factor,
                     strategy=ResolutionStrategy.GLOBAL,
                     confidence="medium",
-                    message=f"Using Global factor for {activity_key} (no {region}-specific factor)"
+                    message=f"Using Global factor for {activity_key} (no {region}-specific factor)",
                 )
 
         # Strategy 4: Any region (activity_key encodes region, e.g., "electricity_il")
@@ -112,7 +114,7 @@ class FactorResolver:
                 factor=factor,
                 strategy=ResolutionStrategy.REGION,
                 confidence="high",
-                message=f"Found {activity_key} for region {factor.region}"
+                message=f"Found {activity_key} for region {factor.region}",
             )
 
         # Not found
@@ -120,14 +122,11 @@ class FactorResolver:
             factor=None,
             strategy=ResolutionStrategy.NOT_FOUND,
             confidence="none",
-            message=f"No emission factor found for activity_key='{activity_key}'"
+            message=f"No emission factor found for activity_key='{activity_key}'",
         )
 
     async def _find_exact(
-        self,
-        activity_key: str,
-        region: str,
-        year: int
+        self, activity_key: str, region: str, year: int
     ) -> Optional[EmissionFactor]:
         """Find factor with exact key + region + year match."""
         query = (
@@ -145,9 +144,7 @@ class FactorResolver:
         return result.scalar_one_or_none()
 
     async def _find_by_region(
-        self,
-        activity_key: str,
-        region: str
+        self, activity_key: str, region: str
     ) -> Optional[EmissionFactor]:
         """Find factor by key + region, using latest available year."""
         query = (
@@ -164,10 +161,7 @@ class FactorResolver:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
-    async def _find_any_region(
-        self,
-        activity_key: str
-    ) -> Optional[EmissionFactor]:
+    async def _find_any_region(self, activity_key: str) -> Optional[EmissionFactor]:
         """Find factor by activity_key only (any region), using latest year."""
         query = (
             select(EmissionFactor)
@@ -241,13 +235,15 @@ class FactorResolver:
                 strategy=ResolutionStrategy.EEIO_SPEND,
                 confidence="low",
                 message=f"Using EEIO spend-based factor for {activity_key} "
-                        f"(lowest tier in hierarchy). Consider providing material-specific data."
+                f"(lowest tier in hierarchy). Consider providing material-specific data.",
             )
 
         return result
 
     @staticmethod
-    def _lookup_ecoinvent(activity_key: str, material_key: str | None) -> ResolutionResult | None:
+    def _lookup_ecoinvent(
+        activity_key: str, material_key: str | None
+    ) -> ResolutionResult | None:
         """
         Stub for EcoInvent database lookup.
 
@@ -293,10 +289,11 @@ class FactorResolver:
             strategy=ResolutionStrategy.DEFRA_PHYSICAL,
             confidence="medium",
             message=f"Using DEFRA physical factor for {factor_data['display_name']}: "
-                    f"{factor_data['co2e_per_kg']} kg CO2e/kg"
+            f"{factor_data['co2e_per_kg']} kg CO2e/kg",
         )
 
 
 class FactorNotFoundError(Exception):
     """Raised when no emission factor can be resolved."""
+
     pass

@@ -9,16 +9,14 @@ To run the worker:
 Or with more workers:
     arq app.worker.WorkerSettings --watch
 """
-import asyncio
+
 import csv
 import io
 import os
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
 from uuid import UUID
 
-from arq import cron
 from arq.connections import RedisSettings
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlmodel import select
@@ -30,10 +28,10 @@ from app.models.core import ReportingPeriod
 from app.services.calculation import CalculationPipeline, ActivityInput
 from app.services.ai import ColumnMapper, DataExtractor, DataValidator
 
-
 # =============================================================================
 # Database Session Factory
 # =============================================================================
+
 
 def get_async_session_factory():
     """Create async session factory for worker."""
@@ -44,6 +42,7 @@ def get_async_session_factory():
 # =============================================================================
 # Import Job Processor
 # =============================================================================
+
 
 async def process_import_job(ctx: dict, job_id: str) -> dict:
     """
@@ -77,7 +76,7 @@ async def process_import_job(ctx: dict, job_id: str) -> dict:
 
         try:
             # Read the file
-            with open(job.file_path, 'r', encoding='utf-8') as f:
+            with open(job.file_path, "r", encoding="utf-8") as f:
                 content = f.read()
 
             # Parse CSV
@@ -88,7 +87,9 @@ async def process_import_job(ctx: dict, job_id: str) -> dict:
 
             # Get reporting period for validation
             period_result = await session.execute(
-                select(ReportingPeriod).where(ReportingPeriod.id == job.reporting_period_id)
+                select(ReportingPeriod).where(
+                    ReportingPeriod.id == job.reporting_period_id
+                )
             )
             period = period_result.scalar_one_or_none()
 
@@ -107,7 +108,9 @@ async def process_import_job(ctx: dict, job_id: str) -> dict:
             for i, row in enumerate(rows):
                 try:
                     # Parse row data
-                    activity_data = parse_import_row(row, job.organization_id, job.reporting_period_id)
+                    activity_data = parse_import_row(
+                        row, job.organization_id, job.reporting_period_id
+                    )
 
                     # Create activity
                     activity = Activity(
@@ -128,15 +131,21 @@ async def process_import_job(ctx: dict, job_id: str) -> dict:
                     await session.flush()  # Get activity ID
 
                     # Calculate emission
-                    calc_result = await pipeline.calculate(ActivityInput(
-                        activity_key=activity.activity_key,
-                        quantity=activity.quantity,
-                        unit=activity.unit,
-                        scope=activity.scope,
-                        category_code=activity.category_code,
-                        region=period.organization.default_region if hasattr(period, 'organization') else "Global",
-                        year=settings.default_emission_factor_year,
-                    ))
+                    calc_result = await pipeline.calculate(
+                        ActivityInput(
+                            activity_key=activity.activity_key,
+                            quantity=activity.quantity,
+                            unit=activity.unit,
+                            scope=activity.scope,
+                            category_code=activity.category_code,
+                            region=(
+                                period.organization.default_region
+                                if hasattr(period, "organization")
+                                else "Global"
+                            ),
+                            year=settings.default_emission_factor_year,
+                        )
+                    )
 
                     # Create emission record
                     emission = Emission(
@@ -161,11 +170,7 @@ async def process_import_job(ctx: dict, job_id: str) -> dict:
 
                 except Exception as e:
                     failed += 1
-                    row_errors.append({
-                        "row": i + 1,
-                        "error": str(e),
-                        "data": row
-                    })
+                    row_errors.append({"row": i + 1, "error": str(e), "data": row})
 
                 # Update progress every 10 rows
                 if (i + 1) % 10 == 0:
@@ -182,7 +187,7 @@ async def process_import_job(ctx: dict, job_id: str) -> dict:
                     "successful": successful,
                     "failed": failed,
                     "activities_created": len(activities_created),
-                }
+                },
             )
             await session.commit()
 
@@ -272,6 +277,7 @@ def parse_import_row(row: dict, org_id: UUID, period_id: UUID) -> dict:
     try:
         # Try common date formats
         from datetime import datetime
+
         for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y/%m/%d"]:
             try:
                 activity_date = datetime.strptime(date_str, fmt).date()
@@ -297,6 +303,7 @@ def parse_import_row(row: dict, org_id: UUID, period_id: UUID) -> dict:
 # =============================================================================
 # AI-Powered Smart Import Job
 # =============================================================================
+
 
 async def smart_import_job(ctx: dict, job_id: str) -> dict:
     """
@@ -339,7 +346,7 @@ async def smart_import_job(ctx: dict, job_id: str) -> dict:
 
         try:
             # Read the file
-            with open(job.file_path, 'r', encoding='utf-8') as f:
+            with open(job.file_path, "r", encoding="utf-8") as f:
                 content = f.read()
 
             # Parse CSV
@@ -353,7 +360,9 @@ async def smart_import_job(ctx: dict, job_id: str) -> dict:
             mapping_result = column_mapper.map_columns(headers, sample_data)
 
             if not mapping_result.success:
-                job.mark_failed("AI could not map columns. Please use standard template.")
+                job.mark_failed(
+                    "AI could not map columns. Please use standard template."
+                )
                 await session.commit()
                 return {"error": "Column mapping failed"}
 
@@ -379,7 +388,9 @@ async def smart_import_job(ctx: dict, job_id: str) -> dict:
 
             # Get reporting period
             period_result = await session.execute(
-                select(ReportingPeriod).where(ReportingPeriod.id == job.reporting_period_id)
+                select(ReportingPeriod).where(
+                    ReportingPeriod.id == job.reporting_period_id
+                )
             )
             period = period_result.scalar_one_or_none()
 
@@ -408,7 +419,13 @@ async def smart_import_job(ctx: dict, job_id: str) -> dict:
                     activity_date = None
                     if mapping_result.date_column and mapping_result.date_column in row:
                         date_str = row[mapping_result.date_column]
-                        for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y/%m/%d", "%Y-%m"]:
+                        for fmt in [
+                            "%Y-%m-%d",
+                            "%d/%m/%Y",
+                            "%m/%d/%Y",
+                            "%Y/%m/%d",
+                            "%Y-%m",
+                        ]:
                             try:
                                 activity_date = datetime.strptime(date_str, fmt).date()
                                 break
@@ -437,29 +454,39 @@ async def smart_import_job(ctx: dict, job_id: str) -> dict:
                             if extraction.activities:
                                 quantity = extraction.activities[0].quantity
                             else:
-                                row_errors.append({
-                                    "row": i + 1,
-                                    "column": col_name,
-                                    "error": f"Could not parse quantity: {value}",
-                                })
+                                row_errors.append(
+                                    {
+                                        "row": i + 1,
+                                        "column": col_name,
+                                        "error": f"Could not parse quantity: {value}",
+                                    }
+                                )
                                 failed += 1
                                 continue
 
                         # Validate with AI
-                        validation = data_validator.validate_activity({
-                            "activity_key": mapping.activity_key,
-                            "quantity": float(quantity),
-                            "unit": mapping.detected_unit,
-                        })
+                        validation = data_validator.validate_activity(
+                            {
+                                "activity_key": mapping.activity_key,
+                                "quantity": float(quantity),
+                                "unit": mapping.detected_unit,
+                            }
+                        )
 
                         if not validation.is_valid:
-                            errors_str = "; ".join(i.message for i in validation.issues if i.severity == "error")
-                            row_errors.append({
-                                "row": i + 1,
-                                "column": col_name,
-                                "error": errors_str,
-                                "ai_notes": validation.ai_notes,
-                            })
+                            errors_str = "; ".join(
+                                i.message
+                                for i in validation.issues
+                                if i.severity == "error"
+                            )
+                            row_errors.append(
+                                {
+                                    "row": i + 1,
+                                    "column": col_name,
+                                    "error": errors_str,
+                                    "ai_notes": validation.ai_notes,
+                                }
+                            )
                             failed += 1
                             continue
 
@@ -482,15 +509,17 @@ async def smart_import_job(ctx: dict, job_id: str) -> dict:
                         await session.flush()
 
                         # Calculate emission
-                        calc_result = await pipeline.calculate(ActivityInput(
-                            activity_key=activity.activity_key,
-                            quantity=activity.quantity,
-                            unit=activity.unit,
-                            scope=activity.scope,
-                            category_code=activity.category_code,
-                            region="Global",
-                            year=settings.default_emission_factor_year,
-                        ))
+                        calc_result = await pipeline.calculate(
+                            ActivityInput(
+                                activity_key=activity.activity_key,
+                                quantity=activity.quantity,
+                                unit=activity.unit,
+                                scope=activity.scope,
+                                category_code=activity.category_code,
+                                region="Global",
+                                year=settings.default_emission_factor_year,
+                            )
+                        )
 
                         # Create emission
                         emission = Emission(
@@ -506,7 +535,9 @@ async def smart_import_job(ctx: dict, job_id: str) -> dict:
                             formula=calc_result.formula,
                             confidence=calc_result.confidence,
                             resolution_strategy=calc_result.resolution_strategy,
-                            warnings=calc_result.warnings if calc_result.warnings else None,
+                            warnings=(
+                                calc_result.warnings if calc_result.warnings else None
+                            ),
                         )
                         session.add(emission)
 
@@ -515,10 +546,12 @@ async def smart_import_job(ctx: dict, job_id: str) -> dict:
 
                 except Exception as e:
                     failed += 1
-                    row_errors.append({
-                        "row": i + 1,
-                        "error": str(e),
-                    })
+                    row_errors.append(
+                        {
+                            "row": i + 1,
+                            "error": str(e),
+                        }
+                    )
 
                 # Update progress
                 if (i + 1) % 10 == 0:
@@ -537,7 +570,7 @@ async def smart_import_job(ctx: dict, job_id: str) -> dict:
                     "activities_created": len(activities_created),
                     "ai_mapping_used": True,
                     "detected_columns": len(activity_columns),
-                }
+                },
             )
             await session.commit()
 
@@ -566,6 +599,7 @@ async def smart_import_job(ctx: dict, job_id: str) -> dict:
 # =============================================================================
 # Bulk Recalculation Job
 # =============================================================================
+
 
 async def recalculate_period_job(ctx: dict, period_id: str, user_id: str) -> dict:
     """
@@ -596,15 +630,17 @@ async def recalculate_period_job(ctx: dict, period_id: str, user_id: str) -> dic
                     await session.delete(activity.emission)
 
                 # Recalculate
-                calc_result = await pipeline.calculate(ActivityInput(
-                    activity_key=activity.activity_key,
-                    quantity=activity.quantity,
-                    unit=activity.unit,
-                    scope=activity.scope,
-                    category_code=activity.category_code,
-                    region="Global",
-                    year=settings.default_emission_factor_year,
-                ))
+                calc_result = await pipeline.calculate(
+                    ActivityInput(
+                        activity_key=activity.activity_key,
+                        quantity=activity.quantity,
+                        unit=activity.unit,
+                        scope=activity.scope,
+                        category_code=activity.category_code,
+                        region="Global",
+                        year=settings.default_emission_factor_year,
+                    )
+                )
 
                 # Create new emission
                 emission = Emission(
@@ -626,10 +662,7 @@ async def recalculate_period_job(ctx: dict, period_id: str, user_id: str) -> dic
                 recalculated += 1
 
             except Exception as e:
-                errors.append({
-                    "activity_id": str(activity.id),
-                    "error": str(e)
-                })
+                errors.append({"activity_id": str(activity.id), "error": str(e)})
 
         await session.commit()
 
@@ -642,6 +675,7 @@ async def recalculate_period_job(ctx: dict, period_id: str, user_id: str) -> dic
 # =============================================================================
 # Worker Settings
 # =============================================================================
+
 
 class WorkerSettings:
     """Arq worker configuration."""

@@ -2,8 +2,8 @@
 Seed data for the Initiative Library.
 These pre-built initiatives are matched to client's emission data via applicable_activity_keys.
 """
+
 from decimal import Decimal
-from uuid import uuid4
 
 from app.models.decarbonization import Initiative, InitiativeCategory, ComplexityLevel
 
@@ -36,7 +36,11 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.LOW,
             "implementation_time_months_min": 1,
             "implementation_time_months_max": 6,
-            "co_benefits": ["Reduced maintenance costs", "Improved lighting quality", "Longer bulb lifespan"],
+            "co_benefits": [
+                "Reduced maintenance costs",
+                "Improved lighting quality",
+                "Longer bulb lifespan",
+            ],
             "common_barriers": ["Upfront cost", "Disruption during installation"],
             "min_emissions_for_relevance_tco2e": Decimal("50"),
         },
@@ -48,7 +52,13 @@ def get_initiative_seeds() -> list[dict]:
             "detailed_description": "Includes installing programmable thermostats, regular maintenance schedules, upgrading to high-efficiency units, and implementing building management systems (BMS) for intelligent climate control.",
             "applicable_scopes": [1, 2],
             "applicable_category_codes": ["1.1", "2"],
-            "applicable_activity_keys": ["electricity_kwh", "natural_gas_volume", "natural_gas_kwh", "heating_kwh", "cooling_kwh"],
+            "applicable_activity_keys": [
+                "electricity_kwh",
+                "natural_gas_volume",
+                "natural_gas_kwh",
+                "heating_kwh",
+                "cooling_kwh",
+            ],
             "typical_reduction_percent_min": Decimal("15"),
             "typical_reduction_percent_max": Decimal("30"),
             "typical_reduction_percent_median": Decimal("22"),
@@ -59,8 +69,16 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.MEDIUM,
             "implementation_time_months_min": 3,
             "implementation_time_months_max": 12,
-            "co_benefits": ["Improved comfort", "Reduced maintenance", "Extended equipment life"],
-            "common_barriers": ["Capital investment", "Technical complexity", "Business disruption"],
+            "co_benefits": [
+                "Improved comfort",
+                "Reduced maintenance",
+                "Extended equipment life",
+            ],
+            "common_barriers": [
+                "Capital investment",
+                "Technical complexity",
+                "Business disruption",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("100"),
         },
         {
@@ -71,7 +89,13 @@ def get_initiative_seeds() -> list[dict]:
             "detailed_description": "Comprehensive upgrade including wall/roof insulation, double/triple glazed windows, air sealing, and thermal bridging reduction. Reduces heating and cooling demand significantly.",
             "applicable_scopes": [1, 2],
             "applicable_category_codes": ["1.1", "2"],
-            "applicable_activity_keys": ["electricity_kwh", "natural_gas_volume", "natural_gas_kwh", "heating_kwh", "cooling_kwh"],
+            "applicable_activity_keys": [
+                "electricity_kwh",
+                "natural_gas_volume",
+                "natural_gas_kwh",
+                "heating_kwh",
+                "cooling_kwh",
+            ],
             "typical_reduction_percent_min": Decimal("20"),
             "typical_reduction_percent_max": Decimal("40"),
             "typical_reduction_percent_median": Decimal("30"),
@@ -82,8 +106,16 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.HIGH,
             "implementation_time_months_min": 6,
             "implementation_time_months_max": 24,
-            "co_benefits": ["Improved comfort", "Noise reduction", "Increased property value"],
-            "common_barriers": ["High upfront cost", "Building disruption", "Heritage/aesthetic constraints"],
+            "co_benefits": [
+                "Improved comfort",
+                "Noise reduction",
+                "Increased property value",
+            ],
+            "common_barriers": [
+                "High upfront cost",
+                "Building disruption",
+                "Heritage/aesthetic constraints",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("200"),
         },
         {
@@ -105,11 +137,18 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.MEDIUM,
             "implementation_time_months_min": 3,
             "implementation_time_months_max": 18,
-            "co_benefits": ["Reduced maintenance", "Improved reliability", "Lower operating costs"],
-            "common_barriers": ["Capital requirements", "Equipment lead times", "Production disruption"],
+            "co_benefits": [
+                "Reduced maintenance",
+                "Improved reliability",
+                "Lower operating costs",
+            ],
+            "common_barriers": [
+                "Capital requirements",
+                "Equipment lead times",
+                "Production disruption",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("100"),
         },
-
         # =====================================================================
         # RENEWABLE ENERGY
         # =====================================================================
@@ -132,8 +171,18 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.MEDIUM,
             "implementation_time_months_min": 6,
             "implementation_time_months_max": 18,
-            "co_benefits": ["Energy cost savings", "Energy independence", "Brand value", "LEED/BREEAM credits"],
-            "common_barriers": ["Roof space limitations", "Upfront capital", "Grid connection delays", "Shading issues"],
+            "co_benefits": [
+                "Energy cost savings",
+                "Energy independence",
+                "Brand value",
+                "LEED/BREEAM credits",
+            ],
+            "common_barriers": [
+                "Roof space limitations",
+                "Upfront capital",
+                "Grid connection delays",
+                "Shading issues",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("100"),
         },
         {
@@ -155,8 +204,17 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.MEDIUM,
             "implementation_time_months_min": 6,
             "implementation_time_months_max": 18,
-            "co_benefits": ["Price stability", "RE100 eligibility", "Brand value", "No capital outlay"],
-            "common_barriers": ["Long-term commitment", "Credit requirements", "Complexity of contracts"],
+            "co_benefits": [
+                "Price stability",
+                "RE100 eligibility",
+                "Brand value",
+                "No capital outlay",
+            ],
+            "common_barriers": [
+                "Long-term commitment",
+                "Credit requirements",
+                "Complexity of contracts",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("200"),
         },
         {
@@ -178,11 +236,18 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.LOW,
             "implementation_time_months_min": 1,
             "implementation_time_months_max": 3,
-            "co_benefits": ["Quick implementation", "No capital required", "Flexibility"],
-            "common_barriers": ["Premium costs", "Lower additionality", "Greenwashing concerns"],
+            "co_benefits": [
+                "Quick implementation",
+                "No capital required",
+                "Flexibility",
+            ],
+            "common_barriers": [
+                "Premium costs",
+                "Lower additionality",
+                "Greenwashing concerns",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("50"),
         },
-
         # =====================================================================
         # FLEET & TRANSPORT
         # =====================================================================
@@ -194,7 +259,11 @@ def get_initiative_seeds() -> list[dict]:
             "detailed_description": "Phased replacement of fleet vehicles with EVs, including charging infrastructure installation, driver training, and route optimization for range requirements.",
             "applicable_scopes": [1],
             "applicable_category_codes": ["1.1"],
-            "applicable_activity_keys": ["diesel_volume", "petrol_volume", "company_car_km"],
+            "applicable_activity_keys": [
+                "diesel_volume",
+                "petrol_volume",
+                "company_car_km",
+            ],
             "typical_reduction_percent_min": Decimal("60"),
             "typical_reduction_percent_max": Decimal("100"),
             "typical_reduction_percent_median": Decimal("80"),
@@ -205,8 +274,18 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.HIGH,
             "implementation_time_months_min": 12,
             "implementation_time_months_max": 48,
-            "co_benefits": ["Lower fuel costs", "Reduced maintenance", "Brand image", "Employee attraction"],
-            "common_barriers": ["High vehicle cost", "Charging infrastructure", "Range anxiety", "Vehicle availability"],
+            "co_benefits": [
+                "Lower fuel costs",
+                "Reduced maintenance",
+                "Brand image",
+                "Employee attraction",
+            ],
+            "common_barriers": [
+                "High vehicle cost",
+                "Charging infrastructure",
+                "Range anxiety",
+                "Vehicle availability",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("100"),
         },
         {
@@ -217,7 +296,11 @@ def get_initiative_seeds() -> list[dict]:
             "detailed_description": "Deploy telematics and route optimization systems to minimize distance traveled, reduce idle time, and improve delivery efficiency.",
             "applicable_scopes": [1],
             "applicable_category_codes": ["1.1"],
-            "applicable_activity_keys": ["diesel_volume", "petrol_volume", "company_car_km"],
+            "applicable_activity_keys": [
+                "diesel_volume",
+                "petrol_volume",
+                "company_car_km",
+            ],
             "typical_reduction_percent_min": Decimal("10"),
             "typical_reduction_percent_max": Decimal("20"),
             "typical_reduction_percent_median": Decimal("15"),
@@ -228,8 +311,16 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.LOW,
             "implementation_time_months_min": 1,
             "implementation_time_months_max": 6,
-            "co_benefits": ["Fuel savings", "Reduced vehicle wear", "Improved service levels"],
-            "common_barriers": ["Driver resistance", "System integration", "Training needs"],
+            "co_benefits": [
+                "Fuel savings",
+                "Reduced vehicle wear",
+                "Improved service levels",
+            ],
+            "common_barriers": [
+                "Driver resistance",
+                "System integration",
+                "Training needs",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("50"),
         },
         {
@@ -240,7 +331,11 @@ def get_initiative_seeds() -> list[dict]:
             "detailed_description": "Comprehensive driver training program covering smooth acceleration, optimal gear shifting, speed management, and vehicle maintenance awareness.",
             "applicable_scopes": [1],
             "applicable_category_codes": ["1.1"],
-            "applicable_activity_keys": ["diesel_volume", "petrol_volume", "company_car_km"],
+            "applicable_activity_keys": [
+                "diesel_volume",
+                "petrol_volume",
+                "company_car_km",
+            ],
             "typical_reduction_percent_min": Decimal("5"),
             "typical_reduction_percent_max": Decimal("15"),
             "typical_reduction_percent_median": Decimal("10"),
@@ -255,7 +350,6 @@ def get_initiative_seeds() -> list[dict]:
             "common_barriers": ["Behavior change", "Ongoing reinforcement needed"],
             "min_emissions_for_relevance_tco2e": Decimal("30"),
         },
-
         # =====================================================================
         # BUSINESS TRAVEL
         # =====================================================================
@@ -267,7 +361,12 @@ def get_initiative_seeds() -> list[dict]:
             "detailed_description": "Establish mandatory consideration of video conferencing alternatives before approving business travel. Invest in high-quality VC equipment and training.",
             "applicable_scopes": [3],
             "applicable_category_codes": ["3.6"],
-            "applicable_activity_keys": ["flight_economy_km", "flight_business_km", "flight_first_km", "hotel_nights"],
+            "applicable_activity_keys": [
+                "flight_economy_km",
+                "flight_business_km",
+                "flight_first_km",
+                "hotel_nights",
+            ],
             "typical_reduction_percent_min": Decimal("30"),
             "typical_reduction_percent_max": Decimal("50"),
             "typical_reduction_percent_median": Decimal("40"),
@@ -278,8 +377,16 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.LOW,
             "implementation_time_months_min": 1,
             "implementation_time_months_max": 3,
-            "co_benefits": ["Travel cost savings", "Work-life balance", "Productivity gains"],
-            "common_barriers": ["Culture change", "Client expectations", "Relationship building needs"],
+            "co_benefits": [
+                "Travel cost savings",
+                "Work-life balance",
+                "Productivity gains",
+            ],
+            "common_barriers": [
+                "Culture change",
+                "Client expectations",
+                "Relationship building needs",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("50"),
         },
         {
@@ -301,8 +408,16 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.LOW,
             "implementation_time_months_min": 1,
             "implementation_time_months_max": 2,
-            "co_benefits": ["Cost savings on short routes", "Productive travel time", "Reliability"],
-            "common_barriers": ["Rail connectivity", "Journey time", "Booking complexity"],
+            "co_benefits": [
+                "Cost savings on short routes",
+                "Productive travel time",
+                "Reliability",
+            ],
+            "common_barriers": [
+                "Rail connectivity",
+                "Journey time",
+                "Booking complexity",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("30"),
             "applicable_regions": ["Europe", "Japan", "UK"],
         },
@@ -314,7 +429,11 @@ def get_initiative_seeds() -> list[dict]:
             "detailed_description": "Invest in SAF through airline programs or certificate schemes. SAF is made from sustainable feedstocks and can reduce lifecycle emissions by up to 80%.",
             "applicable_scopes": [3],
             "applicable_category_codes": ["3.6"],
-            "applicable_activity_keys": ["flight_economy_km", "flight_business_km", "flight_first_km"],
+            "applicable_activity_keys": [
+                "flight_economy_km",
+                "flight_business_km",
+                "flight_first_km",
+            ],
             "typical_reduction_percent_min": Decimal("50"),
             "typical_reduction_percent_max": Decimal("80"),
             "typical_reduction_percent_median": Decimal("65"),
@@ -326,10 +445,13 @@ def get_initiative_seeds() -> list[dict]:
             "implementation_time_months_min": 1,
             "implementation_time_months_max": 6,
             "co_benefits": ["Industry transition support", "Clear insetting mechanism"],
-            "common_barriers": ["Cost premium", "Limited availability", "Additionality questions"],
+            "common_barriers": [
+                "Cost premium",
+                "Limited availability",
+                "Additionality questions",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("100"),
         },
-
         # =====================================================================
         # SUPPLY CHAIN
         # =====================================================================
@@ -342,9 +464,14 @@ def get_initiative_seeds() -> list[dict]:
             "applicable_scopes": [3],
             "applicable_category_codes": ["3.1", "3.2"],
             "applicable_activity_keys": [
-                "purchased_goods_plastic", "purchased_goods_steel", "purchased_goods_aluminum",
-                "purchased_goods_paper", "purchased_goods_chemicals", "purchased_goods_electronics",
-                "purchased_goods_textiles", "purchased_services_spend"
+                "purchased_goods_plastic",
+                "purchased_goods_steel",
+                "purchased_goods_aluminum",
+                "purchased_goods_paper",
+                "purchased_goods_chemicals",
+                "purchased_goods_electronics",
+                "purchased_goods_textiles",
+                "purchased_services_spend",
             ],
             "typical_reduction_percent_min": Decimal("10"),
             "typical_reduction_percent_max": Decimal("30"),
@@ -356,8 +483,16 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.HIGH,
             "implementation_time_months_min": 12,
             "implementation_time_months_max": 36,
-            "co_benefits": ["Supply chain resilience", "Supplier relationships", "Risk reduction"],
-            "common_barriers": ["Supplier capacity", "Data availability", "Limited leverage with suppliers"],
+            "co_benefits": [
+                "Supply chain resilience",
+                "Supplier relationships",
+                "Risk reduction",
+            ],
+            "common_barriers": [
+                "Supplier capacity",
+                "Data availability",
+                "Limited leverage with suppliers",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("500"),
         },
         {
@@ -369,8 +504,10 @@ def get_initiative_seeds() -> list[dict]:
             "applicable_scopes": [3],
             "applicable_category_codes": ["3.1"],
             "applicable_activity_keys": [
-                "purchased_goods_plastic", "purchased_goods_steel", "purchased_goods_aluminum",
-                "purchased_goods_paper"
+                "purchased_goods_plastic",
+                "purchased_goods_steel",
+                "purchased_goods_aluminum",
+                "purchased_goods_paper",
             ],
             "typical_reduction_percent_min": Decimal("20"),
             "typical_reduction_percent_max": Decimal("60"),
@@ -382,7 +519,11 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.MEDIUM,
             "implementation_time_months_min": 6,
             "implementation_time_months_max": 24,
-            "co_benefits": ["Circular economy alignment", "Resource security", "Brand value"],
+            "co_benefits": [
+                "Circular economy alignment",
+                "Resource security",
+                "Brand value",
+            ],
             "common_barriers": ["Availability", "Quality concerns", "Price premium"],
             "min_emissions_for_relevance_tco2e": Decimal("200"),
         },
@@ -395,8 +536,12 @@ def get_initiative_seeds() -> list[dict]:
             "applicable_scopes": [3],
             "applicable_category_codes": ["3.4"],
             "applicable_activity_keys": [
-                "upstream_transport_road", "upstream_transport_sea", "upstream_transport_air",
-                "truck_freight_tkm", "sea_freight_tkm", "air_freight_tkm"
+                "upstream_transport_road",
+                "upstream_transport_sea",
+                "upstream_transport_air",
+                "truck_freight_tkm",
+                "sea_freight_tkm",
+                "air_freight_tkm",
             ],
             "typical_reduction_percent_min": Decimal("15"),
             "typical_reduction_percent_max": Decimal("40"),
@@ -408,11 +553,18 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.MEDIUM,
             "implementation_time_months_min": 6,
             "implementation_time_months_max": 24,
-            "co_benefits": ["Supply chain resilience", "Shorter lead times", "Local economic support"],
-            "common_barriers": ["Supplier availability", "Cost differences", "Quality assurance"],
+            "co_benefits": [
+                "Supply chain resilience",
+                "Shorter lead times",
+                "Local economic support",
+            ],
+            "common_barriers": [
+                "Supplier availability",
+                "Cost differences",
+                "Quality assurance",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("100"),
         },
-
         # =====================================================================
         # WASTE REDUCTION
         # =====================================================================
@@ -425,8 +577,11 @@ def get_initiative_seeds() -> list[dict]:
             "applicable_scopes": [3],
             "applicable_category_codes": ["3.5"],
             "applicable_activity_keys": [
-                "waste_landfill_mixed", "waste_landfill_organic", "waste_recycling",
-                "waste_incineration", "waste_composting"
+                "waste_landfill_mixed",
+                "waste_landfill_organic",
+                "waste_recycling",
+                "waste_incineration",
+                "waste_composting",
             ],
             "typical_reduction_percent_min": Decimal("40"),
             "typical_reduction_percent_max": Decimal("80"),
@@ -438,8 +593,16 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.MEDIUM,
             "implementation_time_months_min": 6,
             "implementation_time_months_max": 18,
-            "co_benefits": ["Waste cost reduction", "Resource recovery revenue", "Brand value"],
-            "common_barriers": ["Infrastructure needs", "Employee behavior change", "Contamination"],
+            "co_benefits": [
+                "Waste cost reduction",
+                "Resource recovery revenue",
+                "Brand value",
+            ],
+            "common_barriers": [
+                "Infrastructure needs",
+                "Employee behavior change",
+                "Contamination",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("30"),
         },
         {
@@ -451,7 +614,9 @@ def get_initiative_seeds() -> list[dict]:
             "applicable_scopes": [3],
             "applicable_category_codes": ["3.5"],
             "applicable_activity_keys": [
-                "waste_landfill_mixed", "waste_landfill_organic", "waste_recycling"
+                "waste_landfill_mixed",
+                "waste_landfill_organic",
+                "waste_recycling",
             ],
             "typical_reduction_percent_min": Decimal("20"),
             "typical_reduction_percent_max": Decimal("50"),
@@ -463,11 +628,14 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.MEDIUM,
             "implementation_time_months_min": 3,
             "implementation_time_months_max": 12,
-            "co_benefits": ["Material cost savings", "Reduced handling", "Circular economy"],
+            "co_benefits": [
+                "Material cost savings",
+                "Reduced handling",
+                "Circular economy",
+            ],
             "common_barriers": ["Process changes required", "Supplier coordination"],
             "min_emissions_for_relevance_tco2e": Decimal("20"),
         },
-
         # =====================================================================
         # PROCESS CHANGES
         # =====================================================================
@@ -480,7 +648,9 @@ def get_initiative_seeds() -> list[dict]:
             "applicable_scopes": [1],
             "applicable_category_codes": ["1.3"],
             "applicable_activity_keys": [
-                "refrigerant_r134a", "refrigerant_r410a", "refrigerant_r32"
+                "refrigerant_r134a",
+                "refrigerant_r410a",
+                "refrigerant_r32",
             ],
             "typical_reduction_percent_min": Decimal("50"),
             "typical_reduction_percent_max": Decimal("90"),
@@ -492,8 +662,16 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.MEDIUM,
             "implementation_time_months_min": 3,
             "implementation_time_months_max": 12,
-            "co_benefits": ["Refrigerant cost savings", "Equipment efficiency", "Regulatory compliance"],
-            "common_barriers": ["Technical expertise", "Access to equipment", "Ongoing monitoring needs"],
+            "co_benefits": [
+                "Refrigerant cost savings",
+                "Equipment efficiency",
+                "Regulatory compliance",
+            ],
+            "common_barriers": [
+                "Technical expertise",
+                "Access to equipment",
+                "Ongoing monitoring needs",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("20"),
         },
         {
@@ -515,12 +693,19 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.HIGH,
             "implementation_time_months_min": 12,
             "implementation_time_months_max": 36,
-            "co_benefits": ["Operational simplicity", "No on-site combustion", "Grid flexibility"],
-            "common_barriers": ["High capital cost", "Electrical infrastructure upgrades", "Process compatibility"],
+            "co_benefits": [
+                "Operational simplicity",
+                "No on-site combustion",
+                "Grid flexibility",
+            ],
+            "common_barriers": [
+                "High capital cost",
+                "Electrical infrastructure upgrades",
+                "Process compatibility",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("200"),
             "applicable_regions": ["Europe", "US", "UK"],
         },
-
         # =====================================================================
         # EMPLOYEE COMMUTING
         # =====================================================================
@@ -532,7 +717,11 @@ def get_initiative_seeds() -> list[dict]:
             "detailed_description": "Formal policy allowing employees to work from home 2-3 days per week, reducing commuting-related emissions. Includes home office support and digital collaboration tools.",
             "applicable_scopes": [3],
             "applicable_category_codes": ["3.7"],
-            "applicable_activity_keys": ["commute_car_km", "commute_public_transit", "remote_work_days"],
+            "applicable_activity_keys": [
+                "commute_car_km",
+                "commute_public_transit",
+                "remote_work_days",
+            ],
             "typical_reduction_percent_min": Decimal("30"),
             "typical_reduction_percent_max": Decimal("50"),
             "typical_reduction_percent_median": Decimal("40"),
@@ -543,8 +732,16 @@ def get_initiative_seeds() -> list[dict]:
             "complexity": ComplexityLevel.LOW,
             "implementation_time_months_min": 1,
             "implementation_time_months_max": 3,
-            "co_benefits": ["Office space savings", "Employee satisfaction", "Talent attraction"],
-            "common_barriers": ["Culture change", "Management trust", "Collaboration concerns"],
+            "co_benefits": [
+                "Office space savings",
+                "Employee satisfaction",
+                "Talent attraction",
+            ],
+            "common_barriers": [
+                "Culture change",
+                "Management trust",
+                "Collaboration concerns",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("50"),
         },
         {
@@ -567,7 +764,11 @@ def get_initiative_seeds() -> list[dict]:
             "implementation_time_months_min": 3,
             "implementation_time_months_max": 9,
             "co_benefits": ["Employee benefit", "EV adoption support", "Brand value"],
-            "common_barriers": ["Parking space limitations", "Electrical capacity", "Usage management"],
+            "common_barriers": [
+                "Parking space limitations",
+                "Electrical capacity",
+                "Usage management",
+            ],
             "min_emissions_for_relevance_tco2e": Decimal("30"),
         },
     ]

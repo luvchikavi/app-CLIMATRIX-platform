@@ -2,6 +2,7 @@
 Audit logging service for tracking all significant actions.
 Provides methods for logging and querying audit events.
 """
+
 import json
 from datetime import datetime
 from typing import Optional
@@ -243,9 +244,7 @@ class AuditService:
         Returns:
             List of audit log entries
         """
-        query = select(AuditLog).where(
-            AuditLog.organization_id == organization_id
-        )
+        query = select(AuditLog).where(AuditLog.organization_id == organization_id)
 
         if action:
             query = query.where(AuditLog.action == action)

@@ -2,6 +2,7 @@
 Tests for multi-tenancy isolation.
 Ensures users from one organization cannot access data from another.
 """
+
 import pytest
 from httpx import AsyncClient
 from uuid import uuid4
@@ -217,7 +218,9 @@ async def test_sites_are_isolated(
     assert any(s["id"] == site_id for s in list_response1.json())
 
     # Second user cannot see it
-    list_response2 = await client.get("/api/organization/sites", headers=second_user_headers)
+    list_response2 = await client.get(
+        "/api/organization/sites", headers=second_user_headers
+    )
     assert not any(s["id"] == site_id for s in list_response2.json())
 
 

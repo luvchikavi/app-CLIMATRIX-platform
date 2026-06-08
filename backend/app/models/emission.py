@@ -2,6 +2,7 @@
 Emission-related models: EmissionFactor, Activity, Emission, UnitConversion.
 These handle the core GHG calculation functionality.
 """
+
 from datetime import datetime, date
 from decimal import Decimal
 from enum import Enum
@@ -12,19 +13,21 @@ from sqlalchemy import String as SAString
 from sqlmodel import SQLModel, Field, Relationship, Column, JSON
 
 if TYPE_CHECKING:
-    from app.models.core import Organization, Site, ReportingPeriod, User
+    from app.models.core import Site, ReportingPeriod
 
 
 class CalculationMethod(str, Enum):
     """Method used for emission calculation."""
-    ACTIVITY = "activity"      # Physical quantity (liters, kWh, km)
-    SPEND = "spend"            # Monetary spend (USD, EUR)
-    DISTANCE = "distance"      # Distance-based (km, miles)
-    SUPPLIER = "supplier"      # Supplier-specific data
+
+    ACTIVITY = "activity"  # Physical quantity (liters, kWh, km)
+    SPEND = "spend"  # Monetary spend (USD, EUR)
+    DISTANCE = "distance"  # Distance-based (km, miles)
+    SUPPLIER = "supplier"  # Supplier-specific data
 
 
 class DataSource(str, Enum):
     """Source of activity data."""
+
     MANUAL = "manual"
     IMPORT = "import"
     API = "api"
@@ -32,13 +35,15 @@ class DataSource(str, Enum):
 
 class ConfidenceLevel(str, Enum):
     """Confidence level of emission calculation."""
-    HIGH = "high"        # Exact factor match
-    MEDIUM = "medium"    # Regional or similar factor
-    LOW = "low"          # Global average or proxy
+
+    HIGH = "high"  # Exact factor match
+    MEDIUM = "medium"  # Regional or similar factor
+    LOW = "low"  # Global average or proxy
 
 
 class ImportBatchStatus(str, Enum):
     """Status of an import batch."""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -48,11 +53,12 @@ class ImportBatchStatus(str, Enum):
 
 class EmissionFactorStatus(str, Enum):
     """Status of an emission factor in the approval workflow."""
-    DRAFT = "draft"                    # New or edited, not yet submitted
-    PENDING_APPROVAL = "pending"       # Submitted for approval
-    APPROVED = "approved"              # Approved and active for calculations
-    REJECTED = "rejected"              # Rejected by admin
-    ARCHIVED = "archived"              # Replaced by newer version
+
+    DRAFT = "draft"  # New or edited, not yet submitted
+    PENDING_APPROVAL = "pending"  # Submitted for approval
+    APPROVED = "approved"  # Approved and active for calculations
+    REJECTED = "rejected"  # Rejected by admin
+    ARCHIVED = "archived"  # Replaced by newer version
 
 
 class DataQualityScore(int, Enum):
@@ -70,6 +76,7 @@ class DataQualityScore(int, Enum):
     Score 5: Estimated data with high uncertainty
              - Industry averages, EEIO models, extrapolations
     """
+
     VERIFIED = 1
     PRIMARY = 2
     ACTIVITY_AVERAGE = 3
@@ -81,6 +88,7 @@ class DataQualityScore(int, Enum):
 # IMPORT BATCH (Track Uploaded Files)
 # ============================================================================
 
+
 class ImportBatch(SQLModel, table=True):
     """
     Track imported files for audit and review.
@@ -88,6 +96,7 @@ class ImportBatch(SQLModel, table=True):
     Each Excel/CSV upload creates an ImportBatch.
     Activities created from that file reference this batch.
     """
+
     __tablename__ = "import_batches"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -110,7 +119,9 @@ class ImportBatch(SQLModel, table=True):
 
     # Error tracking
     error_message: Optional[str] = Field(default=None, max_length=1000)
-    row_errors: Optional[list] = Field(default=None, sa_column=Column(JSON))  # [{row: 5, error: "..."}]
+    row_errors: Optional[list] = Field(
+        default=None, sa_column=Column(JSON)
+    )  # [{row: 5, error: "..."}]
 
     # Audit
     uploaded_by: UUID = Field(foreign_key="users.id")
@@ -125,15 +136,19 @@ class ImportBatch(SQLModel, table=True):
 # EMISSION FACTOR (Reference Data - Single Source of Truth)
 # ============================================================================
 
+
 class EmissionFactorBase(SQLModel):
     """Base fields for EmissionFactor."""
+
     # Classification
     scope: int = Field(ge=1, le=3, index=True)
     category_code: str = Field(max_length=10, index=True)  # "1.1", "2", "3.5"
     subcategory: Optional[str] = Field(default=None, max_length=100)
 
     # Factor Identification - THE KEY FIELD
-    activity_key: str = Field(max_length=100, index=True)  # "natural_gas_volume", "diesel_km"
+    activity_key: str = Field(
+        max_length=100, index=True
+    )  # "natural_gas_volume", "diesel_km"
     display_name: str = Field(max_length=255)
 
     # Factor Values (AR6 GWP by default)
@@ -143,11 +158,11 @@ class EmissionFactorBase(SQLModel):
     co2e_factor: Decimal
 
     # Units
-    activity_unit: str = Field(max_length=50)   # "liters", "kWh", "km", "USD"
-    factor_unit: str = Field(max_length=50)     # "kg CO2e/liter"
+    activity_unit: str = Field(max_length=50)  # "liters", "kWh", "km", "USD"
+    factor_unit: str = Field(max_length=50)  # "kg CO2e/liter"
 
     # Metadata
-    source: str = Field(max_length=100)         # "DEFRA_2024", "EPA_2024", "EEIO"
+    source: str = Field(max_length=100)  # "DEFRA_2024", "EPA_2024", "EEIO"
     region: str = Field(default="Global", max_length=50, index=True)
     year: int = Field(index=True)
 
@@ -168,14 +183,14 @@ class EmissionFactor(EmissionFactorBase, table=True):
     Governance: Only factors with status='approved' are used in calculations.
     Changes require approval workflow.
     """
+
     __tablename__ = "emission_factors"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
     # WTT Link (self-referential for Well-to-Tank factors)
     wtt_factor_id: Optional[UUID] = Field(
-        default=None,
-        foreign_key="emission_factors.id"
+        default=None, foreign_key="emission_factors.id"
     )
 
     # Validity dates
@@ -196,8 +211,7 @@ class EmissionFactor(EmissionFactorBase, table=True):
     # Version Control (for tracking changes)
     version: int = Field(default=1)
     previous_version_id: Optional[UUID] = Field(
-        default=None,
-        foreign_key="emission_factors.id"
+        default=None, foreign_key="emission_factors.id"
     )
 
     # Change Tracking
@@ -229,12 +243,16 @@ class EmissionFactor(EmissionFactorBase, table=True):
 # UNIT CONVERSION (Database-Driven)
 # ============================================================================
 
+
 class UnitConversionBase(SQLModel):
     """Base fields for UnitConversion."""
+
     from_unit: str = Field(max_length=50)
     to_unit: str = Field(max_length=50)
     multiplier: Decimal
-    category: Optional[str] = Field(default=None, max_length=50)  # "volume", "mass", "distance", "energy"
+    category: Optional[str] = Field(
+        default=None, max_length=50
+    )  # "volume", "mass", "distance", "energy"
 
 
 class UnitConversion(UnitConversionBase, table=True):
@@ -242,6 +260,7 @@ class UnitConversion(UnitConversionBase, table=True):
     Unit conversion factors.
     Used to convert user input to factor-expected units.
     """
+
     __tablename__ = "unit_conversions"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -250,6 +269,7 @@ class UnitConversion(UnitConversionBase, table=True):
 # ============================================================================
 # FUEL PRICE (For Spend → Quantity Conversion)
 # ============================================================================
+
 
 class FuelPrice(SQLModel, table=True):
     """
@@ -263,12 +283,15 @@ class FuelPrice(SQLModel, table=True):
     - BEIS/DESNZ for UK prices
     - IEC (Israel Electric Corporation) for Israel prices
     """
+
     __tablename__ = "fuel_prices"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
     # Fuel identification
-    fuel_type: str = Field(max_length=50, index=True)  # diesel, petrol, natural_gas, lpg, electricity
+    fuel_type: str = Field(
+        max_length=50, index=True
+    )  # diesel, petrol, natural_gas, lpg, electricity
 
     # Price information
     price_per_unit: Decimal  # e.g., 1.50
@@ -298,14 +321,18 @@ class FuelPrice(SQLModel, table=True):
 # ACTIVITY (User Input)
 # ============================================================================
 
+
 class ActivityBase(SQLModel):
     """Base fields for Activity."""
+
     # GHG Classification
     scope: int = Field(ge=1, le=3)
     category_code: str = Field(max_length=10)
 
     # Activity Details
-    description: str = Field(default="", max_length=500)  # Optional - activity type is descriptive enough
+    description: str = Field(
+        default="", max_length=500
+    )  # Optional - activity type is descriptive enough
     activity_key: str = Field(max_length=100, index=True)  # Links to EmissionFactor
 
     # Quantity & Unit
@@ -324,6 +351,7 @@ class Activity(ActivityBase, table=True):
     Activity data entered by users.
     Each activity results in one emission calculation.
     """
+
     __tablename__ = "activities"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -333,16 +361,24 @@ class Activity(ActivityBase, table=True):
 
     # Source Tracking
     data_source: DataSource = Field(default=DataSource.MANUAL)
-    import_batch_id: Optional[UUID] = Field(default=None, foreign_key="import_batches.id", index=True)
+    import_batch_id: Optional[UUID] = Field(
+        default=None, foreign_key="import_batches.id", index=True
+    )
 
     # Data Quality (PCAF methodology: 1=best, 5=worst)
-    data_quality_score: int = Field(default=5, ge=1, le=5)  # Default to estimated (most conservative)
+    data_quality_score: int = Field(
+        default=5, ge=1, le=5
+    )  # Default to estimated (most conservative)
     data_quality_justification: Optional[str] = Field(default=None, max_length=500)
     supporting_document_url: Optional[str] = Field(default=None, max_length=500)
 
     # Supplier data (for market-based Scope 2)
-    supplier_name: Optional[str] = Field(default=None, max_length=255)  # e.g., "IEC", "Dorad"
-    supplier_ef: Optional[Decimal] = Field(default=None)  # kg CO2e/unit (supplier emission factor)
+    supplier_name: Optional[str] = Field(
+        default=None, max_length=255
+    )  # e.g., "IEC", "Dorad"
+    supplier_ef: Optional[Decimal] = Field(
+        default=None
+    )  # kg CO2e/unit (supplier emission factor)
 
     # Audit
     created_by: Optional[UUID] = Field(default=None, foreign_key="users.id")
@@ -360,18 +396,22 @@ class Activity(ActivityBase, table=True):
 # EMISSION (Calculated Result)
 # ============================================================================
 
+
 class Emission(SQLModel, table=True):
     """
     Calculated emission for an activity.
     One-to-one relationship with Activity.
     """
+
     __tablename__ = "emissions"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     activity_id: UUID = Field(foreign_key="activities.id", unique=True, index=True)
 
     # Link to Factor Used (nullable for supplier-specific factors)
-    emission_factor_id: Optional[UUID] = Field(default=None, foreign_key="emission_factors.id")
+    emission_factor_id: Optional[UUID] = Field(
+        default=None, foreign_key="emission_factors.id"
+    )
 
     # Calculated Values (in kg)
     co2_kg: Optional[Decimal] = Field(default=None)
@@ -389,14 +429,18 @@ class Emission(SQLModel, table=True):
 
     # Quality Indicators
     confidence: ConfidenceLevel = Field(default=ConfidenceLevel.HIGH)
-    resolution_strategy: Optional[str] = Field(default="exact", max_length=50)  # exact, region, global
+    resolution_strategy: Optional[str] = Field(
+        default="exact", max_length=50
+    )  # exact, region, global
     needs_review: bool = Field(default=False)
     warnings: Optional[list] = Field(default=None, sa_column=Column(JSON))
 
     # Calculation Metadata (Phase 9)
     factor_year: Optional[int] = Field(default=None)
     factor_region: Optional[str] = Field(default=None, max_length=50)
-    method_hierarchy: Optional[str] = Field(default=None, max_length=50)  # supplier, ecoinvent, defra_physical, eeio_spend
+    method_hierarchy: Optional[str] = Field(
+        default=None, max_length=50
+    )  # supplier, ecoinvent, defra_physical, eeio_spend
 
     # Dual Scope 2 reporting (GHG Protocol Scope 2 Guidance)
     location_co2e_kg: Optional[Decimal] = Field(default=None)  # Location-based result
@@ -414,6 +458,7 @@ class Emission(SQLModel, table=True):
 # AIRPORT DATABASE (For Flight Distance Calculations - Category 3.6)
 # ============================================================================
 
+
 class Airport(SQLModel, table=True):
     """
     Airport reference data for flight distance calculations.
@@ -427,6 +472,7 @@ class Airport(SQLModel, table=True):
     - IATA (International Air Transport Association)
     - OpenFlights database
     """
+
     __tablename__ = "airports"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -442,7 +488,7 @@ class Airport(SQLModel, table=True):
     country_name: str = Field(max_length=100)  # Israel
 
     # Coordinates (for Haversine distance calculation)
-    latitude: Decimal = Field(decimal_places=6)   # 32.0094
+    latitude: Decimal = Field(decimal_places=6)  # 32.0094
     longitude: Decimal = Field(decimal_places=6)  # 34.8808
 
     # Timezone (for reference)
@@ -458,6 +504,7 @@ class Airport(SQLModel, table=True):
 # ============================================================================
 # TRANSPORT DISTANCE MATRIX (For Category 3.4 Default Distances)
 # ============================================================================
+
 
 class TransportDistanceMatrix(SQLModel, table=True):
     """
@@ -476,6 +523,7 @@ class TransportDistanceMatrix(SQLModel, table=True):
     - Sea distances: Sea-distances.org, UNCTAD
     - Land distances: Regional averages
     """
+
     __tablename__ = "transport_distance_matrix"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -495,11 +543,15 @@ class TransportDistanceMatrix(SQLModel, table=True):
     total_distance_km: int  # Sum of all legs
 
     # Primary transport mode for sea leg
-    transport_mode: str = Field(default="sea_container", max_length=50)  # sea_container, sea_bulk, air
+    transport_mode: str = Field(
+        default="sea_container", max_length=50
+    )  # sea_container, sea_bulk, air
 
     # Alternative modes (if available)
     air_distance_km: Optional[int] = Field(default=None)  # For air freight option
-    rail_distance_km: Optional[int] = Field(default=None)  # For rail freight (e.g., China-EU)
+    rail_distance_km: Optional[int] = Field(
+        default=None
+    )  # For rail freight (e.g., China-EU)
 
     # Source and notes
     source: str = Field(max_length=200)
@@ -514,6 +566,7 @@ class TransportDistanceMatrix(SQLModel, table=True):
 # CURRENCY CONVERSION (For Spend-Based Calculations)
 # ============================================================================
 
+
 class CurrencyConversion(SQLModel, table=True):
     """
     Currency conversion rates for spend-based calculations.
@@ -525,6 +578,7 @@ class CurrencyConversion(SQLModel, table=True):
     - European Central Bank
     - OECD rates (for annual averages)
     """
+
     __tablename__ = "currency_conversions"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -542,7 +596,9 @@ class CurrencyConversion(SQLModel, table=True):
 
     # Source
     source: str = Field(max_length=100)  # "ECB", "OECD"
-    rate_type: str = Field(default="annual_average", max_length=50)  # annual_average, spot
+    rate_type: str = Field(
+        default="annual_average", max_length=50
+    )  # annual_average, spot
 
     # Status
     is_active: bool = Field(default=True)
@@ -551,6 +607,7 @@ class CurrencyConversion(SQLModel, table=True):
 # ============================================================================
 # PRICE RANGE VALIDATION (For Data Quality Checks)
 # ============================================================================
+
 
 class PriceRange(SQLModel, table=True):
     """
@@ -564,6 +621,7 @@ class PriceRange(SQLModel, table=True):
     - Market prices for common materials
     - Industry averages
     """
+
     __tablename__ = "price_ranges"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -591,6 +649,7 @@ class PriceRange(SQLModel, table=True):
 # HOTEL EMISSION FACTORS BY COUNTRY (For Category 3.6)
 # ============================================================================
 
+
 class HotelEmissionFactor(SQLModel, table=True):
     """
     Country-specific hotel emission factors.
@@ -605,6 +664,7 @@ class HotelEmissionFactor(SQLModel, table=True):
     - EPA for US
     - CRREM for European countries
     """
+
     __tablename__ = "hotel_emission_factors"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -633,6 +693,7 @@ class HotelEmissionFactor(SQLModel, table=True):
 # GRID EMISSION FACTORS BY COUNTRY (For Scope 2 & 3.3)
 # ============================================================================
 
+
 class GridEmissionFactor(SQLModel, table=True):
     """
     Country-specific grid electricity emission factors.
@@ -650,6 +711,7 @@ class GridEmissionFactor(SQLModel, table=True):
     - DEFRA - UK factors
     - Israel Electric Corporation - Israel factors
     """
+
     __tablename__ = "grid_emission_factors"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -671,7 +733,9 @@ class GridEmissionFactor(SQLModel, table=True):
     n2o_factor: Optional[Decimal] = Field(default=None)
 
     # T&D losses (for Category 3.3)
-    td_loss_factor: Optional[Decimal] = Field(default=None)  # kg CO2e/kWh lost in transmission
+    td_loss_factor: Optional[Decimal] = Field(
+        default=None
+    )  # kg CO2e/kWh lost in transmission
     td_loss_percentage: Optional[Decimal] = Field(default=None)  # % of electricity lost
 
     # Source and year
@@ -686,6 +750,7 @@ class GridEmissionFactor(SQLModel, table=True):
 # REFRIGERANT GWP VALUES (For Scope 1.3)
 # ============================================================================
 
+
 class RefrigerantGWP(SQLModel, table=True):
     """
     Global Warming Potential values for refrigerants.
@@ -697,6 +762,7 @@ class RefrigerantGWP(SQLModel, table=True):
 
     Formula: CO2e = leaked_mass_kg × GWP
     """
+
     __tablename__ = "refrigerant_gwp"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -715,7 +781,9 @@ class RefrigerantGWP(SQLModel, table=True):
     refrigerant_type: str = Field(max_length=50)  # HFC, HCFC, HFO, Natural
 
     # Common applications
-    applications: Optional[str] = Field(default=None, max_length=500)  # AC, refrigeration, etc.
+    applications: Optional[str] = Field(
+        default=None, max_length=500
+    )  # AC, refrigeration, etc.
 
     # Phase-out status
     is_phased_out: bool = Field(default=False)
@@ -732,6 +800,7 @@ class RefrigerantGWP(SQLModel, table=True):
 # WASTE DISPOSAL EMISSION FACTORS (For Category 3.5)
 # ============================================================================
 
+
 class WasteDisposalFactor(SQLModel, table=True):
     """
     Emission factors for waste disposal methods.
@@ -747,13 +816,18 @@ class WasteDisposalFactor(SQLModel, table=True):
     - DEFRA UK GHG Conversion Factors
     - EPA WARM model
     """
+
     __tablename__ = "waste_disposal_factors"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
     # Waste identification
-    waste_type: str = Field(max_length=100, index=True)  # mixed, organic, plastic, paper
-    disposal_method: str = Field(max_length=50, index=True)  # landfill, recycling, incineration
+    waste_type: str = Field(
+        max_length=100, index=True
+    )  # mixed, organic, plastic, paper
+    disposal_method: str = Field(
+        max_length=50, index=True
+    )  # landfill, recycling, incineration
 
     # Emission factor
     co2e_per_kg: Decimal  # kg CO2e per kg of waste
@@ -767,7 +841,9 @@ class WasteDisposalFactor(SQLModel, table=True):
     avoided_co2e_per_kg: Optional[Decimal] = Field(default=None)  # Emissions avoided
 
     # Regional variation
-    country_code: Optional[str] = Field(default=None, max_length=2)  # GB, US or NULL for global
+    country_code: Optional[str] = Field(
+        default=None, max_length=2
+    )  # GB, US or NULL for global
     region: str = Field(default="Global", max_length=50)
 
     # Source and year
@@ -781,6 +857,7 @@ class WasteDisposalFactor(SQLModel, table=True):
 # ============================================================================
 # POWER PRODUCER (For Market-Based Scope 2)
 # ============================================================================
+
 
 class PowerProducer(SQLModel, table=True):
     """
@@ -798,17 +875,22 @@ class PowerProducer(SQLModel, table=True):
     - GreenE Residual Mix
     - iREC registries
     """
+
     __tablename__ = "power_producers"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
     # Producer identification
-    producer_name_he: Optional[str] = Field(default=None, max_length=255)  # Hebrew name (יח"פית)
+    producer_name_he: Optional[str] = Field(
+        default=None, max_length=255
+    )  # Hebrew name (יח"פית)
     producer_name_en: str = Field(max_length=255)  # English name
 
     # Location
     country_code: str = Field(max_length=2, index=True)  # IL, DE, US, etc.
-    region: Optional[str] = Field(default=None, max_length=100)  # US state, EU country, etc.
+    region: Optional[str] = Field(
+        default=None, max_length=100
+    )  # US state, EU country, etc.
 
     # Emission factor
     co2e_per_kwh: Decimal  # kg CO2e per kWh
@@ -817,8 +899,12 @@ class PowerProducer(SQLModel, table=True):
     n2o_per_kwh: Optional[Decimal] = Field(default=None)
 
     # Source and year
-    source: str = Field(max_length=100)  # "BDO_2024", "AIB_2024", "GreenE_2024", "iREC_2024"
-    source_type: str = Field(default="residual_mix", max_length=50)  # "producer_specific", "residual_mix", "irec"
+    source: str = Field(
+        max_length=100
+    )  # "BDO_2024", "AIB_2024", "GreenE_2024", "iREC_2024"
+    source_type: str = Field(
+        default="residual_mix", max_length=50
+    )  # "producer_specific", "residual_mix", "irec"
     year: int = Field(index=True)
 
     # Validity

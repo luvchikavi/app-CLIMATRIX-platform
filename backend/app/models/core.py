@@ -2,6 +2,7 @@
 Core domain models: Organization, User, Site, ReportingPeriod.
 These form the multi-tenant foundation of the application.
 """
+
 from datetime import datetime, date
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
 
 class UserRole(str, Enum):
     """User roles for access control."""
+
     VIEWER = "viewer"
     EDITOR = "editor"
     ADMIN = "admin"
@@ -24,6 +26,7 @@ class UserRole(str, Enum):
 
 class PeriodStatus(str, Enum):
     """Verification workflow status for reporting periods."""
+
     DRAFT = "draft"
     REVIEW = "review"
     SUBMITTED = "submitted"
@@ -34,12 +37,14 @@ class PeriodStatus(str, Enum):
 
 class AssuranceLevel(str, Enum):
     """Level of assurance for verified reports."""
+
     LIMITED = "limited"
     REASONABLE = "reasonable"
 
 
 class SubscriptionPlan(str, Enum):
     """Subscription plans for billing."""
+
     FREE = "free"
     STARTER = "starter"
     PROFESSIONAL = "professional"
@@ -48,6 +53,7 @@ class SubscriptionPlan(str, Enum):
 
 class SubscriptionStatus(str, Enum):
     """Subscription status from Stripe."""
+
     ACTIVE = "active"
     TRIALING = "trialing"
     PAST_DUE = "past_due"
@@ -58,6 +64,7 @@ class SubscriptionStatus(str, Enum):
 
 class InvitationStatus(str, Enum):
     """Status of a user invitation."""
+
     PENDING = "pending"
     ACCEPTED = "accepted"
     EXPIRED = "expired"
@@ -66,6 +73,7 @@ class InvitationStatus(str, Enum):
 
 class OrganizationBase(SQLModel):
     """Base fields for Organization."""
+
     name: str = Field(max_length=255, index=True)
     country_code: Optional[str] = Field(default=None, max_length=2)
     industry_code: Optional[str] = Field(default=None, max_length=20)
@@ -78,6 +86,7 @@ class Organization(OrganizationBase, table=True):
     Organization (tenant) model.
     All data is scoped to an organization for multi-tenancy.
     """
+
     __tablename__ = "organizations"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -103,11 +112,14 @@ class Organization(OrganizationBase, table=True):
     # Relationships
     users: list["User"] = Relationship(back_populates="organization")
     sites: list["Site"] = Relationship(back_populates="organization")
-    reporting_periods: list["ReportingPeriod"] = Relationship(back_populates="organization")
+    reporting_periods: list["ReportingPeriod"] = Relationship(
+        back_populates="organization"
+    )
 
 
 class UserBase(SQLModel):
     """Base fields for User."""
+
     email: str = Field(max_length=255, unique=True, index=True)
     full_name: Optional[str] = Field(default=None, max_length=255)
     role: UserRole = Field(default=UserRole.VIEWER)
@@ -118,6 +130,7 @@ class User(UserBase, table=True):
     """
     User model with authentication and organization membership.
     """
+
     __tablename__ = "users"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -137,6 +150,7 @@ class Invitation(SQLModel, table=True):
     User invitation for team members.
     Allows admins to invite new users to their organization.
     """
+
     __tablename__ = "invitations"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -157,6 +171,7 @@ class Invitation(SQLModel, table=True):
 
 class SiteBase(SQLModel):
     """Base fields for Site/Facility."""
+
     name: str = Field(max_length=255)
     country_code: Optional[str] = Field(default=None, max_length=2)
     address: Optional[str] = Field(default=None, max_length=500)
@@ -168,6 +183,7 @@ class Site(SiteBase, table=True):
     """
     Site/Facility model for location-specific emissions tracking.
     """
+
     __tablename__ = "sites"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -181,6 +197,7 @@ class Site(SiteBase, table=True):
 
 class ReportingPeriodBase(SQLModel):
     """Base fields for ReportingPeriod."""
+
     name: str = Field(max_length=100)  # e.g., "Q1 2024", "FY 2024"
     start_date: date
     end_date: date
@@ -199,6 +216,7 @@ class ReportingPeriod(ReportingPeriodBase, table=True):
     Verification Workflow:
     DRAFT -> REVIEW -> SUBMITTED -> AUDIT -> VERIFIED -> LOCKED
     """
+
     __tablename__ = "reporting_periods"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -209,7 +227,9 @@ class ReportingPeriod(ReportingPeriodBase, table=True):
     submitted_at: Optional[datetime] = Field(default=None)
     submitted_by_id: Optional[UUID] = Field(default=None, foreign_key="users.id")
     verified_at: Optional[datetime] = Field(default=None)
-    verified_by: Optional[str] = Field(default=None, max_length=255)  # Auditor name/firm
+    verified_by: Optional[str] = Field(
+        default=None, max_length=255
+    )  # Auditor name/firm
     verification_statement: Optional[str] = Field(default=None)
 
     # Relationships
@@ -222,6 +242,7 @@ class ReportingPeriod(ReportingPeriodBase, table=True):
 
 class AuditAction(str, Enum):
     """Types of auditable actions."""
+
     CREATE = "create"
     UPDATE = "update"
     DELETE = "delete"
@@ -239,6 +260,7 @@ class AuditLog(SQLModel, table=True):
     Audit log for tracking all significant actions in the system.
     Used for compliance, debugging, and security monitoring.
     """
+
     __tablename__ = "audit_logs"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -248,8 +270,12 @@ class AuditLog(SQLModel, table=True):
 
     # Action details
     action: AuditAction = Field(index=True)
-    resource_type: str = Field(max_length=50, index=True)  # e.g., "activity", "period", "user"
-    resource_id: Optional[str] = Field(default=None, max_length=100)  # ID of affected resource
+    resource_type: str = Field(
+        max_length=50, index=True
+    )  # e.g., "activity", "period", "user"
+    resource_id: Optional[str] = Field(
+        default=None, max_length=100
+    )  # ID of affected resource
 
     # Context
     description: str = Field(max_length=500)

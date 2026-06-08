@@ -8,6 +8,7 @@ Handles flight emissions with:
 
 GHG Protocol: Scope 3, Category 6 - Business Travel
 """
+
 from decimal import Decimal
 from typing import Optional
 
@@ -15,7 +16,6 @@ from app.models.emission import EmissionFactor
 from app.services.calculation.normalizer import NormalizedQuantity
 from app.services.calculation.result import CalculationResult
 from app.services.calculation.strategies.base import BaseCalculator
-
 
 # Radiative Forcing multiplier (accounts for non-CO2 climate effects at altitude)
 # DEFRA recommends 1.9, but this is configurable
@@ -73,10 +73,7 @@ class FlightCalculator(BaseCalculator):
         distance_km = normalized.quantity
 
         # Get class multiplier
-        class_mult = self.CLASS_MULTIPLIERS.get(
-            travel_class.lower(),
-            Decimal("1.0")
-        )
+        class_mult = self.CLASS_MULTIPLIERS.get(travel_class.lower(), Decimal("1.0"))
 
         # Get RF multiplier (if enabled)
         rf_mult = RF_MULTIPLIER if include_rf else Decimal("1.0")
@@ -93,9 +90,7 @@ class FlightCalculator(BaseCalculator):
             wtt_co2e_kg = distance_km * wtt_factor.co2e_factor * class_mult
 
         # Build formula string
-        formula_parts = [
-            f"{normalized.original_quantity} {normalized.original_unit}"
-        ]
+        formula_parts = [f"{normalized.original_quantity} {normalized.original_unit}"]
         if normalized.conversion_applied:
             formula_parts.append(f"→ {distance_km:.2f} km")
         formula_parts.append(f"× {factor.co2e_factor} kg CO2e/km")

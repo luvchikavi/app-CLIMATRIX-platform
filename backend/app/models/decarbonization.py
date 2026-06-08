@@ -2,6 +2,7 @@
 Decarbonization Pathways models.
 Enables data-driven reduction planning based on client's actual emission profile.
 """
+
 from datetime import datetime, date
 from decimal import Decimal
 from enum import Enum
@@ -11,29 +12,33 @@ from uuid import UUID, uuid4
 from sqlmodel import SQLModel, Field, Relationship, Column, JSON
 
 if TYPE_CHECKING:
-    from app.models.core import Organization, ReportingPeriod, Site
+    pass
 
 
 # ============================================================================
 # ENUMS
 # ============================================================================
 
+
 class TargetType(str, Enum):
     """Type of emissions target."""
-    ABSOLUTE = "absolute"      # Reduce total emissions by X%
-    INTENSITY = "intensity"    # Reduce emissions per revenue/employee by X%
+
+    ABSOLUTE = "absolute"  # Reduce total emissions by X%
+    INTENSITY = "intensity"  # Reduce emissions per revenue/employee by X%
 
 
 class TargetFramework(str, Enum):
     """Target framework alignment."""
-    SBTI_1_5C = "sbti_1_5c"           # SBTi 1.5°C aligned (42% by 2030)
+
+    SBTI_1_5C = "sbti_1_5c"  # SBTi 1.5°C aligned (42% by 2030)
     SBTI_WELL_BELOW_2C = "sbti_wb2c"  # SBTi Well-below 2°C (25% by 2030)
-    NET_ZERO = "net_zero"             # Net zero commitment
-    CUSTOM = "custom"                  # Custom target
+    NET_ZERO = "net_zero"  # Net zero commitment
+    CUSTOM = "custom"  # Custom target
 
 
 class InitiativeCategory(str, Enum):
     """Category of reduction initiative."""
+
     ENERGY_EFFICIENCY = "energy_efficiency"
     RENEWABLE_ENERGY = "renewable_energy"
     FLEET_TRANSPORT = "fleet_transport"
@@ -46,13 +51,15 @@ class InitiativeCategory(str, Enum):
 
 class ComplexityLevel(str, Enum):
     """Implementation complexity."""
-    LOW = "low"       # Quick wins, minimal disruption
-    MEDIUM = "medium" # Moderate effort, some planning
-    HIGH = "high"     # Major projects, significant change
+
+    LOW = "low"  # Quick wins, minimal disruption
+    MEDIUM = "medium"  # Moderate effort, some planning
+    HIGH = "high"  # Major projects, significant change
 
 
 class ScenarioType(str, Enum):
     """Pre-defined scenario types."""
+
     AGGRESSIVE = "aggressive"
     MODERATE = "moderate"
     CONSERVATIVE = "conservative"
@@ -61,6 +68,7 @@ class ScenarioType(str, Enum):
 
 class InitiativeStatus(str, Enum):
     """Status of an initiative in a scenario."""
+
     PLANNED = "planned"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -70,6 +78,7 @@ class InitiativeStatus(str, Enum):
 
 class MilestoneStatus(str, Enum):
     """Status of a roadmap milestone."""
+
     PENDING = "pending"
     ACHIEVED = "achieved"
     AT_RISK = "at_risk"
@@ -80,31 +89,35 @@ class MilestoneStatus(str, Enum):
 # DECARBONIZATION TARGET
 # ============================================================================
 
+
 class DecarbonizationTarget(SQLModel, table=True):
     """
     Organization's decarbonization targets.
     Can have multiple targets (e.g., near-term 2030 + long-term 2050).
     """
+
     __tablename__ = "decarbonization_targets"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     organization_id: UUID = Field(foreign_key="organizations.id", index=True)
 
     # Target definition
-    name: str = Field(max_length=100)                    # "SBTi 2030 Target"
+    name: str = Field(max_length=100)  # "SBTi 2030 Target"
     description: Optional[str] = Field(default=None, max_length=500)
     target_type: TargetType = Field(default=TargetType.ABSOLUTE)
     framework: TargetFramework = Field(default=TargetFramework.SBTI_1_5C)
 
     # Base year
-    base_year: int                                       # 2023
-    base_year_period_id: Optional[UUID] = Field(default=None, foreign_key="reporting_periods.id")
-    base_year_emissions_tco2e: Decimal                   # 10,000 tCO2e
+    base_year: int  # 2023
+    base_year_period_id: Optional[UUID] = Field(
+        default=None, foreign_key="reporting_periods.id"
+    )
+    base_year_emissions_tco2e: Decimal  # 10,000 tCO2e
 
     # Target specification
-    target_year: int                                     # 2030
-    target_reduction_percent: Decimal                    # 42% (for SBTi 1.5°C)
-    target_emissions_tco2e: Decimal                      # 5,800 tCO2e
+    target_year: int  # 2030
+    target_reduction_percent: Decimal  # 42% (for SBTi 1.5°C)
+    target_emissions_tco2e: Decimal  # 5,800 tCO2e
 
     # Scope coverage
     includes_scope1: bool = Field(default=True)
@@ -113,7 +126,9 @@ class DecarbonizationTarget(SQLModel, table=True):
     scope3_categories: Optional[list[str]] = Field(default=None, sa_column=Column(JSON))
 
     # For intensity targets
-    intensity_metric: Optional[str] = Field(default=None, max_length=50)  # "revenue_million_usd"
+    intensity_metric: Optional[str] = Field(
+        default=None, max_length=50
+    )  # "revenue_million_usd"
     base_intensity_value: Optional[Decimal] = Field(default=None)
     target_intensity_value: Optional[Decimal] = Field(default=None)
 
@@ -136,11 +151,13 @@ class DecarbonizationTarget(SQLModel, table=True):
 # INITIATIVE LIBRARY
 # ============================================================================
 
+
 class Initiative(SQLModel, table=True):
     """
     Pre-defined reduction initiatives in the library.
     These are curated and matched to client data via applicable_activity_keys.
     """
+
     __tablename__ = "initiatives"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -158,7 +175,9 @@ class Initiative(SQLModel, table=True):
     # These fields enable matching to client's actual data
     applicable_scopes: list[int] = Field(sa_column=Column(JSON))  # [1, 2]
     applicable_category_codes: list[str] = Field(sa_column=Column(JSON))  # ["1.1", "2"]
-    applicable_activity_keys: list[str] = Field(sa_column=Column(JSON))  # ["electricity_kwh"]
+    applicable_activity_keys: list[str] = Field(
+        sa_column=Column(JSON)
+    )  # ["electricity_kwh"]
 
     # Reduction potential (percentage of addressed emissions)
     typical_reduction_percent_min: Decimal = Field(default=Decimal("10"))
@@ -167,7 +186,9 @@ class Initiative(SQLModel, table=True):
 
     # Financial parameters (defaults - will be scaled to client)
     typical_capex_per_tco2e_reduced: Optional[Decimal] = Field(default=None)
-    typical_opex_change_percent: Optional[Decimal] = Field(default=None)  # Negative = savings
+    typical_opex_change_percent: Optional[Decimal] = Field(
+        default=None
+    )  # Negative = savings
     typical_payback_years_min: Optional[Decimal] = Field(default=None)
     typical_payback_years_max: Optional[Decimal] = Field(default=None)
 
@@ -187,8 +208,12 @@ class Initiative(SQLModel, table=True):
 
     # Applicability conditions
     min_emissions_for_relevance_tco2e: Optional[Decimal] = Field(default=None)
-    applicable_industries: Optional[list[str]] = Field(default=None, sa_column=Column(JSON))
-    applicable_regions: Optional[list[str]] = Field(default=None, sa_column=Column(JSON))
+    applicable_industries: Optional[list[str]] = Field(
+        default=None, sa_column=Column(JSON)
+    )
+    applicable_regions: Optional[list[str]] = Field(
+        default=None, sa_column=Column(JSON)
+    )
 
     # Source/reference
     source_reference: Optional[str] = Field(default=None, max_length=500)
@@ -202,11 +227,13 @@ class Initiative(SQLModel, table=True):
 # SCENARIO
 # ============================================================================
 
+
 class Scenario(SQLModel, table=True):
     """
     A decarbonization scenario combining multiple initiatives.
     Clients can create and compare different scenarios.
     """
+
     __tablename__ = "scenarios"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -247,11 +274,13 @@ class Scenario(SQLModel, table=True):
 # SCENARIO INITIATIVE (Junction table with additional data)
 # ============================================================================
 
+
 class ScenarioInitiative(SQLModel, table=True):
     """
     An initiative selected for a specific scenario.
     Contains client-specific implementation details.
     """
+
     __tablename__ = "scenario_initiatives"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -300,10 +329,12 @@ class ScenarioInitiative(SQLModel, table=True):
 # ROADMAP MILESTONE
 # ============================================================================
 
+
 class RoadmapMilestone(SQLModel, table=True):
     """
     Key milestones in the decarbonization roadmap.
     """
+
     __tablename__ = "roadmap_milestones"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -328,7 +359,9 @@ class RoadmapMilestone(SQLModel, table=True):
     actual_emissions_tco2e: Optional[Decimal] = Field(default=None)
 
     # Linked initiatives that must be complete
-    linked_initiative_ids: Optional[list[str]] = Field(default=None, sa_column=Column(JSON))
+    linked_initiative_ids: Optional[list[str]] = Field(
+        default=None, sa_column=Column(JSON)
+    )
 
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -341,11 +374,13 @@ class RoadmapMilestone(SQLModel, table=True):
 # EMISSION CHECKPOINT (Progress Tracking)
 # ============================================================================
 
+
 class EmissionCheckpoint(SQLModel, table=True):
     """
     Periodic emission checkpoints for tracking progress against plan.
     Created when a new ReportingPeriod is completed.
     """
+
     __tablename__ = "emission_checkpoints"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -360,7 +395,7 @@ class EmissionCheckpoint(SQLModel, table=True):
     # Actual vs planned
     actual_emissions_tco2e: Decimal
     planned_emissions_tco2e: Decimal
-    variance_tco2e: Decimal                     # Actual - Planned (negative = ahead)
+    variance_tco2e: Decimal  # Actual - Planned (negative = ahead)
     variance_percent: Decimal
 
     # Status
@@ -368,7 +403,9 @@ class EmissionCheckpoint(SQLModel, table=True):
 
     # Analysis
     variance_explanation: Optional[str] = Field(default=None, max_length=1000)
-    recommended_actions: Optional[list[str]] = Field(default=None, sa_column=Column(JSON))
+    recommended_actions: Optional[list[str]] = Field(
+        default=None, sa_column=Column(JSON)
+    )
 
     # Timestamp
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -378,8 +415,10 @@ class EmissionCheckpoint(SQLModel, table=True):
 # PYDANTIC MODELS FOR API RESPONSES (Not stored in DB)
 # ============================================================================
 
+
 class EmissionSource(SQLModel):
     """A single emission source identified from client data."""
+
     activity_key: str
     display_name: str
     scope: int
@@ -398,6 +437,7 @@ class EmissionProfileAnalysis(SQLModel):
     Computed analysis of organization's emission profile.
     This is NOT stored - it's calculated on-demand from Activities/Emissions.
     """
+
     organization_id: UUID
     period_id: UUID
     period_name: str
@@ -432,6 +472,7 @@ class PersonalizedRecommendation(SQLModel):
     """
     A recommendation generated for a specific client based on their data.
     """
+
     initiative_id: UUID
     initiative_name: str
     initiative_category: str

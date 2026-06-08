@@ -3,6 +3,7 @@
 Script to seed the initiatives library.
 Run from backend directory: python scripts/seed_initiatives.py
 """
+
 import asyncio
 import sys
 from pathlib import Path
@@ -10,7 +11,6 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlmodel import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
@@ -27,9 +27,7 @@ async def main():
     )
 
     # Create session
-    async_session = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as session:
         count = await seed_initiatives(session)

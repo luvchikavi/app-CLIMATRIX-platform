@@ -29,7 +29,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "EIA Weekly Retail On-Highway Diesel Prices 2024",
-        "source_url": "https://www.eia.gov/petroleum/gasdiesel/"
+        "source_url": "https://www.eia.gov/petroleum/gasdiesel/",
     },
     {
         "fuel_type": "diesel",
@@ -40,7 +40,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "UK DESNZ Weekly Road Fuel Prices 2024",
-        "source_url": "https://www.gov.uk/government/statistics/weekly-road-fuel-prices"
+        "source_url": "https://www.gov.uk/government/statistics/weekly-road-fuel-prices",
     },
     {
         "fuel_type": "diesel",
@@ -51,7 +51,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Israel Ministry of Energy - Regulated Fuel Prices 2024",
-        "source_url": "https://www.gov.il/he/departments/topics/fuel_prices"
+        "source_url": "https://www.gov.il/he/departments/topics/fuel_prices",
     },
     {
         "fuel_type": "diesel",
@@ -62,7 +62,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "European Commission Weekly Oil Bulletin 2024",
-        "source_url": "https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en"
+        "source_url": "https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en",
     },
     # Global fallback (USD)
     {
@@ -74,9 +74,8 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "IEA Global Average Diesel Price 2024",
-        "source_url": "https://www.iea.org/"
+        "source_url": "https://www.iea.org/",
     },
-
     # ============================================================================
     # PETROL / GASOLINE
     # ============================================================================
@@ -89,7 +88,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "EIA Weekly Retail Gasoline Prices 2024",
-        "source_url": "https://www.eia.gov/petroleum/gasdiesel/"
+        "source_url": "https://www.eia.gov/petroleum/gasdiesel/",
     },
     {
         "fuel_type": "petrol",
@@ -100,7 +99,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "UK DESNZ Weekly Road Fuel Prices 2024",
-        "source_url": "https://www.gov.uk/government/statistics/weekly-road-fuel-prices"
+        "source_url": "https://www.gov.uk/government/statistics/weekly-road-fuel-prices",
     },
     {
         "fuel_type": "petrol",
@@ -111,7 +110,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Israel Ministry of Energy - Regulated Fuel Prices 2024",
-        "source_url": "https://www.gov.il/he/departments/topics/fuel_prices"
+        "source_url": "https://www.gov.il/he/departments/topics/fuel_prices",
     },
     {
         "fuel_type": "petrol",
@@ -122,7 +121,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "European Commission Weekly Oil Bulletin 2024",
-        "source_url": "https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en"
+        "source_url": "https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en",
     },
     {
         "fuel_type": "petrol",
@@ -133,9 +132,8 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "IEA Global Average Gasoline Price 2024",
-        "source_url": "https://www.iea.org/"
+        "source_url": "https://www.iea.org/",
     },
-
     # ============================================================================
     # NATURAL GAS
     # ============================================================================
@@ -148,7 +146,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "EIA Natural Gas Prices - Commercial Sector 2024",
-        "source_url": "https://www.eia.gov/naturalgas/monthly/"
+        "source_url": "https://www.eia.gov/naturalgas/monthly/",
     },
     {
         "fuel_type": "natural_gas",
@@ -159,7 +157,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Ofgem Energy Price Cap 2024",
-        "source_url": "https://www.ofgem.gov.uk/energy-price-cap"
+        "source_url": "https://www.ofgem.gov.uk/energy-price-cap",
     },
     {
         "fuel_type": "natural_gas",
@@ -170,7 +168,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Israel Natural Gas Authority 2024",
-        "source_url": "https://www.gov.il/he/departments/natural_gas_authority"
+        "source_url": "https://www.gov.il/he/departments/natural_gas_authority",
     },
     {
         "fuel_type": "natural_gas",
@@ -181,7 +179,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Eurostat Natural Gas Prices 2024",
-        "source_url": "https://ec.europa.eu/eurostat/statistics-explained/index.php/Natural_gas_price_statistics"
+        "source_url": "https://ec.europa.eu/eurostat/statistics-explained/index.php/Natural_gas_price_statistics",
     },
     {
         "fuel_type": "natural_gas",
@@ -192,7 +190,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "IEA World Energy Outlook 2024",
-        "source_url": "https://www.iea.org/"
+        "source_url": "https://www.iea.org/",
     },
     # Natural gas by m3
     {
@@ -204,9 +202,8 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "IEA - converted from kWh (1 m3 = ~10.55 kWh)",
-        "source_url": "https://www.iea.org/"
+        "source_url": "https://www.iea.org/",
     },
-
     # ============================================================================
     # LPG (Liquefied Petroleum Gas)
     # ============================================================================
@@ -219,7 +216,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "EIA Propane/LPG Prices 2024",
-        "source_url": "https://www.eia.gov/petroleum/heatingoil/index.php"
+        "source_url": "https://www.eia.gov/petroleum/heatingoil/index.php",
     },
     {
         "fuel_type": "lpg",
@@ -230,7 +227,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "UK DESNZ LPG Prices 2024",
-        "source_url": "https://www.gov.uk/government/statistics/weekly-road-fuel-prices"
+        "source_url": "https://www.gov.uk/government/statistics/weekly-road-fuel-prices",
     },
     {
         "fuel_type": "lpg",
@@ -241,7 +238,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Israel Ministry of Energy 2024",
-        "source_url": "https://www.gov.il/he/departments/topics/fuel_prices"
+        "source_url": "https://www.gov.il/he/departments/topics/fuel_prices",
     },
     {
         "fuel_type": "lpg",
@@ -252,9 +249,8 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "World Bank Commodity Prices 2024",
-        "source_url": "https://www.worldbank.org/en/research/commodity-markets"
+        "source_url": "https://www.worldbank.org/en/research/commodity-markets",
     },
-
     # ============================================================================
     # ELECTRICITY (for Scope 2)
     # Prices per kWh for commercial/industrial customers
@@ -270,7 +266,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "EIA Average Retail Price of Electricity - Commercial 2024",
-        "source_url": "https://www.eia.gov/electricity/monthly/"
+        "source_url": "https://www.eia.gov/electricity/monthly/",
     },
     # UK
     {
@@ -282,7 +278,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Ofgem Energy Price Cap 2024",
-        "source_url": "https://www.ofgem.gov.uk/energy-price-cap"
+        "source_url": "https://www.ofgem.gov.uk/energy-price-cap",
     },
     # Israel
     {
@@ -294,7 +290,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Israel Electric Corporation Tariffs 2024",
-        "source_url": "https://www.iec.co.il/"
+        "source_url": "https://www.iec.co.il/",
     },
     # EU Average
     {
@@ -306,7 +302,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Eurostat Electricity Prices 2024",
-        "source_url": "https://ec.europa.eu/eurostat/statistics-explained/index.php/Electricity_price_statistics"
+        "source_url": "https://ec.europa.eu/eurostat/statistics-explained/index.php/Electricity_price_statistics",
     },
     # Germany
     {
@@ -318,7 +314,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "BDEW German Electricity Prices 2024",
-        "source_url": "https://www.bdew.de/"
+        "source_url": "https://www.bdew.de/",
     },
     # France
     {
@@ -330,7 +326,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "CRE French Electricity Prices 2024",
-        "source_url": "https://www.cre.fr/"
+        "source_url": "https://www.cre.fr/",
     },
     # Spain
     {
@@ -342,7 +338,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "CNMC Spanish Electricity Prices 2024",
-        "source_url": "https://www.cnmc.es/"
+        "source_url": "https://www.cnmc.es/",
     },
     # Italy
     {
@@ -354,7 +350,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "ARERA Italian Electricity Prices 2024",
-        "source_url": "https://www.arera.it/"
+        "source_url": "https://www.arera.it/",
     },
     # Netherlands
     {
@@ -366,7 +362,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "ACM Dutch Electricity Prices 2024",
-        "source_url": "https://www.acm.nl/"
+        "source_url": "https://www.acm.nl/",
     },
     # Poland
     {
@@ -378,7 +374,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "URE Polish Electricity Prices 2024",
-        "source_url": "https://www.ure.gov.pl/"
+        "source_url": "https://www.ure.gov.pl/",
     },
     # Canada
     {
@@ -390,7 +386,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Statistics Canada Electricity Prices 2024",
-        "source_url": "https://www.statcan.gc.ca/"
+        "source_url": "https://www.statcan.gc.ca/",
     },
     # Japan
     {
@@ -402,7 +398,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "METI Japan Electricity Prices 2024",
-        "source_url": "https://www.meti.go.jp/"
+        "source_url": "https://www.meti.go.jp/",
     },
     # South Korea
     {
@@ -414,7 +410,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "KEPCO South Korea Electricity Tariffs 2024",
-        "source_url": "https://home.kepco.co.kr/"
+        "source_url": "https://home.kepco.co.kr/",
     },
     # China
     {
@@ -426,7 +422,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "NDRC China Electricity Prices 2024",
-        "source_url": "https://www.ndrc.gov.cn/"
+        "source_url": "https://www.ndrc.gov.cn/",
     },
     # Singapore
     {
@@ -438,7 +434,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "EMA Singapore Electricity Tariffs 2024",
-        "source_url": "https://www.ema.gov.sg/"
+        "source_url": "https://www.ema.gov.sg/",
     },
     # Australia
     {
@@ -450,7 +446,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "AER Australian Default Offer 2024",
-        "source_url": "https://www.aer.gov.au/"
+        "source_url": "https://www.aer.gov.au/",
     },
     # India
     {
@@ -462,7 +458,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "CERC India Electricity Tariffs 2024",
-        "source_url": "https://cercind.gov.in/"
+        "source_url": "https://cercind.gov.in/",
     },
     # Global Average
     {
@@ -474,9 +470,8 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "IEA Global Average Electricity Price 2024",
-        "source_url": "https://www.iea.org/"
+        "source_url": "https://www.iea.org/",
     },
-
     # ============================================================================
     # COAL
     # ============================================================================
@@ -489,9 +484,8 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "World Bank Coal Price Index 2024",
-        "source_url": "https://www.worldbank.org/en/research/commodity-markets"
+        "source_url": "https://www.worldbank.org/en/research/commodity-markets",
     },
-
     # ============================================================================
     # HEATING OIL / FUEL OIL
     # ============================================================================
@@ -504,7 +498,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "EIA Weekly Heating Oil Prices 2024",
-        "source_url": "https://www.eia.gov/petroleum/heatingoil/"
+        "source_url": "https://www.eia.gov/petroleum/heatingoil/",
     },
     {
         "fuel_type": "heating_oil",
@@ -515,7 +509,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Boiler Juice UK Heating Oil Prices 2024",
-        "source_url": "https://www.boilerjuice.com/heating-oil-prices/"
+        "source_url": "https://www.boilerjuice.com/heating-oil-prices/",
     },
     {
         "fuel_type": "heating_oil",
@@ -526,9 +520,8 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "IEA Fuel Oil Average Price 2024",
-        "source_url": "https://www.iea.org/"
+        "source_url": "https://www.iea.org/",
     },
-
     # ============================================================================
     # REFRIGERANTS (for Scope 1.3 Fugitive Emissions)
     # Prices are for bulk refrigerant purchases ($/kg)
@@ -542,7 +535,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "HVAC Industry Average - R-134a Bulk Price 2024",
-        "source_url": "https://www.coolingpost.com/"
+        "source_url": "https://www.coolingpost.com/",
     },
     {
         "fuel_type": "refrigerant_r410a",
@@ -553,7 +546,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "HVAC Industry Average - R-410A Bulk Price 2024",
-        "source_url": "https://www.coolingpost.com/"
+        "source_url": "https://www.coolingpost.com/",
     },
     {
         "fuel_type": "refrigerant_r32",
@@ -564,7 +557,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "HVAC Industry Average - R-32 Bulk Price 2024",
-        "source_url": "https://www.coolingpost.com/"
+        "source_url": "https://www.coolingpost.com/",
     },
     {
         "fuel_type": "refrigerant_r404a",
@@ -575,7 +568,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "HVAC Industry Average - R-404A Bulk Price 2024 (phasedown impacts price)",
-        "source_url": "https://www.coolingpost.com/"
+        "source_url": "https://www.coolingpost.com/",
     },
     # CO2 refrigerant (R-744)
     {
@@ -587,7 +580,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Industrial CO2 Prices 2024",
-        "source_url": "https://www.iea.org/"
+        "source_url": "https://www.iea.org/",
     },
     # HFC-23 (high GWP refrigerant)
     {
@@ -599,9 +592,8 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Fluorochemical Industry Prices 2024",
-        "source_url": "https://www.fluorocarbons.org/"
+        "source_url": "https://www.fluorocarbons.org/",
     },
-
     # ============================================================================
     # PROCESS MATERIALS (for Scope 1.4 Process Emissions)
     # Prices per tonne for industrial materials
@@ -616,7 +608,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "World Bank Commodity Markets - Cement Price Index 2024",
-        "source_url": "https://www.worldbank.org/en/research/commodity-markets"
+        "source_url": "https://www.worldbank.org/en/research/commodity-markets",
     },
     {
         "fuel_type": "clinker_production",
@@ -627,7 +619,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Global Cement Report - Clinker Prices 2024",
-        "source_url": "https://www.globalcement.com/"
+        "source_url": "https://www.globalcement.com/",
     },
     # Lime
     {
@@ -639,7 +631,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Industrial Minerals - Lime Prices 2024",
-        "source_url": "https://www.indmin.com/"
+        "source_url": "https://www.indmin.com/",
     },
     {
         "fuel_type": "dolomitic_lime_production",
@@ -650,7 +642,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Industrial Minerals - Dolomitic Lime Prices 2024",
-        "source_url": "https://www.indmin.com/"
+        "source_url": "https://www.indmin.com/",
     },
     # Glass
     {
@@ -662,7 +654,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "Glass Industry Association Price Index 2024",
-        "source_url": "https://www.glass.org/"
+        "source_url": "https://www.glass.org/",
     },
     # Ammonia
     {
@@ -674,7 +666,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "World Bank - Ammonia (Gulf) Price 2024",
-        "source_url": "https://www.worldbank.org/en/research/commodity-markets"
+        "source_url": "https://www.worldbank.org/en/research/commodity-markets",
     },
     # Iron & Steel
     {
@@ -686,7 +678,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "World Steel Association - Steel Price Index 2024",
-        "source_url": "https://worldsteel.org/"
+        "source_url": "https://worldsteel.org/",
     },
     {
         "fuel_type": "steel_eaf_production",
@@ -697,7 +689,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "World Steel Association - EAF Steel Prices 2024",
-        "source_url": "https://worldsteel.org/"
+        "source_url": "https://worldsteel.org/",
     },
     # Aluminum
     {
@@ -709,7 +701,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "London Metal Exchange - Aluminum Price 2024",
-        "source_url": "https://www.lme.com/"
+        "source_url": "https://www.lme.com/",
     },
     # Chemicals
     {
@@ -721,7 +713,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "ICIS Chemical Prices - Nitric Acid 2024",
-        "source_url": "https://www.icis.com/"
+        "source_url": "https://www.icis.com/",
     },
     {
         "fuel_type": "adipic_acid_production",
@@ -732,7 +724,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "ICIS Chemical Prices - Adipic Acid 2024",
-        "source_url": "https://www.icis.com/"
+        "source_url": "https://www.icis.com/",
     },
     # Hydrogen
     {
@@ -744,7 +736,7 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "IEA Global Hydrogen Review - SMR Hydrogen Prices 2024",
-        "source_url": "https://www.iea.org/reports/global-hydrogen-review"
+        "source_url": "https://www.iea.org/reports/global-hydrogen-review",
     },
     # Petrochemicals
     {
@@ -756,6 +748,6 @@ FUEL_PRICES = [
         "valid_from": date(2024, 1, 1),
         "valid_until": date(2025, 12, 31),
         "source": "ICIS Petrochemical Prices - Ethylene 2024",
-        "source_url": "https://www.icis.com/"
+        "source_url": "https://www.icis.com/",
     },
 ]

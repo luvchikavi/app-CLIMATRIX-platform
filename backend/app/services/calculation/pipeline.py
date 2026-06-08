@@ -9,6 +9,7 @@ Calculation Pipeline - Main orchestrator for emission calculations.
 This separates business logic from HTTP concerns.
 The API layer just calls pipeline.calculate() - no business logic in controllers.
 """
+
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Dict, Type
@@ -17,7 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.emission import EmissionFactor
 from app.services.calculation.normalizer import UnitNormalizer, UnitConversionError
-from app.services.calculation.resolver import FactorResolver, ResolutionStrategy, FactorNotFoundError
+from app.services.calculation.resolver import (
+    FactorResolver,
+    ResolutionStrategy,
+    FactorNotFoundError,
+)
 from app.services.calculation.result import CalculationResult
 from app.services.calculation.strategies.base import BaseCalculator
 from app.services.calculation.strategies.fuel import FuelCalculator
@@ -33,12 +38,14 @@ from app.services.calculation.wtt import WTTService
 
 class CalculationError(Exception):
     """Raised when emission calculation fails."""
+
     pass
 
 
 @dataclass
 class ActivityInput:
     """Input data for calculation pipeline."""
+
     activity_key: str
     quantity: Decimal
     unit: str
@@ -76,9 +83,23 @@ CURRENCY_RATES_TO_USD = {
 # Transportation (3.4, 3.9), Waste (3.5), Business Travel (3.6),
 # Commuting (3.7), Leased Assets (3.8), and others
 SPEND_BASED_CATEGORIES = {
-    "1.1", "1.2",  # Stationary & Mobile combustion (can have spend method)
-    "3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7", "3.8", "3.9",
-    "3.10", "3.11", "3.12", "3.13", "3.14", "3.15",
+    "1.1",
+    "1.2",  # Stationary & Mobile combustion (can have spend method)
+    "3.1",
+    "3.2",
+    "3.3",
+    "3.4",
+    "3.5",
+    "3.6",
+    "3.7",
+    "3.8",
+    "3.9",
+    "3.10",
+    "3.11",
+    "3.12",
+    "3.13",
+    "3.14",
+    "3.15",
 }
 
 
@@ -105,26 +126,24 @@ class CalculationPipeline:
     # Map category codes to calculator strategies
     CALCULATORS: Dict[str, Type[BaseCalculator]] = {
         # Scope 1 - Direct Emissions
-        "1.1": FuelCalculator,      # Stationary Combustion
-        "1.2": FuelCalculator,      # Mobile Combustion
+        "1.1": FuelCalculator,  # Stationary Combustion
+        "1.2": FuelCalculator,  # Mobile Combustion
         "1.3": RefrigerantCalculator,  # Fugitive Emissions (refrigerants, SF6)
-
         # Scope 2 - Indirect Energy
         "2": ElectricityCalculator,
-        "2.1": ElectricityCalculator,   # Purchased Electricity
-        "2.2": ElectricityCalculator,   # Purchased Heat/Steam
-
+        "2.1": ElectricityCalculator,  # Purchased Electricity
+        "2.2": ElectricityCalculator,  # Purchased Heat/Steam
         # Scope 3 - Value Chain
-        "3.1": SpendCalculator,     # Purchased Goods & Services
-        "3.2": SpendCalculator,     # Capital Goods
-        "3.3": FuelCalculator,      # Fuel & Energy Related (WTT auto-calculated)
-        "3.4": TransportCalculator, # Upstream Transportation
-        "3.5": WasteCalculator,     # Waste Generated in Operations
-        "3.6": FlightCalculator,    # Business Travel
-        "3.7": FuelCalculator,      # Employee Commuting (distance-based)
-        "3.8": LeasedAssetsCalculator,   # Upstream Leased Assets
-        "3.9": TransportCalculator, # Downstream Transportation
-        "3.12": WasteCalculator,    # End-of-Life Treatment
+        "3.1": SpendCalculator,  # Purchased Goods & Services
+        "3.2": SpendCalculator,  # Capital Goods
+        "3.3": FuelCalculator,  # Fuel & Energy Related (WTT auto-calculated)
+        "3.4": TransportCalculator,  # Upstream Transportation
+        "3.5": WasteCalculator,  # Waste Generated in Operations
+        "3.6": FlightCalculator,  # Business Travel
+        "3.7": FuelCalculator,  # Employee Commuting (distance-based)
+        "3.8": LeasedAssetsCalculator,  # Upstream Leased Assets
+        "3.9": TransportCalculator,  # Downstream Transportation
+        "3.12": WasteCalculator,  # End-of-Life Treatment
         "3.13": LeasedAssetsCalculator,  # Downstream Leased Assets
         "3.14": LeasedAssetsCalculator,  # Franchises
     }
@@ -160,7 +179,7 @@ class CalculationPipeline:
         # SPECIAL CASE: Supplier-Specific Method
         # User provides their own emission factor (EPD, supplier data)
         # =================================================================
-        if input_data.activity_key.startswith('supplier_specific'):
+        if input_data.activity_key.startswith("supplier_specific"):
             return await self._calculate_supplier_specific(input_data)
 
         # =================================================================
@@ -169,9 +188,11 @@ class CalculationPipeline:
         # Works with any electricity activity_key (electricity_il, electricity_supplier, etc.)
         # This enables market-based calculation while preserving country info for dual reporting.
         # =================================================================
-        if (input_data.scope == 2 and
-            input_data.supplier_ef is not None and
-            input_data.activity_key.startswith('electricity')):
+        if (
+            input_data.scope == 2
+            and input_data.supplier_ef is not None
+            and input_data.activity_key.startswith("electricity")
+        ):
             return await self._calculate_supplier_ef(input_data)
 
         # =================================================================
@@ -179,8 +200,7 @@ class CalculationPipeline:
         # When user provides their own emission factor (e.g., Urea with no DEFRA factor)
         # Overrides the standard database factor with the supplier-provided value
         # =================================================================
-        if (input_data.supplier_ef is not None and
-            input_data.scope == 1):
+        if input_data.supplier_ef is not None and input_data.scope == 1:
             return await self._calculate_scope1_supplier_ef(input_data)
 
         # =================================================================
@@ -207,12 +227,16 @@ class CalculationPipeline:
 
         if input_data.category_code in SPEND_BASED_CATEGORIES:
             input_currency = input_data.unit.upper()
-            target_currency = factor.activity_unit.upper() if factor.activity_unit else "USD"
+            target_currency = (
+                factor.activity_unit.upper() if factor.activity_unit else "USD"
+            )
 
             # Check if both are currencies and different
-            if (input_currency in CURRENCY_RATES_TO_USD and
-                target_currency in CURRENCY_RATES_TO_USD and
-                input_currency != target_currency):
+            if (
+                input_currency in CURRENCY_RATES_TO_USD
+                and target_currency in CURRENCY_RATES_TO_USD
+                and input_currency != target_currency
+            ):
 
                 # Convert input currency to target currency (usually USD)
                 input_rate = CURRENCY_RATES_TO_USD[input_currency]
@@ -241,14 +265,12 @@ class CalculationPipeline:
 
         # Get WTT factor using WTT service (pattern-based mapping)
         wtt_factor = await self.wtt_service.get_wtt_factor(
-            input_data.activity_key,
-            normalized.unit  # Use the converted unit
+            input_data.activity_key, normalized.unit  # Use the converted unit
         )
 
         # Stage 3: CALCULATE using appropriate strategy
         calculator_class = self.CALCULATORS.get(
-            input_data.category_code,
-            self.DEFAULT_CALCULATOR
+            input_data.category_code, self.DEFAULT_CALCULATOR
         )
         calculator = calculator_class()
         result = calculator.calculate(normalized, factor, wtt_factor)
@@ -273,7 +295,9 @@ class CalculationPipeline:
 
         return result
 
-    async def _calculate_supplier_specific(self, input_data: ActivityInput) -> CalculationResult:
+    async def _calculate_supplier_specific(
+        self, input_data: ActivityInput
+    ) -> CalculationResult:
         """
         Calculate emissions using supplier-provided emission factor.
 
@@ -325,7 +349,9 @@ class CalculationPipeline:
 
         return result
 
-    async def _calculate_scope1_supplier_ef(self, input_data: ActivityInput) -> CalculationResult:
+    async def _calculate_scope1_supplier_ef(
+        self, input_data: ActivityInput
+    ) -> CalculationResult:
         """
         Calculate Scope 1 emissions using a supplier-provided emission factor.
 
@@ -336,9 +362,7 @@ class CalculationPipeline:
         The supplier EF overrides the database lookup entirely.
         """
         if input_data.supplier_ef is None:
-            raise CalculationError(
-                "Supplier emission factor required but not provided"
-            )
+            raise CalculationError("Supplier emission factor required but not provided")
 
         # Create a "virtual" emission factor from user input
         factor = EmissionFactor(
@@ -363,8 +387,7 @@ class CalculationPipeline:
 
         # Calculate using the appropriate strategy for the category
         calculator_class = self.CALCULATORS.get(
-            input_data.category_code,
-            self.DEFAULT_CALCULATOR
+            input_data.category_code, self.DEFAULT_CALCULATOR
         )
         calculator = calculator_class()
         result = calculator.calculate(normalized, factor, wtt_factor=None)
@@ -380,7 +403,9 @@ class CalculationPipeline:
 
         return result
 
-    async def _calculate_supplier_ef(self, input_data: ActivityInput) -> CalculationResult:
+    async def _calculate_supplier_ef(
+        self, input_data: ActivityInput
+    ) -> CalculationResult:
         """
         Calculate emissions using supplier-provided emission factor for Scope 2.
 
@@ -390,9 +415,7 @@ class CalculationPipeline:
         dual reporting.
         """
         if input_data.supplier_ef is None:
-            raise CalculationError(
-                "Supplier emission factor required but not provided"
-            )
+            raise CalculationError("Supplier emission factor required but not provided")
 
         # Normalize to kWh (shared by both calculations)
         normalized = self.normalizer.normalize(
@@ -428,8 +451,13 @@ class CalculationPipeline:
                 region=input_data.region,
                 year=input_data.year,
             )
-            if resolution.strategy != ResolutionStrategy.NOT_FOUND and resolution.factor:
-                location_result = calculator.calculate(normalized, resolution.factor, wtt_factor=None)
+            if (
+                resolution.strategy != ResolutionStrategy.NOT_FOUND
+                and resolution.factor
+            ):
+                location_result = calculator.calculate(
+                    normalized, resolution.factor, wtt_factor=None
+                )
                 location_co2e = location_result.co2e_kg
         except Exception:
             # Location-based is supplementary; don't fail the whole calculation
@@ -493,8 +521,12 @@ class CalculationPipeline:
                     category_code=act.category_code,
                     region="Global",
                     year=2024,
-                    supplier_ef=act.supplier_ef if hasattr(act, 'supplier_ef') else None,
-                    supplier_name=act.supplier_name if hasattr(act, 'supplier_name') else None,
+                    supplier_ef=(
+                        act.supplier_ef if hasattr(act, "supplier_ef") else None
+                    ),
+                    supplier_name=(
+                        act.supplier_name if hasattr(act, "supplier_name") else None
+                    ),
                 )
                 calc_result = await self.calculate(input_data)
 
@@ -520,7 +552,12 @@ class CalculationPipeline:
                     updated += 1
                 else:
                     failed += 1
-                    errors.append({"activity_id": str(act.id), "error": "No emission record found"})
+                    errors.append(
+                        {
+                            "activity_id": str(act.id),
+                            "error": "No emission record found",
+                        }
+                    )
             except Exception as e:
                 failed += 1
                 errors.append({"activity_id": str(act.id), "error": str(e)})
@@ -545,4 +582,5 @@ class CalculationPipeline:
         Returns dict with total_wtt_co2e_kg, by_source breakdown, and activity_count.
         """
         from uuid import UUID
+
         return await self.wtt_service.aggregate_wtt_for_period(UUID(period_id))

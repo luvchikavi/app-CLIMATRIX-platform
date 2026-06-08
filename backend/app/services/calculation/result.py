@@ -1,6 +1,7 @@
 """
 Calculation Result - Output of the calculation pipeline.
 """
+
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Optional, List
@@ -18,6 +19,7 @@ class CalculationResult:
     - Factor metadata (what was used, source)
     - Calculation transparency (formula, confidence, warnings)
     """
+
     # Core emissions
     co2e_kg: Decimal
     co2_kg: Optional[Decimal] = None
@@ -52,7 +54,9 @@ class CalculationResult:
     # Metadata (Phase 9 - Source Documentation)
     factor_year: Optional[int] = None
     factor_region: str = ""
-    method_hierarchy: Optional[str] = None  # "supplier", "ecoinvent", "defra_physical", "eeio_spend"
+    method_hierarchy: Optional[str] = (
+        None  # "supplier", "ecoinvent", "defra_physical", "eeio_spend"
+    )
     fallback_used: bool = False
     fallback_reason: str = ""
 
@@ -86,7 +90,13 @@ class CalculationResult:
             "fallback_used": self.fallback_used,
             "fallback_reason": self.fallback_reason,
             "td_co2e_kg": float(self.td_co2e_kg) if self.td_co2e_kg else None,
-            "td_wtt_co2e_kg": float(self.td_wtt_co2e_kg) if self.td_wtt_co2e_kg else None,
-            "location_co2e_kg": float(self.location_co2e_kg) if self.location_co2e_kg else None,
-            "market_co2e_kg": float(self.market_co2e_kg) if self.market_co2e_kg else None,
+            "td_wtt_co2e_kg": (
+                float(self.td_wtt_co2e_kg) if self.td_wtt_co2e_kg else None
+            ),
+            "location_co2e_kg": (
+                float(self.location_co2e_kg) if self.location_co2e_kg else None
+            ),
+            "market_co2e_kg": (
+                float(self.market_co2e_kg) if self.market_co2e_kg else None
+            ),
         }

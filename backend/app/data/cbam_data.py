@@ -73,7 +73,6 @@ CBAM_DEFAULT_VALUES = [
         "source": "EU Commission Default Values 2024",
         "valid_from": date(2024, 1, 1),
     },
-
     # -------------------------------------------------------------------------
     # IRON AND STEEL (CN 72, 73)
     # -------------------------------------------------------------------------
@@ -317,7 +316,6 @@ CBAM_DEFAULT_VALUES = [
         "source": "EU Commission Default Values 2024",
         "valid_from": date(2024, 1, 1),
     },
-
     # -------------------------------------------------------------------------
     # ALUMINIUM (CN 76)
     # -------------------------------------------------------------------------
@@ -411,7 +409,6 @@ CBAM_DEFAULT_VALUES = [
         "source": "EU Commission Default Values 2024",
         "valid_from": date(2024, 1, 1),
     },
-
     # -------------------------------------------------------------------------
     # FERTILISERS (CN 2808, 2814, 3102, 3105)
     # -------------------------------------------------------------------------
@@ -495,7 +492,6 @@ CBAM_DEFAULT_VALUES = [
         "source": "EU Commission Default Values 2024",
         "valid_from": date(2024, 1, 1),
     },
-
     # -------------------------------------------------------------------------
     # ELECTRICITY (CN 2716)
     # -------------------------------------------------------------------------
@@ -509,7 +505,6 @@ CBAM_DEFAULT_VALUES = [
         "source": "EU Commission Default Values 2024",
         "valid_from": date(2024, 1, 1),
     },
-
     # -------------------------------------------------------------------------
     # HYDROGEN (CN 2804 10 00)
     # -------------------------------------------------------------------------
@@ -554,43 +549,253 @@ CBAM_DEFAULT_VALUES = [
 
 CBAM_GRID_FACTORS = [
     # Major CBAM-relevant countries
-    {"country_code": "CN", "country_name": "China", "grid_factor": Decimal("0.582"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "IN", "country_name": "India", "grid_factor": Decimal("0.708"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "TR", "country_name": "Turkey", "grid_factor": Decimal("0.431"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "RU", "country_name": "Russia", "grid_factor": Decimal("0.327"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "UA", "country_name": "Ukraine", "grid_factor": Decimal("0.345"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "EG", "country_name": "Egypt", "grid_factor": Decimal("0.462"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "ZA", "country_name": "South Africa", "grid_factor": Decimal("0.928"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "BR", "country_name": "Brazil", "grid_factor": Decimal("0.074"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "MX", "country_name": "Mexico", "grid_factor": Decimal("0.423"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "KR", "country_name": "South Korea", "grid_factor": Decimal("0.415"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "JP", "country_name": "Japan", "grid_factor": Decimal("0.457"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "ID", "country_name": "Indonesia", "grid_factor": Decimal("0.761"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "VN", "country_name": "Vietnam", "grid_factor": Decimal("0.524"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "TH", "country_name": "Thailand", "grid_factor": Decimal("0.445"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "MY", "country_name": "Malaysia", "grid_factor": Decimal("0.585"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "PH", "country_name": "Philippines", "grid_factor": Decimal("0.593"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "PK", "country_name": "Pakistan", "grid_factor": Decimal("0.412"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "BD", "country_name": "Bangladesh", "grid_factor": Decimal("0.528"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "SA", "country_name": "Saudi Arabia", "grid_factor": Decimal("0.625"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "AE", "country_name": "United Arab Emirates", "grid_factor": Decimal("0.412"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "IR", "country_name": "Iran", "grid_factor": Decimal("0.523"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "US", "country_name": "United States", "grid_factor": Decimal("0.379"), "year": 2023, "source": "EPA 2023"},
-    {"country_code": "CA", "country_name": "Canada", "grid_factor": Decimal("0.120"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "AU", "country_name": "Australia", "grid_factor": Decimal("0.656"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "NO", "country_name": "Norway", "grid_factor": Decimal("0.008"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "CH", "country_name": "Switzerland", "grid_factor": Decimal("0.012"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "GB", "country_name": "United Kingdom", "grid_factor": Decimal("0.207"), "year": 2023, "source": "DEFRA 2023"},
-    {"country_code": "RS", "country_name": "Serbia", "grid_factor": Decimal("0.719"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "BA", "country_name": "Bosnia and Herzegovina", "grid_factor": Decimal("0.825"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "MK", "country_name": "North Macedonia", "grid_factor": Decimal("0.612"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "AL", "country_name": "Albania", "grid_factor": Decimal("0.015"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "ME", "country_name": "Montenegro", "grid_factor": Decimal("0.425"), "year": 2023, "source": "IEA 2023"},
-    {"country_code": "XK", "country_name": "Kosovo", "grid_factor": Decimal("0.892"), "year": 2023, "source": "IEA 2023"},
+    {
+        "country_code": "CN",
+        "country_name": "China",
+        "grid_factor": Decimal("0.582"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "IN",
+        "country_name": "India",
+        "grid_factor": Decimal("0.708"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "TR",
+        "country_name": "Turkey",
+        "grid_factor": Decimal("0.431"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "RU",
+        "country_name": "Russia",
+        "grid_factor": Decimal("0.327"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "UA",
+        "country_name": "Ukraine",
+        "grid_factor": Decimal("0.345"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "EG",
+        "country_name": "Egypt",
+        "grid_factor": Decimal("0.462"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "ZA",
+        "country_name": "South Africa",
+        "grid_factor": Decimal("0.928"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "BR",
+        "country_name": "Brazil",
+        "grid_factor": Decimal("0.074"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "MX",
+        "country_name": "Mexico",
+        "grid_factor": Decimal("0.423"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "KR",
+        "country_name": "South Korea",
+        "grid_factor": Decimal("0.415"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "JP",
+        "country_name": "Japan",
+        "grid_factor": Decimal("0.457"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "ID",
+        "country_name": "Indonesia",
+        "grid_factor": Decimal("0.761"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "VN",
+        "country_name": "Vietnam",
+        "grid_factor": Decimal("0.524"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "TH",
+        "country_name": "Thailand",
+        "grid_factor": Decimal("0.445"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "MY",
+        "country_name": "Malaysia",
+        "grid_factor": Decimal("0.585"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "PH",
+        "country_name": "Philippines",
+        "grid_factor": Decimal("0.593"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "PK",
+        "country_name": "Pakistan",
+        "grid_factor": Decimal("0.412"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "BD",
+        "country_name": "Bangladesh",
+        "grid_factor": Decimal("0.528"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "SA",
+        "country_name": "Saudi Arabia",
+        "grid_factor": Decimal("0.625"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "AE",
+        "country_name": "United Arab Emirates",
+        "grid_factor": Decimal("0.412"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "IR",
+        "country_name": "Iran",
+        "grid_factor": Decimal("0.523"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "US",
+        "country_name": "United States",
+        "grid_factor": Decimal("0.379"),
+        "year": 2023,
+        "source": "EPA 2023",
+    },
+    {
+        "country_code": "CA",
+        "country_name": "Canada",
+        "grid_factor": Decimal("0.120"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "AU",
+        "country_name": "Australia",
+        "grid_factor": Decimal("0.656"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "NO",
+        "country_name": "Norway",
+        "grid_factor": Decimal("0.008"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "CH",
+        "country_name": "Switzerland",
+        "grid_factor": Decimal("0.012"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "GB",
+        "country_name": "United Kingdom",
+        "grid_factor": Decimal("0.207"),
+        "year": 2023,
+        "source": "DEFRA 2023",
+    },
+    {
+        "country_code": "RS",
+        "country_name": "Serbia",
+        "grid_factor": Decimal("0.719"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "BA",
+        "country_name": "Bosnia and Herzegovina",
+        "grid_factor": Decimal("0.825"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "MK",
+        "country_name": "North Macedonia",
+        "grid_factor": Decimal("0.612"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "AL",
+        "country_name": "Albania",
+        "grid_factor": Decimal("0.015"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "ME",
+        "country_name": "Montenegro",
+        "grid_factor": Decimal("0.425"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
+    {
+        "country_code": "XK",
+        "country_name": "Kosovo",
+        "grid_factor": Decimal("0.892"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
     # EU average for fallback
-    {"country_code": "EU", "country_name": "European Union (average)", "grid_factor": Decimal("0.251"), "year": 2023, "source": "EEA 2023"},
+    {
+        "country_code": "EU",
+        "country_name": "European Union (average)",
+        "grid_factor": Decimal("0.251"),
+        "year": 2023,
+        "source": "EEA 2023",
+    },
     # World average for unknown countries
-    {"country_code": "WORLD", "country_name": "World Average", "grid_factor": Decimal("0.436"), "year": 2023, "source": "IEA 2023"},
+    {
+        "country_code": "WORLD",
+        "country_name": "World Average",
+        "grid_factor": Decimal("0.436"),
+        "year": 2023,
+        "source": "IEA 2023",
+    },
 ]
 
 
@@ -600,26 +805,81 @@ CBAM_GRID_FACTORS = [
 
 CBAM_PRODUCTS = [
     # Cement
-    {"cn_code": "2523", "sector": "cement", "description": "Portland cement, aluminous cement, slag cement and similar hydraulic cements", "direct_required": True, "indirect_required": True},
-
+    {
+        "cn_code": "2523",
+        "sector": "cement",
+        "description": "Portland cement, aluminous cement, slag cement and similar hydraulic cements",
+        "direct_required": True,
+        "indirect_required": True,
+    },
     # Iron and Steel
-    {"cn_code": "72", "sector": "iron_steel", "description": "Iron and steel", "direct_required": True, "indirect_required": False},
-    {"cn_code": "73", "sector": "iron_steel", "description": "Articles of iron or steel", "direct_required": True, "indirect_required": False},
-
+    {
+        "cn_code": "72",
+        "sector": "iron_steel",
+        "description": "Iron and steel",
+        "direct_required": True,
+        "indirect_required": False,
+    },
+    {
+        "cn_code": "73",
+        "sector": "iron_steel",
+        "description": "Articles of iron or steel",
+        "direct_required": True,
+        "indirect_required": False,
+    },
     # Aluminium
-    {"cn_code": "76", "sector": "aluminium", "description": "Aluminium and articles thereof", "direct_required": True, "indirect_required": True},
-
+    {
+        "cn_code": "76",
+        "sector": "aluminium",
+        "description": "Aluminium and articles thereof",
+        "direct_required": True,
+        "indirect_required": True,
+    },
     # Fertilisers
-    {"cn_code": "2808", "sector": "fertiliser", "description": "Nitric acid; sulphonitric acids", "direct_required": True, "indirect_required": True},
-    {"cn_code": "2814", "sector": "fertiliser", "description": "Ammonia, anhydrous or in aqueous solution", "direct_required": True, "indirect_required": True},
-    {"cn_code": "3102", "sector": "fertiliser", "description": "Mineral or chemical fertilisers, nitrogenous", "direct_required": True, "indirect_required": True},
-    {"cn_code": "3105", "sector": "fertiliser", "description": "Mineral or chemical fertilisers containing two or three nutrients", "direct_required": True, "indirect_required": True},
-
+    {
+        "cn_code": "2808",
+        "sector": "fertiliser",
+        "description": "Nitric acid; sulphonitric acids",
+        "direct_required": True,
+        "indirect_required": True,
+    },
+    {
+        "cn_code": "2814",
+        "sector": "fertiliser",
+        "description": "Ammonia, anhydrous or in aqueous solution",
+        "direct_required": True,
+        "indirect_required": True,
+    },
+    {
+        "cn_code": "3102",
+        "sector": "fertiliser",
+        "description": "Mineral or chemical fertilisers, nitrogenous",
+        "direct_required": True,
+        "indirect_required": True,
+    },
+    {
+        "cn_code": "3105",
+        "sector": "fertiliser",
+        "description": "Mineral or chemical fertilisers containing two or three nutrients",
+        "direct_required": True,
+        "indirect_required": True,
+    },
     # Electricity
-    {"cn_code": "2716", "sector": "electricity", "description": "Electrical energy", "direct_required": True, "indirect_required": False},
-
+    {
+        "cn_code": "2716",
+        "sector": "electricity",
+        "description": "Electrical energy",
+        "direct_required": True,
+        "indirect_required": False,
+    },
     # Hydrogen
-    {"cn_code": "2804_10_00", "sector": "hydrogen", "description": "Hydrogen", "direct_required": True, "indirect_required": True},
+    {
+        "cn_code": "2804_10_00",
+        "sector": "hydrogen",
+        "description": "Hydrogen",
+        "direct_required": True,
+        "indirect_required": True,
+    },
 ]
 
 
@@ -629,18 +889,78 @@ CBAM_PRODUCTS = [
 # ============================================================================
 
 EU_ETS_PRICES_2024 = [
-    {"price_date": date(2024, 1, 3), "week_number": 1, "year": 2024, "price_eur": Decimal("73.42")},
-    {"price_date": date(2024, 1, 10), "week_number": 2, "year": 2024, "price_eur": Decimal("68.95")},
-    {"price_date": date(2024, 1, 17), "week_number": 3, "year": 2024, "price_eur": Decimal("62.38")},
-    {"price_date": date(2024, 1, 24), "week_number": 4, "year": 2024, "price_eur": Decimal("58.72")},
-    {"price_date": date(2024, 1, 31), "week_number": 5, "year": 2024, "price_eur": Decimal("56.85")},
-    {"price_date": date(2024, 2, 7), "week_number": 6, "year": 2024, "price_eur": Decimal("54.23")},
-    {"price_date": date(2024, 2, 14), "week_number": 7, "year": 2024, "price_eur": Decimal("53.18")},
-    {"price_date": date(2024, 2, 21), "week_number": 8, "year": 2024, "price_eur": Decimal("55.62")},
-    {"price_date": date(2024, 2, 28), "week_number": 9, "year": 2024, "price_eur": Decimal("58.45")},
-    {"price_date": date(2024, 3, 6), "week_number": 10, "year": 2024, "price_eur": Decimal("61.23")},
-    {"price_date": date(2024, 3, 13), "week_number": 11, "year": 2024, "price_eur": Decimal("59.87")},
-    {"price_date": date(2024, 3, 20), "week_number": 12, "year": 2024, "price_eur": Decimal("62.15")},
+    {
+        "price_date": date(2024, 1, 3),
+        "week_number": 1,
+        "year": 2024,
+        "price_eur": Decimal("73.42"),
+    },
+    {
+        "price_date": date(2024, 1, 10),
+        "week_number": 2,
+        "year": 2024,
+        "price_eur": Decimal("68.95"),
+    },
+    {
+        "price_date": date(2024, 1, 17),
+        "week_number": 3,
+        "year": 2024,
+        "price_eur": Decimal("62.38"),
+    },
+    {
+        "price_date": date(2024, 1, 24),
+        "week_number": 4,
+        "year": 2024,
+        "price_eur": Decimal("58.72"),
+    },
+    {
+        "price_date": date(2024, 1, 31),
+        "week_number": 5,
+        "year": 2024,
+        "price_eur": Decimal("56.85"),
+    },
+    {
+        "price_date": date(2024, 2, 7),
+        "week_number": 6,
+        "year": 2024,
+        "price_eur": Decimal("54.23"),
+    },
+    {
+        "price_date": date(2024, 2, 14),
+        "week_number": 7,
+        "year": 2024,
+        "price_eur": Decimal("53.18"),
+    },
+    {
+        "price_date": date(2024, 2, 21),
+        "week_number": 8,
+        "year": 2024,
+        "price_eur": Decimal("55.62"),
+    },
+    {
+        "price_date": date(2024, 2, 28),
+        "week_number": 9,
+        "year": 2024,
+        "price_eur": Decimal("58.45"),
+    },
+    {
+        "price_date": date(2024, 3, 6),
+        "week_number": 10,
+        "year": 2024,
+        "price_eur": Decimal("61.23"),
+    },
+    {
+        "price_date": date(2024, 3, 13),
+        "week_number": 11,
+        "year": 2024,
+        "price_eur": Decimal("59.87"),
+    },
+    {
+        "price_date": date(2024, 3, 20),
+        "week_number": 12,
+        "year": 2024,
+        "price_eur": Decimal("62.15"),
+    },
     # Add more weeks as needed...
 ]
 
@@ -648,6 +968,7 @@ EU_ETS_PRICES_2024 = [
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
+
 
 def get_default_see_by_cn_code(cn_code: str) -> dict | None:
     """Look up default SEE value by CN code (exact or prefix match)."""
@@ -658,7 +979,9 @@ def get_default_see_by_cn_code(cn_code: str) -> dict | None:
 
     # Then try prefix match (e.g., "7208" matches "7208_10_00")
     for item in CBAM_DEFAULT_VALUES:
-        if item["cn_code"].startswith(cn_code) or cn_code.startswith(item["cn_code"].replace("_", "")):
+        if item["cn_code"].startswith(cn_code) or cn_code.startswith(
+            item["cn_code"].replace("_", "")
+        ):
             return item
 
     return None

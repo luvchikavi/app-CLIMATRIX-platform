@@ -1,0 +1,17 @@
+# Ruff configuration for the Climatrix backend.
+# Default rule set is pycodestyle (E) + Pyflakes (F).
+target-version = "py312"
+line-length = 88
+
+[lint]
+# Rules intentionally ignored:
+#   E711/E712 — `== None` / `== True` are intentional in SQLAlchemy query
+#               filters (they compile to SQL `IS NULL` / `= true`); rewriting
+#               them to `is`/truthiness would break the generated SQL.
+#   E402      — module-level imports after code (Alembic env, lazy imports in
+#               scripts and import_data) are intentional.
+#   E701/E731 — single-line compound statements / lambda assignments in CLI
+#               seed scripts; cosmetic only.
+#   E722      — bare excepts in best-effort import/parse fallbacks; tracked as
+#               tech debt, not worth blocking CI.
+ignore = ["E711", "E712", "E402", "E701", "E722", "E731"]

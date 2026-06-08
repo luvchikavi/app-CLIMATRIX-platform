@@ -2,6 +2,7 @@
 Authentication API endpoints.
 Handles login, logout, and token refresh.
 """
+
 from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID
@@ -29,8 +30,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v3/auth/login")
 # Schemas
 # ============================================================================
 
+
 class UserResponse(BaseModel):
     """User response (public)."""
+
     id: str
     email: str
     full_name: str | None
@@ -41,6 +44,7 @@ class UserResponse(BaseModel):
 
 class OrganizationResponse(BaseModel):
     """Organization response (public)."""
+
     id: str
     name: str
     country_code: str | None
@@ -48,6 +52,7 @@ class OrganizationResponse(BaseModel):
 
 class Token(BaseModel):
     """Token response - includes user and org for frontend state."""
+
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
@@ -57,6 +62,7 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     """Token payload data."""
+
     user_id: str
     org_id: str
     role: str
@@ -66,20 +72,17 @@ class TokenData(BaseModel):
 # Helpers
 # ============================================================================
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash."""
     return bcrypt.checkpw(
-        plain_password.encode('utf-8'),
-        hashed_password.encode('utf-8')
+        plain_password.encode("utf-8"), hashed_password.encode("utf-8")
     )
 
 
 def get_password_hash(password: str) -> str:
     """Hash a password."""
-    return bcrypt.hashpw(
-        password.encode('utf-8'),
-        bcrypt.gensalt()
-    ).decode('utf-8')
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
@@ -110,7 +113,9 @@ async def get_current_user(
     )
 
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        payload = jwt.decode(
+            token, settings.secret_key, algorithms=[settings.algorithm]
+        )
         user_id_str: str = payload.get("sub")
         if user_id_str is None:
             raise credentials_exception
@@ -133,6 +138,7 @@ async def get_current_user(
 # Endpoints
 # ============================================================================
 
+
 @router.post("/login", response_model=Token)
 @limiter.limit(settings.rate_limit_login)
 async def login(
@@ -147,7 +153,11 @@ async def login(
     result = await session.execute(select(User).where(User.email == form_data.username))
     user = result.scalar_one_or_none()
 
-    if not user or not user.hashed_password or not verify_password(form_data.password, user.hashed_password):
+    if (
+        not user
+        or not user.hashed_password
+        or not verify_password(form_data.password, user.hashed_password)
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -209,6 +219,7 @@ async def login(
 
 class GoogleLoginRequest(BaseModel):
     """Google OAuth login request."""
+
     id_token: str
 
 
@@ -293,6 +304,7 @@ async def google_login(
 
         # Start free trial for the new organization
         from app.services.billing import BillingService
+
         await BillingService.start_free_trial(session, organization)
 
     # Fetch organization
@@ -346,7 +358,9 @@ async def refresh_token(
 ):
     """Refresh access token using refresh token."""
     try:
-        payload = jwt.decode(refresh_token, settings.secret_key, algorithms=[settings.algorithm])
+        payload = jwt.decode(
+            refresh_token, settings.secret_key, algorithms=[settings.algorithm]
+        )
         if payload.get("type") != "refresh":
             raise HTTPException(status_code=400, detail="Invalid token type")
 
@@ -412,8 +426,10 @@ async def complete_onboarding(
 # Registration
 # ============================================================================
 
+
 class RegisterRequest(BaseModel):
     """Registration request - creates organization and admin user."""
+
     email: str
     password: str
     full_name: str
@@ -444,8 +460,7 @@ async def register(
 
     if existing_user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
         )
 
     # Create organization
@@ -473,6 +488,7 @@ async def register(
 
     # Start free trial for the new organization
     from app.services.billing import BillingService
+
     await BillingService.start_free_trial(session, organization)
 
     # Create tokens
@@ -515,25 +531,31 @@ async def register(
 # Password Reset
 # ============================================================================
 
+
 class ForgotPasswordRequest(BaseModel):
     """Request password reset email."""
+
     email: str
 
 
 class ResetPasswordRequest(BaseModel):
     """Reset password with token."""
+
     token: str
     new_password: str
 
 
 class MessageResponse(BaseModel):
     """Simple message response."""
+
     message: str
 
 
 def create_password_reset_token(user_id: str) -> str:
     """Create a password reset token."""
-    expire = datetime.utcnow() + timedelta(minutes=settings.password_reset_token_expire_minutes)
+    expire = datetime.utcnow() + timedelta(
+        minutes=settings.password_reset_token_expire_minutes
+    )
     to_encode = {"sub": user_id, "exp": expire, "type": "password_reset"}
     return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 
@@ -568,7 +590,9 @@ async def forgot_password(
         )
 
     # Always return success to prevent email enumeration
-    return MessageResponse(message="If an account exists with this email, you will receive a password reset link.")
+    return MessageResponse(
+        message="If an account exists with this email, you will receive a password reset link."
+    )
 
 
 @router.post("/reset-password", response_model=MessageResponse)
@@ -582,7 +606,9 @@ async def reset_password(
     Reset password using the token from the email.
     """
     try:
-        payload = jwt.decode(data.token, settings.secret_key, algorithms=[settings.algorithm])
+        payload = jwt.decode(
+            data.token, settings.secret_key, algorithms=[settings.algorithm]
+        )
 
         if payload.get("type") != "password_reset":
             raise HTTPException(status_code=400, detail="Invalid token type")
@@ -606,7 +632,9 @@ async def reset_password(
         session.add(user)
         await session.commit()
 
-        return MessageResponse(message="Password has been reset successfully. You can now log in with your new password.")
+        return MessageResponse(
+            message="Password has been reset successfully. You can now log in with your new password."
+        )
 
     except JWTError:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
@@ -616,14 +644,17 @@ async def reset_password(
 # User Invitations
 # ============================================================================
 
+
 class InviteUserRequest(BaseModel):
     """Request to invite a user."""
+
     email: str
     role: str = "editor"  # viewer, editor, admin
 
 
 class InvitationResponse(BaseModel):
     """Invitation response."""
+
     id: str
     email: str
     role: str
@@ -635,6 +666,7 @@ class InvitationResponse(BaseModel):
 
 class AcceptInvitationRequest(BaseModel):
     """Request to accept an invitation."""
+
     token: str
     full_name: str
     password: str
@@ -659,22 +691,24 @@ async def invite_user(
         raise HTTPException(status_code=403, detail="Only admins can invite users")
 
     # Check if email already exists
-    existing_user = await session.execute(
-        select(User).where(User.email == data.email)
-    )
+    existing_user = await session.execute(select(User).where(User.email == data.email))
     if existing_user.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="A user with this email already exists")
+        raise HTTPException(
+            status_code=400, detail="A user with this email already exists"
+        )
 
     # Check for existing pending invitation
     existing_invite = await session.execute(
         select(Invitation).where(
             Invitation.email == data.email,
             Invitation.organization_id == current_user.organization_id,
-            Invitation.status == InvitationStatus.PENDING
+            Invitation.status == InvitationStatus.PENDING,
         )
     )
     if existing_invite.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="An invitation is already pending for this email")
+        raise HTTPException(
+            status_code=400, detail="An invitation is already pending for this email"
+        )
 
     # Parse role
     try:
@@ -744,9 +778,9 @@ async def list_invitations(
         raise HTTPException(status_code=403, detail="Only admins can view invitations")
 
     result = await session.execute(
-        select(Invitation).where(
-            Invitation.organization_id == current_user.organization_id
-        ).order_by(Invitation.created_at.desc())
+        select(Invitation)
+        .where(Invitation.organization_id == current_user.organization_id)
+        .order_by(Invitation.created_at.desc())
     )
     invitations = result.scalars().all()
 
@@ -758,15 +792,17 @@ async def list_invitations(
         )
         inviter = inviter_result.scalar_one_or_none()
 
-        responses.append(InvitationResponse(
-            id=str(inv.id),
-            email=inv.email,
-            role=inv.role.value,
-            status=inv.status.value,
-            invited_by_email=inviter.email if inviter else "Unknown",
-            created_at=inv.created_at.isoformat(),
-            expires_at=inv.expires_at.isoformat(),
-        ))
+        responses.append(
+            InvitationResponse(
+                id=str(inv.id),
+                email=inv.email,
+                role=inv.role.value,
+                status=inv.status.value,
+                invited_by_email=inviter.email if inviter else "Unknown",
+                created_at=inv.created_at.isoformat(),
+                expires_at=inv.expires_at.isoformat(),
+            )
+        )
 
     return responses
 
@@ -791,7 +827,9 @@ async def check_invitation(
         raise HTTPException(status_code=404, detail="Invitation not found")
 
     if invitation.status != InvitationStatus.PENDING:
-        raise HTTPException(status_code=400, detail=f"Invitation is {invitation.status.value}")
+        raise HTTPException(
+            status_code=400, detail=f"Invitation is {invitation.status.value}"
+        )
 
     if invitation.expires_at < datetime.utcnow():
         # Update status to expired
@@ -834,7 +872,9 @@ async def accept_invitation(
         raise HTTPException(status_code=404, detail="Invitation not found")
 
     if invitation.status != InvitationStatus.PENDING:
-        raise HTTPException(status_code=400, detail=f"Invitation is {invitation.status.value}")
+        raise HTTPException(
+            status_code=400, detail=f"Invitation is {invitation.status.value}"
+        )
 
     if invitation.expires_at < datetime.utcnow():
         invitation.status = InvitationStatus.EXPIRED
@@ -919,7 +959,9 @@ async def resend_invitation(
     import secrets
 
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        raise HTTPException(status_code=403, detail="Only admins can resend invitations")
+        raise HTTPException(
+            status_code=403, detail="Only admins can resend invitations"
+        )
 
     result = await session.execute(
         select(Invitation).where(
@@ -933,7 +975,9 @@ async def resend_invitation(
         raise HTTPException(status_code=404, detail="Invitation not found")
 
     if invitation.status != InvitationStatus.PENDING:
-        raise HTTPException(status_code=400, detail="Can only resend pending invitations")
+        raise HTTPException(
+            status_code=400, detail="Can only resend pending invitations"
+        )
 
     # Generate new token and extend expiration
     invitation.token = secrets.token_urlsafe(32)
@@ -974,7 +1018,9 @@ async def cancel_invitation(
     from app.models.core import UserRole, Invitation, InvitationStatus
 
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        raise HTTPException(status_code=403, detail="Only admins can cancel invitations")
+        raise HTTPException(
+            status_code=403, detail="Only admins can cancel invitations"
+        )
 
     result = await session.execute(
         select(Invitation).where(
@@ -988,7 +1034,9 @@ async def cancel_invitation(
         raise HTTPException(status_code=404, detail="Invitation not found")
 
     if invitation.status != InvitationStatus.PENDING:
-        raise HTTPException(status_code=400, detail="Can only cancel pending invitations")
+        raise HTTPException(
+            status_code=400, detail="Can only cancel pending invitations"
+        )
 
     invitation.status = InvitationStatus.CANCELED
     session.add(invitation)

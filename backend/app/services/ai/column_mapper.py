@@ -7,6 +7,7 @@ This is the key component for intelligent file imports. It uses Claude to:
 3. Detect the appropriate unit
 4. Identify date and description columns
 """
+
 import json
 from dataclasses import dataclass
 from typing import Optional
@@ -17,6 +18,7 @@ from app.services.ai.claude_service import ClaudeService
 @dataclass
 class ColumnMapping:
     """Result of mapping a single column."""
+
     original_header: str
     activity_key: Optional[str]
     scope: Optional[int]
@@ -30,6 +32,7 @@ class ColumnMapping:
 @dataclass
 class MappingResult:
     """Complete mapping result for a file."""
+
     success: bool
     mappings: list[ColumnMapping]
     detected_structure: str  # "single_activity", "multi_activity", "pivot"
@@ -168,7 +171,7 @@ Respond with this exact JSON structure:
                 ai_notes=data.get("notes"),
             )
 
-        except (KeyError, TypeError) as e:
+        except (KeyError, TypeError):
             # Fall back to rule-based if parsing fails
             return self._rule_based_map(headers)
 
@@ -199,14 +202,12 @@ Respond with this exact JSON structure:
             "r-134a": ("refrigerant_r134a", 1, "1.3", "kg"),
             "r-410a": ("refrigerant_r410a", 1, "1.3", "kg"),
             "sf6": ("sf6_leakage", 1, "1.3", "kg"),
-
             # Scope 2 - Electricity
             "electricity": ("electricity_global", 2, "2", "kWh"),
             "electric": ("electricity_global", 2, "2", "kWh"),
             "power": ("electricity_global", 2, "2", "kWh"),
             "heating": ("district_heat", 2, "2.2", "kWh"),
             "steam": ("district_heat", 2, "2.2", "kWh"),
-
             # Scope 3 - Various
             "waste": ("waste_mixed_landfill", 3, "3.5", "kg"),
             "flight": ("flight_medium_economy", 3, "3.6", "km"),
@@ -223,61 +224,76 @@ Respond with this exact JSON structure:
             # Check for date columns
             if any(d in header_lower for d in ["date", "period", "month", "year"]):
                 date_column = header
-                mappings.append(ColumnMapping(
-                    original_header=header,
-                    activity_key=None,
-                    scope=None,
-                    category_code=None,
-                    detected_unit=None,
-                    column_type="date",
-                    confidence=0.9,
-                ))
+                mappings.append(
+                    ColumnMapping(
+                        original_header=header,
+                        activity_key=None,
+                        scope=None,
+                        category_code=None,
+                        detected_unit=None,
+                        column_type="date",
+                        confidence=0.9,
+                    )
+                )
                 continue
 
             # Check for description columns
-            if any(d in header_lower for d in ["description", "note", "comment", "detail"]):
+            if any(
+                d in header_lower for d in ["description", "note", "comment", "detail"]
+            ):
                 description_column = header
-                mappings.append(ColumnMapping(
-                    original_header=header,
-                    activity_key=None,
-                    scope=None,
-                    category_code=None,
-                    detected_unit=None,
-                    column_type="description",
-                    confidence=0.9,
-                ))
+                mappings.append(
+                    ColumnMapping(
+                        original_header=header,
+                        activity_key=None,
+                        scope=None,
+                        category_code=None,
+                        detected_unit=None,
+                        column_type="description",
+                        confidence=0.9,
+                    )
+                )
                 continue
 
             # Check for quantity/unit columns
             if any(q in header_lower for q in ["quantity", "amount", "value", "usage"]):
                 quantity_column = header
-                mappings.append(ColumnMapping(
-                    original_header=header,
-                    activity_key=None,
-                    scope=None,
-                    category_code=None,
-                    detected_unit=None,
-                    column_type="quantity",
-                    confidence=0.8,
-                ))
+                mappings.append(
+                    ColumnMapping(
+                        original_header=header,
+                        activity_key=None,
+                        scope=None,
+                        category_code=None,
+                        detected_unit=None,
+                        column_type="quantity",
+                        confidence=0.8,
+                    )
+                )
                 continue
 
             if header_lower == "unit" or header_lower == "units":
                 unit_column = header
-                mappings.append(ColumnMapping(
-                    original_header=header,
-                    activity_key=None,
-                    scope=None,
-                    category_code=None,
-                    detected_unit=None,
-                    column_type="unit",
-                    confidence=0.9,
-                ))
+                mappings.append(
+                    ColumnMapping(
+                        original_header=header,
+                        activity_key=None,
+                        scope=None,
+                        category_code=None,
+                        detected_unit=None,
+                        column_type="unit",
+                        confidence=0.9,
+                    )
+                )
                 continue
 
             # Try to match activity patterns
             matched = False
-            for pattern, (activity_key, scope, category, unit) in ACTIVITY_PATTERNS.items():
+            for pattern, (
+                activity_key,
+                scope,
+                category,
+                unit,
+            ) in ACTIVITY_PATTERNS.items():
                 if pattern in header_lower:
                     # Try to detect unit from header
                     detected_unit = unit
@@ -285,7 +301,11 @@ Respond with this exact JSON structure:
                         detected_unit = "kWh"
                     elif "mwh" in header_lower:
                         detected_unit = "MWh"
-                    elif "m³" in header_lower or "m3" in header_lower or "cubic" in header_lower:
+                    elif (
+                        "m³" in header_lower
+                        or "m3" in header_lower
+                        or "cubic" in header_lower
+                    ):
                         detected_unit = "m³"
                     elif "liter" in header_lower or "litre" in header_lower:
                         detected_unit = "liters"
@@ -300,31 +320,35 @@ Respond with this exact JSON structure:
                     elif "mile" in header_lower:
                         detected_unit = "miles"
 
-                    mappings.append(ColumnMapping(
-                        original_header=header,
-                        activity_key=activity_key,
-                        scope=scope,
-                        category_code=category,
-                        detected_unit=detected_unit,
-                        column_type="activity",
-                        confidence=0.7,
-                        notes="Matched by keyword pattern",
-                    ))
+                    mappings.append(
+                        ColumnMapping(
+                            original_header=header,
+                            activity_key=activity_key,
+                            scope=scope,
+                            category_code=category,
+                            detected_unit=detected_unit,
+                            column_type="activity",
+                            confidence=0.7,
+                            notes="Matched by keyword pattern",
+                        )
+                    )
                     matched = True
                     break
 
             if not matched:
                 # Unknown column - ignore
-                mappings.append(ColumnMapping(
-                    original_header=header,
-                    activity_key=None,
-                    scope=None,
-                    category_code=None,
-                    detected_unit=None,
-                    column_type="ignore",
-                    confidence=0.5,
-                    notes="Could not match to known activity type",
-                ))
+                mappings.append(
+                    ColumnMapping(
+                        original_header=header,
+                        activity_key=None,
+                        scope=None,
+                        category_code=None,
+                        detected_unit=None,
+                        column_type="ignore",
+                        confidence=0.5,
+                        notes="Could not match to known activity type",
+                    )
+                )
                 warnings.append(f"Column '{header}' could not be mapped automatically")
 
         # Determine structure

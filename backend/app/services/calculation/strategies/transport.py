@@ -13,6 +13,7 @@ Supports multiple transport modes:
 
 GHG Protocol: Scope 3, Categories 4 and 9
 """
+
 from decimal import Decimal
 from typing import Optional
 
@@ -46,10 +47,10 @@ class TransportCalculator(BaseCalculator):
     # Default load factors (tonnes) for distance-only calculations
     DEFAULT_LOADS = {
         "road_freight_hgv": Decimal("10.0"),  # Average HGV load
-        "road_freight_van": Decimal("0.5"),   # Average van load
-        "rail_freight": Decimal("500.0"),     # Per wagon
+        "road_freight_van": Decimal("0.5"),  # Average van load
+        "rail_freight": Decimal("500.0"),  # Per wagon
         "sea_freight_container": Decimal("14.0"),  # TEU average
-        "air_freight": Decimal("5.0"),        # Average cargo
+        "air_freight": Decimal("5.0"),  # Average cargo
     }
 
     def calculate(
@@ -85,10 +86,7 @@ class TransportCalculator(BaseCalculator):
             method = "distance × weight"
         else:
             # Distance only - use default load assumption
-            default_load = self.DEFAULT_LOADS.get(
-                factor.activity_key,
-                Decimal("1.0")
-            )
+            default_load = self.DEFAULT_LOADS.get(factor.activity_key, Decimal("1.0"))
             tonne_km = quantity * default_load
             method = f"distance × {default_load}t (assumed)"
 
@@ -111,7 +109,9 @@ class TransportCalculator(BaseCalculator):
 
         warnings = []
         if method.startswith("distance × ") and "assumed" in method:
-            warnings.append(f"Weight not provided - using average load assumption ({method})")
+            warnings.append(
+                f"Weight not provided - using average load assumption ({method})"
+            )
 
         return CalculationResult(
             co2e_kg=co2e_kg,
@@ -137,4 +137,5 @@ class TransportCalculator(BaseCalculator):
 
 class FreightCalculator(TransportCalculator):
     """Alias for TransportCalculator - same logic applies."""
+
     name = "freight"

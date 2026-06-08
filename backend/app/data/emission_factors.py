@@ -10,6 +10,7 @@ Sources:
 - IEA 2024 Grid Factors
 - USEEIO 2.0 (spend-based)
 """
+
 from decimal import Decimal
 
 # All factors use DEFRA 2024 as primary source unless noted
@@ -275,7 +276,6 @@ EMISSION_FACTORS = [
         "year": 2024,
         "notes": "Natural gas purchases by spend amount.",
     },
-
     # =========================================================================
     # SCOPE 1.2 - MOBILE COMBUSTION
     # =========================================================================
@@ -500,7 +500,6 @@ EMISSION_FACTORS = [
         "year": 2024,
         "notes": "Estimated based on typical diesel consumption of 2.5L/hour.",
     },
-
     # =========================================================================
     # SCOPE 1.3 - FUGITIVE EMISSIONS (Refrigerants)
     # =========================================================================
@@ -658,12 +657,10 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # =========================================================================
     # SCOPE 2 - PURCHASED ELECTRICITY (Location-Based Grid Factors)
     # Sources: IEA 2024, EPA eGRID 2024, EEA 2024, National Grid Operators
     # =========================================================================
-
     # -------------------------------------------------------------------------
     # EUROPE
     # -------------------------------------------------------------------------
@@ -780,7 +777,6 @@ EMISSION_FACTORS = [
         "region": "EU",
         "year": 2024,
     },
-
     # -------------------------------------------------------------------------
     # NORTH AMERICA
     # -------------------------------------------------------------------------
@@ -873,7 +869,6 @@ EMISSION_FACTORS = [
         "region": "CA",
         "year": 2024,
     },
-
     # -------------------------------------------------------------------------
     # MIDDLE EAST
     # -------------------------------------------------------------------------
@@ -892,7 +887,6 @@ EMISSION_FACTORS = [
         "year": 2024,
         "notes": "Israel location-based grid average 2024: 424 gCO2eq/kWh. Source: BDO Consulting.",
     },
-
     # -------------------------------------------------------------------------
     # ASIA PACIFIC
     # -------------------------------------------------------------------------
@@ -980,7 +974,6 @@ EMISSION_FACTORS = [
         "region": "IN",
         "year": 2024,
     },
-
     # -------------------------------------------------------------------------
     # GLOBAL FALLBACK
     # -------------------------------------------------------------------------
@@ -997,7 +990,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # -------------------------------------------------------------------------
     # MARKET-BASED OPTIONS
     # -------------------------------------------------------------------------
@@ -1058,7 +1050,6 @@ EMISSION_FACTORS = [
         "region": "EU",
         "year": 2024,
     },
-
     # =========================================================================
     # SCOPE 2 - HEAT/STEAM/COOLING
     # =========================================================================
@@ -1097,7 +1088,9 @@ EMISSION_FACTORS = [
         "subcategory": "cooling",
         "activity_key": "district_cooling_kwh",
         "display_name": "District Cooling",
-        "co2e_factor": Decimal("0.17965"),  # Similar to district heat (varies by region)
+        "co2e_factor": Decimal(
+            "0.17965"
+        ),  # Similar to district heat (varies by region)
         "activity_unit": "kWh",
         "factor_unit": "kg CO2e/kWh",
         "source": "DEFRA_2024",
@@ -1112,7 +1105,9 @@ EMISSION_FACTORS = [
         "subcategory": "energy",
         "activity_key": "energy_supplier",
         "display_name": "Supplier-Specific Energy",
-        "co2e_factor": Decimal("1.000"),  # Placeholder - actual factor from _supplier_ef
+        "co2e_factor": Decimal(
+            "1.000"
+        ),  # Placeholder - actual factor from _supplier_ef
         "activity_unit": "kWh",
         "factor_unit": "kg CO2e/kWh",
         "source": "User_Provided",
@@ -1149,7 +1144,6 @@ EMISSION_FACTORS = [
         "year": 2024,
         "notes": "District heating or steam purchases by spend amount.",
     },
-
     # =========================================================================
     # SCOPE 3.1 - PURCHASED GOODS & SERVICES (Spend-based)
     # =========================================================================
@@ -1349,7 +1343,6 @@ EMISSION_FACTORS = [
         "region": "US",
         "year": 2024,
     },
-
     # =========================================================================
     # SCOPE 3.2 - CAPITAL GOODS (Spend-based)
     # =========================================================================
@@ -1379,7 +1372,6 @@ EMISSION_FACTORS = [
         "region": "US",
         "year": 2024,
     },
-
     # =========================================================================
     # SCOPE 3.3 - FUEL & ENERGY RELATED (WTT - Well-to-Tank)
     # =========================================================================
@@ -1439,7 +1431,6 @@ EMISSION_FACTORS = [
         "year": 2024,
         "notes": "DEFRA 2024 v1.1: WTT fuels > Petrol (100% mineral petrol) per litre",
     },
-
     # =========================================================================
     # SCOPE 3.5 - WASTE
     # =========================================================================
@@ -1508,7 +1499,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # =========================================================================
     # SCOPE 3.6 - BUSINESS TRAVEL
     # =========================================================================
@@ -1581,7 +1571,6 @@ EMISSION_FACTORS = [
         "year": 2024,
         "notes": "DEFRA 2024 v1.1: Business travel-land > National rail per passenger.km",
     },
-
     # =========================================================================
     # SCOPE 3.7 - EMPLOYEE COMMUTING
     # =========================================================================
@@ -1640,7 +1629,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # =========================================================================
     # SCOPE 3.4 - UPSTREAM TRANSPORTATION & DISTRIBUTION
     # =========================================================================
@@ -1741,7 +1729,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # =========================================================================
     # SCOPE 3.9 - DOWNSTREAM TRANSPORTATION & DISTRIBUTION
     # =========================================================================
@@ -1771,7 +1758,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # =========================================================================
     # ADDITIONAL WTT FACTORS (SCOPE 3.3)
     # =========================================================================
@@ -1923,7 +1909,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # =========================================================================
     # NEW FACTORS - SCOPE 3.1 PURCHASED GOODS (Physical-Based)
     # Added: 2025-01-19 per approved methodology
@@ -2150,7 +2135,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # =========================================================================
     # NEW FACTORS - SCOPE 3.2 CAPITAL GOODS (Physical-Based)
     # Added: 2025-01-19 per approved methodology
@@ -2221,7 +2205,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # =========================================================================
     # NEW FACTORS - SCOPE 3.4 TRANSPORT (Spend-Based)
     # Added: 2025-01-19 per approved methodology
@@ -2279,7 +2262,6 @@ EMISSION_FACTORS = [
         "region": "US",
         "year": 2024,
     },
-
     # =========================================================================
     # NEW FACTORS - SCOPE 3.5 WASTE (Additional Types)
     # Added: 2025-01-19 per approved methodology
@@ -2376,7 +2358,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # =========================================================================
     # NEW FACTORS - SCOPE 3.6 BUSINESS TRAVEL (Additional Options)
     # Added: 2025-01-19 per approved methodology
@@ -2466,7 +2447,6 @@ EMISSION_FACTORS = [
         "year": 2024,
         "notes": "DEFRA 2024 v1.1: Taxis > Regular taxi per km",
     },
-
     # =========================================================================
     # NEW FACTORS - SCOPE 3.7 COMMUTING (Additional Modes)
     # Added: 2025-01-19 per approved methodology
@@ -2525,7 +2505,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # =========================================================================
     # NEW FACTORS - SCOPE 3.8 UPSTREAM LEASED ASSETS
     # Added: 2025-01-19 per approved methodology
@@ -2583,13 +2562,11 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # =========================================================================
     # SPEND-BASED FACTORS - ADDITIONAL CATEGORIES
     # Added: 2025-01-19 for GHG Protocol compliance
     # Source: USEEIO 2.0, DEFRA 2024
     # =========================================================================
-
     # 3.5 WASTE - Spend-based (alternative method)
     {
         "scope": 3,
@@ -2604,7 +2581,6 @@ EMISSION_FACTORS = [
         "region": "US",
         "year": 2024,
     },
-
     # 3.6 BUSINESS TRAVEL - Spend-based
     {
         "scope": 3,
@@ -2684,7 +2660,6 @@ EMISSION_FACTORS = [
         "region": "US",
         "year": 2024,
     },
-
     # 3.7 COMMUTING - Spend-based (commuter reimbursement)
     {
         "scope": 3,
@@ -2740,7 +2715,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # 3.8 LEASED ASSETS - Spend-based and Energy-based
     {
         "scope": 3,
@@ -2768,7 +2742,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # 3.9 DOWNSTREAM TRANSPORT - Spend-based
     {
         "scope": 3,
@@ -2809,13 +2782,11 @@ EMISSION_FACTORS = [
         "region": "US",
         "year": 2024,
     },
-
     # ==========================================================================
     # 3.10 PROCESSING OF SOLD PRODUCTS
     # Emissions from processing of intermediate products sold by the
     # reporting company by third parties (downstream processors/manufacturers)
     # ==========================================================================
-
     # Average-data method - Processing emissions by product type (kg CO2e per kg processed)
     {
         "scope": 3,
@@ -2973,7 +2944,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Site-specific method - Energy-based
     {
         "scope": 3,
@@ -2988,7 +2958,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Spend-based method
     {
         "scope": 3,
@@ -3003,13 +2972,11 @@ EMISSION_FACTORS = [
         "region": "US",
         "year": 2024,
     },
-
     # ==========================================================================
     # 3.11 USE OF SOLD PRODUCTS
     # Emissions from the use phase of products sold by the reporting company
     # during their expected lifetime
     # ==========================================================================
-
     # Direct Use-Phase - Electricity-consuming products (kWh over lifetime)
     {
         "scope": 3,
@@ -3024,7 +2991,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Fuel-based Use Phase - Petrol/Gasoline vehicles
     {
         "scope": 3,
@@ -3078,7 +3044,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Vehicle distance-based (for per-km reporting)
     {
         "scope": 3,
@@ -3093,7 +3058,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Building use phase (per m2-year)
     {
         "scope": 3,
@@ -3108,7 +3072,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Spend-based method
     {
         "scope": 3,
@@ -3123,7 +3086,6 @@ EMISSION_FACTORS = [
         "region": "US",
         "year": 2024,
     },
-
     # =========================================================================
     # 3.12 END-OF-LIFE TREATMENT OF SOLD PRODUCTS
     # =========================================================================
@@ -3219,7 +3181,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Landfill by material type
     {
         "scope": 3,
@@ -3299,7 +3260,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Incineration
     {
         "scope": 3,
@@ -3327,7 +3287,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Composting & Anaerobic Digestion
     {
         "scope": 3,
@@ -3355,7 +3314,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Specialized waste streams
     {
         "scope": 3,
@@ -3396,7 +3354,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Spend-based method
     {
         "scope": 3,
@@ -3411,12 +3368,10 @@ EMISSION_FACTORS = [
         "region": "US",
         "year": 2024,
     },
-
     # =========================================================================
     # 3.13 DOWNSTREAM LEASED ASSETS
     # =========================================================================
     # Assets owned by reporting company and leased to other entities (lessor)
-
     # Commercial buildings - per m2 floor area (annual)
     {
         "scope": 3,
@@ -3496,7 +3451,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Vehicles and Equipment - per unit (annual)
     {
         "scope": 3,
@@ -3524,7 +3478,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Asset-specific: Energy-based factors
     {
         "scope": 3,
@@ -3552,7 +3505,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Spend-based method (rental income)
     {
         "scope": 3,
@@ -3567,12 +3519,10 @@ EMISSION_FACTORS = [
         "region": "US",
         "year": 2024,
     },
-
     # =========================================================================
     # 3.14 FRANCHISES
     # =========================================================================
     # Emissions from operation of franchises (reported by franchisor)
-
     # Food service franchises - per unit (annual)
     {
         "scope": 3,
@@ -3613,7 +3563,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Retail franchises - per m2 (annual)
     {
         "scope": 3,
@@ -3641,7 +3590,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Service franchises
     {
         "scope": 3,
@@ -3695,7 +3643,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Other franchises
     {
         "scope": 3,
@@ -3723,7 +3670,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Franchise-specific: Energy-based factors
     {
         "scope": 3,
@@ -3764,7 +3710,6 @@ EMISSION_FACTORS = [
         "region": "Global",
         "year": 2024,
     },
-
     # Spend-based method (franchise revenue)
     {
         "scope": 3,

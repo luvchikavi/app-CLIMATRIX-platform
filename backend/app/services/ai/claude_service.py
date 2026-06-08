@@ -6,10 +6,11 @@ Provides structured methods for AI-powered emission data processing:
 - Data extraction from unstructured text
 - Validation and error correction suggestions
 """
+
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional
 
 from anthropic import Anthropic, APIError, RateLimitError
 
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ClaudeResponse:
     """Structured response from Claude API."""
+
     success: bool
     content: str | dict | list
     model: str
@@ -135,7 +137,9 @@ Available activity_keys for mapping include:
         # Build the full prompt
         full_prompt = prompt
         if context:
-            full_prompt += f"\n\nContext data:\n```json\n{json.dumps(context, indent=2)}\n```"
+            full_prompt += (
+                f"\n\nContext data:\n```json\n{json.dumps(context, indent=2)}\n```"
+            )
 
         if json_response:
             full_prompt += "\n\nRespond with valid JSON only. No markdown code blocks or explanation."
@@ -146,9 +150,7 @@ Available activity_keys for mapping include:
                 max_tokens=max_tokens,
                 temperature=temperature,
                 system=self.SYSTEM_PROMPT,
-                messages=[
-                    {"role": "user", "content": full_prompt}
-                ],
+                messages=[{"role": "user", "content": full_prompt}],
             )
 
             content = response.content[0].text

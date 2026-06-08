@@ -1,47 +1,55 @@
 """
 Main template parser for CLIMATRIX GHG Data Collection Template.
 """
+
 import io
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from typing import BinaryIO
 
 import openpyxl
 
 from .models import ParsedActivity, ParseResult, SheetResult
-from .sheet_config import get_sheet_config, get_all_sheet_configs, SheetConfig, create_auto_detect_config
+from .sheet_config import (
+    get_sheet_config,
+    get_all_sheet_configs,
+    SheetConfig,
+    create_auto_detect_config,
+)
 
 
 class RowValidationError(Exception):
     """Raised when a row fails validation with a helpful message."""
+
     pass
 
 
 class TemplateParser:
     """
     Parser for the CLIMATRIX GHG Data Collection Template.
-    
+
     Handles multi-sheet Excel files with different structures per sheet.
     Converts all data to standardized ParsedActivity records.
     """
-    
+
     def __init__(self, default_year: int = None):
         self.default_year = default_year or datetime.now().year
         self.currency_rates = {
-            'ILS': 0.27,  # ILS to USD
-            'EUR': 1.10,  # EUR to USD
-            'GBP': 1.27,  # GBP to USD
-            'USD': 1.0,
+            "ILS": 0.27,  # ILS to USD
+            "EUR": 1.10,  # EUR to USD
+            "GBP": 1.27,  # GBP to USD
+            "USD": 1.0,
         }
-    
-    def parse(self, file_content: bytes, filename: str = "template.xlsx") -> ParseResult:
+
+    def parse(
+        self, file_content: bytes, filename: str = "template.xlsx"
+    ) -> ParseResult:
         """
         Parse a template Excel file.
-        
+
         Args:
             file_content: Raw bytes of the Excel file
             filename: Original filename for tracking
-            
+
         Returns:
             ParseResult with all parsed activities
         """
@@ -58,19 +66,24 @@ class TemplateParser:
                 activities=[],
                 errors=[{"error": f"Failed to open Excel file: {str(e)}"}],
             )
-        
+
         all_activities = []
         sheet_results = []
         errors = []
         warnings = []
-        
-        configs = get_all_sheet_configs()
-        
+
+        get_all_sheet_configs()
+
         for sheet_name in wb.sheetnames:
             # Skip non-data sheets (both legacy and generated template formats)
             skip_sheets = [
-                'Instructions', 'ClientInfo', 'Suppliers', 'Lookups',  # Legacy
-                'Introduction', 'Organization Info', 'Reference',  # Generated template
+                "Instructions",
+                "ClientInfo",
+                "Suppliers",
+                "Lookups",  # Legacy
+                "Introduction",
+                "Organization Info",
+                "Reference",  # Generated template
             ]
             if sheet_name in skip_sheets:
                 continue
@@ -83,7 +96,9 @@ class TemplateParser:
                 detected_config = self._auto_detect_sheet(ws, sheet_name)
                 if detected_config:
                     config = detected_config
-                    warnings.append(f"Auto-detected configuration for sheet: {sheet_name}")
+                    warnings.append(
+                        f"Auto-detected configuration for sheet: {sheet_name}"
+                    )
                 else:
                     warnings.append(f"No configuration for sheet: {sheet_name}")
                     continue
@@ -93,13 +108,15 @@ class TemplateParser:
                 sheet_results.append(sheet_result)
                 all_activities.extend(sheet_result.activities)
             except Exception as e:
-                errors.append({
-                    "sheet": sheet_name,
-                    "error": str(e),
-                })
-        
+                errors.append(
+                    {
+                        "sheet": sheet_name,
+                        "error": str(e),
+                    }
+                )
+
         wb.close()
-        
+
         # Build summary
         by_scope = {}
         by_category = {}
@@ -109,25 +126,30 @@ class TemplateParser:
                 by_scope[activity.scope] = {"count": 0, "activities": []}
             by_scope[activity.scope]["count"] += 1
             # Add activity to the scope's activities list (frontend needs this)
-            by_scope[activity.scope]["activities"].append({
-                "scope": activity.scope,
-                "category_code": activity.category_code,
-                "activity_key": activity.activity_key,
-                "description": activity.description,
-                "quantity": float(activity.quantity) if activity.quantity else 0,
-                "unit": activity.unit,
-                "activity_date": activity.activity_date,
-                "site": activity.site,
-                "source_sheet": activity.source_sheet,
-                "source_row": activity.source_row,
-                "warnings": activity.warnings,
-            })
+            by_scope[activity.scope]["activities"].append(
+                {
+                    "scope": activity.scope,
+                    "category_code": activity.category_code,
+                    "activity_key": activity.activity_key,
+                    "description": activity.description,
+                    "quantity": float(activity.quantity) if activity.quantity else 0,
+                    "unit": activity.unit,
+                    "activity_date": activity.activity_date,
+                    "site": activity.site,
+                    "source_sheet": activity.source_sheet,
+                    "source_row": activity.source_row,
+                    "warnings": activity.warnings,
+                }
+            )
 
             # By category
             if activity.category_code not in by_category:
-                by_category[activity.category_code] = {"count": 0, "scope": activity.scope}
+                by_category[activity.category_code] = {
+                    "count": 0,
+                    "scope": activity.scope,
+                }
             by_category[activity.category_code]["count"] += 1
-        
+
         return ParseResult(
             success=len(errors) == 0,
             filename=filename,
@@ -141,7 +163,7 @@ class TemplateParser:
             errors=errors,
             warnings=warnings,
         )
-    
+
     def _auto_detect_sheet(self, ws, sheet_name: str) -> SheetConfig | None:
         """
         Auto-detect sheet configuration by scanning for header row.
@@ -149,19 +171,30 @@ class TemplateParser:
         Looks for rows that contain typical header keywords like
         'quantity', 'description', 'unit', etc.
         """
-        header_keywords = ['quantity', 'amount', 'description', 'unit', 'date', 'scope', 'category']
+        header_keywords = [
+            "quantity",
+            "amount",
+            "description",
+            "unit",
+            "date",
+            "scope",
+            "category",
+        ]
 
         # Scan first 10 rows to find potential header row
         for row_num in range(1, min(11, ws.max_row + 1)):
-            row_values = [str(cell.value or '').lower().strip() for cell in ws[row_num]]
-            row_text = ' '.join(row_values)
+            row_values = [str(cell.value or "").lower().strip() for cell in ws[row_num]]
+            row_text = " ".join(row_values)
 
             # Count how many header keywords are present
             keyword_count = sum(1 for kw in header_keywords if kw in row_text)
 
             # If we find at least 2 header keywords, assume this is the header row
             if keyword_count >= 2:
-                headers = [str(cell.value).strip() if cell.value else '' for cell in ws[row_num]]
+                headers = [
+                    str(cell.value).strip() if cell.value else ""
+                    for cell in ws[row_num]
+                ]
                 config = create_auto_detect_config(sheet_name, headers)
                 if config:
                     config.header_row = row_num
@@ -169,7 +202,7 @@ class TemplateParser:
 
         # Fallback: try row 1 as header
         if ws.max_row > 0:
-            headers = [str(cell.value).strip() if cell.value else '' for cell in ws[1]]
+            headers = [str(cell.value).strip() if cell.value else "" for cell in ws[1]]
             if any(headers):  # At least some headers
                 config = create_auto_detect_config(sheet_name, headers)
                 if config:
@@ -192,7 +225,9 @@ class TemplateParser:
         best_row = config.header_row
         best_count = 0
         for row_num in range(1, min(9, ws.max_row + 1)):
-            row_values = [str(cell.value).strip() if cell.value else '' for cell in ws[row_num]]
+            row_values = [
+                str(cell.value).strip() if cell.value else "" for cell in ws[row_num]
+            ]
             match_count = 0
             for val in row_values:
                 if not val:
@@ -238,7 +273,7 @@ class TemplateParser:
                     if template_col in header or header in template_col:
                         col_indices[std_col] = i
                         break
-        
+
         # Parse data rows
         total_rows = 0
         for row_num in range(actual_header_row + 1, ws.max_row + 1):
@@ -251,8 +286,8 @@ class TemplateParser:
                 continue
 
             # Skip placeholder rows (e.g., "[Dropdown]", "[Paste/Type]")
-            first_val = str(row_values[0] or '').strip()
-            if first_val.startswith('[') and first_val.endswith(']'):
+            first_val = str(row_values[0] or "").strip()
+            if first_val.startswith("[") and first_val.endswith("]"):
                 skipped += 1
                 continue
 
@@ -261,12 +296,16 @@ class TemplateParser:
             # 2. If row has green example fill AND any cell has EXAMPLE/SAMPLE → skip
             # This avoids skipping real client data in green-filled rows (clients often
             # type over template examples, keeping the fill but replacing the data)
-            desc_col = col_indices.get('description')
-            desc_text = ''
+            desc_col = col_indices.get("description")
+            desc_text = ""
             if desc_col is not None and desc_col < len(row_values):
-                desc_text = str(row_values[desc_col] or '').upper()
-            if 'SAMPLE' in first_val.upper() or 'EXAMPLE' in first_val.upper() \
-                    or 'SAMPLE' in desc_text or 'EXAMPLE' in desc_text:
+                desc_text = str(row_values[desc_col] or "").upper()
+            if (
+                "SAMPLE" in first_val.upper()
+                or "EXAMPLE" in first_val.upper()
+                or "SAMPLE" in desc_text
+                or "EXAMPLE" in desc_text
+            ):
                 skipped += 1
                 continue
 
@@ -274,22 +313,22 @@ class TemplateParser:
             # non-description columns like Traveler Name)
             try:
                 first_cell = ws.cell(row=row_num, column=1)
-                fill_rgb = getattr(getattr(getattr(first_cell, 'fill', None), 'start_color', None), 'rgb', None)
-                if fill_rgb and str(fill_rgb).upper().endswith('E2EFDA'):
-                    row_text = ' '.join(str(v or '') for v in row_values).upper()
-                    if 'SAMPLE' in row_text or 'EXAMPLE' in row_text:
+                fill_rgb = getattr(
+                    getattr(getattr(first_cell, "fill", None), "start_color", None),
+                    "rgb",
+                    None,
+                )
+                if fill_rgb and str(fill_rgb).upper().endswith("E2EFDA"):
+                    row_text = " ".join(str(v or "") for v in row_values).upper()
+                    if "SAMPLE" in row_text or "EXAMPLE" in row_text:
                         skipped += 1
                         continue
             except Exception:
                 pass
-            
+
             try:
                 activity = self._parse_row(
-                    row_values,
-                    headers,
-                    col_indices,
-                    config,
-                    row_num
+                    row_values, headers, col_indices, config, row_num
                 )
                 if activity:
                     activities.append(activity)
@@ -297,19 +336,23 @@ class TemplateParser:
                     skipped += 1
             except RowValidationError as e:
                 # Helpful validation error - include it
-                errors.append({
-                    "row": row_num,
-                    "sheet": config.sheet_name,
-                    "error": str(e),
-                })
+                errors.append(
+                    {
+                        "row": row_num,
+                        "sheet": config.sheet_name,
+                        "error": str(e),
+                    }
+                )
             except Exception as e:
                 # General parsing error
-                errors.append({
-                    "row": row_num,
-                    "sheet": config.sheet_name,
-                    "error": f"Parsing error: {str(e)}",
-                })
-        
+                errors.append(
+                    {
+                        "row": row_num,
+                        "sheet": config.sheet_name,
+                        "error": f"Parsing error: {str(e)}",
+                    }
+                )
+
         return SheetResult(
             sheet_name=config.sheet_name,
             scope=config.scope,
@@ -321,14 +364,14 @@ class TemplateParser:
             errors=errors,
             warnings=warnings,
         )
-    
+
     def _parse_row(
         self,
         row_values: list,
         headers: list,
         col_indices: dict,
         config: SheetConfig,
-        row_num: int
+        row_num: int,
     ) -> ParsedActivity | None:
         """Parse a single row into a ParsedActivity."""
 
@@ -356,115 +399,144 @@ class TemplateParser:
 
         # Check calc_type to determine which amount to use
         # Support both legacy ('Calc_Type') and generated template ('Method') column names
-        calc_type = (row_dict.get('Calc_Type') or row_dict.get('Method') or '').lower().strip()
+        calc_type = (
+            (row_dict.get("Calc_Type") or row_dict.get("Method") or "").lower().strip()
+        )
 
-        if calc_type == 'spend' or config.is_spend_based:
+        if calc_type == "spend" or config.is_spend_based:
             # For spend-based, use the quantity column (which has the amount)
             # and unit column (which has the currency)
-            qty_idx = col_indices.get('quantity')
+            qty_idx = col_indices.get("quantity")
             if qty_idx is not None and qty_idx < len(row_values):
                 qty_val = row_values[qty_idx]
                 if qty_val:
                     quantity = self._parse_decimal(qty_val)
 
                     # Get currency from unit column
-                    unit_idx = col_indices.get('unit')
-                    currency = 'USD'
+                    unit_idx = col_indices.get("unit")
+                    currency = "USD"
                     if unit_idx is not None and unit_idx < len(row_values):
-                        currency = str(row_values[unit_idx] or 'USD').upper()
+                        currency = str(row_values[unit_idx] or "USD").upper()
 
                     # Convert currency to USD if needed
-                    if currency in self.currency_rates and currency != 'USD':
-                        quantity = quantity * Decimal(str(self.currency_rates[currency]))
+                    if currency in self.currency_rates and currency != "USD":
+                        quantity = quantity * Decimal(
+                            str(self.currency_rates[currency])
+                        )
 
-                    unit = 'USD'
+                    unit = "USD"
                     is_spend = True
 
             # Also try legacy format with separate spend_amount column
             if quantity is None:
-                spend_idx = col_indices.get('spend_amount')
+                spend_idx = col_indices.get("spend_amount")
                 if spend_idx is not None and spend_idx < len(row_values):
                     spend_val = row_values[spend_idx]
                     if spend_val:
                         quantity = self._parse_decimal(spend_val)
                         # Convert currency to USD
-                        currency_idx = col_indices.get('spend_currency')
-                        currency = 'USD'
+                        currency_idx = col_indices.get("spend_currency")
+                        currency = "USD"
                         if currency_idx is not None and currency_idx < len(row_values):
-                            currency = str(row_values[currency_idx] or 'USD').upper()
+                            currency = str(row_values[currency_idx] or "USD").upper()
 
-                        if currency in self.currency_rates and currency != 'USD':
-                            quantity = quantity * Decimal(str(self.currency_rates[currency]))
+                        if currency in self.currency_rates and currency != "USD":
+                            quantity = quantity * Decimal(
+                                str(self.currency_rates[currency])
+                            )
 
-                        unit = 'USD'
+                        unit = "USD"
                         is_spend = True
 
         if quantity is None:
             # Use physical amount
-            qty_idx = col_indices.get('quantity')
+            qty_idx = col_indices.get("quantity")
             if qty_idx is not None and qty_idx < len(row_values):
                 qty_val = row_values[qty_idx]
                 if qty_val:
                     quantity = self._parse_decimal(qty_val)
 
                     # Get unit
-                    unit_idx = col_indices.get('unit')
+                    unit_idx = col_indices.get("unit")
                     if unit_idx is not None and unit_idx < len(row_values):
-                        unit = str(row_values[unit_idx] or '').strip()
+                        unit = str(row_values[unit_idx] or "").strip()
 
         # Initialize warnings list early (needed by transport auto-lookup)
         activity_warnings = []
 
         # Special case: Cat7_Commuting - calculate from Employees × Working_Days × Avg_Distance × 2
-        if config.sheet_name == 'Cat7_Commuting' and quantity is None:
-            employees = self._parse_decimal(row_dict.get('Employees'))
-            working_days = self._parse_decimal(row_dict.get('Working_Days'))
-            avg_distance = self._parse_decimal(row_dict.get('Avg_Distance_km'))
+        if config.sheet_name == "Cat7_Commuting" and quantity is None:
+            employees = self._parse_decimal(row_dict.get("Employees"))
+            working_days = self._parse_decimal(row_dict.get("Working_Days"))
+            avg_distance = self._parse_decimal(row_dict.get("Avg_Distance_km"))
 
             if employees and working_days and avg_distance:
                 # Round trip = × 2
-                quantity = employees * working_days * avg_distance * Decimal('2')
-                unit = 'km'
+                quantity = employees * working_days * avg_distance * Decimal("2")
+                unit = "km"
 
         # Special case: 3.7 Commuting (new template) - same calculation
-        if config.sheet_name == '3.7 Commuting' and quantity is None:
+        if config.sheet_name == "3.7 Commuting" and quantity is None:
             employees = self._parse_decimal(
-                row_dict.get('num_employees') or row_dict.get('Number of Employees')
-                or row_dict.get('Employees')
+                row_dict.get("num_employees")
+                or row_dict.get("Number of Employees")
+                or row_dict.get("Employees")
             )
             working_days = self._parse_decimal(
-                row_dict.get('working_days') or row_dict.get('Working Days/Year')
-                or row_dict.get('Working_Days')
+                row_dict.get("working_days")
+                or row_dict.get("Working Days/Year")
+                or row_dict.get("Working_Days")
             )
             avg_distance = self._parse_decimal(
-                row_dict.get('avg_distance_km') or row_dict.get('Avg Distance One-Way (km)')
-                or row_dict.get('Avg Distance (km)') or row_dict.get('Avg Distance (km one-way)')
-                or row_dict.get('Avg_Distance_km')
+                row_dict.get("avg_distance_km")
+                or row_dict.get("Avg Distance One-Way (km)")
+                or row_dict.get("Avg Distance (km)")
+                or row_dict.get("Avg Distance (km one-way)")
+                or row_dict.get("Avg_Distance_km")
             )
 
             if employees and working_days and avg_distance:
                 # Round trip = × 2
-                quantity = employees * working_days * avg_distance * Decimal('2')
-                unit = 'km'
+                quantity = employees * working_days * avg_distance * Decimal("2")
+                unit = "km"
 
         # Special case: 3.4/3.9 Transport - calculate tonne-km from weight × distance
-        if config.sheet_name in ['3.4 Upstream Transport', '3.9 Downstream Transport'] and quantity is None:
-            weight = self._parse_decimal(row_dict.get('Weight (tonnes)'))
-            distance = self._parse_decimal(row_dict.get('Distance (km)'))
-            method = (row_dict.get('Method') or '').lower().strip()
+        if (
+            config.sheet_name in ["3.4 Upstream Transport", "3.9 Downstream Transport"]
+            and quantity is None
+        ):
+            weight = self._parse_decimal(row_dict.get("Weight (tonnes)"))
+            distance = self._parse_decimal(row_dict.get("Distance (km)"))
+            method = (row_dict.get("Method") or "").lower().strip()
 
             # Auto-lookup distance from origin/destination countries if distance not provided
             if distance is None:
                 origin_country = (
-                    row_dict.get('origin') or row_dict.get('Origin Country')
-                    or row_dict.get('origin_country') or row_dict.get('Origin') or ''
-                ).strip().upper()
+                    (
+                        row_dict.get("origin")
+                        or row_dict.get("Origin Country")
+                        or row_dict.get("origin_country")
+                        or row_dict.get("Origin")
+                        or ""
+                    )
+                    .strip()
+                    .upper()
+                )
                 dest_country = (
-                    row_dict.get('destination') or row_dict.get('Destination Country')
-                    or row_dict.get('destination_country') or row_dict.get('Destination') or ''
-                ).strip().upper()
+                    (
+                        row_dict.get("destination")
+                        or row_dict.get("Destination Country")
+                        or row_dict.get("destination_country")
+                        or row_dict.get("Destination")
+                        or ""
+                    )
+                    .strip()
+                    .upper()
+                )
                 if origin_country and dest_country:
-                    auto_distance = self._get_transport_distance(origin_country, dest_country)
+                    auto_distance = self._get_transport_distance(
+                        origin_country, dest_country
+                    )
                     if auto_distance is not None:
                         distance = Decimal(str(auto_distance))
                         activity_warnings.append(
@@ -475,118 +547,147 @@ class TemplateParser:
                             f"No route found for {origin_country}→{dest_country}. Please provide distance manually."
                         )
 
-            if method != 'spend' and weight and distance:
+            if method != "spend" and weight and distance:
                 quantity = weight * distance
-                unit = 'tonne-km'
-            elif method == 'spend':
-                spend = self._parse_decimal(row_dict.get('Spend Amount'))
+                unit = "tonne-km"
+            elif method == "spend":
+                spend = self._parse_decimal(row_dict.get("Spend Amount"))
                 if spend:
                     quantity = spend
-                    unit = 'USD'
+                    unit = "USD"
 
         # Auto-fill commuting distance from Israel city lookup
-        if config.category_code == '3.7':
-            city_zone = row_dict.get('city_zone') or row_dict.get('City/Zone (Israel)')
+        if config.category_code == "3.7":
+            city_zone = row_dict.get("city_zone") or row_dict.get("City/Zone (Israel)")
             distance = (
-                row_dict.get('avg_distance_km') or row_dict.get('Avg Distance One-Way (km)')
-                or row_dict.get('Avg Distance (km)') or row_dict.get('Avg Distance (km one-way)')
+                row_dict.get("avg_distance_km")
+                or row_dict.get("Avg Distance One-Way (km)")
+                or row_dict.get("Avg Distance (km)")
+                or row_dict.get("Avg Distance (km one-way)")
             )
 
             if city_zone and not distance:
                 auto_distance = self._get_commuting_distance(city_zone)
                 if auto_distance:
-                    row_dict['avg_distance_km'] = auto_distance
-                    activity_warnings.append(f"Distance auto-filled from Israel city lookup: {city_zone} → {auto_distance} km to Tel Aviv")
+                    row_dict["avg_distance_km"] = auto_distance
+                    activity_warnings.append(
+                        f"Distance auto-filled from Israel city lookup: {city_zone} → {auto_distance} km to Tel Aviv"
+                    )
                 else:
-                    activity_warnings.append(f"City '{city_zone}' not recognized for auto-distance. Please provide distance manually.")
+                    activity_warnings.append(
+                        f"City '{city_zone}' not recognized for auto-distance. Please provide distance manually."
+                    )
 
         # Special case: 3.6 Hotels - multiply nights × rooms
-        if config.sheet_name == '3.6 Hotels':
-            nights = self._parse_decimal(row_dict.get('Number of Nights'))
-            rooms = self._parse_decimal(row_dict.get('Number of Rooms')) or Decimal('1')
+        if config.sheet_name == "3.6 Hotels":
+            nights = self._parse_decimal(row_dict.get("Number of Nights"))
+            rooms = self._parse_decimal(row_dict.get("Number of Rooms")) or Decimal("1")
 
             if nights:
                 quantity = nights * rooms
-                unit = 'nights'
+                unit = "nights"
 
         # Special case: 3.6 Other Travel - use distance for Physical method
-        if config.sheet_name == '3.6 Other Travel' and quantity is None:
-            method = (row_dict.get('Method') or row_dict.get('calc_type') or '').lower().strip()
-            if method != 'spend':
+        if config.sheet_name == "3.6 Other Travel" and quantity is None:
+            method = (
+                (row_dict.get("Method") or row_dict.get("calc_type") or "")
+                .lower()
+                .strip()
+            )
+            if method != "spend":
                 distance = self._parse_decimal(
-                    row_dict.get('distance_km') or row_dict.get('Distance (km)')
+                    row_dict.get("distance_km") or row_dict.get("Distance (km)")
                 )
                 if distance:
                     quantity = distance
-                    unit = 'km'
+                    unit = "km"
 
         # Special case: Cat6_BusinessTravel - calculate distance from airports if not provided
-        if config.sheet_name == 'Cat6_BusinessTravel' and quantity is None:
-            from_airport = row_dict.get('From_Airport') or ''
-            to_airport = row_dict.get('To_Airport') or ''
-            trip_type = (row_dict.get('Trip_Type') or '').lower().strip()
+        if config.sheet_name == "Cat6_BusinessTravel" and quantity is None:
+            from_airport = row_dict.get("From_Airport") or ""
+            to_airport = row_dict.get("To_Airport") or ""
+            trip_type = (row_dict.get("Trip_Type") or "").lower().strip()
 
             if from_airport and to_airport:
                 # Calculate distance (use approximation table)
                 distance = self._get_airport_distance(from_airport, to_airport)
                 if distance:
                     # Round trip = × 2
-                    if 'round' in trip_type:
+                    if "round" in trip_type:
                         quantity = Decimal(str(distance * 2))
                     else:
                         quantity = Decimal(str(distance))
-                    unit = 'km'
+                    unit = "km"
 
         # Special case: 3.6 Flights (new template) - calculate distance from airports
-        if config.sheet_name == '3.6 Flights' and quantity is None:
+        if config.sheet_name == "3.6 Flights" and quantity is None:
             from_airport = (
-                row_dict.get('origin_airport') or row_dict.get('Origin Airport (IATA)')
-                or row_dict.get('Origin Airport') or ''
+                row_dict.get("origin_airport")
+                or row_dict.get("Origin Airport (IATA)")
+                or row_dict.get("Origin Airport")
+                or ""
             )
             to_airport = (
-                row_dict.get('destination_airport') or row_dict.get('Destination Airport (IATA)')
-                or row_dict.get('Destination Airport') or ''
+                row_dict.get("destination_airport")
+                or row_dict.get("Destination Airport (IATA)")
+                or row_dict.get("Destination Airport")
+                or ""
             )
-            trip_type = (row_dict.get('Trip Type') or row_dict.get('trip_type') or '').lower().strip()
+            trip_type = (
+                (row_dict.get("Trip Type") or row_dict.get("trip_type") or "")
+                .lower()
+                .strip()
+            )
             num_trips = self._parse_decimal(
-                row_dict.get('num_trips') or row_dict.get('Number of Trips')
-            ) or Decimal('1')
+                row_dict.get("num_trips") or row_dict.get("Number of Trips")
+            ) or Decimal("1")
             num_passengers = self._parse_decimal(
-                row_dict.get('num_passengers') or row_dict.get('Number of Passengers')
-                or row_dict.get('Passengers')
-            ) or Decimal('1')
+                row_dict.get("num_passengers")
+                or row_dict.get("Number of Passengers")
+                or row_dict.get("Passengers")
+            ) or Decimal("1")
 
             if from_airport and to_airport:
                 # Calculate distance (use approximation table)
                 distance = self._get_airport_distance(from_airport, to_airport)
                 if distance is not None:
                     # Round trip = × 2
-                    if 'round' in trip_type:
-                        quantity = Decimal(str(distance * 2)) * num_trips * num_passengers
+                    if "round" in trip_type:
+                        quantity = (
+                            Decimal(str(distance * 2)) * num_trips * num_passengers
+                        )
                     else:
                         quantity = Decimal(str(distance)) * num_trips * num_passengers
-                    unit = 'passenger-km'
+                    unit = "passenger-km"
 
         # Get the activity/fuel type for error messages
-        type_idx = col_indices.get('activity_type') or col_indices.get('type')
+        type_idx = col_indices.get("activity_type") or col_indices.get("type")
         activity_type_value = ""
         if type_idx is not None and type_idx < len(row_values):
-            activity_type_value = str(row_values[type_idx] or '').strip()
+            activity_type_value = str(row_values[type_idx] or "").strip()
 
         # Validate quantity - provide helpful error if missing
         if quantity is None:
             # Check what data we have to give better feedback
-            desc_idx = col_indices.get('description')
+            desc_idx = col_indices.get("description")
             desc_value = ""
             if desc_idx is not None and desc_idx < len(row_values):
-                desc_value = str(row_values[desc_idx] or '').strip()
+                desc_value = str(row_values[desc_idx] or "").strip()
 
             # Skip truly empty rows silently
-            if not activity_type_value and not desc_value and not any(str(v).strip() for v in row_values if v):
+            if (
+                not activity_type_value
+                and not desc_value
+                and not any(str(v).strip() for v in row_values if v)
+            ):
                 return None
 
             # Give helpful error for partial rows
-            hint = f"'{activity_type_value}'" if activity_type_value else f"'{desc_value}'" if desc_value else "this row"
+            hint = (
+                f"'{activity_type_value}'"
+                if activity_type_value
+                else f"'{desc_value}'" if desc_value else "this row"
+            )
             raise RowValidationError(
                 f"Missing quantity/amount for {hint}. "
                 f"Check that the Quantity column has a valid number."
@@ -594,16 +695,16 @@ class TemplateParser:
 
         if quantity == 0:
             return None  # Skip zero quantities silently
-        
+
         # Get description
-        desc_idx = col_indices.get('description')
+        desc_idx = col_indices.get("description")
         description = ""
         if desc_idx is not None and desc_idx < len(row_values):
-            description = str(row_values[desc_idx] or '').strip()
-        
+            description = str(row_values[desc_idx] or "").strip()
+
         if not description:
             description = f"{config.sheet_name} - Row {row_num}"
-        
+
         # Resolve activity_key
         if config.activity_key_resolver:
             activity_key, resolved_unit = config.activity_key_resolver(row_dict)
@@ -616,31 +717,33 @@ class TemplateParser:
             if not unit:
                 unit = resolved_unit
         else:
-            activity_key = 'spend_other'
+            activity_key = "spend_other"
             if not unit:
-                unit = 'USD'
-        
+                unit = "USD"
+
         # Normalize unit
         unit = self._normalize_unit(unit)
 
         # Store supplier EF for supplier-specific methods (import API expects '_supplier_ef')
-        supplier_ef_val = row_dict.get('supplier_ef') or row_dict.get('Supplier EF (kg CO2e/unit)')
+        supplier_ef_val = row_dict.get("supplier_ef") or row_dict.get(
+            "Supplier EF (kg CO2e/unit)"
+        )
         if supplier_ef_val is not None:
             parsed_ef = self._parse_decimal(supplier_ef_val)
             if parsed_ef is not None:
-                row_dict['_supplier_ef'] = float(parsed_ef)
-        supplier_name = row_dict.get('supplier_name') or row_dict.get('Supplier Name')
+                row_dict["_supplier_ef"] = float(parsed_ef)
+        supplier_name = row_dict.get("supplier_name") or row_dict.get("Supplier Name")
         if supplier_name:
-            row_dict['_supplier_name'] = str(supplier_name).strip()
-        
+            row_dict["_supplier_name"] = str(supplier_name).strip()
+
         # Get site
-        site_idx = col_indices.get('site')
+        site_idx = col_indices.get("site")
         site = None
         if site_idx is not None and site_idx < len(row_values):
-            site = str(row_values[site_idx] or '').strip() or None
-        
+            site = str(row_values[site_idx] or "").strip() or None
+
         # Get year for activity_date
-        year_idx = col_indices.get('year')
+        year_idx = col_indices.get("year")
         year = self.default_year
         if year_idx is not None and year_idx < len(row_values):
             year_val = row_values[year_idx]
@@ -649,13 +752,13 @@ class TemplateParser:
                     year = int(year_val)
                 except:
                     pass
-        
+
         activity_date = f"{year}-06-30"  # Middle of year as default
-        
+
         # Build warnings (activity_warnings already initialized before special cases)
         if is_spend:
             activity_warnings.append("Converted from spend-based calculation")
-        
+
         return ParsedActivity(
             scope=config.scope,
             category_code=config.category_code,
@@ -670,22 +773,22 @@ class TemplateParser:
             warnings=activity_warnings,
             raw_data=row_dict,
         )
-    
+
     def _parse_decimal(self, value) -> Decimal | None:
         """Parse a value to Decimal."""
         if value is None:
             return None
-        
+
         if isinstance(value, (int, float)):
             return Decimal(str(value))
-        
+
         try:
             # Remove commas and parse
-            clean = str(value).replace(',', '').strip()
+            clean = str(value).replace(",", "").strip()
             return Decimal(clean)
         except (InvalidOperation, ValueError):
             return None
-    
+
     def _normalize_unit(self, unit: str) -> str:
         """Normalize unit string."""
         if not unit:
@@ -695,40 +798,40 @@ class TemplateParser:
 
         # Unit normalization map
         normalizations = {
-            'liters': 'liters',
-            'liter': 'liters',
-            'litres': 'liters',
-            'litre': 'liters',
-            'l': 'liters',
-            'kwh': 'kWh',
-            'mwh': 'MWh',
-            'kw': 'kWh',
-            'kg': 'kg',
-            'kilogram': 'kg',
-            'kilograms': 'kg',
-            'gram': 'g',
-            'grams': 'g',
-            'g': 'g',
-            'tonnes': 'tonnes',
-            'tonne': 'tonnes',
-            'ton': 'tonnes',
-            'tons': 'tonnes',
-            't': 'tonnes',
-            'km': 'km',
-            'kilometer': 'km',
-            'kilometers': 'km',
-            'kilometres': 'km',
-            'm3': 'm3',
-            'm³': 'm3',
-            'cubic meter': 'm3',
-            'cubic meters': 'm3',
-            'nights': 'nights',
-            'room-nights': 'nights',
-            'room nights': 'nights',
-            'unit': 'unit',
-            'units': 'unit',
-            'usd': 'USD',
-            '$': 'USD',
+            "liters": "liters",
+            "liter": "liters",
+            "litres": "liters",
+            "litre": "liters",
+            "l": "liters",
+            "kwh": "kWh",
+            "mwh": "MWh",
+            "kw": "kWh",
+            "kg": "kg",
+            "kilogram": "kg",
+            "kilograms": "kg",
+            "gram": "g",
+            "grams": "g",
+            "g": "g",
+            "tonnes": "tonnes",
+            "tonne": "tonnes",
+            "ton": "tonnes",
+            "tons": "tonnes",
+            "t": "tonnes",
+            "km": "km",
+            "kilometer": "km",
+            "kilometers": "km",
+            "kilometres": "km",
+            "m3": "m3",
+            "m³": "m3",
+            "cubic meter": "m3",
+            "cubic meters": "m3",
+            "nights": "nights",
+            "room-nights": "nights",
+            "room nights": "nights",
+            "unit": "unit",
+            "units": "unit",
+            "usd": "USD",
+            "$": "USD",
         }
 
         return normalizations.get(unit, unit)
@@ -757,6 +860,7 @@ class TemplateParser:
         # Use the full airport database for accurate distance calculation
         try:
             from app.data.airports import calculate_flight_distance
+
             distance = calculate_flight_distance(from_code, to_code)
             if distance:
                 return int(distance)
@@ -772,17 +876,21 @@ class TemplateParser:
         """
         try:
             from app.data.transport_distances import get_transport_distance
+
             route = get_transport_distance(origin, destination)
             if route:
-                return int(route['total_distance_km'])
+                return int(route["total_distance_km"])
         except ImportError:
             pass
         return None
 
-    def _get_commuting_distance(self, city: str, office_city: str = "tel_aviv") -> int | None:
+    def _get_commuting_distance(
+        self, city: str, office_city: str = "tel_aviv"
+    ) -> int | None:
         """Get commuting distance for an Israeli city."""
         try:
             from app.data.israel_commuting import get_commuting_distance
+
             return get_commuting_distance(city, office_city)
         except ImportError:
             pass

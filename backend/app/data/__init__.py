@@ -1,4 +1,5 @@
 """Seed data for CLIMATRIX v3."""
+
 from app.data.emission_factors import EMISSION_FACTORS as BASE_EMISSION_FACTORS
 from app.data.emission_factors_expanded import EXPANDED_EMISSION_FACTORS
 from app.data.unit_conversions import UNIT_CONVERSIONS
@@ -47,7 +48,9 @@ from app.data.cbam_data import (
 # Combine base and expanded emission factors, deduplicating by activity_key.
 # Base factors take priority (they are the primary audited source).
 _base_keys = {f["activity_key"] for f in BASE_EMISSION_FACTORS}
-_unique_expanded = [f for f in EXPANDED_EMISSION_FACTORS if f["activity_key"] not in _base_keys]
+_unique_expanded = [
+    f for f in EXPANDED_EMISSION_FACTORS if f["activity_key"] not in _base_keys
+]
 EMISSION_FACTORS = BASE_EMISSION_FACTORS + _unique_expanded
 
 __all__ = [

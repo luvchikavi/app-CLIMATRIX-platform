@@ -20,7 +20,7 @@ from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field
 from datetime import date
 
-from app.services.ai.file_analyzer import FileAnalyzer, FileAnalysis, SheetAnalysis, FileType
+from app.services.ai.file_analyzer import FileAnalyzer, SheetAnalysis, FileType
 from app.services.ai.column_mapper import ColumnMapper, MappingResult, ColumnMapping
 from app.services.ai.claude_service import ClaudeService
 
@@ -28,6 +28,7 @@ from app.services.ai.claude_service import ClaudeService
 @dataclass
 class SheetImportPreview:
     """Preview of a single sheet ready for import"""
+
     sheet_name: str
     detected_scope: Optional[int]
     detected_category: Optional[str]
@@ -45,6 +46,7 @@ class SheetImportPreview:
 @dataclass
 class UnifiedImportPreview:
     """Complete preview of file ready for import"""
+
     success: bool
     file_name: str
     file_type: str
@@ -59,6 +61,7 @@ class UnifiedImportPreview:
 @dataclass
 class ImportActivity:
     """Single activity ready to be imported"""
+
     scope: int
     category_code: str
     activity_key: str
@@ -75,6 +78,7 @@ class ImportActivity:
 @dataclass
 class UnifiedImportResult:
     """Result of importing activities"""
+
     success: bool
     imported_count: int
     failed_count: int
@@ -131,7 +135,9 @@ class UnifiedImportService:
         total_activities = 0
 
         for sheet in analysis.sheets:
-            sheet_preview = self._process_sheet(file_content, filename, sheet, analysis.file_type)
+            sheet_preview = self._process_sheet(
+                file_content, filename, sheet, analysis.file_type
+            )
             sheet_previews.append(sheet_preview)
 
             if sheet_preview.is_importable:
@@ -155,7 +161,7 @@ class UnifiedImportService:
         file_content: bytes,
         filename: str,
         sheet: SheetAnalysis,
-        file_type: FileType
+        file_type: FileType,
     ) -> SheetImportPreview:
         """Process a single sheet and return import preview"""
 
@@ -193,7 +199,11 @@ class UnifiedImportService:
         # Get column mappings from AI
         mapping_result = self.column_mapper.map_columns(
             headers=sheet.columns,
-            sample_data=[list(row.values()) for row in sheet.sample_data] if sheet.sample_data else None
+            sample_data=(
+                [list(row.values()) for row in sheet.sample_data]
+                if sheet.sample_data
+                else None
+            ),
         )
 
         # Convert mappings to dicts for JSON serialization
@@ -201,7 +211,8 @@ class UnifiedImportService:
             {
                 "original_header": m.original_header,
                 "activity_key": m.activity_key,
-                "scope": m.scope or sheet.detected_scope,  # Use detected scope if not in mapping
+                "scope": m.scope
+                or sheet.detected_scope,  # Use detected scope if not in mapping
                 "category_code": m.category_code or sheet.detected_category,
                 "detected_unit": m.detected_unit,
                 "column_type": m.column_type,
@@ -221,7 +232,11 @@ class UnifiedImportService:
         )
 
         # Check if any activity columns were found
-        activity_mappings = [m for m in mapping_result.mappings if m.column_type == "activity" and m.activity_key]
+        activity_mappings = [
+            m
+            for m in mapping_result.mappings
+            if m.column_type == "activity" and m.activity_key
+        ]
 
         if not activity_mappings and not activities_preview:
             return SheetImportPreview(
@@ -273,11 +288,11 @@ class UnifiedImportService:
                 df = pd.read_excel(
                     io.BytesIO(file_content),
                     sheet_name=sheet.sheet_name,
-                    header=sheet.header_row
+                    header=sheet.header_row,
                 )
 
             # Clean empty rows
-            df = df.dropna(how='all')
+            df = df.dropna(how="all")
 
             # Find activity columns and date/description columns
             activity_mappings = {
@@ -301,7 +316,7 @@ class UnifiedImportService:
                     df, mapping_result, date_col, desc_col, sheet
                 )
 
-        except Exception as e:
+        except Exception:
             # Return empty list on error - will be logged in warnings
             pass
 
@@ -332,30 +347,40 @@ class UnifiedImportService:
                 value = row.get(col_name)
 
                 # Skip empty values
-                if pd.isna(value) or value == '' or value == 0:
+                if pd.isna(value) or value == "" or value == 0:
                     continue
 
                 # Try to convert to number
                 try:
-                    quantity = float(str(value).replace(',', ''))
+                    quantity = float(str(value).replace(",", ""))
                     if quantity <= 0:
                         continue
                 except (ValueError, TypeError):
                     continue
 
                 # Create activity
-                activities.append({
-                    "scope": mapping.scope or sheet.detected_scope or 1,
-                    "category_code": mapping.category_code or sheet.detected_category or "1.1",
-                    "activity_key": mapping.activity_key,
-                    "description": f"{base_description} - {mapping.original_header}" if base_description else mapping.original_header,
-                    "quantity": quantity,
-                    "unit": mapping.detected_unit or "units",
-                    "activity_date": activity_date,
-                    "source_sheet": sheet.sheet_name,
-                    "source_row": row_idx + sheet.header_row + 2,  # +2 for 1-indexed and header
-                    "confidence": mapping.confidence,
-                })
+                activities.append(
+                    {
+                        "scope": mapping.scope or sheet.detected_scope or 1,
+                        "category_code": mapping.category_code
+                        or sheet.detected_category
+                        or "1.1",
+                        "activity_key": mapping.activity_key,
+                        "description": (
+                            f"{base_description} - {mapping.original_header}"
+                            if base_description
+                            else mapping.original_header
+                        ),
+                        "quantity": quantity,
+                        "unit": mapping.detected_unit or "units",
+                        "activity_date": activity_date,
+                        "source_sheet": sheet.sheet_name,
+                        "source_row": row_idx
+                        + sheet.header_row
+                        + 2,  # +2 for 1-indexed and header
+                        "confidence": mapping.confidence,
+                    }
+                )
 
         return activities
 
@@ -392,7 +417,7 @@ class UnifiedImportService:
             quantity = None
             if quantity_col and quantity_col in df.columns:
                 try:
-                    quantity = float(str(row.get(quantity_col, 0)).replace(',', ''))
+                    quantity = float(str(row.get(quantity_col, 0)).replace(",", ""))
                 except (ValueError, TypeError):
                     quantity = None
 
@@ -401,7 +426,7 @@ class UnifiedImportService:
                 try:
                     value = row.get(activity_mapping.original_header)
                     if pd.notna(value):
-                        quantity = float(str(value).replace(',', ''))
+                        quantity = float(str(value).replace(",", ""))
                 except (ValueError, TypeError):
                     continue
 
@@ -415,18 +440,22 @@ class UnifiedImportService:
                 if pd.notna(row_unit):
                     unit = str(row_unit)
 
-            activities.append({
-                "scope": activity_mapping.scope or sheet.detected_scope or 1,
-                "category_code": activity_mapping.category_code or sheet.detected_category or "1.1",
-                "activity_key": activity_mapping.activity_key,
-                "description": description or activity_mapping.original_header,
-                "quantity": quantity,
-                "unit": unit,
-                "activity_date": activity_date,
-                "source_sheet": sheet.sheet_name,
-                "source_row": row_idx + sheet.header_row + 2,
-                "confidence": activity_mapping.confidence,
-            })
+            activities.append(
+                {
+                    "scope": activity_mapping.scope or sheet.detected_scope or 1,
+                    "category_code": activity_mapping.category_code
+                    or sheet.detected_category
+                    or "1.1",
+                    "activity_key": activity_mapping.activity_key,
+                    "description": description or activity_mapping.original_header,
+                    "quantity": quantity,
+                    "unit": unit,
+                    "activity_date": activity_date,
+                    "source_sheet": sheet.sheet_name,
+                    "source_row": row_idx + sheet.header_row + 2,
+                    "confidence": activity_mapping.confidence,
+                }
+            )
 
         return activities
 
@@ -438,22 +467,30 @@ class UnifiedImportService:
                 # Try to parse date
                 try:
                     if isinstance(value, (pd.Timestamp, date)):
-                        return value.strftime('%Y-%m-%d') if hasattr(value, 'strftime') else str(value)[:10]
+                        return (
+                            value.strftime("%Y-%m-%d")
+                            if hasattr(value, "strftime")
+                            else str(value)[:10]
+                        )
                     # Handle string dates
                     date_str = str(value)
                     # Try common formats
                     import re
+
                     # YYYY-MM-DD
-                    if re.match(r'\d{4}-\d{2}-\d{2}', date_str):
+                    if re.match(r"\d{4}-\d{2}-\d{2}", date_str):
                         return date_str[:10]
                     # Month names like "January 2024"
-                    if re.match(r'(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)', date_str.lower()):
+                    if re.match(
+                        r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",
+                        date_str.lower(),
+                    ):
                         return date_str
                     return date_str
                 except:
                     pass
 
-        return date.today().strftime('%Y-%m-%d')
+        return date.today().strftime("%Y-%m-%d")
 
     def _extract_description(self, row: pd.Series, desc_col: Optional[str]) -> str:
         """Extract description from row"""
@@ -501,17 +538,19 @@ class UnifiedImportService:
 
             # Convert preview activities to ImportActivity objects
             for act in sheet.activities_preview:
-                all_activities.append(ImportActivity(
-                    scope=act["scope"],
-                    category_code=act["category_code"],
-                    activity_key=act["activity_key"],
-                    description=act["description"],
-                    quantity=act["quantity"],
-                    unit=act["unit"],
-                    activity_date=act["activity_date"],
-                    source_sheet=act["source_sheet"],
-                    source_row=act["source_row"],
-                    confidence=act["confidence"],
-                ))
+                all_activities.append(
+                    ImportActivity(
+                        scope=act["scope"],
+                        category_code=act["category_code"],
+                        activity_key=act["activity_key"],
+                        description=act["description"],
+                        quantity=act["quantity"],
+                        unit=act["unit"],
+                        activity_date=act["activity_date"],
+                        source_sheet=act["source_sheet"],
+                        source_row=act["source_row"],
+                        confidence=act["confidence"],
+                    )
+                )
 
         return all_activities

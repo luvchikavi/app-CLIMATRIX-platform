@@ -5,6 +5,7 @@ Includes verification workflow management:
 - Status transitions: draft -> review -> submitted -> audit -> verified -> locked
 - Role-based permissions for status changes
 """
+
 from datetime import date, datetime
 from typing import Annotated, Optional
 from uuid import UUID
@@ -16,7 +17,13 @@ from sqlmodel import select
 
 from app.api.auth import get_current_user
 from app.database import get_session
-from app.models.core import User, ReportingPeriod, PeriodStatus, AssuranceLevel, UserRole
+from app.models.core import (
+    User,
+    ReportingPeriod,
+    PeriodStatus,
+    AssuranceLevel,
+    UserRole,
+)
 
 router = APIRouter()
 
@@ -36,8 +43,10 @@ VALID_TRANSITIONS = {
 # Schemas
 # ============================================================================
 
+
 class ReportingPeriodCreate(BaseModel):
     """Create reporting period request."""
+
     name: str
     start_date: date
     end_date: date
@@ -45,6 +54,7 @@ class ReportingPeriodCreate(BaseModel):
 
 class ReportingPeriodResponse(BaseModel):
     """Reporting period response with verification status."""
+
     id: str
     name: str
     start_date: date
@@ -63,11 +73,13 @@ class ReportingPeriodResponse(BaseModel):
 
 class StatusTransitionRequest(BaseModel):
     """Request to transition period status."""
+
     new_status: str
 
 
 class VerificationRequest(BaseModel):
     """Request to verify a period (admin/auditor only)."""
+
     assurance_level: str  # "limited" or "reasonable"
     verified_by: str  # Auditor name/firm
     verification_statement: str
@@ -76,6 +88,7 @@ class VerificationRequest(BaseModel):
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
 
 def period_to_response(period: ReportingPeriod) -> ReportingPeriodResponse:
     """Convert ReportingPeriod model to response schema."""
@@ -87,7 +100,9 @@ def period_to_response(period: ReportingPeriod) -> ReportingPeriodResponse:
         is_locked=period.is_locked,
         organization_id=str(period.organization_id),
         status=period.status.value if period.status else "draft",
-        assurance_level=period.assurance_level.value if period.assurance_level else None,
+        assurance_level=(
+            period.assurance_level.value if period.assurance_level else None
+        ),
         submitted_at=period.submitted_at,
         submitted_by_id=str(period.submitted_by_id) if period.submitted_by_id else None,
         verified_at=period.verified_at,
@@ -99,6 +114,7 @@ def period_to_response(period: ReportingPeriod) -> ReportingPeriodResponse:
 # ============================================================================
 # Endpoints
 # ============================================================================
+
 
 @router.get("", response_model=list[ReportingPeriodResponse])
 async def list_periods(
@@ -176,12 +192,14 @@ async def delete_period(
         raise HTTPException(status_code=404, detail="Reporting period not found")
 
     if period.is_locked:
-        raise HTTPException(status_code=400, detail="Cannot delete locked reporting period")
+        raise HTTPException(
+            status_code=400, detail="Cannot delete locked reporting period"
+        )
 
     if period.status != PeriodStatus.DRAFT:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot delete period in '{period.status.value}' status. Only draft periods can be deleted."
+            detail=f"Cannot delete period in '{period.status.value}' status. Only draft periods can be deleted.",
         )
 
     await session.delete(period)
@@ -193,6 +211,7 @@ async def delete_period(
 # ============================================================================
 # Verification Workflow Endpoints
 # ============================================================================
+
 
 @router.post("/{period_id}/transition", response_model=ReportingPeriodResponse)
 async def transition_status(
@@ -231,7 +250,7 @@ async def transition_status(
         valid_statuses = [s.value for s in PeriodStatus]
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid status '{data.new_status}'. Valid statuses: {valid_statuses}"
+            detail=f"Invalid status '{data.new_status}'. Valid statuses: {valid_statuses}",
         )
 
     # Check if transition is valid
@@ -242,7 +261,7 @@ async def transition_status(
         raise HTTPException(
             status_code=400,
             detail=f"Cannot transition from '{current_status.value}' to '{new_status.value}'. "
-                   f"Valid transitions: {[s.value for s in valid_next]}"
+            f"Valid transitions: {[s.value for s in valid_next]}",
         )
 
     # Check permissions for certain transitions
@@ -255,8 +274,7 @@ async def transition_status(
     if (current_status, new_status) in admin_only_transitions:
         if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
             raise HTTPException(
-                status_code=403,
-                detail="Only admins can perform this status transition"
+                status_code=403, detail="Only admins can perform this status transition"
             )
 
     # Perform the transition
@@ -306,7 +324,7 @@ async def verify_period(
     if period.status != PeriodStatus.AUDIT:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot verify period in '{period.status.value}' status. Must be in 'audit' status."
+            detail=f"Cannot verify period in '{period.status.value}' status. Must be in 'audit' status.",
         )
 
     # Validate assurance level
@@ -315,7 +333,7 @@ async def verify_period(
     except ValueError:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid assurance level. Must be 'limited' or 'reasonable'."
+            detail="Invalid assurance level. Must be 'limited' or 'reasonable'.",
         )
 
     # Update verification details
@@ -359,7 +377,7 @@ async def lock_period(
     if period.status != PeriodStatus.VERIFIED:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot lock period in '{period.status.value}' status. Must be in 'verified' status."
+            detail=f"Cannot lock period in '{period.status.value}' status. Must be in 'verified' status.",
         )
 
     period.status = PeriodStatus.LOCKED
@@ -398,14 +416,25 @@ async def get_status_history(
         "is_locked": period.is_locked,
         "timeline": {
             "created_at": period.created_at.isoformat() if period.created_at else None,
-            "submitted_at": period.submitted_at.isoformat() if period.submitted_at else None,
-            "submitted_by_id": str(period.submitted_by_id) if period.submitted_by_id else None,
-            "verified_at": period.verified_at.isoformat() if period.verified_at else None,
+            "submitted_at": (
+                period.submitted_at.isoformat() if period.submitted_at else None
+            ),
+            "submitted_by_id": (
+                str(period.submitted_by_id) if period.submitted_by_id else None
+            ),
+            "verified_at": (
+                period.verified_at.isoformat() if period.verified_at else None
+            ),
             "verified_by": period.verified_by,
         },
         "verification": {
-            "assurance_level": period.assurance_level.value if period.assurance_level else None,
+            "assurance_level": (
+                period.assurance_level.value if period.assurance_level else None
+            ),
             "verification_statement": period.verification_statement,
         },
-        "valid_transitions": [s.value for s in VALID_TRANSITIONS.get(period.status or PeriodStatus.DRAFT, [])],
+        "valid_transitions": [
+            s.value
+            for s in VALID_TRANSITIONS.get(period.status or PeriodStatus.DRAFT, [])
+        ],
     }

@@ -2,10 +2,10 @@
 Application configuration using Pydantic Settings.
 All configuration is loaded from environment variables.
 """
+
 import json
 import warnings
 from functools import lru_cache
-from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _DEFAULT_SECRET_KEY = "CHANGE-THIS-IN-PRODUCTION-use-openssl-rand-hex-32"
@@ -69,13 +69,17 @@ class Settings(BaseSettings):
         if not self.cors_origins_str:
             return ["*"]
         # Try JSON array first
-        if self.cors_origins_str.strip().startswith('['):
+        if self.cors_origins_str.strip().startswith("["):
             try:
                 return json.loads(self.cors_origins_str)
             except json.JSONDecodeError:
                 pass
         # Fall back to comma-separated
-        return [origin.strip() for origin in self.cors_origins_str.split(',') if origin.strip()]
+        return [
+            origin.strip()
+            for origin in self.cors_origins_str.split(",")
+            if origin.strip()
+        ]
 
     # Reference Data
     default_emission_factor_year: int = 2024

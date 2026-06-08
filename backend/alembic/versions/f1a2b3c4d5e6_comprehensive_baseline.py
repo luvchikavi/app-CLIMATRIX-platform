@@ -9,11 +9,12 @@ handled by the add_missing_columns() hack in database.py. It uses
 "ADD COLUMN IF NOT EXISTS" so it is safe to run on databases that already
 have these columns.
 """
+
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = 'f1a2b3c4d5e6'
-down_revision = 'e5f6g7h8i9j0'
+revision = "f1a2b3c4d5e6"
+down_revision = "e5f6g7h8i9j0"
 branch_labels = None
 depends_on = None
 
@@ -22,9 +23,7 @@ def upgrade() -> None:
     # ---------------------------------------------------------------
     # users
     # ---------------------------------------------------------------
-    op.execute(
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255)"
-    )
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255)")
 
     # ---------------------------------------------------------------
     # reporting_periods  (verification workflow)
@@ -67,16 +66,12 @@ def upgrade() -> None:
     # ---------------------------------------------------------------
     # cbam_imports
     # ---------------------------------------------------------------
-    op.execute(
-        "ALTER TABLE cbam_imports ADD COLUMN IF NOT EXISTS sector VARCHAR(20)"
-    )
+    op.execute("ALTER TABLE cbam_imports ADD COLUMN IF NOT EXISTS sector VARCHAR(20)")
 
     # ---------------------------------------------------------------
     # emissions  (make emission_factor_id nullable)
     # ---------------------------------------------------------------
-    op.execute(
-        "ALTER TABLE emissions ALTER COLUMN emission_factor_id DROP NOT NULL"
-    )
+    op.execute("ALTER TABLE emissions ALTER COLUMN emission_factor_id DROP NOT NULL")
 
     # ---------------------------------------------------------------
     # organizations  (Stripe billing / subscription)

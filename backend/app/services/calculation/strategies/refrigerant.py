@@ -11,6 +11,7 @@ Uses Global Warming Potential (GWP) values to convert to CO2e.
 
 GHG Protocol: Scope 1, Category 1.3 - Fugitive Emissions
 """
+
 from decimal import Decimal
 from typing import Optional
 
@@ -19,46 +20,42 @@ from app.services.calculation.normalizer import NormalizedQuantity
 from app.services.calculation.result import CalculationResult
 from app.services.calculation.strategies.base import BaseCalculator
 
-
 # GWP fallback values - MUST match the database emission_factors.py values.
 # The database is the primary source; these are ONLY used if DB lookup fails.
 # Source: DEFRA 2024 v1.1 - Refrigerant & other (AR5 GWP basis).
 # All values verified against DEFRA 2024 flat file spreadsheet.
 GWP_FALLBACK = {
     # HFCs - Kyoto Protocol (DEFRA 2024, AR5 GWP)
-    "R-134a": Decimal("1300"),     # DEFRA 2024: Kyoto > HFC-134a
-    "R-32": Decimal("677"),        # DEFRA 2024: Kyoto > HFC-32
-    "R-125": Decimal("3170"),      # DEFRA 2024: Kyoto > HFC-125
-    "R-143a": Decimal("4800"),     # DEFRA 2024: Kyoto > HFC-143a
-    "R-227ea": Decimal("3350"),    # DEFRA 2024: Kyoto > HFC-227ea
-    "HFC-23": Decimal("12400"),    # DEFRA 2024: Kyoto > HFC-23
-    "HFC-152a": Decimal("138"),    # DEFRA 2024: Kyoto > HFC-152a
-
+    "R-134a": Decimal("1300"),  # DEFRA 2024: Kyoto > HFC-134a
+    "R-32": Decimal("677"),  # DEFRA 2024: Kyoto > HFC-32
+    "R-125": Decimal("3170"),  # DEFRA 2024: Kyoto > HFC-125
+    "R-143a": Decimal("4800"),  # DEFRA 2024: Kyoto > HFC-143a
+    "R-227ea": Decimal("3350"),  # DEFRA 2024: Kyoto > HFC-227ea
+    "HFC-23": Decimal("12400"),  # DEFRA 2024: Kyoto > HFC-23
+    "HFC-152a": Decimal("138"),  # DEFRA 2024: Kyoto > HFC-152a
     # Blends (DEFRA 2024, AR5 GWP)
-    "R-410A": Decimal("1924"),     # DEFRA 2024: Blends > R410A
-    "R-407C": Decimal("1624"),     # DEFRA 2024: Blends > R407C
-    "R-404A": Decimal("3943"),     # DEFRA 2024: Blends > R404A
-    "R-507A": Decimal("3985"),     # DEFRA 2024: Blends > R507A
-
+    "R-410A": Decimal("1924"),  # DEFRA 2024: Blends > R410A
+    "R-407C": Decimal("1624"),  # DEFRA 2024: Blends > R407C
+    "R-404A": Decimal("3943"),  # DEFRA 2024: Blends > R404A
+    "R-507A": Decimal("3985"),  # DEFRA 2024: Blends > R507A
     # HCFCs - Montreal Protocol (DEFRA 2024, AR5 GWP)
-    "R-22": Decimal("1760"),       # DEFRA 2024: Montreal > HCFC-22
-    "R-123": Decimal("79"),        # DEFRA 2024: Montreal > HCFC-123
-
+    "R-22": Decimal("1760"),  # DEFRA 2024: Montreal > HCFC-22
+    "R-123": Decimal("79"),  # DEFRA 2024: Montreal > HCFC-123
     # Natural refrigerants (DEFRA 2024: Other products)
-    "R-290": Decimal("0.06"),      # DEFRA 2024: Other > propane
-    "R-600a": Decimal("3"),        # DEFRA 2024: Other > isobutane
-    "R-717": Decimal("0"),         # Ammonia (not in DEFRA, negligible GWP)
-    "R-744": Decimal("1"),         # CO2
-
+    "R-290": Decimal("0.06"),  # DEFRA 2024: Other > propane
+    "R-600a": Decimal("3"),  # DEFRA 2024: Other > isobutane
+    "R-717": Decimal("0"),  # Ammonia (not in DEFRA, negligible GWP)
+    "R-744": Decimal("1"),  # CO2
     # Other gases (DEFRA 2024: Kyoto)
-    "SF6": Decimal("23500"),       # DEFRA 2024: Kyoto > SF6
-    "NF3": Decimal("16100"),       # DEFRA 2024: Kyoto > Nitrogen trifluoride
-    "PFCs": Decimal("9200"),       # DEFRA 2024: Kyoto > Perfluorocyclopropane (representative)
-
+    "SF6": Decimal("23500"),  # DEFRA 2024: Kyoto > SF6
+    "NF3": Decimal("16100"),  # DEFRA 2024: Kyoto > Nitrogen trifluoride
+    "PFCs": Decimal(
+        "9200"
+    ),  # DEFRA 2024: Kyoto > Perfluorocyclopropane (representative)
     # Fire suppression (DEFRA 2024: Montreal + Other)
-    "Halon-1211": Decimal("1750"), # DEFRA 2024: Montreal > Halon-1211
-    "FK-5-1-12": Decimal("1"),     # Novec 1230 (negligible GWP)
-    "R-1234yf": Decimal("1"),      # DEFRA 2024: Other > R1234yf
+    "Halon-1211": Decimal("1750"),  # DEFRA 2024: Montreal > Halon-1211
+    "FK-5-1-12": Decimal("1"),  # Novec 1230 (negligible GWP)
+    "R-1234yf": Decimal("1"),  # DEFRA 2024: Other > R1234yf
 }
 
 
@@ -108,9 +105,7 @@ class RefrigerantCalculator(BaseCalculator):
         co2e_kg = mass_kg * gwp
 
         # Build formula
-        formula = (
-            f"{normalized.original_quantity} {normalized.original_unit}"
-        )
+        formula = f"{normalized.original_quantity} {normalized.original_unit}"
         if normalized.conversion_applied:
             formula += f" → {mass_kg:.4f} kg"
         formula += f" × {gwp} GWP = {co2e_kg:.2f} kg CO2e"
@@ -175,8 +170,7 @@ class RefrigerantCalculator(BaseCalculator):
 
     @staticmethod
     def estimate_annual_leakage(
-        charge_kg: Decimal,
-        equipment_type: str = "commercial_refrigeration"
+        charge_kg: Decimal, equipment_type: str = "commercial_refrigeration"
     ) -> Decimal:
         """
         Estimate annual refrigerant leakage based on equipment type.

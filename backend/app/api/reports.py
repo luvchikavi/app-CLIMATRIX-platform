@@ -4,6 +4,7 @@ Generates emission summaries and reports.
 
 Includes ISO 14064-1 compliant GHG inventory reports and audit package exports.
 """
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Optional
@@ -16,11 +17,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, func
 import csv
 import io
-import json
 
 from app.api.auth import get_current_user
 from app.database import get_session
-from app.models.core import User, ReportingPeriod, Organization, PeriodStatus
+from app.models.core import User, ReportingPeriod, Organization
 from app.models.emission import Activity, Emission, EmissionFactor, ImportBatch
 from app.services.calculation.wtt import WTTService
 from app.data.reference_data import GRID_EMISSION_FACTORS
@@ -32,8 +32,10 @@ router = APIRouter()
 # Schemas
 # ============================================================================
 
+
 class ScopeSummary(BaseModel):
     """Summary for a single scope."""
+
     scope: int
     total_co2e_kg: float
     total_wtt_co2e_kg: float
@@ -42,6 +44,7 @@ class ScopeSummary(BaseModel):
 
 class CategorySummary(BaseModel):
     """Summary for a single category."""
+
     scope: int
     category_code: str
     total_co2e_kg: float
@@ -50,6 +53,7 @@ class CategorySummary(BaseModel):
 
 class ReportSummaryResponse(BaseModel):
     """Complete report summary."""
+
     period_id: str
     period_name: str
     total_co2e_kg: float
@@ -68,8 +72,10 @@ class ReportSummaryResponse(BaseModel):
 # ISO 14064-1 GHG Inventory Report Schemas
 # ============================================================================
 
+
 class OrganizationInfo(BaseModel):
     """Organization information for report header."""
+
     name: str
     country: Optional[str]
     industry: Optional[str]
@@ -78,6 +84,7 @@ class OrganizationInfo(BaseModel):
 
 class ReportingBoundary(BaseModel):
     """Organizational and operational boundaries."""
+
     consolidation_approach: str  # "operational_control" or "equity_share"
     included_facilities: int
     reporting_period_start: str
@@ -86,6 +93,7 @@ class ReportingBoundary(BaseModel):
 
 class EmissionSourceDetail(BaseModel):
     """Detail for a single emission source/activity type."""
+
     activity_key: str
     display_name: str
     category_code: str
@@ -106,6 +114,7 @@ class EmissionSourceDetail(BaseModel):
 
 class ScopeDetail(BaseModel):
     """Detailed breakdown for a scope."""
+
     scope: int
     scope_name: str
     total_co2e_kg: float
@@ -118,6 +127,7 @@ class ScopeDetail(BaseModel):
 
 class MethodologySection(BaseModel):
     """Methodology description for the report."""
+
     calculation_approach: str
     emission_factor_sources: list[str]
     gwp_values: str
@@ -127,6 +137,7 @@ class MethodologySection(BaseModel):
 
 class BaseYearComparison(BaseModel):
     """Comparison with base year emissions."""
+
     base_year: int
     base_year_emissions_tonnes: float
     current_emissions_tonnes: float
@@ -136,6 +147,7 @@ class BaseYearComparison(BaseModel):
 
 class VerificationInfo(BaseModel):
     """Verification/assurance information."""
+
     status: str
     assurance_level: Optional[str]
     verified_by: Optional[str]
@@ -155,6 +167,7 @@ class ISO14064Report(BaseModel):
     5. Base year comparison
     6. Verification statement
     """
+
     # Report metadata
     report_title: str
     report_date: str
@@ -193,6 +206,7 @@ class ISO14064Report(BaseModel):
 # ============================================================================
 # Endpoints
 # ============================================================================
+
 
 @router.get("/periods/{period_id}/report/summary", response_model=ReportSummaryResponse)
 async def get_report_summary(
@@ -249,12 +263,14 @@ async def get_report_summary(
         if row.scope in (1, 2):
             wtt_total += total_wtt
 
-        by_scope.append(ScopeSummary(
-            scope=row.scope,
-            total_co2e_kg=float(total_co2e),
-            total_wtt_co2e_kg=float(total_wtt),
-            activity_count=row.count,
-        ))
+        by_scope.append(
+            ScopeSummary(
+                scope=row.scope,
+                total_co2e_kg=float(total_co2e),
+                total_wtt_co2e_kg=float(total_wtt),
+                activity_count=row.count,
+            )
+        )
 
     # Get totals by category
     category_query = (
@@ -305,12 +321,17 @@ async def get_report_summary(
         country_code = _extract_country_code(activity.activity_key, factor_region)
         grid_factor = GRID_EMISSION_FACTORS.get(country_code) if country_code else None
         if not grid_factor:
-            grid_factor = GRID_EMISSION_FACTORS.get("GLOBAL", {
-                "location_factor": Decimal("0.436"),
-                "market_factor": None,
-            })
+            grid_factor = GRID_EMISSION_FACTORS.get(
+                "GLOBAL",
+                {
+                    "location_factor": Decimal("0.436"),
+                    "market_factor": None,
+                },
+            )
 
-        location_factor_val = grid_factor.get("location_factor", factor.co2e_factor if factor else Decimal("0.436"))
+        location_factor_val = grid_factor.get(
+            "location_factor", factor.co2e_factor if factor else Decimal("0.436")
+        )
         market_factor_val = grid_factor.get("market_factor")
         quantity = float(activity.quantity)
 
@@ -318,8 +339,10 @@ async def get_report_summary(
         scope2_location_total += Decimal(str(quantity * float(location_factor_val)))
 
         # Market-based
-        is_supplier = (emission.resolution_strategy == "market_based_supplier" or
-                       emission.resolution_strategy == "supplier_provided")
+        is_supplier = (
+            emission.resolution_strategy == "market_based_supplier"
+            or emission.resolution_strategy == "supplier_provided"
+        )
         if is_supplier:
             scope2_market_total += emission.co2e_kg or Decimal(0)
             has_market = True
@@ -375,16 +398,18 @@ async def get_report_by_scope(
     # Organize by scope
     scopes = {1: [], 2: [], 3: []}
     for activity, emission in rows:
-        scopes[activity.scope].append({
-            "activity_id": str(activity.id),
-            "description": activity.description,
-            "category_code": activity.category_code,
-            "activity_key": activity.activity_key,
-            "quantity": float(activity.quantity),
-            "unit": activity.unit,
-            "co2e_kg": float(emission.co2e_kg),
-            "activity_date": activity.activity_date.isoformat(),
-        })
+        scopes[activity.scope].append(
+            {
+                "activity_id": str(activity.id),
+                "description": activity.description,
+                "category_code": activity.category_code,
+                "activity_key": activity.activity_key,
+                "quantity": float(activity.quantity),
+                "unit": activity.unit,
+                "co2e_kg": float(emission.co2e_kg),
+                "activity_date": activity.activity_date.isoformat(),
+            }
+        )
 
     return {
         "period_id": str(period_id),
@@ -448,17 +473,19 @@ async def get_wtt_report(
 
     activities = []
     for activity, emission in rows:
-        activities.append({
-            "activity_id": str(activity.id),
-            "scope": activity.scope,
-            "category_code": activity.category_code,
-            "activity_key": activity.activity_key,
-            "description": activity.description,
-            "quantity": float(activity.quantity),
-            "unit": activity.unit,
-            "direct_co2e_kg": float(emission.co2e_kg),
-            "wtt_co2e_kg": float(emission.wtt_co2e_kg),
-        })
+        activities.append(
+            {
+                "activity_id": str(activity.id),
+                "scope": activity.scope,
+                "category_code": activity.category_code,
+                "activity_key": activity.activity_key,
+                "description": activity.description,
+                "quantity": float(activity.quantity),
+                "unit": activity.unit,
+                "direct_co2e_kg": float(emission.co2e_kg),
+                "wtt_co2e_kg": float(emission.wtt_co2e_kg),
+            }
+        )
 
     return {
         "period_id": str(period_id),
@@ -475,8 +502,10 @@ async def get_wtt_report(
 # Scope 2 Location vs Market Comparison
 # ============================================================================
 
+
 class Scope2ActivityComparison(BaseModel):
     """Single activity comparison between location and market-based methods."""
+
     activity_id: str
     description: str
     country_code: str
@@ -492,6 +521,7 @@ class Scope2ActivityComparison(BaseModel):
 
 class Scope2ComparisonResponse(BaseModel):
     """Scope 2 location vs market comparison report."""
+
     period_id: str
     period_name: str
     total_activities: int
@@ -524,7 +554,10 @@ def _extract_country_code(activity_key: str, factor_region: str | None) -> str |
     return None
 
 
-@router.get("/periods/{period_id}/report/scope-2-comparison", response_model=Scope2ComparisonResponse)
+@router.get(
+    "/periods/{period_id}/report/scope-2-comparison",
+    response_model=Scope2ComparisonResponse,
+)
 async def get_scope2_comparison(
     period_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -582,16 +615,21 @@ async def get_scope2_comparison(
 
         # If no specific country factor, use Global
         if not grid_factor:
-            grid_factor = GRID_EMISSION_FACTORS.get("GLOBAL", {
-                "country_name": "Global Average",
-                "location_factor": Decimal("0.436"),
-                "market_factor": None,
-            })
+            grid_factor = GRID_EMISSION_FACTORS.get(
+                "GLOBAL",
+                {
+                    "country_name": "Global Average",
+                    "location_factor": Decimal("0.436"),
+                    "market_factor": None,
+                },
+            )
             country_name = grid_factor.get("country_name", "Global Average")
         else:
             country_name = grid_factor.get("country_name", country_code)
 
-        location_factor_val = grid_factor.get("location_factor", factor.co2e_factor if factor else Decimal("0.436"))
+        location_factor_val = grid_factor.get(
+            "location_factor", factor.co2e_factor if factor else Decimal("0.436")
+        )
         market_factor_val = grid_factor.get("market_factor")
 
         # Calculate quantity in kWh (may already be in kWh)
@@ -602,8 +640,10 @@ async def get_scope2_comparison(
 
         # For market-based: if this activity was calculated with a supplier EF,
         # use the actual stored emission value as market-based
-        is_supplier_provided = (emission.resolution_strategy == "market_based_supplier" or
-                                emission.resolution_strategy == "supplier_provided")
+        is_supplier_provided = (
+            emission.resolution_strategy == "market_based_supplier"
+            or emission.resolution_strategy == "supplier_provided"
+        )
         if is_supplier_provided:
             market_co2e = float(emission.co2e_kg)
         elif market_factor_val:
@@ -626,19 +666,29 @@ async def get_scope2_comparison(
             difference_kg = market_co2e - location_co2e
             difference_percent = (difference_kg / location_co2e) * 100
 
-        activities.append(Scope2ActivityComparison(
-            activity_id=str(activity.id),
-            description=activity.description,
-            country_code=country_code or "GLOBAL",
-            country_name=country_name,
-            quantity_kwh=quantity_kwh,
-            location_factor=float(location_factor_val),
-            market_factor=float(market_factor_val) if market_factor_val else (float(emission.co2e_kg) / quantity_kwh if is_supplier_provided and quantity_kwh > 0 else None),
-            location_co2e_kg=location_co2e,
-            market_co2e_kg=market_co2e,
-            difference_kg=difference_kg,
-            difference_percent=difference_percent,
-        ))
+        activities.append(
+            Scope2ActivityComparison(
+                activity_id=str(activity.id),
+                description=activity.description,
+                country_code=country_code or "GLOBAL",
+                country_name=country_name,
+                quantity_kwh=quantity_kwh,
+                location_factor=float(location_factor_val),
+                market_factor=(
+                    float(market_factor_val)
+                    if market_factor_val
+                    else (
+                        float(emission.co2e_kg) / quantity_kwh
+                        if is_supplier_provided and quantity_kwh > 0
+                        else None
+                    )
+                ),
+                location_co2e_kg=location_co2e,
+                market_co2e_kg=market_co2e,
+                difference_kg=difference_kg,
+                difference_percent=difference_percent,
+            )
+        )
 
     # Calculate total difference
     total_difference_kg = None
@@ -664,8 +714,10 @@ async def get_scope2_comparison(
 # Data Quality Report
 # ============================================================================
 
+
 class DataQualityBreakdown(BaseModel):
     """Breakdown of activities by data quality score."""
+
     score: int
     score_label: str
     activity_count: int
@@ -675,6 +727,7 @@ class DataQualityBreakdown(BaseModel):
 
 class DataQualitySummaryResponse(BaseModel):
     """Data quality summary for a reporting period."""
+
     period_id: str
     period_name: str
     total_activities: int
@@ -693,7 +746,10 @@ DATA_QUALITY_LABELS = {
 }
 
 
-@router.get("/periods/{period_id}/report/data-quality", response_model=DataQualitySummaryResponse)
+@router.get(
+    "/periods/{period_id}/report/data-quality",
+    response_model=DataQualitySummaryResponse,
+)
 async def get_data_quality_summary(
     period_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -742,24 +798,30 @@ async def get_data_quality_summary(
     weighted_sum = Decimal(0)
 
     for score in range(1, 6):  # 1-5
-        matching = next((r for r in quality_rows if (r.data_quality_score or 5) == score), None)
+        matching = next(
+            (r for r in quality_rows if (r.data_quality_score or 5) == score), None
+        )
         count = matching.count if matching else 0
         co2e = float(matching.total_co2e or 0) if matching else 0.0
         pct = (co2e / total_co2e * 100) if total_co2e > 0 else 0.0
 
-        by_score.append(DataQualityBreakdown(
-            score=score,
-            score_label=DATA_QUALITY_LABELS[score],
-            activity_count=count,
-            total_co2e_kg=co2e,
-            percentage=round(pct, 1),
-        ))
+        by_score.append(
+            DataQualityBreakdown(
+                score=score,
+                score_label=DATA_QUALITY_LABELS[score],
+                activity_count=count,
+                total_co2e_kg=co2e,
+                percentage=round(pct, 1),
+            )
+        )
 
         if co2e > 0:
             weighted_sum += Decimal(str(score)) * Decimal(str(co2e))
 
     # Calculate weighted average score (weighted by CO2e)
-    weighted_avg = float(weighted_sum / Decimal(str(total_co2e))) if total_co2e > 0 else 5.0
+    weighted_avg = (
+        float(weighted_sum / Decimal(str(total_co2e))) if total_co2e > 0 else 5.0
+    )
 
     # Interpret the score
     if weighted_avg <= 1.5:
@@ -849,15 +911,17 @@ async def get_ghg_inventory_report(
         raise HTTPException(status_code=404, detail="Reporting period not found")
 
     # Get organization
-    org_query = select(Organization).where(Organization.id == current_user.organization_id)
+    org_query = select(Organization).where(
+        Organization.id == current_user.organization_id
+    )
     org_result = await session.execute(org_query)
     org = org_result.scalar_one_or_none()
 
     # Get facility count
     from app.models.core import Site
+
     site_query = select(func.count(Site.id)).where(
-        Site.organization_id == current_user.organization_id,
-        Site.is_active == True
+        Site.organization_id == current_user.organization_id, Site.is_active == True
     )
     site_result = await session.execute(site_query)
     facility_count = site_result.scalar() or 1
@@ -890,7 +954,9 @@ async def get_ghg_inventory_report(
 
         if key not in scope_data[scope]:
             scope_data[scope][key] = {
-                "display_name": factor.display_name if factor else activity.activity_key,
+                "display_name": (
+                    factor.display_name if factor else activity.activity_key
+                ),
                 "category_code": activity.category_code,
                 "count": 0,
                 "total_quantity": Decimal(0),
@@ -901,53 +967,75 @@ async def get_ghg_inventory_report(
                 "factor_unit": factor.factor_unit if factor else None,
                 "quality_sum": Decimal(0),
                 # Source documentation metadata (Phase 9B) - use first emission's values
-                "factor_year": emission.factor_year if hasattr(emission, 'factor_year') else None,
-                "factor_region": emission.factor_region if hasattr(emission, 'factor_region') else None,
-                "method_hierarchy": emission.method_hierarchy if hasattr(emission, 'method_hierarchy') else None,
+                "factor_year": (
+                    emission.factor_year if hasattr(emission, "factor_year") else None
+                ),
+                "factor_region": (
+                    emission.factor_region
+                    if hasattr(emission, "factor_region")
+                    else None
+                ),
+                "method_hierarchy": (
+                    emission.method_hierarchy
+                    if hasattr(emission, "method_hierarchy")
+                    else None
+                ),
             }
 
         scope_data[scope][key]["count"] += 1
         scope_data[scope][key]["total_quantity"] += activity.quantity
         scope_data[scope][key]["total_co2e_kg"] += emission.co2e_kg
-        scope_data[scope][key]["quality_sum"] += Decimal(str(activity.data_quality_score or 5))
+        scope_data[scope][key]["quality_sum"] += Decimal(
+            str(activity.data_quality_score or 5)
+        )
 
         scope_totals[scope] += emission.co2e_kg
         scope_counts[scope] += 1
         scope_quality_sums[scope] += Decimal(str(activity.data_quality_score or 5))
 
         total_co2e += emission.co2e_kg
-        total_quality_weighted_sum += emission.co2e_kg * Decimal(str(activity.data_quality_score or 5))
+        total_quality_weighted_sum += emission.co2e_kg * Decimal(
+            str(activity.data_quality_score or 5)
+        )
 
     # Build scope details
     def build_scope_detail(scope: int) -> ScopeDetail:
         sources = []
         for key, data in scope_data[scope].items():
-            avg_quality = float(data["quality_sum"] / data["count"]) if data["count"] > 0 else 5.0
-            sources.append(EmissionSourceDetail(
-                activity_key=key,
-                display_name=data["display_name"],
-                category_code=data["category_code"],
-                activity_count=data["count"],
-                total_quantity=float(data["total_quantity"]),
-                unit=data["unit"],
-                total_co2e_kg=float(data["total_co2e_kg"]),
-                total_co2e_tonnes=float(data["total_co2e_kg"]) / 1000,
-                emission_factor=float(data["emission_factor"]),
-                factor_source=data["factor_source"],
-                factor_unit=data["factor_unit"],
-                avg_data_quality=round(avg_quality, 1),
-                # Source documentation metadata (Phase 9B)
-                factor_year=data.get("factor_year"),
-                factor_region=data.get("factor_region"),
-                method_hierarchy=data.get("method_hierarchy"),
-            ))
+            avg_quality = (
+                float(data["quality_sum"] / data["count"]) if data["count"] > 0 else 5.0
+            )
+            sources.append(
+                EmissionSourceDetail(
+                    activity_key=key,
+                    display_name=data["display_name"],
+                    category_code=data["category_code"],
+                    activity_count=data["count"],
+                    total_quantity=float(data["total_quantity"]),
+                    unit=data["unit"],
+                    total_co2e_kg=float(data["total_co2e_kg"]),
+                    total_co2e_tonnes=float(data["total_co2e_kg"]) / 1000,
+                    emission_factor=float(data["emission_factor"]),
+                    factor_source=data["factor_source"],
+                    factor_unit=data["factor_unit"],
+                    avg_data_quality=round(avg_quality, 1),
+                    # Source documentation metadata (Phase 9B)
+                    factor_year=data.get("factor_year"),
+                    factor_region=data.get("factor_region"),
+                    method_hierarchy=data.get("method_hierarchy"),
+                )
+            )
 
         # Sort by emissions (highest first)
         sources.sort(key=lambda x: x.total_co2e_kg, reverse=True)
 
         scope_total = scope_totals[scope]
         pct = float(scope_total / total_co2e * 100) if total_co2e > 0 else 0
-        avg_quality = float(scope_quality_sums[scope] / scope_counts[scope]) if scope_counts[scope] > 0 else 5.0
+        avg_quality = (
+            float(scope_quality_sums[scope] / scope_counts[scope])
+            if scope_counts[scope] > 0
+            else 5.0
+        )
 
         return ScopeDetail(
             scope=scope,
@@ -965,7 +1053,9 @@ async def get_ghg_inventory_report(
     scope_3_detail = build_scope_detail(3)
 
     # Overall data quality
-    overall_quality = float(total_quality_weighted_sum / total_co2e) if total_co2e > 0 else 5.0
+    overall_quality = (
+        float(total_quality_weighted_sum / total_co2e) if total_co2e > 0 else 5.0
+    )
 
     if overall_quality <= 1.5:
         quality_interpretation = "Excellent - Predominantly verified data"
@@ -990,10 +1080,13 @@ async def get_ghg_inventory_report(
         "total_activities": scope_counts[1] + scope_counts[2] + scope_counts[3],
         "data_quality_score": round(overall_quality, 1),
         "top_emission_sources": [
-            s.display_name for s in sorted(
-                scope_1_detail.sources + scope_2_detail.sources + scope_3_detail.sources,
+            s.display_name
+            for s in sorted(
+                scope_1_detail.sources
+                + scope_2_detail.sources
+                + scope_3_detail.sources,
                 key=lambda x: x.total_co2e_kg,
-                reverse=True
+                reverse=True,
             )[:5]
         ],
     }
@@ -1013,7 +1106,9 @@ async def get_ghg_inventory_report(
     # Verification info
     verification = VerificationInfo(
         status=period.status.value if period.status else "draft",
-        assurance_level=period.assurance_level.value if period.assurance_level else None,
+        assurance_level=(
+            period.assurance_level.value if period.assurance_level else None
+        ),
         verified_by=period.verified_by,
         verified_at=period.verified_at.isoformat() if period.verified_at else None,
         verification_statement=period.verification_statement,
@@ -1029,7 +1124,10 @@ async def get_ghg_inventory_report(
         calculation_approach="Activity-based calculations using GHG Protocol methodology",
         emission_factor_sources=list(factor_sources) or ["DEFRA 2024", "EPA eGRID"],
         gwp_values="IPCC AR6 100-year GWP values (CO2=1, CH4=27.9, N2O=273)",
-        exclusions=["Biogenic emissions reported separately", "De minimis sources (<1% of total)"],
+        exclusions=[
+            "Biogenic emissions reported separately",
+            "De minimis sources (<1% of total)",
+        ],
         assumptions=[
             "Operational control approach for organizational boundaries",
             "Location-based method for Scope 2 unless market-based data available",
@@ -1071,8 +1169,10 @@ async def get_ghg_inventory_report(
 # Audit Package Export (Phase 1.4)
 # ============================================================================
 
+
 class ActivityAuditRecord(BaseModel):
     """Detailed activity record for audit purposes."""
+
     activity_id: str
     scope: int
     category_code: str
@@ -1129,6 +1229,7 @@ class ActivityAuditRecord(BaseModel):
 
 class EmissionFactorAuditRecord(BaseModel):
     """Emission factor documentation for audit."""
+
     factor_id: str
     activity_key: str
     display_name: str
@@ -1164,6 +1265,7 @@ class EmissionFactorAuditRecord(BaseModel):
 
 class ImportBatchAuditRecord(BaseModel):
     """Import batch record for audit trail."""
+
     batch_id: str
     file_name: str
     file_type: str
@@ -1185,6 +1287,7 @@ class ImportBatchAuditRecord(BaseModel):
 
 class CalculationMethodologySection(BaseModel):
     """Detailed calculation methodology documentation."""
+
     overview: str
     ghg_protocol_alignment: str
     calculation_approach: str
@@ -1205,6 +1308,7 @@ class CalculationMethodologySection(BaseModel):
 
 class AuditPackageSummary(BaseModel):
     """Summary section of the audit package."""
+
     period_id: str
     period_name: str
     organization_name: str
@@ -1247,6 +1351,7 @@ class AuditPackageResponse(BaseModel):
     3. Calculation methodology
     4. Import/change history
     """
+
     # Package metadata
     package_version: str
 
@@ -1266,7 +1371,9 @@ class AuditPackageResponse(BaseModel):
     import_batches: list[ImportBatchAuditRecord]
 
 
-@router.get("/periods/{period_id}/report/audit-package", response_model=AuditPackageResponse)
+@router.get(
+    "/periods/{period_id}/report/audit-package", response_model=AuditPackageResponse
+)
 async def get_audit_package(
     period_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -1296,7 +1403,9 @@ async def get_audit_package(
         raise HTTPException(status_code=404, detail="Reporting period not found")
 
     # Get organization
-    org_query = select(Organization).where(Organization.id == current_user.organization_id)
+    org_query = select(Organization).where(
+        Organization.id == current_user.organization_id
+    )
     org_result = await session.execute(org_query)
     org = org_result.scalar_one_or_none()
 
@@ -1353,45 +1462,71 @@ async def get_audit_package(
 
         # Build activity record
         dq_score = activity.data_quality_score or 5
-        activity_records.append(ActivityAuditRecord(
-            activity_id=str(activity.id),
-            scope=activity.scope,
-            category_code=activity.category_code,
-            category_name=CATEGORY_NAMES.get(activity.category_code, activity.category_code),
-            activity_key=activity.activity_key,
-            display_name=factor.display_name if factor else activity.activity_key,
-            description=activity.description or "",
-            quantity=float(activity.quantity),
-            unit=activity.unit,
-            activity_date=activity.activity_date.isoformat(),
-            calculation_method=activity.calculation_method.value if activity.calculation_method else "activity",
-            data_source=activity.data_source.value if activity.data_source else "manual",
-            import_batch_id=str(activity.import_batch_id) if activity.import_batch_id else None,
-            import_file_name=import_file_name,
-            data_quality_score=dq_score,
-            data_quality_label=dq_labels.get(dq_score, "Unknown"),
-            data_quality_justification=activity.data_quality_justification,
-            supporting_document_url=activity.supporting_document_url,
-            co2e_kg=float(emission.co2e_kg),
-            co2e_tonnes=float(emission.co2e_kg) / 1000,
-            co2_kg=float(emission.co2_kg) if emission.co2_kg else None,
-            ch4_kg=float(emission.ch4_kg) if emission.ch4_kg else None,
-            n2o_kg=float(emission.n2o_kg) if emission.n2o_kg else None,
-            wtt_co2e_kg=float(emission.wtt_co2e_kg) if emission.wtt_co2e_kg else None,
-            emission_factor_id=str(emission.emission_factor_id) if emission.emission_factor_id else None,
-            emission_factor_value=float(factor.co2e_factor) if factor else None,
-            emission_factor_unit=factor.factor_unit if factor else None,
-            converted_quantity=float(emission.converted_quantity) if emission.converted_quantity else None,
-            converted_unit=emission.converted_unit,
-            calculation_formula=emission.formula,
-            confidence_level=emission.confidence.value if emission.confidence else "high",
-            # Source documentation metadata (Phase 9B)
-            factor_year=emission.factor_year,
-            factor_region=emission.factor_region,
-            method_hierarchy=emission.method_hierarchy,
-            created_at=activity.created_at.isoformat() if activity.created_at else "",
-            created_by=str(activity.created_by) if activity.created_by else None,
-        ))
+        activity_records.append(
+            ActivityAuditRecord(
+                activity_id=str(activity.id),
+                scope=activity.scope,
+                category_code=activity.category_code,
+                category_name=CATEGORY_NAMES.get(
+                    activity.category_code, activity.category_code
+                ),
+                activity_key=activity.activity_key,
+                display_name=factor.display_name if factor else activity.activity_key,
+                description=activity.description or "",
+                quantity=float(activity.quantity),
+                unit=activity.unit,
+                activity_date=activity.activity_date.isoformat(),
+                calculation_method=(
+                    activity.calculation_method.value
+                    if activity.calculation_method
+                    else "activity"
+                ),
+                data_source=(
+                    activity.data_source.value if activity.data_source else "manual"
+                ),
+                import_batch_id=(
+                    str(activity.import_batch_id) if activity.import_batch_id else None
+                ),
+                import_file_name=import_file_name,
+                data_quality_score=dq_score,
+                data_quality_label=dq_labels.get(dq_score, "Unknown"),
+                data_quality_justification=activity.data_quality_justification,
+                supporting_document_url=activity.supporting_document_url,
+                co2e_kg=float(emission.co2e_kg),
+                co2e_tonnes=float(emission.co2e_kg) / 1000,
+                co2_kg=float(emission.co2_kg) if emission.co2_kg else None,
+                ch4_kg=float(emission.ch4_kg) if emission.ch4_kg else None,
+                n2o_kg=float(emission.n2o_kg) if emission.n2o_kg else None,
+                wtt_co2e_kg=(
+                    float(emission.wtt_co2e_kg) if emission.wtt_co2e_kg else None
+                ),
+                emission_factor_id=(
+                    str(emission.emission_factor_id)
+                    if emission.emission_factor_id
+                    else None
+                ),
+                emission_factor_value=float(factor.co2e_factor) if factor else None,
+                emission_factor_unit=factor.factor_unit if factor else None,
+                converted_quantity=(
+                    float(emission.converted_quantity)
+                    if emission.converted_quantity
+                    else None
+                ),
+                converted_unit=emission.converted_unit,
+                calculation_formula=emission.formula,
+                confidence_level=(
+                    emission.confidence.value if emission.confidence else "high"
+                ),
+                # Source documentation metadata (Phase 9B)
+                factor_year=emission.factor_year,
+                factor_region=emission.factor_region,
+                method_hierarchy=emission.method_hierarchy,
+                created_at=(
+                    activity.created_at.isoformat() if activity.created_at else ""
+                ),
+                created_by=str(activity.created_by) if activity.created_by else None,
+            )
+        )
 
         # Track factor usage (skip if no factor - supplier-provided)
         if factor:
@@ -1414,27 +1549,31 @@ async def get_audit_package(
     factor_records = []
     for factor_id, usage in factor_usage.items():
         factor = usage["factor"]
-        factor_records.append(EmissionFactorAuditRecord(
-            factor_id=factor_id,
-            activity_key=factor.activity_key,
-            display_name=factor.display_name,
-            scope=factor.scope,
-            category_code=factor.category_code,
-            subcategory=factor.subcategory,
-            co2e_factor=float(factor.co2e_factor),
-            co2_factor=float(factor.co2_factor) if factor.co2_factor else None,
-            ch4_factor=float(factor.ch4_factor) if factor.ch4_factor else None,
-            n2o_factor=float(factor.n2o_factor) if factor.n2o_factor else None,
-            activity_unit=factor.activity_unit,
-            factor_unit=factor.factor_unit,
-            source=factor.source,
-            region=factor.region,
-            year=factor.year,
-            valid_from=factor.valid_from.isoformat() if factor.valid_from else None,
-            valid_until=factor.valid_until.isoformat() if factor.valid_until else None,
-            usage_count=usage["count"],
-            total_co2e_kg=float(usage["total_co2e_kg"]),
-        ))
+        factor_records.append(
+            EmissionFactorAuditRecord(
+                factor_id=factor_id,
+                activity_key=factor.activity_key,
+                display_name=factor.display_name,
+                scope=factor.scope,
+                category_code=factor.category_code,
+                subcategory=factor.subcategory,
+                co2e_factor=float(factor.co2e_factor),
+                co2_factor=float(factor.co2_factor) if factor.co2_factor else None,
+                ch4_factor=float(factor.ch4_factor) if factor.ch4_factor else None,
+                n2o_factor=float(factor.n2o_factor) if factor.n2o_factor else None,
+                activity_unit=factor.activity_unit,
+                factor_unit=factor.factor_unit,
+                source=factor.source,
+                region=factor.region,
+                year=factor.year,
+                valid_from=factor.valid_from.isoformat() if factor.valid_from else None,
+                valid_until=(
+                    factor.valid_until.isoformat() if factor.valid_until else None
+                ),
+                usage_count=usage["count"],
+                total_co2e_kg=float(usage["total_co2e_kg"]),
+            )
+        )
 
     # Sort factors by total emissions (highest first)
     factor_records.sort(key=lambda x: x.total_co2e_kg, reverse=True)
@@ -1442,24 +1581,30 @@ async def get_audit_package(
     # Build import batch records
     batch_records = []
     for batch in import_batches:
-        batch_records.append(ImportBatchAuditRecord(
-            batch_id=str(batch.id),
-            file_name=batch.file_name,
-            file_type=batch.file_type,
-            file_size_bytes=batch.file_size_bytes,
-            status=batch.status.value if batch.status else "unknown",
-            total_rows=batch.total_rows,
-            successful_rows=batch.successful_rows,
-            failed_rows=batch.failed_rows,
-            skipped_rows=batch.skipped_rows,
-            error_message=batch.error_message,
-            uploaded_at=batch.uploaded_at.isoformat() if batch.uploaded_at else "",
-            uploaded_by=str(batch.uploaded_by) if batch.uploaded_by else None,
-            completed_at=batch.completed_at.isoformat() if batch.completed_at else None,
-        ))
+        batch_records.append(
+            ImportBatchAuditRecord(
+                batch_id=str(batch.id),
+                file_name=batch.file_name,
+                file_type=batch.file_type,
+                file_size_bytes=batch.file_size_bytes,
+                status=batch.status.value if batch.status else "unknown",
+                total_rows=batch.total_rows,
+                successful_rows=batch.successful_rows,
+                failed_rows=batch.failed_rows,
+                skipped_rows=batch.skipped_rows,
+                error_message=batch.error_message,
+                uploaded_at=batch.uploaded_at.isoformat() if batch.uploaded_at else "",
+                uploaded_by=str(batch.uploaded_by) if batch.uploaded_by else None,
+                completed_at=(
+                    batch.completed_at.isoformat() if batch.completed_at else None
+                ),
+            )
+        )
 
     # Calculate overall data quality
-    overall_quality = float(quality_weighted_sum / total_co2e) if total_co2e > 0 else 5.0
+    overall_quality = (
+        float(quality_weighted_sum / total_co2e) if total_co2e > 0 else 5.0
+    )
     if overall_quality <= 1.5:
         quality_interpretation = "Excellent - Predominantly verified data"
     elif overall_quality <= 2.5:
@@ -1509,7 +1654,9 @@ async def get_audit_package(
         },
         scope_3_methodology={
             "description": "Other indirect emissions in the value chain",
-            "categories_covered": list(set(a.category_code for a in activity_records if a.scope == 3)),
+            "categories_covered": list(
+                set(a.category_code for a in activity_records if a.scope == 3)
+            ),
             "calculation": "Various methods including activity-based, spend-based, and distance-based",
             "wtt_note": "Category 3.3 includes Well-to-Tank emissions auto-calculated from Scope 1 & 2 activities",
         },
@@ -1544,7 +1691,9 @@ async def get_audit_package(
         reporting_period_start=period.start_date.isoformat(),
         reporting_period_end=period.end_date.isoformat(),
         verification_status=period.status.value if period.status else "draft",
-        assurance_level=period.assurance_level.value if period.assurance_level else None,
+        assurance_level=(
+            period.assurance_level.value if period.assurance_level else None
+        ),
         total_activities=len(activity_records),
         total_emissions_kg=float(total_co2e),
         total_emissions_tonnes=round(float(total_co2e) / 1000, 2),
@@ -1572,8 +1721,10 @@ async def get_audit_package(
 # CDP Climate Change Questionnaire Export (Phase 1.5)
 # ============================================================================
 
+
 class CDPScope1Breakdown(BaseModel):
     """CDP C6.1 - Scope 1 emissions by source."""
+
     source_category: str  # Stationary combustion, Mobile combustion, etc.
     emissions_metric_tonnes: float
     methodology: str
@@ -1582,6 +1733,7 @@ class CDPScope1Breakdown(BaseModel):
 
 class CDPScope2Breakdown(BaseModel):
     """CDP C6.3 - Scope 2 emissions by location."""
+
     country: str
     grid_region: Optional[str]
     purchased_electricity_mwh: float
@@ -1591,6 +1743,7 @@ class CDPScope2Breakdown(BaseModel):
 
 class CDPScope3Category(BaseModel):
     """CDP C6.5 - Scope 3 emissions by category."""
+
     category_number: int  # 1-15
     category_name: str
     emissions_metric_tonnes: float
@@ -1601,6 +1754,7 @@ class CDPScope3Category(BaseModel):
 
 class CDPEmissionsTotals(BaseModel):
     """CDP C6.1/C6.3/C6.5 - Total emissions summary."""
+
     scope_1_metric_tonnes: float
     scope_2_location_based_metric_tonnes: float
     scope_2_market_based_metric_tonnes: Optional[float]
@@ -1610,6 +1764,7 @@ class CDPEmissionsTotals(BaseModel):
 
 class CDPTargetsAndPerformance(BaseModel):
     """CDP C4 - Targets and performance."""
+
     base_year: Optional[int]
     base_year_emissions_tonnes: Optional[float]
     target_year: Optional[int]
@@ -1620,6 +1775,7 @@ class CDPTargetsAndPerformance(BaseModel):
 
 class CDPDataQuality(BaseModel):
     """CDP data quality metrics."""
+
     overall_data_quality_score: float
     percentage_verified_data: float
     percentage_primary_data: float
@@ -1639,6 +1795,7 @@ class CDPExportResponse(BaseModel):
     - C6: Emissions data
     - C7: Emissions breakdown
     """
+
     # Metadata
     export_version: str
     export_date: str
@@ -1743,7 +1900,9 @@ async def export_cdp_format(
         raise HTTPException(status_code=404, detail="Reporting period not found")
 
     # Get organization
-    org_query = select(Organization).where(Organization.id == current_user.organization_id)
+    org_query = select(Organization).where(
+        Organization.id == current_user.organization_id
+    )
     org_result = await session.execute(org_query)
     org = org_result.scalar_one_or_none()
 
@@ -1787,7 +1946,9 @@ async def export_cdp_format(
                     "sources": set(),
                 }
             scope1_by_category[cat]["emissions"] += emission.co2e_kg
-            scope1_by_category[cat]["sources"].add(factor.source if factor else "Supplier-Provided")
+            scope1_by_category[cat]["sources"].add(
+                factor.source if factor else "Supplier-Provided"
+            )
 
         elif activity.scope == 2:
             country = (factor.region if factor else None) or "Global"
@@ -1816,42 +1977,62 @@ async def export_cdp_format(
     # Build Scope 1 breakdown
     scope1_breakdown = []
     for cat, data in sorted(scope1_by_category.items()):
-        scope1_breakdown.append(CDPScope1Breakdown(
-            source_category=SCOPE1_CDP_SOURCES.get(cat, cat),
-            emissions_metric_tonnes=round(float(data["emissions"]) / 1000, 2),
-            methodology="Activity data × emission factor",
-            source_of_emission_factors=", ".join(data["sources"]),
-        ))
+        scope1_breakdown.append(
+            CDPScope1Breakdown(
+                source_category=SCOPE1_CDP_SOURCES.get(cat, cat),
+                emissions_metric_tonnes=round(float(data["emissions"]) / 1000, 2),
+                methodology="Activity data × emission factor",
+                source_of_emission_factors=", ".join(data["sources"]),
+            )
+        )
 
     # Build Scope 2 breakdown
     scope2_breakdown = []
     for country, data in sorted(scope2_by_country.items()):
-        scope2_breakdown.append(CDPScope2Breakdown(
-            country=country,
-            grid_region=None,
-            purchased_electricity_mwh=round(float(data["quantity_kwh"]) / 1000, 2),
-            location_based_emissions_tonnes=round(float(data["location_emissions"]) / 1000, 2),
-            market_based_emissions_tonnes=None,  # Would need market-based calculation
-        ))
+        scope2_breakdown.append(
+            CDPScope2Breakdown(
+                country=country,
+                grid_region=None,
+                purchased_electricity_mwh=round(float(data["quantity_kwh"]) / 1000, 2),
+                location_based_emissions_tonnes=round(
+                    float(data["location_emissions"]) / 1000, 2
+                ),
+                market_based_emissions_tonnes=None,  # Would need market-based calculation
+            )
+        )
 
     # Build Scope 3 categories
     scope3_categories = []
     for cat, data in sorted(scope3_by_category.items()):
         cdp_num = CATEGORY_TO_CDP.get(cat, int(cat.split(".")[1]) if "." in cat else 0)
-        primary_pct = (data["primary_count"] / data["count"] * 100) if data["count"] > 0 else 0
-        scope3_categories.append(CDPScope3Category(
-            category_number=cdp_num,
-            category_name=CDP_SCOPE3_CATEGORIES.get(cdp_num, f"Category {cdp_num}"),
-            emissions_metric_tonnes=round(float(data["emissions"]) / 1000, 2),
-            calculation_methodology="Activity-based calculation",
-            percentage_calculated_using_primary_data=round(primary_pct, 1),
-            explanation=f"Calculated from {data['count']} activities",
-        ))
+        primary_pct = (
+            (data["primary_count"] / data["count"] * 100) if data["count"] > 0 else 0
+        )
+        scope3_categories.append(
+            CDPScope3Category(
+                category_number=cdp_num,
+                category_name=CDP_SCOPE3_CATEGORIES.get(cdp_num, f"Category {cdp_num}"),
+                emissions_metric_tonnes=round(float(data["emissions"]) / 1000, 2),
+                calculation_methodology="Activity-based calculation",
+                percentage_calculated_using_primary_data=round(primary_pct, 1),
+                explanation=f"Calculated from {data['count']} activities",
+            )
+        )
 
     # Calculate data quality metrics
-    verified_pct = (quality_counts[1] / total_activities * 100) if total_activities > 0 else 0
-    primary_pct = ((quality_counts[1] + quality_counts[2]) / total_activities * 100) if total_activities > 0 else 0
-    estimated_pct = ((quality_counts[4] + quality_counts[5]) / total_activities * 100) if total_activities > 0 else 0
+    verified_pct = (
+        (quality_counts[1] / total_activities * 100) if total_activities > 0 else 0
+    )
+    primary_pct = (
+        ((quality_counts[1] + quality_counts[2]) / total_activities * 100)
+        if total_activities > 0
+        else 0
+    )
+    estimated_pct = (
+        ((quality_counts[4] + quality_counts[5]) / total_activities * 100)
+        if total_activities > 0
+        else 0
+    )
 
     # Calculate overall weighted quality score
     total_co2e = sum(scope_totals.values())
@@ -1862,7 +2043,9 @@ async def export_cdp_format(
         percentage_primary_data=round(primary_pct, 1),
         percentage_estimated_data=round(estimated_pct, 1),
         verification_status=period.status.value if period.status else "draft",
-        assurance_level=period.assurance_level.value if period.assurance_level else None,
+        assurance_level=(
+            period.assurance_level.value if period.assurance_level else None
+        ),
     )
 
     # Targets (basic structure - would need org target data)
@@ -1886,7 +2069,9 @@ async def export_cdp_format(
         targets=targets,
         emissions_totals=CDPEmissionsTotals(
             scope_1_metric_tonnes=round(float(scope_totals[1]) / 1000, 2),
-            scope_2_location_based_metric_tonnes=round(float(scope_totals[2]) / 1000, 2),
+            scope_2_location_based_metric_tonnes=round(
+                float(scope_totals[2]) / 1000, 2
+            ),
             scope_2_market_based_metric_tonnes=None,
             scope_3_metric_tonnes=round(float(scope_totals[3]) / 1000, 2),
             total_metric_tonnes=round(float(total_co2e) / 1000, 2),
@@ -1904,8 +2089,10 @@ async def export_cdp_format(
 # ESRS E1 Climate Export (Phase 1.5)
 # ============================================================================
 
+
 class ESRSE1GrossEmissions(BaseModel):
     """ESRS E1-6: Gross Scope 1, 2, 3 emissions."""
+
     scope_1_tonnes: float
     scope_2_location_based_tonnes: float
     scope_2_market_based_tonnes: Optional[float]
@@ -1915,6 +2102,7 @@ class ESRSE1GrossEmissions(BaseModel):
 
 class ESRSE1Scope3Detail(BaseModel):
     """ESRS E1-6: Scope 3 emissions by category."""
+
     category: str
     emissions_tonnes: float
     percentage_of_scope_3: float
@@ -1922,6 +2110,7 @@ class ESRSE1Scope3Detail(BaseModel):
 
 class ESRSE1IntensityMetric(BaseModel):
     """ESRS E1-6: GHG intensity metrics."""
+
     metric_name: str
     numerator_tonnes: float
     denominator_value: float
@@ -1932,6 +2121,7 @@ class ESRSE1IntensityMetric(BaseModel):
 
 class ESRSE1TargetInfo(BaseModel):
     """ESRS E1-4: Climate targets."""
+
     target_type: str  # "absolute" or "intensity"
     target_scope: str  # "Scope 1", "Scope 1+2", "All scopes"
     base_year: int
@@ -1943,6 +2133,7 @@ class ESRSE1TargetInfo(BaseModel):
 
 class ESRSE1TransitionPlan(BaseModel):
     """ESRS E1-1: Transition plan summary."""
+
     has_transition_plan: bool
     plan_aligned_with: Optional[str]  # "Paris Agreement", "1.5°C pathway", etc.
     key_decarbonization_levers: list[str]
@@ -1951,6 +2142,7 @@ class ESRSE1TransitionPlan(BaseModel):
 
 class ESRSE1DataQuality(BaseModel):
     """Data quality disclosure for ESRS."""
+
     data_quality_approach: str
     percentage_estimated_scope_3: float
     significant_assumptions: list[str]
@@ -1970,6 +2162,7 @@ class ESRSE1ExportResponse(BaseModel):
     - E1-7: GHG removals and carbon credits
     - E1-9: Anticipated financial effects
     """
+
     # Metadata
     export_version: str
     export_date: str
@@ -2028,7 +2221,9 @@ async def export_esrs_e1_format(
         raise HTTPException(status_code=404, detail="Reporting period not found")
 
     # Get organization
-    org_query = select(Organization).where(Organization.id == current_user.organization_id)
+    org_query = select(Organization).where(
+        Organization.id == current_user.organization_id
+    )
     org_result = await session.execute(org_query)
     org = org_result.scalar_one_or_none()
 
@@ -2065,7 +2260,9 @@ async def export_esrs_e1_format(
 
         if activity.scope == 3:
             cat = activity.category_code
-            cdp_num = CATEGORY_TO_CDP.get(cat, int(cat.split(".")[1]) if "." in cat else 0)
+            cdp_num = CATEGORY_TO_CDP.get(
+                cat, int(cat.split(".")[1]) if "." in cat else 0
+            )
             cat_name = CDP_SCOPE3_CATEGORIES.get(cdp_num, f"Category {cdp_num}")
 
             if cat_name not in scope3_by_category:
@@ -2077,13 +2274,17 @@ async def export_esrs_e1_format(
 
     # Build Scope 3 breakdown
     scope3_breakdown = []
-    for cat_name, emissions in sorted(scope3_by_category.items(), key=lambda x: x[1], reverse=True):
+    for cat_name, emissions in sorted(
+        scope3_by_category.items(), key=lambda x: x[1], reverse=True
+    ):
         pct = float(emissions / scope3_total * 100) if scope3_total > 0 else 0
-        scope3_breakdown.append(ESRSE1Scope3Detail(
-            category=cat_name,
-            emissions_tonnes=round(float(emissions) / 1000, 2),
-            percentage_of_scope_3=round(pct, 1),
-        ))
+        scope3_breakdown.append(
+            ESRSE1Scope3Detail(
+                category=cat_name,
+                emissions_tonnes=round(float(emissions) / 1000, 2),
+                percentage_of_scope_3=round(pct, 1),
+            )
+        )
 
     # Gross emissions
     gross_emissions = ESRSE1GrossEmissions(
@@ -2105,15 +2306,17 @@ async def export_esrs_e1_format(
     # Climate targets (placeholder - would need actual target data)
     climate_targets = []
     if org and org.base_year:
-        climate_targets.append(ESRSE1TargetInfo(
-            target_type="absolute",
-            target_scope="All scopes",
-            base_year=org.base_year,
-            base_year_value=0,  # Would need historical data
-            target_year=2030,  # Placeholder
-            target_value=0,
-            target_reduction_percentage=0,
-        ))
+        climate_targets.append(
+            ESRSE1TargetInfo(
+                target_type="absolute",
+                target_scope="All scopes",
+                base_year=org.base_year,
+                base_year_value=0,  # Would need historical data
+                target_year=2030,  # Placeholder
+                target_value=0,
+                target_reduction_percentage=0,
+            )
+        )
 
     # Intensity metrics (placeholder)
     intensity_metrics = [
@@ -2137,7 +2340,9 @@ async def export_esrs_e1_format(
             "GWP values from IPCC AR6 (100-year horizon)",
             "Operational control approach for organizational boundaries",
         ],
-        verification_statement=period.verification_statement if period.verification_statement else None,
+        verification_statement=(
+            period.verification_statement if period.verification_statement else None
+        ),
     )
 
     return ESRSE1ExportResponse(
@@ -2164,6 +2369,7 @@ async def export_esrs_e1_format(
 # ============================================================================
 # CSV / PDF Export
 # ============================================================================
+
 
 async def _get_export_data(
     period_id: UUID,
@@ -2223,30 +2429,34 @@ async def export_report_csv(
     Generates a CSV file with all activities and their emissions
     for the specified reporting period, optionally filtered by site.
     """
-    period, org, rows = await _get_export_data(period_id, session, current_user, site_id=site_id)
+    period, org, rows = await _get_export_data(
+        period_id, session, current_user, site_id=site_id
+    )
 
     output = io.StringIO()
     writer = csv.writer(output)
 
     # Header row
-    writer.writerow([
-        "Scope",
-        "Category",
-        "Description",
-        "Activity Key",
-        "Quantity",
-        "Unit",
-        "Emission Factor",
-        "EF Unit",
-        "CO2e (kg)",
-        "CO2e (tonnes)",
-        "Factor Source",
-        "Data Quality",
-        "Supplier Name",
-        "Supplier EF",
-        "Location CO2e (kg)",
-        "Market CO2e (kg)",
-    ])
+    writer.writerow(
+        [
+            "Scope",
+            "Category",
+            "Description",
+            "Activity Key",
+            "Quantity",
+            "Unit",
+            "Emission Factor",
+            "EF Unit",
+            "CO2e (kg)",
+            "CO2e (tonnes)",
+            "Factor Source",
+            "Data Quality",
+            "Supplier Name",
+            "Supplier EF",
+            "Location CO2e (kg)",
+            "Market CO2e (kg)",
+        ]
+    )
 
     data_quality_labels = {
         1: "Verified Data",
@@ -2259,31 +2469,43 @@ async def export_report_csv(
     for activity, emission, factor in rows:
         co2e_kg = float(emission.co2e_kg) if emission.co2e_kg else 0.0
         co2e_tonnes = co2e_kg / 1000.0
-        factor_source = factor.source if factor else (emission.resolution_strategy or "N/A")
+        factor_source = (
+            factor.source if factor else (emission.resolution_strategy or "N/A")
+        )
         dq_score = activity.data_quality_score or 5
         dq_label = data_quality_labels.get(dq_score, f"Score {dq_score}")
 
         ef_value = float(factor.co2e_factor) if factor and factor.co2e_factor else ""
         ef_unit = factor.factor_unit if factor and factor.factor_unit else ""
 
-        writer.writerow([
-            f"Scope {activity.scope}",
-            activity.category_code,
-            activity.description,
-            activity.activity_key,
-            float(activity.quantity),
-            activity.unit,
-            ef_value,
-            ef_unit,
-            round(co2e_kg, 4),
-            round(co2e_tonnes, 6),
-            factor_source,
-            dq_label,
-            activity.supplier_name or "",
-            float(activity.supplier_ef) if activity.supplier_ef else "",
-            round(float(emission.location_co2e_kg), 4) if emission.location_co2e_kg else "",
-            round(float(emission.market_co2e_kg), 4) if emission.market_co2e_kg else "",
-        ])
+        writer.writerow(
+            [
+                f"Scope {activity.scope}",
+                activity.category_code,
+                activity.description,
+                activity.activity_key,
+                float(activity.quantity),
+                activity.unit,
+                ef_value,
+                ef_unit,
+                round(co2e_kg, 4),
+                round(co2e_tonnes, 6),
+                factor_source,
+                dq_label,
+                activity.supplier_name or "",
+                float(activity.supplier_ef) if activity.supplier_ef else "",
+                (
+                    round(float(emission.location_co2e_kg), 4)
+                    if emission.location_co2e_kg
+                    else ""
+                ),
+                (
+                    round(float(emission.market_co2e_kg), 4)
+                    if emission.market_co2e_kg
+                    else ""
+                ),
+            ]
+        )
 
     safe_name = period.name.replace(" ", "_").replace("/", "-")
     output.seek(0)
@@ -2322,7 +2544,9 @@ async def export_report_pdf(
         Spacer,
     )
 
-    period, org, rows = await _get_export_data(period_id, session, current_user, site_id=site_id)
+    period, org, rows = await _get_export_data(
+        period_id, session, current_user, site_id=site_id
+    )
 
     org_name = org.name if org else "Organization"
 
@@ -2343,15 +2567,23 @@ async def export_report_pdf(
         country_code = _extract_country_code(activity.activity_key, factor_region)
         grid_factor = GRID_EMISSION_FACTORS.get(country_code) if country_code else None
         if not grid_factor:
-            grid_factor = GRID_EMISSION_FACTORS.get("GLOBAL", {
-                "location_factor": Decimal("0.436"), "market_factor": None,
-            })
-        loc_f = grid_factor.get("location_factor", factor.co2e_factor if factor else Decimal("0.436"))
+            grid_factor = GRID_EMISSION_FACTORS.get(
+                "GLOBAL",
+                {
+                    "location_factor": Decimal("0.436"),
+                    "market_factor": None,
+                },
+            )
+        loc_f = grid_factor.get(
+            "location_factor", factor.co2e_factor if factor else Decimal("0.436")
+        )
         mkt_f = grid_factor.get("market_factor")
         qty = float(activity.quantity)
         scope2_location_total += Decimal(str(qty * float(loc_f)))
-        is_supplier = (emission.resolution_strategy == "market_based_supplier" or
-                       emission.resolution_strategy == "supplier_provided")
+        is_supplier = (
+            emission.resolution_strategy == "market_based_supplier"
+            or emission.resolution_strategy == "supplier_provided"
+        )
         if is_supplier:
             scope2_market_total += emission.co2e_kg or Decimal(0)
             has_market_data = True
@@ -2405,10 +2637,12 @@ async def export_report_pdf(
     # --- Title Section ---
     elements.append(Paragraph("GHG Emissions Inventory Report", title_style))
     elements.append(Paragraph(org_name, subtitle_style))
-    elements.append(Paragraph(
-        f"Period: {period.name} ({period.start_date.isoformat()} to {period.end_date.isoformat()})",
-        subtitle_style,
-    ))
+    elements.append(
+        Paragraph(
+            f"Period: {period.name} ({period.start_date.isoformat()} to {period.end_date.isoformat()})",
+            subtitle_style,
+        )
+    )
     elements.append(Spacer(1, 12))
 
     # --- Summary Section ---
@@ -2418,26 +2652,33 @@ async def export_report_pdf(
         ["Scope", "Emissions (tonnes CO2e)"],
         ["Scope 1 - Direct Emissions", f"{float(scope_totals[1]) / 1000:,.2f}"],
         ["Scope 2 - Location-based", f"{float(scope2_location_total) / 1000:,.2f}"],
-        ["Scope 2 - Market-based", f"{float(scope2_market_total) / 1000:,.2f}" if has_market_data else "N/A"],
+        [
+            "Scope 2 - Market-based",
+            f"{float(scope2_market_total) / 1000:,.2f}" if has_market_data else "N/A",
+        ],
         ["Scope 3 - Value Chain", f"{float(scope_totals[3]) / 1000:,.2f}"],
         ["Total", f"{float(total_co2e) / 1000:,.2f}"],
     ]
 
     summary_table = Table(summary_data, colWidths=[300, 170])
-    summary_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563eb")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, 0), 10),
-        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#eff6ff")),
-        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-    ]))
+    summary_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563eb")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, 0), 10),
+                ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+                ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#eff6ff")),
+                ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ]
+        )
+    )
     elements.append(summary_table)
     elements.append(Spacer(1, 16))
 
@@ -2459,53 +2700,74 @@ async def export_report_pdf(
 
     for activity, emission, _factor in rows:
         co2e_t = float(emission.co2e_kg or 0) / 1000.0
-        loc_t = f"{float(emission.location_co2e_kg) / 1000:,.2f}" if emission.location_co2e_kg else ""
-        mkt_t = f"{float(emission.market_co2e_kg) / 1000:,.2f}" if emission.market_co2e_kg else ""
+        loc_t = (
+            f"{float(emission.location_co2e_kg) / 1000:,.2f}"
+            if emission.location_co2e_kg
+            else ""
+        )
+        mkt_t = (
+            f"{float(emission.market_co2e_kg) / 1000:,.2f}"
+            if emission.market_co2e_kg
+            else ""
+        )
         supplier = activity.supplier_name or ""
         # Truncate long descriptions for the PDF table
         desc = activity.description
         if len(desc) > 30:
             desc = desc[:27] + "..."
-        detail_data.append([
-            str(activity.scope),
-            activity.category_code,
-            Paragraph(desc, body_style),
-            f"{float(activity.quantity):,.2f}",
-            activity.unit,
-            f"{co2e_t:,.2f}",
-            supplier,
-            loc_t,
-            mkt_t,
-        ])
+        detail_data.append(
+            [
+                str(activity.scope),
+                activity.category_code,
+                Paragraph(desc, body_style),
+                f"{float(activity.quantity):,.2f}",
+                activity.unit,
+                f"{co2e_t:,.2f}",
+                supplier,
+                loc_t,
+                mkt_t,
+            ]
+        )
 
     col_widths = [30, 40, 140, 55, 35, 50, 55, 50, 50]
     detail_table = Table(detail_data, colWidths=col_widths, repeatRows=1)
-    detail_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563eb")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("ALIGN", (0, 0), (0, -1), "CENTER"),
-        ("ALIGN", (3, 0), (3, -1), "RIGHT"),
-        ("ALIGN", (5, 0), (5, -1), "RIGHT"),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f9fafb")]),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-    ]))
+    detail_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563eb")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("ALIGN", (0, 0), (0, -1), "CENTER"),
+                ("ALIGN", (3, 0), (3, -1), "RIGHT"),
+                ("ALIGN", (5, 0), (5, -1), "RIGHT"),
+                (
+                    "ROWBACKGROUNDS",
+                    (0, 1),
+                    (-1, -1),
+                    [colors.white, colors.HexColor("#f9fafb")],
+                ),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+        )
+    )
     elements.append(detail_table)
     elements.append(Spacer(1, 24))
 
     # --- Footer ---
     generated_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
-    elements.append(Paragraph(
-        f"Generated by CLIMATRIX on {generated_at}. "
-        "Emission factors sourced from recognised databases (DEFRA, EPA, IPCC).",
-        footer_style,
-    ))
+    elements.append(
+        Paragraph(
+            f"Generated by CLIMATRIX on {generated_at}. "
+            "Emission factors sourced from recognised databases (DEFRA, EPA, IPCC).",
+            footer_style,
+        )
+    )
 
     doc.build(elements)
     buf.seek(0)

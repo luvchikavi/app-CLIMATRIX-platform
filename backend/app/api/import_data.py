@@ -4,11 +4,12 @@ Data Import API endpoints.
 Handle CSV/Excel file uploads for bulk activity import.
 Supports both sync (small files) and async (large files via Arq) processing.
 """
+
 import csv
 import io
 import os
 from datetime import date, datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -27,7 +28,15 @@ from app.config import settings
 from app.database import get_session
 from app.rate_limit import limiter
 from app.models.core import User, ReportingPeriod, Organization
-from app.models.emission import Activity, Emission, EmissionFactor, ConfidenceLevel, DataSource, ImportBatch, ImportBatchStatus
+from app.models.emission import (
+    Activity,
+    Emission,
+    EmissionFactor,
+    ConfidenceLevel,
+    DataSource,
+    ImportBatch,
+    ImportBatchStatus,
+)
 from app.models.jobs import ImportJob, JobStatus, JobType
 from app.services.calculation import CalculationPipeline, ActivityInput
 from app.services.calculation.pipeline import CalculationError
@@ -65,8 +74,10 @@ async def get_redis_pool() -> ArqRedis:
 # Schemas
 # ============================================================================
 
+
 class ImportRow(BaseModel):
     """A single row from import file."""
+
     row_number: int
     scope: int | None = None
     category_code: str | None = None
@@ -82,6 +93,7 @@ class ImportRow(BaseModel):
 
 class ImportPreview(BaseModel):
     """Preview of import file before processing."""
+
     total_rows: int
     valid_rows: int
     invalid_rows: int
@@ -92,6 +104,7 @@ class ImportPreview(BaseModel):
 
 class ImportResult(BaseModel):
     """Result of import operation."""
+
     total_rows: int
     imported: int
     failed: int
@@ -100,25 +113,25 @@ class ImportResult(BaseModel):
 
 
 # Required columns for import
-REQUIRED_COLUMNS = ['scope', 'category_code', 'activity_key', 'quantity', 'unit']
-OPTIONAL_COLUMNS = ['description', 'activity_date', 'site_id']
+REQUIRED_COLUMNS = ["scope", "category_code", "activity_key", "quantity", "unit"]
+OPTIONAL_COLUMNS = ["description", "activity_date", "site_id"]
 
 # Column name aliases (allow flexible headers)
 COLUMN_ALIASES = {
-    'scope': ['scope', 'scope_number', 'emission_scope'],
-    'category_code': ['category_code', 'category', 'ghg_category'],
-    'activity_key': ['activity_key', 'activity_type', 'activity', 'type'],
-    'description': ['description', 'desc', 'notes', 'name'],
-    'quantity': ['quantity', 'amount', 'value', 'qty'],
-    'unit': ['unit', 'units', 'uom'],
-    'activity_date': ['activity_date', 'date', 'activity_month', 'period'],
-    'site_id': ['site_id', 'site', 'facility', 'location'],
+    "scope": ["scope", "scope_number", "emission_scope"],
+    "category_code": ["category_code", "category", "ghg_category"],
+    "activity_key": ["activity_key", "activity_type", "activity", "type"],
+    "description": ["description", "desc", "notes", "name"],
+    "quantity": ["quantity", "amount", "value", "qty"],
+    "unit": ["unit", "units", "uom"],
+    "activity_date": ["activity_date", "date", "activity_month", "period"],
+    "site_id": ["site_id", "site", "facility", "location"],
 }
 
 
 def normalize_column_name(name: str) -> str | None:
     """Map column name to standard name using aliases."""
-    name_lower = name.lower().strip().replace(' ', '_')
+    name_lower = name.lower().strip().replace(" ", "_")
     for standard, aliases in COLUMN_ALIASES.items():
         if name_lower in aliases:
             return standard
@@ -182,7 +195,7 @@ def parse_excel_content(content: bytes) -> tuple[list[dict], list[str]]:
                 if value is not None:
                     # Handle dates from Excel
                     if isinstance(value, datetime):
-                        value = value.strftime('%Y-%m-%d')
+                        value = value.strftime("%Y-%m-%d")
                     else:
                         value = str(value).strip()
                 row_data[column_mapping[col_idx]] = value if value else None
@@ -199,13 +212,13 @@ def parse_file_content(content: bytes, filename: str) -> tuple[list[dict], list[
     """Parse file content based on file type."""
     filename_lower = filename.lower()
 
-    if filename_lower.endswith('.xlsx') or filename_lower.endswith('.xls'):
+    if filename_lower.endswith(".xlsx") or filename_lower.endswith(".xls"):
         return parse_excel_content(content)
     else:  # CSV
         try:
-            text_content = content.decode('utf-8')
+            text_content = content.decode("utf-8")
         except UnicodeDecodeError:
-            text_content = content.decode('latin-1')
+            text_content = content.decode("latin-1")
         return parse_csv_content(text_content)
 
 
@@ -216,67 +229,77 @@ def validate_row(row: dict, row_number: int, valid_activity_keys: set) -> Import
 
     # Parse scope
     scope = None
-    scope_val = row.get('scope')
+    scope_val = row.get("scope")
     if scope_val:
         try:
             scope = int(scope_val)
             if scope not in [1, 2, 3]:
                 errors.append(f"[scope] Must be 1, 2, or 3 (got '{scope}')")
         except ValueError:
-            errors.append(f"[scope] Invalid value '{scope_val}' - must be a number (1, 2, or 3)")
+            errors.append(
+                f"[scope] Invalid value '{scope_val}' - must be a number (1, 2, or 3)"
+            )
     else:
         errors.append("[scope] Missing - please specify 1, 2, or 3")
 
     # Parse category_code
-    category_code = row.get('category_code')
+    category_code = row.get("category_code")
     if not category_code:
         errors.append("[category_code] Missing - e.g., '1.1', '2', '3.6'")
     elif scope:
         # Validate category matches scope
-        if scope == 1 and not category_code.startswith('1.'):
+        if scope == 1 and not category_code.startswith("1."):
             warnings.append(f"[category_code] '{category_code}' may not match Scope 1")
-        elif scope == 2 and not category_code.startswith('2'):
+        elif scope == 2 and not category_code.startswith("2"):
             warnings.append(f"[category_code] '{category_code}' may not match Scope 2")
-        elif scope == 3 and not category_code.startswith('3.'):
+        elif scope == 3 and not category_code.startswith("3."):
             warnings.append(f"[category_code] '{category_code}' may not match Scope 3")
 
     # Validate activity_key
-    activity_key = row.get('activity_key')
+    activity_key = row.get("activity_key")
     if not activity_key:
-        errors.append("[activity_key] Missing - e.g., 'natural_gas_m3', 'electricity_il'")
+        errors.append(
+            "[activity_key] Missing - e.g., 'natural_gas_m3', 'electricity_il'"
+        )
     elif valid_activity_keys and activity_key not in valid_activity_keys:
         # Suggest similar keys
-        similar = [k for k in valid_activity_keys if activity_key.split('_')[0] in k][:3]
+        similar = [k for k in valid_activity_keys if activity_key.split("_")[0] in k][
+            :3
+        ]
         suggestion = f" Did you mean: {', '.join(similar)}?" if similar else ""
         errors.append(f"[activity_key] Unknown '{activity_key}'.{suggestion}")
 
     # Parse quantity
     quantity = None
-    quantity_val = row.get('quantity')
+    quantity_val = row.get("quantity")
     if quantity_val:
         try:
             # Handle string with commas, or numbers
-            clean_qty = str(quantity_val).replace(',', '').strip()
+            clean_qty = str(quantity_val).replace(",", "").strip()
             quantity = float(clean_qty)
             if quantity < 0:
                 errors.append(f"[quantity] Negative value ({quantity}) not allowed")
             elif quantity == 0:
-                warnings.append("[quantity] Value is zero - activity will have no emissions")
+                warnings.append(
+                    "[quantity] Value is zero - activity will have no emissions"
+                )
         except (ValueError, AttributeError):
-            errors.append(f"[quantity] Invalid value '{quantity_val}' - must be a number")
+            errors.append(
+                f"[quantity] Invalid value '{quantity_val}' - must be a number"
+            )
     else:
         errors.append("[quantity] Missing - please specify a numeric value")
 
     # Validate unit
-    unit = row.get('unit')
+    unit = row.get("unit")
     if not unit:
         errors.append("[unit] Missing - e.g., 'kWh', 'liters', 'km', 'kg'")
 
     # Parse activity_date (optional, default to today)
-    activity_date = row.get('activity_date')
+    activity_date = row.get("activity_date")
     if activity_date:
         # Try common date formats
-        for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%Y/%m/%d']:
+        for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y/%m/%d"]:
             try:
                 datetime.strptime(activity_date, fmt)
                 break
@@ -289,7 +312,7 @@ def validate_row(row: dict, row_number: int, valid_activity_keys: set) -> Import
         activity_date = date.today().isoformat()
 
     # Description (optional)
-    description = row.get('description') or f"{activity_key} import"
+    description = row.get("description") or f"{activity_key} import"
 
     return ImportRow(
         row_number=row_number,
@@ -309,6 +332,7 @@ def validate_row(row: dict, row_number: int, valid_activity_keys: set) -> Import
 # ============================================================================
 # Endpoints
 # ============================================================================
+
 
 @router.post("/periods/{period_id}/import/preview", response_model=ImportPreview)
 @limiter.limit(settings.rate_limit_import)
@@ -342,10 +366,9 @@ async def preview_import(
         raise HTTPException(status_code=400, detail="No file provided")
 
     filename_lower = file.filename.lower()
-    if not (filename_lower.endswith('.csv') or filename_lower.endswith('.xlsx')):
+    if not (filename_lower.endswith(".csv") or filename_lower.endswith(".xlsx")):
         raise HTTPException(
-            status_code=400,
-            detail="Only CSV and Excel (.xlsx) files are supported"
+            status_code=400, detail="Only CSV and Excel (.xlsx) files are supported"
         )
 
     # Read file content
@@ -355,13 +378,12 @@ async def preview_import(
     try:
         rows, found_columns = parse_file_content(content, file.filename)
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Failed to parse file: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
 
     # Get valid activity keys
-    factors_query = select(EmissionFactor.activity_key).where(EmissionFactor.is_active == True)
+    factors_query = select(EmissionFactor.activity_key).where(
+        EmissionFactor.is_active == True
+    )
     factors_result = await session.execute(factors_query)
     valid_keys = set(factors_result.scalars().all())
 
@@ -393,7 +415,9 @@ async def import_activities(
     request: Request,
     period_id: UUID,
     file: UploadFile = File(...),
-    site_id: UUID | None = Query(default=None, description="Optional site to associate with imported activities"),
+    site_id: UUID | None = Query(
+        default=None, description="Optional site to associate with imported activities"
+    ),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
     current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
@@ -415,7 +439,9 @@ async def import_activities(
         raise HTTPException(status_code=400, detail="Cannot import to locked period")
 
     # Get organization region
-    org_query = select(Organization).where(Organization.id == current_user.organization_id)
+    org_query = select(Organization).where(
+        Organization.id == current_user.organization_id
+    )
     org_result = await session.execute(org_query)
     org = org_result.scalar_one_or_none()
     org_region = org.default_region if org and org.default_region else "Global"
@@ -425,8 +451,10 @@ async def import_activities(
         raise HTTPException(status_code=400, detail="No file provided")
 
     filename_lower = file.filename.lower()
-    if not (filename_lower.endswith('.csv') or filename_lower.endswith('.xlsx')):
-        raise HTTPException(status_code=400, detail="Only CSV and Excel (.xlsx) files are supported")
+    if not (filename_lower.endswith(".csv") or filename_lower.endswith(".xlsx")):
+        raise HTTPException(
+            status_code=400, detail="Only CSV and Excel (.xlsx) files are supported"
+        )
 
     # Read and parse file
     content = await _check_file_size(file)
@@ -436,7 +464,9 @@ async def import_activities(
         raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
 
     # Get valid activity keys
-    factors_query = select(EmissionFactor.activity_key).where(EmissionFactor.is_active == True)
+    factors_query = select(EmissionFactor.activity_key).where(
+        EmissionFactor.is_active == True
+    )
     factors_result = await session.execute(factors_query)
     valid_keys = set(factors_result.scalars().all())
 
@@ -445,7 +475,7 @@ async def import_activities(
         organization_id=current_user.organization_id,
         reporting_period_id=period_id,
         file_name=file.filename,
-        file_type="excel" if filename_lower.endswith('.xlsx') else "csv",
+        file_type="excel" if filename_lower.endswith(".xlsx") else "csv",
         file_size_bytes=len(content),
         status=ImportBatchStatus.PROCESSING,
         total_rows=len(rows),
@@ -463,8 +493,12 @@ async def import_activities(
     skipped_examples = 0
     for i, row in enumerate(rows, start=2):
         # Skip example rows (common in templates)
-        description = str(row.get('description', '')).lower()
-        if 'example' in description or description.startswith('[') or 'sample' in description:
+        description = str(row.get("description", "")).lower()
+        if (
+            "example" in description
+            or description.startswith("[")
+            or "sample" in description
+        ):
             skipped_examples += 1
             continue
 
@@ -472,30 +506,36 @@ async def import_activities(
 
         if not validated.is_valid:
             failed += 1
-            errors.append({
-                "row": i,
-                "errors": validated.errors,
-            })
+            errors.append(
+                {
+                    "row": i,
+                    "errors": validated.errors,
+                }
+            )
             continue
 
         try:
             # Calculate emissions
-            calc_result = await pipeline.calculate(ActivityInput(
-                activity_key=validated.activity_key,
-                quantity=Decimal(str(validated.quantity)),
-                unit=validated.unit,
-                scope=validated.scope,
-                category_code=validated.category_code,
-                region=org_region,
-                year=2024,
-            ))
+            calc_result = await pipeline.calculate(
+                ActivityInput(
+                    activity_key=validated.activity_key,
+                    quantity=Decimal(str(validated.quantity)),
+                    unit=validated.unit,
+                    scope=validated.scope,
+                    category_code=validated.category_code,
+                    region=org_region,
+                    year=2024,
+                )
+            )
 
             # Parse date
             activity_date = date.today()
             if validated.activity_date:
-                for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y']:
+                for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"]:
                     try:
-                        activity_date = datetime.strptime(validated.activity_date, fmt).date()
+                        activity_date = datetime.strptime(
+                            validated.activity_date, fmt
+                        ).date()
                         break
                     except ValueError:
                         continue
@@ -540,45 +580,59 @@ async def import_activities(
 
             imported += 1
 
-        except FactorNotFoundError as e:
+        except FactorNotFoundError:
             failed += 1
-            errors.append({
-                "row": i,
-                "activity_key": validated.activity_key,
-                "category_code": validated.category_code,
-                "quantity": validated.quantity,
-                "unit": validated.unit,
-                "errors": [f"No emission factor found for '{validated.activity_key}' in category {validated.category_code}. "
-                          f"Check the activity_key is spelled correctly."],
-            })
+            errors.append(
+                {
+                    "row": i,
+                    "activity_key": validated.activity_key,
+                    "category_code": validated.category_code,
+                    "quantity": validated.quantity,
+                    "unit": validated.unit,
+                    "errors": [
+                        f"No emission factor found for '{validated.activity_key}' in category {validated.category_code}. "
+                        f"Check the activity_key is spelled correctly."
+                    ],
+                }
+            )
         except UnitConversionError as e:
             failed += 1
-            errors.append({
-                "row": i,
-                "activity_key": validated.activity_key,
-                "quantity": validated.quantity,
-                "unit": validated.unit,
-                "errors": [f"Cannot convert unit '{validated.unit}'. Expected units for {validated.activity_key}: {str(e)}"],
-            })
+            errors.append(
+                {
+                    "row": i,
+                    "activity_key": validated.activity_key,
+                    "quantity": validated.quantity,
+                    "unit": validated.unit,
+                    "errors": [
+                        f"Cannot convert unit '{validated.unit}'. Expected units for {validated.activity_key}: {str(e)}"
+                    ],
+                }
+            )
         except CalculationError as e:
             failed += 1
-            errors.append({
-                "row": i,
-                "activity_key": validated.activity_key,
-                "errors": [f"Calculation failed: {str(e)}"],
-            })
+            errors.append(
+                {
+                    "row": i,
+                    "activity_key": validated.activity_key,
+                    "errors": [f"Calculation failed: {str(e)}"],
+                }
+            )
         except Exception as e:
             failed += 1
-            errors.append({
-                "row": i,
-                "activity_key": validated.activity_key,
-                "errors": [f"Unexpected error processing row: {str(e)}"],
-            })
+            errors.append(
+                {
+                    "row": i,
+                    "activity_key": validated.activity_key,
+                    "errors": [f"Unexpected error processing row: {str(e)}"],
+                }
+            )
 
     # Update batch status
     import_batch.successful_rows = imported
     import_batch.failed_rows = failed
-    import_batch.status = ImportBatchStatus.COMPLETED if failed == 0 else ImportBatchStatus.PARTIAL
+    import_batch.status = (
+        ImportBatchStatus.COMPLETED if failed == 0 else ImportBatchStatus.PARTIAL
+    )
     import_batch.completed_at = datetime.utcnow()
     if errors:
         import_batch.row_errors = errors[:50]
@@ -598,8 +652,10 @@ async def import_activities(
 # Import Batch Tracking Endpoints
 # ============================================================================
 
+
 class ImportBatchResponse(BaseModel):
     """Response for import batch listing."""
+
     id: str
     file_name: str
     file_type: str
@@ -711,9 +767,11 @@ async def get_batch_activities(
         raise HTTPException(status_code=404, detail="Import batch not found")
 
     # Get activities for this batch
-    activities_query = select(Activity).where(
-        Activity.import_batch_id == batch_id
-    ).order_by(Activity.created_at)
+    activities_query = (
+        select(Activity)
+        .where(Activity.import_batch_id == batch_id)
+        .order_by(Activity.created_at)
+    )
 
     activities_result = await session.execute(activities_query)
     activities = activities_result.scalars().all()
@@ -729,27 +787,41 @@ async def get_batch_activities(
         # Get factor if emission exists
         factor = None
         if emission and emission.emission_factor_id:
-            factor_query = select(EmissionFactor).where(EmissionFactor.id == emission.emission_factor_id)
+            factor_query = select(EmissionFactor).where(
+                EmissionFactor.id == emission.emission_factor_id
+            )
             factor_result = await session.execute(factor_query)
             factor = factor_result.scalar_one_or_none()
 
-        result_activities.append({
-            "id": str(a.id),
-            "scope": a.scope,
-            "category_code": a.category_code,
-            "activity_key": a.activity_key,
-            "description": a.description,
-            "quantity": float(a.quantity),
-            "unit": a.unit,
-            "activity_date": a.activity_date.isoformat() if a.activity_date else None,
-            "emission": {
-                "co2e_kg": float(emission.co2e_kg) if emission else None,
-                "factor_value": float(factor.co2e_factor) if factor and factor.co2e_factor else None,
-                "factor_unit": factor.factor_unit if factor else None,
-                "factor_source": factor.source if factor else None,
-                "formula": emission.formula if emission else None,
-            } if emission else None,
-        })
+        result_activities.append(
+            {
+                "id": str(a.id),
+                "scope": a.scope,
+                "category_code": a.category_code,
+                "activity_key": a.activity_key,
+                "description": a.description,
+                "quantity": float(a.quantity),
+                "unit": a.unit,
+                "activity_date": (
+                    a.activity_date.isoformat() if a.activity_date else None
+                ),
+                "emission": (
+                    {
+                        "co2e_kg": float(emission.co2e_kg) if emission else None,
+                        "factor_value": (
+                            float(factor.co2e_factor)
+                            if factor and factor.co2e_factor
+                            else None
+                        ),
+                        "factor_unit": factor.factor_unit if factor else None,
+                        "factor_source": factor.source if factor else None,
+                        "formula": emission.formula if emission else None,
+                    }
+                    if emission
+                    else None
+                ),
+            }
+        )
 
     return {
         "batch_id": str(batch_id),
@@ -762,7 +834,9 @@ async def get_batch_activities(
 @router.delete("/import/batches/{batch_id}")
 async def delete_import_batch(
     batch_id: UUID,
-    delete_activities: bool = Query(default=False, description="Also delete imported activities"),
+    delete_activities: bool = Query(
+        default=False, description="Also delete imported activities"
+    ),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
     current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
@@ -788,7 +862,10 @@ async def delete_import_batch(
     if delete_activities:
         # Delete emissions first (FK constraint)
         from sqlmodel import delete
-        activities_query = select(Activity.id).where(Activity.import_batch_id == batch_id)
+
+        activities_query = select(Activity.id).where(
+            Activity.import_batch_id == batch_id
+        )
         activities_result = await session.execute(activities_query)
         activity_ids = [a for a in activities_result.scalars().all()]
 
@@ -814,7 +891,10 @@ async def delete_import_batch(
 
 @router.get("/import/template")
 async def get_import_template(
-    scope: str = Query("1-2", description="Template scope: '1-2' for Scope 1&2, '3' for Scope 3, 'csv' for simple CSV")
+    scope: str = Query(
+        "1-2",
+        description="Template scope: '1-2' for Scope 1&2, '3' for Scope 3, 'csv' for simple CSV",
+    )
 ):
     """
     Get import template file.
@@ -827,16 +907,24 @@ async def get_import_template(
     """
     import os
 
-    base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    base_path = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
 
     if scope == "3":
         # Scope 3 Excel template
-        file_path = os.path.join(base_path, "climatrix_files", "climatrix_scope3_template_v1.xlsx")
+        file_path = os.path.join(
+            base_path, "climatrix_files", "climatrix_scope3_template_v1.xlsx"
+        )
         filename = "climatrix_scope3_template.xlsx"
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     elif scope == "1-2":
         # Scope 1 & 2 Excel template (v1.0.1 - with Supplier EF support)
-        file_path = os.path.join(base_path, "climatrix_files", "climatrix_import_template_scope1and2_v1.0.1.xlsx")
+        file_path = os.path.join(
+            base_path,
+            "climatrix_files",
+            "climatrix_import_template_scope1and2_v1.0.1.xlsx",
+        )
         filename = "climatrix_scope1and2_template_v1.0.1.xlsx"
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     else:
@@ -865,23 +953,20 @@ async def get_import_template(
     # Check if file exists
     if not os.path.exists(file_path):
         raise HTTPException(
-            status_code=404,
-            detail=f"Template file not found: {filename}"
+            status_code=404, detail=f"Template file not found: {filename}"
         )
 
-    return FileResponse(
-        path=file_path,
-        filename=filename,
-        media_type=media_type
-    )
+    return FileResponse(path=file_path, filename=filename, media_type=media_type)
 
 
 # ============================================================================
 # Async Import Endpoints (for large files)
 # ============================================================================
 
+
 class AsyncImportResponse(BaseModel):
     """Response for async import request."""
+
     job_id: str
     status: str
     message: str
@@ -889,6 +974,7 @@ class AsyncImportResponse(BaseModel):
 
 class JobStatusResponse(BaseModel):
     """Response for job status check."""
+
     job_id: str
     status: str
     progress_percent: int
@@ -909,7 +995,9 @@ async def import_activities_async(
     request: Request,
     period_id: UUID,
     file: UploadFile = File(...),
-    site_id: UUID | None = Query(default=None, description="Optional site to associate with imported activities"),
+    site_id: UUID | None = Query(
+        default=None, description="Optional site to associate with imported activities"
+    ),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
     current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
@@ -938,10 +1026,9 @@ async def import_activities_async(
         raise HTTPException(status_code=400, detail="No file provided")
 
     filename_lower = file.filename.lower()
-    if not (filename_lower.endswith('.csv') or filename_lower.endswith('.xlsx')):
+    if not (filename_lower.endswith(".csv") or filename_lower.endswith(".xlsx")):
         raise HTTPException(
-            status_code=400,
-            detail="Only CSV and Excel (.xlsx) files are supported"
+            status_code=400, detail="Only CSV and Excel (.xlsx) files are supported"
         )
 
     # Read file content
@@ -950,26 +1037,27 @@ async def import_activities_async(
 
     # Save file for async processing (S3 or local via storage service)
     job_id = uuid4()
-    file_ext = '.xlsx' if filename_lower.endswith('.xlsx') else '.csv'
+    file_ext = ".xlsx" if filename_lower.endswith(".xlsx") else ".csv"
     storage_key = f"uploads/{job_id}{file_ext}"
     content_type = (
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        if file_ext == '.xlsx' else "text/csv"
+        if file_ext == ".xlsx"
+        else "text/csv"
     )
     await storage.upload_file(content, storage_key, content_type=content_type)
 
     # Count rows for progress tracking
-    if filename_lower.endswith('.xlsx'):
+    if filename_lower.endswith(".xlsx"):
         wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
         ws = wb.active
         row_count = ws.max_row - 1 if ws else 0  # Minus header
         wb.close()
     else:
         try:
-            text_content = content.decode('utf-8')
+            text_content = content.decode("utf-8")
         except UnicodeDecodeError:
-            text_content = content.decode('latin-1')
-        row_count = len(text_content.strip().split('\n')) - 1  # Minus header
+            text_content = content.decode("latin-1")
+        row_count = len(text_content.strip().split("\n")) - 1  # Minus header
 
     # Create job record
     job = ImportJob(
@@ -991,7 +1079,7 @@ async def import_activities_async(
     # Queue job for async processing
     try:
         redis = await get_redis_pool()
-        await redis.enqueue_job('process_import_job', str(job_id))
+        await redis.enqueue_job("process_import_job", str(job_id))
         await redis.close()
     except Exception as e:
         # If Redis fails, mark job as failed but don't crash
@@ -999,13 +1087,13 @@ async def import_activities_async(
         await session.commit()
         raise HTTPException(
             status_code=503,
-            detail="Background worker unavailable. Please try sync import or retry later."
+            detail="Background worker unavailable. Please try sync import or retry later.",
         )
 
     return AsyncImportResponse(
         job_id=str(job_id),
         status="queued",
-        message=f"Import job queued. {row_count} rows will be processed in background."
+        message=f"Import job queued. {row_count} rows will be processed in background.",
     )
 
 
@@ -1056,9 +1144,12 @@ async def list_import_jobs(
     """
     List recent import jobs for the organization.
     """
-    jobs_query = select(ImportJob).where(
-        ImportJob.organization_id == current_user.organization_id
-    ).order_by(ImportJob.created_at.desc()).limit(limit)
+    jobs_query = (
+        select(ImportJob)
+        .where(ImportJob.organization_id == current_user.organization_id)
+        .order_by(ImportJob.created_at.desc())
+        .limit(limit)
+    )
 
     jobs_result = await session.execute(jobs_query)
     jobs = jobs_result.scalars().all()
@@ -1107,7 +1198,7 @@ async def cancel_import_job(
     if job.status != JobStatus.PENDING:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot cancel job with status '{job.status.value}'"
+            detail=f"Cannot cancel job with status '{job.status.value}'",
         )
 
     job.status = JobStatus.CANCELLED
@@ -1124,8 +1215,10 @@ async def cancel_import_job(
 # AI-Powered Smart Import Endpoints
 # ============================================================================
 
+
 class ColumnMappingResponse(BaseModel):
     """Response from AI column analysis."""
+
     success: bool
     detected_structure: str
     date_column: str | None
@@ -1139,13 +1232,16 @@ class ColumnMappingResponse(BaseModel):
 
 class SmartImportResponse(BaseModel):
     """Response from smart import."""
+
     job_id: str
     status: str
     message: str
     ai_mapping_preview: dict | None
 
 
-@router.post("/periods/{period_id}/import/analyze-columns", response_model=ColumnMappingResponse)
+@router.post(
+    "/periods/{period_id}/import/analyze-columns", response_model=ColumnMappingResponse
+)
 async def analyze_import_columns(
     period_id: UUID,
     file: UploadFile = File(...),
@@ -1180,33 +1276,36 @@ async def analyze_import_columns(
         raise HTTPException(status_code=400, detail="No file provided")
 
     filename_lower = file.filename.lower()
-    if not (filename_lower.endswith('.csv') or filename_lower.endswith('.xlsx')):
+    if not (filename_lower.endswith(".csv") or filename_lower.endswith(".xlsx")):
         raise HTTPException(
-            status_code=400,
-            detail="Only CSV and Excel (.xlsx) files are supported"
+            status_code=400, detail="Only CSV and Excel (.xlsx) files are supported"
         )
 
     # Read file content
     content = await _check_file_size(file)
 
     # Parse file to get headers and sample data
-    if filename_lower.endswith('.xlsx'):
+    if filename_lower.endswith(".xlsx"):
         wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
         ws = wb.active
-        headers = [str(cell.value) if cell.value else "" for cell in ws[1]] if ws else []
+        headers = (
+            [str(cell.value) if cell.value else "" for cell in ws[1]] if ws else []
+        )
         rows = []
         if ws:
             for row_num in range(2, min(ws.max_row + 1, 7)):  # First 5 data rows
-                row_values = [str(cell.value) if cell.value else "" for cell in ws[row_num]]
+                row_values = [
+                    str(cell.value) if cell.value else "" for cell in ws[row_num]
+                ]
                 if any(row_values):
                     rows.append(dict(zip(headers, row_values)))
         wb.close()
         sample_data = [list(row.values()) for row in rows]
     else:
         try:
-            text_content = content.decode('utf-8')
+            text_content = content.decode("utf-8")
         except UnicodeDecodeError:
-            text_content = content.decode('latin-1')
+            text_content = content.decode("latin-1")
         reader = csv.DictReader(io.StringIO(text_content))
         headers = list(reader.fieldnames) if reader.fieldnames else []
         rows = list(reader)
@@ -1279,10 +1378,9 @@ async def smart_import_activities(
         raise HTTPException(status_code=400, detail="No file provided")
 
     filename_lower = file.filename.lower()
-    if not (filename_lower.endswith('.csv') or filename_lower.endswith('.xlsx')):
+    if not (filename_lower.endswith(".csv") or filename_lower.endswith(".xlsx")):
         raise HTTPException(
-            status_code=400,
-            detail="Only CSV and Excel (.xlsx) files are supported"
+            status_code=400, detail="Only CSV and Excel (.xlsx) files are supported"
         )
 
     # Read file content
@@ -1290,25 +1388,29 @@ async def smart_import_activities(
     file_size = len(content)
 
     # Parse file and count rows
-    if filename_lower.endswith('.xlsx'):
+    if filename_lower.endswith(".xlsx"):
         wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
         ws = wb.active
-        headers = [str(cell.value) if cell.value else "" for cell in ws[1]] if ws else []
+        headers = (
+            [str(cell.value) if cell.value else "" for cell in ws[1]] if ws else []
+        )
         row_count = ws.max_row - 1 if ws else 0
         rows = []
         if ws:
             for row_num in range(2, min(ws.max_row + 1, 7)):  # First 5 data rows
-                row_values = [str(cell.value) if cell.value else "" for cell in ws[row_num]]
+                row_values = [
+                    str(cell.value) if cell.value else "" for cell in ws[row_num]
+                ]
                 if any(row_values):
                     rows.append(dict(zip(headers, row_values)))
         wb.close()
         sample_data = [list(row.values()) for row in rows]
     else:
         try:
-            text_content = content.decode('utf-8')
+            text_content = content.decode("utf-8")
         except UnicodeDecodeError:
-            text_content = content.decode('latin-1')
-        row_count = len(text_content.strip().split('\n')) - 1
+            text_content = content.decode("latin-1")
+        row_count = len(text_content.strip().split("\n")) - 1
         reader = csv.DictReader(io.StringIO(text_content))
         headers = list(reader.fieldnames) if reader.fieldnames else []
         rows = list(reader)
@@ -1318,23 +1420,30 @@ async def smart_import_activities(
     mapping_result = mapper.map_columns(headers, sample_data)
 
     # If no activity columns detected, fail early
-    activity_mappings = [m for m in mapping_result.mappings if m.column_type == "activity" and m.activity_key]
+    activity_mappings = [
+        m
+        for m in mapping_result.mappings
+        if m.column_type == "activity" and m.activity_key
+    ]
     if not activity_mappings:
         raise HTTPException(
             status_code=400,
             detail="AI could not detect any emission activity columns. "
-                   "Please use the standard import template or rename columns."
+            "Please use the standard import template or rename columns.",
         )
 
     # Save file for async processing (S3 or local via storage service)
     job_id = uuid4()
-    smart_ext = '.xlsx' if filename_lower.endswith('.xlsx') else '.csv'
+    smart_ext = ".xlsx" if filename_lower.endswith(".xlsx") else ".csv"
     smart_storage_key = f"uploads/{job_id}{smart_ext}"
     smart_content_type = (
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        if smart_ext == '.xlsx' else "text/csv"
+        if smart_ext == ".xlsx"
+        else "text/csv"
     )
-    await storage.upload_file(content, smart_storage_key, content_type=smart_content_type)
+    await storage.upload_file(
+        content, smart_storage_key, content_type=smart_content_type
+    )
 
     # Create job record
     job = ImportJob(
@@ -1356,8 +1465,8 @@ async def smart_import_activities(
                     {"header": m.original_header, "activity_key": m.activity_key}
                     for m in activity_mappings
                 ],
-            }
-        }
+            },
+        },
     )
     session.add(job)
     await session.commit()
@@ -1365,21 +1474,21 @@ async def smart_import_activities(
     # Queue smart import job
     try:
         redis = await get_redis_pool()
-        await redis.enqueue_job('smart_import_job', str(job_id))
+        await redis.enqueue_job("smart_import_job", str(job_id))
         await redis.close()
     except Exception as e:
         job.mark_failed(f"Failed to queue job: {str(e)}")
         await session.commit()
         raise HTTPException(
             status_code=503,
-            detail="Background worker unavailable. Please try standard import."
+            detail="Background worker unavailable. Please try standard import.",
         )
 
     return SmartImportResponse(
         job_id=str(job_id),
         status="queued",
         message=f"Smart import queued. AI detected {len(activity_mappings)} activity columns "
-                f"in {row_count} rows.",
+        f"in {row_count} rows.",
         ai_mapping_preview={
             "detected_structure": mapping_result.detected_structure,
             "detected_columns": [
@@ -1393,7 +1502,7 @@ async def smart_import_activities(
             ],
             "date_column": mapping_result.date_column,
             "warnings": mapping_result.warnings[:3],  # First 3 warnings
-        }
+        },
     )
 
 
@@ -1418,8 +1527,7 @@ async def validate_import_data(
 
     if len(activities) > 100:
         raise HTTPException(
-            status_code=400,
-            detail="Validate up to 100 activities at a time"
+            status_code=400, detail="Validate up to 100 activities at a time"
         )
 
     validator = DataValidator()
@@ -1463,6 +1571,7 @@ from app.services.template_parser import TemplateParser
 
 class TemplateImportPreview(BaseModel):
     """Preview of template parsing before import."""
+
     success: bool
     filename: str
     total_sheets: int
@@ -1477,6 +1586,7 @@ class TemplateImportPreview(BaseModel):
 
 class TemplateImportResult(BaseModel):
     """Result of template import operation."""
+
     success: bool
     total_activities: int
     imported: int
@@ -1488,11 +1598,15 @@ class TemplateImportResult(BaseModel):
     import_batch_id: str | None = None
 
 
-@router.post("/periods/{period_id}/import/template/preview", response_model=TemplateImportPreview)
+@router.post(
+    "/periods/{period_id}/import/template/preview", response_model=TemplateImportPreview
+)
 async def preview_template_import(
     period_id: UUID,
     file: UploadFile = File(...),
-    year: int = Query(default=None, description="Reporting year (default: current year)"),
+    year: int = Query(
+        default=None, description="Reporting year (default: current year)"
+    ),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
     current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
@@ -1531,10 +1645,9 @@ async def preview_template_import(
         raise HTTPException(status_code=400, detail="No file provided")
 
     filename_lower = file.filename.lower()
-    if not filename_lower.endswith('.xlsx'):
+    if not filename_lower.endswith(".xlsx"):
         raise HTTPException(
-            status_code=400,
-            detail="Template must be an Excel file (.xlsx)"
+            status_code=400, detail="Template must be an Excel file (.xlsx)"
         )
 
     # Read file content
@@ -1546,8 +1659,7 @@ async def preview_template_import(
         result = parser.parse(content, file.filename)
     except Exception as e:
         raise HTTPException(
-            status_code=400,
-            detail=f"Failed to parse template: {str(e)}"
+            status_code=400, detail=f"Failed to parse template: {str(e)}"
         )
 
     return TemplateImportPreview(
@@ -1576,14 +1688,20 @@ async def preview_template_import(
     )
 
 
-@router.post("/periods/{period_id}/import/template", response_model=TemplateImportResult)
+@router.post(
+    "/periods/{period_id}/import/template", response_model=TemplateImportResult
+)
 @limiter.limit(settings.rate_limit_import)
 async def import_template(
     request: Request,
     period_id: UUID,
     file: UploadFile = File(...),
-    year: int = Query(default=None, description="Reporting year (default: current year)"),
-    site_id: UUID | None = Query(default=None, description="Optional site to associate with imported activities"),
+    year: int = Query(
+        default=None, description="Reporting year (default: current year)"
+    ),
+    site_id: UUID | None = Query(
+        default=None, description="Optional site to associate with imported activities"
+    ),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
     current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
@@ -1614,7 +1732,9 @@ async def import_template(
         raise HTTPException(status_code=400, detail="Cannot import to locked period")
 
     # Get organization region
-    org_query = select(Organization).where(Organization.id == current_user.organization_id)
+    org_query = select(Organization).where(
+        Organization.id == current_user.organization_id
+    )
     org_result = await session.execute(org_query)
     org = org_result.scalar_one_or_none()
     org_region = org.default_region if org and org.default_region else "Global"
@@ -1624,10 +1744,9 @@ async def import_template(
         raise HTTPException(status_code=400, detail="No file provided")
 
     filename_lower = file.filename.lower()
-    if not filename_lower.endswith('.xlsx'):
+    if not filename_lower.endswith(".xlsx"):
         raise HTTPException(
-            status_code=400,
-            detail="Template must be an Excel file (.xlsx)"
+            status_code=400, detail="Template must be an Excel file (.xlsx)"
         )
 
     # Read file content
@@ -1639,14 +1758,13 @@ async def import_template(
         parse_result = parser.parse(content, file.filename)
     except Exception as e:
         raise HTTPException(
-            status_code=400,
-            detail=f"Failed to parse template: {str(e)}"
+            status_code=400, detail=f"Failed to parse template: {str(e)}"
         )
 
     if not parse_result.activities:
         raise HTTPException(
             status_code=400,
-            detail="No activities found in template. Please check that data is entered correctly."
+            detail="No activities found in template. Please check that data is entered correctly.",
         )
 
     # Create ImportBatch to track this import
@@ -1654,7 +1772,7 @@ async def import_template(
         organization_id=current_user.organization_id,
         reporting_period_id=period_id,
         file_name=file.filename,
-        file_type='xlsx',
+        file_type="xlsx",
         file_size_bytes=len(content),
         total_rows=len(parse_result.activities),
         status=ImportBatchStatus.PROCESSING,
@@ -1673,8 +1791,12 @@ async def import_template(
     skipped_examples = 0
     for activity_data in parse_result.activities:
         # Skip example rows (common in templates)
-        description_lower = (activity_data.description or '').lower()
-        if 'example' in description_lower or description_lower.startswith('[') or 'sample' in description_lower:
+        description_lower = (activity_data.description or "").lower()
+        if (
+            "example" in description_lower
+            or description_lower.startswith("[")
+            or "sample" in description_lower
+        ):
             skipped_examples += 1
             continue
 
@@ -1683,33 +1805,41 @@ async def import_template(
             supplier_ef = None
             supplier_name = None
             if activity_data.raw_data:
-                supplier_ef_val = activity_data.raw_data.get('_supplier_ef')
+                supplier_ef_val = activity_data.raw_data.get("_supplier_ef")
                 if supplier_ef_val is not None:
                     supplier_ef = Decimal(str(supplier_ef_val))
-                supplier_name = activity_data.raw_data.get('supplier_name') or activity_data.raw_data.get('_supplier_name') or None
+                supplier_name = (
+                    activity_data.raw_data.get("supplier_name")
+                    or activity_data.raw_data.get("_supplier_name")
+                    or None
+                )
                 # Also check for power_producer name to use as supplier_name
-                power_producer = activity_data.raw_data.get('power_producer') or None
+                power_producer = activity_data.raw_data.get("power_producer") or None
                 if power_producer and not supplier_name:
                     supplier_name = power_producer
 
             # Calculate emissions
-            calc_result = await pipeline.calculate(ActivityInput(
-                activity_key=activity_data.activity_key,
-                quantity=activity_data.quantity,
-                unit=activity_data.unit,
-                scope=activity_data.scope,
-                category_code=activity_data.category_code,
-                region=org_region,
-                year=year or datetime.now().year,
-                supplier_ef=supplier_ef,
-                supplier_name=supplier_name,
-            ))
+            calc_result = await pipeline.calculate(
+                ActivityInput(
+                    activity_key=activity_data.activity_key,
+                    quantity=activity_data.quantity,
+                    unit=activity_data.unit,
+                    scope=activity_data.scope,
+                    category_code=activity_data.category_code,
+                    region=org_region,
+                    year=year or datetime.now().year,
+                    supplier_ef=supplier_ef,
+                    supplier_name=supplier_name,
+                )
+            )
 
             # Parse activity date
             activity_date = date.today()
             if activity_data.activity_date:
                 try:
-                    activity_date = datetime.strptime(activity_data.activity_date, '%Y-%m-%d').date()
+                    activity_date = datetime.strptime(
+                        activity_data.activity_date, "%Y-%m-%d"
+                    ).date()
                 except ValueError:
                     pass
 
@@ -1758,28 +1888,36 @@ async def import_template(
             # Collect activity warnings
             if activity_data.warnings:
                 for w in activity_data.warnings:
-                    warnings.append(f"Row {activity_data.source_row} ({activity_data.source_sheet}): {w}")
+                    warnings.append(
+                        f"Row {activity_data.source_row} ({activity_data.source_sheet}): {w}"
+                    )
 
         except (FactorNotFoundError, UnitConversionError, CalculationError) as e:
             failed += 1
-            errors.append({
-                "sheet": activity_data.source_sheet,
-                "row": activity_data.source_row,
-                "activity_key": activity_data.activity_key,
-                "error": str(e),
-            })
+            errors.append(
+                {
+                    "sheet": activity_data.source_sheet,
+                    "row": activity_data.source_row,
+                    "activity_key": activity_data.activity_key,
+                    "error": str(e),
+                }
+            )
         except Exception as e:
             failed += 1
-            errors.append({
-                "sheet": activity_data.source_sheet,
-                "row": activity_data.source_row,
-                "error": f"Unexpected error: {str(e)}",
-            })
+            errors.append(
+                {
+                    "sheet": activity_data.source_sheet,
+                    "row": activity_data.source_row,
+                    "error": f"Unexpected error: {str(e)}",
+                }
+            )
 
     # Update ImportBatch with results
     import_batch.successful_rows = imported
     import_batch.failed_rows = failed
-    import_batch.status = ImportBatchStatus.COMPLETED if failed == 0 else ImportBatchStatus.PARTIAL
+    import_batch.status = (
+        ImportBatchStatus.COMPLETED if failed == 0 else ImportBatchStatus.PARTIAL
+    )
     import_batch.completed_at = datetime.utcnow()
     if errors:
         import_batch.row_errors = errors[:50]
@@ -1816,11 +1954,12 @@ async def import_template(
 # Unified AI-Powered Import (handles ANY file type)
 # ============================================================================
 
-from app.services.ai.unified_import import UnifiedImportService, UnifiedImportPreview as UnifiedPreview
+from app.services.ai.unified_import import UnifiedImportService
 
 
 class UnifiedSheetPreview(BaseModel):
     """Preview of a single sheet from the unified import"""
+
     sheet_name: str
     detected_scope: int | None
     detected_category: str | None
@@ -1837,6 +1976,7 @@ class UnifiedSheetPreview(BaseModel):
 
 class UnifiedImportPreviewResponse(BaseModel):
     """Complete preview of file for unified import"""
+
     success: bool
     file_name: str
     file_type: str
@@ -1850,12 +1990,16 @@ class UnifiedImportPreviewResponse(BaseModel):
 
 class UnifiedImportRequest(BaseModel):
     """Request to import with optional user-modified mappings"""
-    user_mappings: dict[str, list[dict]] | None = None  # {sheet_name: [{column mappings}]}
+
+    user_mappings: dict[str, list[dict]] | None = (
+        None  # {sheet_name: [{column mappings}]}
+    )
     selected_sheets: list[str] | None = None  # Only import these sheets
 
 
 class UnifiedImportResultResponse(BaseModel):
     """Result of unified import"""
+
     success: bool
     total_activities: int
     imported: int
@@ -1899,20 +2043,22 @@ async def unified_import_preview(
     # Convert to response model
     sheet_previews = []
     for sheet in preview.sheets:
-        sheet_previews.append(UnifiedSheetPreview(
-            sheet_name=sheet.sheet_name,
-            detected_scope=sheet.detected_scope,
-            detected_category=sheet.detected_category,
-            header_row=sheet.header_row,
-            total_rows=sheet.total_rows,
-            columns=sheet.columns,
-            column_mappings=sheet.column_mappings,
-            sample_data=sheet.sample_data,
-            activities_preview=sheet.activities_preview,
-            is_importable=sheet.is_importable,
-            skip_reason=sheet.skip_reason,
-            warnings=sheet.warnings,
-        ))
+        sheet_previews.append(
+            UnifiedSheetPreview(
+                sheet_name=sheet.sheet_name,
+                detected_scope=sheet.detected_scope,
+                detected_category=sheet.detected_category,
+                header_row=sheet.header_row,
+                total_rows=sheet.total_rows,
+                columns=sheet.columns,
+                column_mappings=sheet.column_mappings,
+                sample_data=sheet.sample_data,
+                activities_preview=sheet.activities_preview,
+                is_importable=sheet.is_importable,
+                skip_reason=sheet.skip_reason,
+                warnings=sheet.warnings,
+            )
+        )
 
     return UnifiedImportPreviewResponse(
         success=preview.success,
@@ -1933,7 +2079,9 @@ async def unified_import_activities(
     request: Request,
     period_id: UUID,
     file: UploadFile = File(...),
-    site_id: UUID | None = Query(default=None, description="Optional site to associate with imported activities"),
+    site_id: UUID | None = Query(
+        default=None, description="Optional site to associate with imported activities"
+    ),
     session: AsyncSession = Depends(get_session),
     current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
@@ -1978,7 +2126,7 @@ async def unified_import_activities(
     region = org.default_region if org else "Global"
 
     # Create ImportBatch to track this import
-    file_type = 'xlsx' if filename.lower().endswith(('.xlsx', '.xls')) else 'csv'
+    file_type = "xlsx" if filename.lower().endswith((".xlsx", ".xls")) else "csv"
     import_batch = ImportBatch(
         organization_id=current_user.organization_id,
         reporting_period_id=period_id,
@@ -2006,8 +2154,12 @@ async def unified_import_activities(
     skipped_examples = 0
     for activity_data in activities:
         # Skip example rows (common in templates)
-        description_lower = (activity_data.description or '').lower()
-        if 'example' in description_lower or description_lower.startswith('[') or 'sample' in description_lower:
+        description_lower = (activity_data.description or "").lower()
+        if (
+            "example" in description_lower
+            or description_lower.startswith("[")
+            or "sample" in description_lower
+        ):
             skipped_examples += 1
             continue
 
@@ -2034,10 +2186,15 @@ async def unified_import_activities(
                 scope=activity_data.scope,
                 category_code=activity_data.category_code,
                 activity_key=activity_data.activity_key,
-                description=activity_data.description or f"Imported: {activity_data.activity_key}",
+                description=activity_data.description
+                or f"Imported: {activity_data.activity_key}",
                 quantity=Decimal(str(activity_data.quantity)),
                 unit=activity_data.unit,
-                activity_date=date.fromisoformat(activity_data.activity_date) if activity_data.activity_date else date.today(),
+                activity_date=(
+                    date.fromisoformat(activity_data.activity_date)
+                    if activity_data.activity_date
+                    else date.today()
+                ),
                 data_source=DataSource.IMPORT,
             )
             session.add(activity)
@@ -2046,14 +2203,20 @@ async def unified_import_activities(
             # Create emission record
             emission = Emission(
                 activity_id=activity.id,
-                emission_factor_id=result.factor_used.id if result.factor_used else None,
+                emission_factor_id=(
+                    result.factor_used.id if result.factor_used else None
+                ),
                 co2e_kg=result.co2e_kg,
                 co2_kg=result.co2_kg,
                 ch4_kg=result.ch4_kg,
                 n2o_kg=result.n2o_kg,
                 wtt_co2e_kg=result.wtt_co2e_kg,
                 formula=result.formula,
-                confidence=ConfidenceLevel.HIGH if activity_data.confidence >= 0.8 else ConfidenceLevel.MEDIUM,
+                confidence=(
+                    ConfidenceLevel.HIGH
+                    if activity_data.confidence >= 0.8
+                    else ConfidenceLevel.MEDIUM
+                ),
             )
             session.add(emission)
 
@@ -2063,31 +2226,41 @@ async def unified_import_activities(
             # Track by scope/category
             scope_key = f"Scope {activity_data.scope}"
             by_scope[scope_key] = by_scope.get(scope_key, 0) + 1
-            by_category[activity_data.category_code] = by_category.get(activity_data.category_code, 0) + 1
+            by_category[activity_data.category_code] = (
+                by_category.get(activity_data.category_code, 0) + 1
+            )
 
             # Collect warnings
             if activity_data.warnings:
                 for w in activity_data.warnings:
-                    warnings.append(f"Row {activity_data.source_row} ({activity_data.source_sheet}): {w}")
+                    warnings.append(
+                        f"Row {activity_data.source_row} ({activity_data.source_sheet}): {w}"
+                    )
 
         except (FactorNotFoundError, UnitConversionError, CalculationError) as e:
             failed += 1
-            errors.append({
-                "sheet": activity_data.source_sheet,
-                "row": activity_data.source_row,
-                "activity_key": activity_data.activity_key,
-                "error": str(e),
-            })
+            errors.append(
+                {
+                    "sheet": activity_data.source_sheet,
+                    "row": activity_data.source_row,
+                    "activity_key": activity_data.activity_key,
+                    "error": str(e),
+                }
+            )
         except Exception as e:
             failed += 1
-            errors.append({
-                "sheet": activity_data.source_sheet,
-                "row": activity_data.source_row,
-                "error": f"Unexpected error: {str(e)}",
-            })
+            errors.append(
+                {
+                    "sheet": activity_data.source_sheet,
+                    "row": activity_data.source_row,
+                    "error": f"Unexpected error: {str(e)}",
+                }
+            )
 
     # Update batch status
-    import_batch.status = ImportBatchStatus.COMPLETED if failed == 0 else ImportBatchStatus.PARTIAL
+    import_batch.status = (
+        ImportBatchStatus.COMPLETED if failed == 0 else ImportBatchStatus.PARTIAL
+    )
     import_batch.successful_rows = imported
     import_batch.failed_rows = failed
     import_batch.skipped_rows = skipped_examples

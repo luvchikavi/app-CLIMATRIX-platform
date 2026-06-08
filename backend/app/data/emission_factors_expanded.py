@@ -9,8 +9,8 @@ This file adds factors from:
 
 All factors use the explicit activity_key system.
 """
-from decimal import Decimal
 
+from decimal import Decimal
 
 # =============================================================================
 # IEA 2024 - COUNTRY-SPECIFIC ELECTRICITY GRID FACTORS
@@ -1519,7 +1519,9 @@ EPA_WASTE_FACTORS = [
         "subcategory": "waste",
         "activity_key": "waste_newspaper_landfill",
         "display_name": "Newspaper - Landfill",
-        "co2e_factor": Decimal("-0.94"),  # WARM: -0.85 MTCO2E/st (negative: carbon sequestration exceeds CH4)
+        "co2e_factor": Decimal(
+            "-0.94"
+        ),  # WARM: -0.85 MTCO2E/st (negative: carbon sequestration exceeds CH4)
         "activity_unit": "kg",
         "factor_unit": "kg CO2e/kg",
         "source": "EPA_WARM_v16",
@@ -1831,7 +1833,9 @@ EPA_WASTE_FACTORS = [
         "subcategory": "waste",
         "activity_key": "waste_yard_landfill",
         "display_name": "Yard Trimmings - Landfill",
-        "co2e_factor": Decimal("-0.22"),  # WARM: -0.20 MTCO2E/st (negative: carbon sequestration)
+        "co2e_factor": Decimal(
+            "-0.22"
+        ),  # WARM: -0.20 MTCO2E/st (negative: carbon sequestration)
         "activity_unit": "kg",
         "factor_unit": "kg CO2e/kg",
         "source": "EPA_WARM_v16",
@@ -1932,7 +1936,9 @@ EPA_WASTE_FACTORS = [
         "subcategory": "waste",
         "activity_key": "waste_dimensional_lumber_landfill",
         "display_name": "Dimensional Lumber - Landfill",
-        "co2e_factor": Decimal("-1.01"),  # WARM: -0.92 MTCO2E/st (negative: carbon sequestration)
+        "co2e_factor": Decimal(
+            "-1.01"
+        ),  # WARM: -0.92 MTCO2E/st (negative: carbon sequestration)
         "activity_unit": "kg",
         "factor_unit": "kg CO2e/kg",
         "source": "EPA_WARM_v16",
@@ -2002,7 +2008,9 @@ EPA_WASTE_FACTORS = [
         "subcategory": "waste",
         "activity_key": "waste_drywall_recycled",
         "display_name": "Drywall - Recycled",
-        "co2e_factor": Decimal("0.03"),  # WARM: +0.03 MTCO2E/st (POSITIVE - recycling has net emissions)
+        "co2e_factor": Decimal(
+            "0.03"
+        ),  # WARM: +0.03 MTCO2E/st (POSITIVE - recycling has net emissions)
         "activity_unit": "kg",
         "factor_unit": "kg CO2e/kg",
         "source": "EPA_WARM_v16",
@@ -2018,8 +2026,5 @@ EPA_WASTE_FACTORS = [
 # =============================================================================
 
 EXPANDED_EMISSION_FACTORS = (
-    IEA_GRID_FACTORS +
-    NAICS_SPEND_FACTORS +
-    IPCC_REFRIGERANTS +
-    EPA_WASTE_FACTORS
+    IEA_GRID_FACTORS + NAICS_SPEND_FACTORS + IPCC_REFRIGERANTS + EPA_WASTE_FACTORS
 )

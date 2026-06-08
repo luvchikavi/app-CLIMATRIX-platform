@@ -2,6 +2,7 @@
 Stripe billing service for subscription management.
 Handles customer creation, subscription management, and webhook processing.
 """
+
 import stripe
 from datetime import datetime, timedelta
 from typing import Optional
@@ -16,7 +17,6 @@ from app.models.core import (
     SubscriptionPlan,
     SubscriptionStatus,
 )
-
 
 # Initialize Stripe
 stripe.api_key = settings.stripe_secret_key
@@ -185,9 +185,7 @@ class BillingService:
 
         # Find organization by Stripe customer ID
         result = await session.execute(
-            select(Organization).where(
-                Organization.stripe_customer_id == customer_id
-            )
+            select(Organization).where(Organization.stripe_customer_id == customer_id)
         )
         organization = result.scalar_one_or_none()
 
@@ -223,9 +221,7 @@ class BillingService:
         customer_id = subscription.customer
 
         result = await session.execute(
-            select(Organization).where(
-                Organization.stripe_customer_id == customer_id
-            )
+            select(Organization).where(Organization.stripe_customer_id == customer_id)
         )
         organization = result.scalar_one_or_none()
 

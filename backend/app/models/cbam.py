@@ -8,6 +8,7 @@ Phases:
 - Transitional (2023-2025): Quarterly reporting, no certificates
 - Definitive (2026+): Annual declarations with certificate purchase
 """
+
 from datetime import datetime, date
 from decimal import Decimal
 from enum import Enum
@@ -17,15 +18,17 @@ from uuid import UUID, uuid4
 from sqlmodel import SQLModel, Field, Relationship, Column, JSON
 
 if TYPE_CHECKING:
-    from app.models.core import Organization, ReportingPeriod
+    pass
 
 
 # ============================================================================
 # ENUMS
 # ============================================================================
 
+
 class CBAMSector(str, Enum):
     """CBAM covered sectors per Annex I."""
+
     CEMENT = "cement"
     IRON_STEEL = "iron_steel"
     ALUMINIUM = "aluminium"
@@ -37,13 +40,15 @@ class CBAMSector(str, Enum):
 
 class CBAMCalculationMethod(str, Enum):
     """Method used to determine embedded emissions."""
-    ACTUAL = "actual"              # Actual emissions from installation
-    DEFAULT_VALUE = "default"      # EU default values per CN code
-    EQUIVALENT = "equivalent"      # Equivalent method (third-country)
+
+    ACTUAL = "actual"  # Actual emissions from installation
+    DEFAULT_VALUE = "default"  # EU default values per CN code
+    EQUIVALENT = "equivalent"  # Equivalent method (third-country)
 
 
 class CBAMReportStatus(str, Enum):
     """Status of CBAM quarterly/annual reports."""
+
     DRAFT = "draft"
     SUBMITTED = "submitted"
     ACCEPTED = "accepted"
@@ -53,6 +58,7 @@ class CBAMReportStatus(str, Enum):
 
 class CBAMInstallationStatus(str, Enum):
     """Verification status of installation data."""
+
     UNVERIFIED = "unverified"
     PENDING = "pending"
     VERIFIED = "verified"
@@ -62,6 +68,7 @@ class CBAMInstallationStatus(str, Enum):
 # CBAM PRODUCT (Reference Data - CN Codes)
 # ============================================================================
 
+
 class CBAMProduct(SQLModel, table=True):
     """
     Products covered by CBAM per EU Combined Nomenclature (CN) codes.
@@ -69,6 +76,7 @@ class CBAMProduct(SQLModel, table=True):
     Reference table populated from EU Commission data.
     Maps CN codes to sectors and emission calculation requirements.
     """
+
     __tablename__ = "cbam_products"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -92,7 +100,9 @@ class CBAMProduct(SQLModel, table=True):
 
     # Precursor products (for complex goods)
     has_precursors: bool = Field(default=False)
-    precursor_cn_codes: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
+    precursor_cn_codes: Optional[List[str]] = Field(
+        default=None, sa_column=Column(JSON)
+    )
 
     # Validity
     is_active: bool = Field(default=True)
@@ -104,6 +114,7 @@ class CBAMProduct(SQLModel, table=True):
 # CBAM INSTALLATION (Non-EU Production Facilities)
 # ============================================================================
 
+
 class CBAMInstallation(SQLModel, table=True):
     """
     Non-EU production installations that export CBAM goods.
@@ -111,6 +122,7 @@ class CBAMInstallation(SQLModel, table=True):
     Represents the facility where CBAM-covered products are manufactured.
     Installation data comes from suppliers and is subject to verification.
     """
+
     __tablename__ = "cbam_installations"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -118,7 +130,9 @@ class CBAMInstallation(SQLModel, table=True):
 
     # Installation identification
     name: str = Field(max_length=255)
-    installation_id_external: Optional[str] = Field(default=None, max_length=100)  # Third-country ID
+    installation_id_external: Optional[str] = Field(
+        default=None, max_length=100
+    )  # Third-country ID
 
     # Location
     country_code: str = Field(max_length=2, index=True)  # ISO 3166-1 alpha-2
@@ -135,7 +149,9 @@ class CBAMInstallation(SQLModel, table=True):
 
     # Production details
     sector: CBAMSector = Field(index=True)
-    production_processes: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
+    production_processes: Optional[List[str]] = Field(
+        default=None, sa_column=Column(JSON)
+    )
     annual_production_capacity_tonnes: Optional[Decimal] = Field(default=None)
 
     # Emissions data (if actual data available)
@@ -149,7 +165,9 @@ class CBAMInstallation(SQLModel, table=True):
     carbon_price_mechanism: Optional[str] = Field(default=None, max_length=200)
 
     # Verification
-    verification_status: CBAMInstallationStatus = Field(default=CBAMInstallationStatus.UNVERIFIED)
+    verification_status: CBAMInstallationStatus = Field(
+        default=CBAMInstallationStatus.UNVERIFIED
+    )
     verified_at: Optional[datetime] = Field(default=None)
     verifier_name: Optional[str] = Field(default=None, max_length=255)
     verification_statement: Optional[str] = Field(default=None)
@@ -166,6 +184,7 @@ class CBAMInstallation(SQLModel, table=True):
 # CBAM IMPORT (Individual Import Declarations)
 # ============================================================================
 
+
 class CBAMImport(SQLModel, table=True):
     """
     Individual import of CBAM goods.
@@ -173,12 +192,17 @@ class CBAMImport(SQLModel, table=True):
     Each record represents a single import declaration/customs entry.
     Contains embedded emissions calculation and carbon price deductions.
     """
+
     __tablename__ = "cbam_imports"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     organization_id: UUID = Field(foreign_key="organizations.id", index=True)
-    reporting_period_id: Optional[UUID] = Field(default=None, foreign_key="reporting_periods.id", index=True)
-    installation_id: Optional[UUID] = Field(default=None, foreign_key="cbam_installations.id")
+    reporting_period_id: Optional[UUID] = Field(
+        default=None, foreign_key="reporting_periods.id", index=True
+    )
+    installation_id: Optional[UUID] = Field(
+        default=None, foreign_key="cbam_installations.id"
+    )
 
     # Import identification
     import_date: date = Field(index=True)
@@ -187,14 +211,18 @@ class CBAMImport(SQLModel, table=True):
 
     # Product details
     cn_code: str = Field(max_length=10, index=True)
-    sector: Optional[CBAMSector] = Field(default=None, index=True)  # Derived from CN code
+    sector: Optional[CBAMSector] = Field(
+        default=None, index=True
+    )  # Derived from CN code
     product_description: str = Field(max_length=500)
     origin_country: str = Field(max_length=2, index=True)  # ISO country code
 
     # Quantities
     net_mass_kg: Decimal = Field()
     net_mass_tonnes: Decimal = Field()  # Calculated: kg / 1000
-    supplementary_unit: Optional[str] = Field(default=None, max_length=20)  # MWh, m3, etc.
+    supplementary_unit: Optional[str] = Field(
+        default=None, max_length=20
+    )  # MWh, m3, etc.
     supplementary_quantity: Optional[Decimal] = Field(default=None)
 
     # Embedded emissions
@@ -204,7 +232,9 @@ class CBAMImport(SQLModel, table=True):
     specific_embedded_emissions: Decimal = Field()  # tCO2e per tonne
 
     # Calculation details
-    calculation_method: CBAMCalculationMethod = Field(default=CBAMCalculationMethod.DEFAULT_VALUE)
+    calculation_method: CBAMCalculationMethod = Field(
+        default=CBAMCalculationMethod.DEFAULT_VALUE
+    )
     default_value_used: bool = Field(default=False)
     direct_ef_used: Optional[Decimal] = Field(default=None)  # Emission factor used
     indirect_ef_used: Optional[Decimal] = Field(default=None)
@@ -223,9 +253,13 @@ class CBAMImport(SQLModel, table=True):
     net_emissions_tco2e: Decimal = Field()
 
     # Source and quality
-    data_source: str = Field(default="estimate", max_length=50)  # supplier, estimate, default
+    data_source: str = Field(
+        default="estimate", max_length=50
+    )  # supplier, estimate, default
     data_quality_score: int = Field(default=5, ge=1, le=5)
-    supporting_documents: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
+    supporting_documents: Optional[List[str]] = Field(
+        default=None, sa_column=Column(JSON)
+    )
 
     # Audit
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -240,6 +274,7 @@ class CBAMImport(SQLModel, table=True):
 # CBAM QUARTERLY REPORT (Transitional Phase 2024-2025)
 # ============================================================================
 
+
 class CBAMQuarterlyReport(SQLModel, table=True):
     """
     Quarterly CBAM report for transitional phase.
@@ -248,6 +283,7 @@ class CBAMQuarterlyReport(SQLModel, table=True):
     Deadline: End of month following quarter (e.g., Q1 due April 30)
     Submitted to: EU CBAM Transitional Registry
     """
+
     __tablename__ = "cbam_quarterly_reports"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -284,7 +320,9 @@ class CBAMQuarterlyReport(SQLModel, table=True):
     # Status
     status: CBAMReportStatus = Field(default=CBAMReportStatus.DRAFT)
     submitted_at: Optional[datetime] = Field(default=None)
-    submission_reference: Optional[str] = Field(default=None, max_length=100)  # EU Registry ref
+    submission_reference: Optional[str] = Field(
+        default=None, max_length=100
+    )  # EU Registry ref
     accepted_at: Optional[datetime] = Field(default=None)
     rejection_reason: Optional[str] = Field(default=None)
 
@@ -298,6 +336,7 @@ class CBAMQuarterlyReport(SQLModel, table=True):
 # CBAM ANNUAL DECLARATION (Definitive Phase from 2026)
 # ============================================================================
 
+
 class CBAMAnnualDeclaration(SQLModel, table=True):
     """
     Annual CBAM declaration for definitive phase.
@@ -306,6 +345,7 @@ class CBAMAnnualDeclaration(SQLModel, table=True):
     Deadline: May 31 of following year
     Requires: Purchase and surrender of CBAM certificates
     """
+
     __tablename__ = "cbam_annual_declarations"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -361,6 +401,7 @@ class CBAMAnnualDeclaration(SQLModel, table=True):
 # CBAM DEFAULT VALUES (Reference Data)
 # ============================================================================
 
+
 class CBAMDefaultValue(SQLModel, table=True):
     """
     EU Commission default emission values per CN code.
@@ -368,6 +409,7 @@ class CBAMDefaultValue(SQLModel, table=True):
     Used when actual installation data is not available.
     Values are published by EU and updated periodically.
     """
+
     __tablename__ = "cbam_default_values"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -396,6 +438,7 @@ class CBAMDefaultValue(SQLModel, table=True):
 # CBAM GRID EMISSION FACTORS (Third-Country Electricity)
 # ============================================================================
 
+
 class CBAMGridFactor(SQLModel, table=True):
     """
     Grid emission factors for third countries.
@@ -403,6 +446,7 @@ class CBAMGridFactor(SQLModel, table=True):
     Used for calculating indirect emissions when importing
     goods with significant electricity consumption (cement, fertiliser).
     """
+
     __tablename__ = "cbam_grid_factors"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -428,6 +472,7 @@ class CBAMGridFactor(SQLModel, table=True):
 # EU ETS PRICE (For Certificate Cost Calculation)
 # ============================================================================
 
+
 class EUETSPrice(SQLModel, table=True):
     """
     Weekly EU ETS carbon price.
@@ -435,6 +480,7 @@ class EUETSPrice(SQLModel, table=True):
     CBAM certificate prices are linked to EU ETS prices.
     Updated weekly by EU Commission.
     """
+
     __tablename__ = "eu_ets_prices"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
