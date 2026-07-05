@@ -396,7 +396,7 @@ export default function ActivitiesPage() {
                                 message: 'Delete this activity?',
                               });
                             }}
-                            className="text-danger hover:text-danger hover:bg-danger/10"
+                            className="text-error hover:text-error hover:bg-error/10"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>

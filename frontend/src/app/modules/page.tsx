@@ -73,7 +73,7 @@ const MODULES: Module[] = [
     color: 'bg-amber-500',
     href: '/modules/pcaf',
     status: 'coming_soon',
-    requiredPlan: 'enterprise',
+    requiredPlan: 'free',
     price: '$299/mo',
     features: [
       'Asset Class Attribution',
@@ -91,7 +91,7 @@ const MODULES: Module[] = [
     color: 'bg-blue-600',
     href: '/modules/cbam',
     status: 'active',
-    requiredPlan: 'professional',
+    requiredPlan: 'free',
     price: '$149/mo',
     features: [
       'Embedded Emissions',
@@ -109,7 +109,7 @@ const MODULES: Module[] = [
     color: 'bg-purple-600',
     href: '/modules/lca',
     status: 'coming_soon',
-    requiredPlan: 'enterprise',
+    requiredPlan: 'free',
     price: '$299/mo',
     features: [
       'Cradle-to-Gate Analysis',
@@ -127,7 +127,7 @@ const MODULES: Module[] = [
     color: 'bg-teal-600',
     href: '/modules/epd',
     status: 'coming_soon',
-    requiredPlan: 'enterprise',
+    requiredPlan: 'free',
     price: '$299/mo',
     features: [
       'EPD Generation',

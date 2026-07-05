@@ -2,12 +2,13 @@ import type { Metadata, Viewport } from "next";
 import { Open_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { cn } from "@/lib/utils";
 
-// Open Sans - Apple-like typography
+// Open Sans is the single CLIMATRIX brand font (Latin + Hebrew for the Israeli audience).
 const openSans = Open_Sans({
   subsets: ["latin", "hebrew"],
   weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-open-sans",
+  variable: "--font-sans",
   display: "swap",
 });
 
@@ -55,7 +56,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={cn("font-sans", openSans.variable)}>
       <head>
         {/* Preconnect to Google Fonts for performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />

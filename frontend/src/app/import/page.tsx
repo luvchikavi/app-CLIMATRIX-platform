@@ -365,41 +365,6 @@ function ImportContent() {
     });
   };
 
-  // Clear ALL organization data handler
-  const handleClearAllData = () => {
-    setConfirmState({
-      open: true,
-      onConfirm: () => {
-        setConfirmState(s => ({...s, open: false}));
-        // Double confirm with prompt
-        const doubleConfirm = prompt('Type "DELETE" to confirm deleting ALL organization data:');
-        if (doubleConfirm !== 'DELETE') {
-          toast.info('Operation cancelled. Data was NOT deleted.');
-          return;
-        }
-
-        (async () => {
-          setIsClearing(true);
-          try {
-            const result = await api.deleteOrganizationActivities(true);
-            // Invalidate all queries to refresh data
-            queryClient.invalidateQueries({ queryKey: ['activities'] });
-            queryClient.invalidateQueries({ queryKey: ['import-batches'] });
-            queryClient.invalidateQueries({ queryKey: ['report-summary'] });
-            setError(null);
-            toast.success(`Successfully deleted ALL data: ${result.deleted_activities} activities and ${result.deleted_emissions} emissions.`);
-          } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to clear data');
-          } finally {
-            setIsClearing(false);
-          }
-        })();
-      },
-      title: 'Delete All Organization Data',
-      message: 'DELETE ALL DATA for your organization?\n\nThis will permanently delete:\n- ALL activities across ALL periods\n- ALL associated emissions\n- ALL import batches\n\nTHIS ACTION CANNOT BE UNDONE!\n\nYou will be asked to type "DELETE" to confirm.',
-    });
-  };
-
   const downloadTemplate = async (scope: '1-2' | '3') => {
     try {
       await api.downloadTemplate(scope);
@@ -760,16 +725,6 @@ function ImportContent() {
                   leftIcon={isClearing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
                 >
                   Clear Period
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs text-error hover:bg-error/10"
-                  onClick={handleClearAllData}
-                  disabled={isClearing}
-                  leftIcon={<Trash2 className="w-3 h-3" />}
-                >
-                  Clear All
                 </Button>
               </div>
             </div>

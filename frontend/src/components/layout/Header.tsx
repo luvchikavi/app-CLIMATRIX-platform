@@ -8,15 +8,12 @@ import { usePeriods } from '@/hooks/useEmissions';
 import { cn } from '@/lib/utils';
 import {
   Menu,
-  Bell,
   User,
   LogOut,
   Settings,
   ChevronDown,
   Calendar,
   Plus,
-  Search,
-  HelpCircle,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -80,19 +77,6 @@ export function Header({ onMenuClick, sidebarCollapsed }: HeaderProps) {
         >
           <Menu className="w-5 h-5" />
         </button>
-
-        {/* Search (placeholder for now) */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-background-muted rounded-lg">
-          <Search className="w-4 h-4 text-foreground-muted" />
-          <input
-            type="text"
-            placeholder="Search activities..."
-            className="bg-transparent text-sm focus:outline-none w-48 placeholder:text-foreground-muted"
-          />
-          <kbd className="hidden md:inline-flex px-1.5 py-0.5 text-xs text-foreground-muted bg-background rounded border border-border">
-            /
-          </kbd>
-        </div>
       </div>
 
       {/* Right side - Period selector, notifications, user menu */}
@@ -156,17 +140,6 @@ export function Header({ onMenuClick, sidebarCollapsed }: HeaderProps) {
             </div>
           )}
         </div>
-
-        {/* Help */}
-        <button className="p-2 rounded-lg hover:bg-background-muted transition-colors">
-          <HelpCircle className="w-5 h-5 text-foreground-muted" />
-        </button>
-
-        {/* Notifications */}
-        <button className="relative p-2 rounded-lg hover:bg-background-muted transition-colors">
-          <Bell className="w-5 h-5 text-foreground-muted" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full" />
-        </button>
 
         {/* User Menu */}
         <div ref={userMenuRef} className="relative">
