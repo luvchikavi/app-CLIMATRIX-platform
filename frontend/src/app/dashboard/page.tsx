@@ -33,7 +33,6 @@ import { SiteBreakdownChart } from '@/components/dashboard/SiteBreakdownChart';
 import { SiteSelector } from '@/components/SiteSelector';
 import { ActivityWizard } from '@/components/wizard';
 import { ImportHistory } from '@/components/ImportHistory';
-import { OnboardingWizard } from '@/components/onboarding';
 import { useWizardStore } from '@/stores/wizard';
 import { cn, formatCO2e } from '@/lib/utils';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
@@ -88,7 +87,6 @@ function DashboardContent() {
 
   // All useState hooks at top
   const [showWizard, setShowWizard] = useState(searchParams.get('wizard') === 'true');
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [drillDownCategory, setDrillDownCategory] = useState<CategorySummary | null>(null);
   const [drillDownScope, setDrillDownScope] = useState<1 | 2 | 3 | null>(null);
@@ -166,15 +164,7 @@ function DashboardContent() {
     }
   }, [mounted, isAuthenticated, router]);
 
-  // Check if onboarding should be shown (first time user with no periods)
-  useEffect(() => {
-    if (mounted && isAuthenticated && !periodsLoading && periods !== undefined) {
-      const onboardingCompleted = localStorage.getItem('onboarding_completed') || user?.onboarding_completed;
-      if (!onboardingCompleted && periods.length === 0) {
-        setShowOnboarding(true);
-      }
-    }
-  }, [mounted, isAuthenticated, periodsLoading, periods]);
+  // (Onboarding is now handled by the required /setup gate in AppShell.)
 
   // Conditional return AFTER all hooks
   if (!mounted || !isAuthenticated) {
@@ -272,16 +262,6 @@ function DashboardContent() {
       toast.error(err.message || 'Failed to export PDF');
     }
   };
-
-  // Show onboarding wizard for new users
-  if (showOnboarding) {
-    return (
-      <OnboardingWizard
-        onComplete={() => setShowOnboarding(false)}
-        organizationName={organization?.name}
-      />
-    );
-  }
 
   return (
     <AppShell>

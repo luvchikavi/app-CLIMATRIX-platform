@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useAuthStore } from '@/stores/auth';
 import { useSupportedRegions, useCreatePeriod, useCreateSite } from '@/hooks/useEmissions';
 import { Button, Card, Input, Badge, toast } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -32,8 +33,9 @@ type Step = 'welcome' | 'organization' | 'region' | 'site' | 'period' | 'import'
 
 const STEPS: Step[] = ['welcome', 'organization', 'region', 'site', 'period', 'import', 'complete'];
 
-/** Steps that can be skipped without filling in data */
-const OPTIONAL_STEPS: Step[] = ['organization', 'site', 'import'];
+/** Steps that can be skipped without filling in data.
+ * Organization + Site are REQUIRED (this is the setup gate); only Import is optional. */
+const OPTIONAL_STEPS: Step[] = ['import'];
 
 const STORAGE_KEY = 'onboarding_wizard_state';
 
@@ -52,6 +54,7 @@ interface FieldErrors {
 export function OnboardingWizard({ onComplete, organizationName }: OnboardingWizardProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { organization, setOrganization } = useAuthStore();
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [orgDetails, setOrgDetails] = useState({
     industry_code: '',
@@ -236,12 +239,28 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
   };
 
   const handleComplete = async () => {
-    clearProgress();
     localStorage.setItem('onboarding_completed', 'true');
-    // Persist to backend so it survives localStorage clear
+    // Personal "seen the tour" flag — non-blocking.
     try { await api.completeOnboarding(); } catch { /* non-blocking */ }
-    onComplete();
-    router.push('/dashboard');
+    // The real gate: server validates org is set up, then flips setup_complete.
+    try {
+      const org = await api.completeSetup();
+      if (organization) {
+        setOrganization({
+          ...organization,
+          setup_complete: true,
+          default_region: org.default_region,
+          industry_code: org.industry_code,
+          base_year: org.base_year,
+        });
+      }
+      clearProgress();
+      onComplete();
+      router.push('/import');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Please complete all required steps first.';
+      toast.error(msg);
+    }
   };
 
   return (
@@ -356,9 +375,6 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                   Back
                 </Button>
                 <div className="flex gap-3">
-                  <Button variant="ghost" onClick={skipStep}>
-                    Skip
-                  </Button>
                   <Button
                     variant="primary"
                     onClick={handleSaveOrganization}
@@ -541,9 +557,6 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                   Back
                 </Button>
                 <div className="flex gap-3">
-                  <Button variant="ghost" onClick={skipStep}>
-                    Skip
-                  </Button>
                   <Button
                     variant="primary"
                     onClick={handleCreateSite}

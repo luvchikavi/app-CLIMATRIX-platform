@@ -4,6 +4,7 @@ Organization API endpoints.
 Manage organization settings including region configuration.
 """
 
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
@@ -15,7 +16,13 @@ from sqlmodel import select, func
 
 from app.api.auth import get_current_user
 from app.database import get_session
-from app.models.core import User, Organization, Site
+from app.models.core import (
+    User,
+    Organization,
+    Site,
+    ReportingPeriod,
+    ModuleWaitlist,
+)
 from app.models.emission import Activity, Emission
 
 router = APIRouter()
@@ -35,6 +42,7 @@ class OrganizationResponse(BaseModel):
     industry_code: str | None
     base_year: int | None
     default_region: str
+    setup_complete: bool = False
 
 
 class OrganizationUpdate(BaseModel):
@@ -122,6 +130,7 @@ async def get_organization(
         industry_code=org.industry_code,
         base_year=org.base_year,
         default_region=org.default_region or "Global",
+        setup_complete=org.setup_complete,
     )
 
 
@@ -176,6 +185,7 @@ async def update_organization(
         industry_code=org.industry_code,
         base_year=org.base_year,
         default_region=org.default_region or "Global",
+        setup_complete=org.setup_complete,
     )
 
 
@@ -440,3 +450,106 @@ async def get_sites_emission_breakdown(
     # Sort by total emissions descending
     summaries.sort(key=lambda s: s.total_co2e_kg, reverse=True)
     return summaries
+
+
+# ============================================================================
+# Setup gate + module waitlist
+# ============================================================================
+
+
+@router.patch("/organization/complete-setup", response_model=OrganizationResponse)
+async def complete_setup(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Mark org setup complete after server-side validation of the required steps.
+
+    Requires: industry_code, base_year, default_region, >=1 Site, >=1 ReportingPeriod.
+    Returns 422 with the list of missing items otherwise.
+    """
+    org = (
+        await session.execute(
+            select(Organization).where(
+                Organization.id == current_user.organization_id
+            )
+        )
+    ).scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    # industry_code is collected for recommendations but is not a hard gate.
+    missing: list[str] = []
+    if not org.base_year:
+        missing.append("base_year")
+    if not org.default_region:
+        missing.append("region")
+
+    site_count = (
+        await session.execute(
+            select(func.count())
+            .select_from(Site)
+            .where(Site.organization_id == current_user.organization_id)
+        )
+    ).scalar_one()
+    if not site_count:
+        missing.append("site")
+
+    period_count = (
+        await session.execute(
+            select(func.count())
+            .select_from(ReportingPeriod)
+            .where(ReportingPeriod.organization_id == current_user.organization_id)
+        )
+    ).scalar_one()
+    if not period_count:
+        missing.append("reporting_period")
+
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Organization setup is incomplete", "missing": missing},
+        )
+
+    org.setup_complete = True
+    org.setup_completed_at = datetime.utcnow()
+    await session.commit()
+    await session.refresh(org)
+
+    return OrganizationResponse(
+        id=str(org.id),
+        name=org.name,
+        country_code=org.country_code,
+        industry_code=org.industry_code,
+        base_year=org.base_year,
+        default_region=org.default_region or "Global",
+        setup_complete=org.setup_complete,
+    )
+
+
+class WaitlistRequest(BaseModel):
+    """Notify-me request for a Coming Soon module."""
+
+    module_id: str
+    email: str | None = None
+
+
+class WaitlistResponse(BaseModel):
+    ok: bool
+    module_id: str
+
+
+@router.post("/modules/waitlist", response_model=WaitlistResponse)
+async def join_module_waitlist(
+    data: WaitlistRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Capture a 'Notify Me' signup for a Coming Soon module (a conference lead)."""
+    entry = ModuleWaitlist(
+        organization_id=current_user.organization_id,
+        module_id=data.module_id,
+        email=(data.email or current_user.email),
+    )
+    session.add(entry)
+    await session.commit()
+    return WaitlistResponse(ok=True, module_id=data.module_id)

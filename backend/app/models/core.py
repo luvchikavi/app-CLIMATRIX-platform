@@ -109,6 +109,11 @@ class Organization(OrganizationBase, table=True):
     subscription_current_period_end: Optional[datetime] = Field(default=None)
     trial_ends_at: Optional[datetime] = Field(default=None)
 
+    # Org setup gate: everything else in the app is locked until this is True
+    # (server-validated via PATCH /organization/complete-setup).
+    setup_complete: bool = Field(default=False)
+    setup_completed_at: Optional[datetime] = Field(default=None)
+
     # Relationships
     users: list["User"] = Relationship(back_populates="organization")
     sites: list["Site"] = Relationship(back_populates="organization")
@@ -289,3 +294,17 @@ class AuditLog(SQLModel, table=True):
     # Relationships (optional - for eager loading)
     organization: Organization = Relationship()
     user: Optional[User] = Relationship()
+
+
+class ModuleWaitlist(SQLModel, table=True):
+    """Waitlist signups for 'Coming Soon' modules (captures conference leads)."""
+
+    __tablename__ = "module_waitlist"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: Optional[UUID] = Field(
+        default=None, foreign_key="organizations.id", index=True
+    )
+    module_id: str = Field(max_length=50, index=True)
+    email: str = Field(max_length=255, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)

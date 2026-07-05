@@ -16,16 +16,12 @@ import {
   ChevronRight,
   Leaf,
   Map,
-  Coins,
-  Scale,
-  Microscope,
-  FileStack,
   Lock,
   Shield,
   CreditCard,
   History,
-  Target,
 } from 'lucide-react';
+import { MODULE_REGISTRY, STATUS_META } from '@/lib/modules';
 
 interface NavItem {
   label: string;
@@ -57,6 +53,17 @@ function hasPlanAccess(currentPlan: string, requiredPlan: string): boolean {
   return (PLAN_LEVELS[currentPlan] ?? 0) >= (PLAN_LEVELS[requiredPlan] ?? 0);
 }
 
+// Module nav items derive from the single registry so status/badges never drift.
+// Active/Beta show a badge and are clickable; Coming Soon is disabled with a "Soon" pill.
+const moduleNavItems: NavItem[] = MODULE_REGISTRY.map((m) => ({
+  label: m.name,
+  href: m.href,
+  icon: m.icon,
+  ...(m.status === 'coming-soon'
+    ? { comingSoon: true, disabled: true }
+    : { badge: STATUS_META[m.status].label }),
+}));
+
 const navigation: NavGroup[] = [
   {
     title: 'Main',
@@ -68,14 +75,7 @@ const navigation: NavGroup[] = [
   },
   {
     title: 'Modules',
-    items: [
-      { label: 'GHG Inventory', href: '/modules/ghg', icon: Leaf, badge: 'Active', requiredPlan: 'free' },
-      { label: 'Decarbonization', href: '/decarbonization', icon: Target, badge: 'New' },
-      { label: 'CBAM', href: '/modules/cbam', icon: Scale, badge: 'Active', requiredPlan: 'free' },
-      { label: 'PCAF', href: '/modules/pcaf', icon: Coins, badge: 'Active', requiredPlan: 'free' },
-      { label: 'LCA', href: '/modules/lca', icon: Microscope, badge: 'Active', requiredPlan: 'free' },
-      { label: 'EPD/Reports', href: '/modules/epd', icon: FileStack, badge: 'Active', requiredPlan: 'free' },
-    ],
+    items: moduleNavItems,
   },
   {
     title: 'Organization',
@@ -184,7 +184,12 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                           ) : (
                             <>
                               {item.badge && (
-                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-secondary text-white">
+                                <span className={cn(
+                                  'px-2 py-0.5 text-xs font-medium rounded-full',
+                                  item.badge === 'Beta'
+                                    ? 'bg-primary/15 text-primary'
+                                    : 'bg-secondary text-white'
+                                )}>
                                   {item.badge}
                                 </span>
                               )}

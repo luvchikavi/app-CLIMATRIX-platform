@@ -15,7 +15,7 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, organization } = useAuthStore();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -31,6 +31,20 @@ export function AppShell({ children }: AppShellProps) {
       router.push('/');
     }
   }, [isAuthenticated, isLoading, router]);
+
+  // Setup gate: an authenticated user whose org isn't set up yet is sent to /setup.
+  // This single check gates dashboard, import, modules, activities, reports, etc.
+  useEffect(() => {
+    if (
+      !isLoading &&
+      isAuthenticated &&
+      organization &&
+      organization.setup_complete === false &&
+      pathname !== '/setup'
+    ) {
+      router.push('/setup');
+    }
+  }, [isAuthenticated, isLoading, organization, pathname, router]);
 
   // Show loading state
   if (isLoading) {

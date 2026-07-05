@@ -15,6 +15,7 @@ const PLAN_LEVELS: Record<string, number> = {
 export default function LCAModulePage() {
   return (
     <ComingSoonModule
+      moduleId="lca"
       name="LCA"
       description="Life Cycle Assessment"
       icon={Microscope}

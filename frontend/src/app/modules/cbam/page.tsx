@@ -1,9 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/Button';
-import { useAuthStore } from '@/stores/auth';
-import { LockedModule } from '@/components/modules/LockedModule';
+import { AppShell } from '@/components/layout';
 import {
   CBAMDashboard,
   CBAMInstallations,
@@ -17,18 +15,10 @@ import {
   Package,
   FileText,
   Calculator,
-  ArrowLeft,
   Scale,
 } from 'lucide-react';
 
 type CBAMView = 'dashboard' | 'installations' | 'imports' | 'reports' | 'calculator';
-
-const PLAN_LEVELS: Record<string, number> = {
-  free: 0,
-  starter: 1,
-  professional: 2,
-  enterprise: 3,
-};
 
 const NAV_ITEMS: { id: CBAMView; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -40,8 +30,6 @@ const NAV_ITEMS: { id: CBAMView; label: string; icon: typeof LayoutDashboard }[]
 
 export default function CBAMModulePage() {
   const [currentView, setCurrentView] = useState<CBAMView>('dashboard');
-  const { organization } = useAuthStore();
-  const currentPlan = organization?.subscription_plan || 'free';
 
   const renderView = () => {
     switch (currentView) {
@@ -61,77 +49,59 @@ export default function CBAMModulePage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Top Navigation */}
-      <div className="bg-background-elevated border-b border-border sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo/Title */}
-            <div className="flex items-center gap-4">
-              <a href="/dashboard" className="flex items-center gap-2 text-foreground-muted hover:text-foreground">
-                <ArrowLeft className="w-4 h-4" />
-                <span className="text-sm">Back</span>
-              </a>
-              <div className="h-6 w-px bg-border" />
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">CB</span>
-                </div>
-                <div>
-                  <h1 className="font-semibold text-foreground">CBAM Module</h1>
-                  <p className="text-xs text-foreground-muted">Carbon Border Adjustment</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation Tabs */}
-            <nav className="flex items-center gap-1">
-              {NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const isActive = currentView === item.id;
-
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setCurrentView(item.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-primary text-white'
-                        : 'text-foreground-muted hover:text-foreground hover:bg-background-muted'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span className="hidden sm:inline">{item.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-        </div>
+    <AppShell>
+      {/* Beta banner */}
+      <div className="mb-6 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 flex items-center gap-3 text-sm">
+        <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-primary/15 text-primary shrink-0">
+          Beta
+        </span>
+        <span className="text-foreground-muted">
+          CBAM is in beta — preview-quality for exploration, not yet for official regulatory filing.
+        </span>
       </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {renderView()}
-      </main>
-
-      {/* Footer Info */}
-      <footer className="border-t border-border bg-background-muted mt-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between text-xs text-foreground-muted">
-            <div className="flex items-center gap-4">
-              <span>EU Regulation 2023/956</span>
-              <span>|</span>
-              <span>Transitional Phase: 2024-2025</span>
-              <span>|</span>
-              <span>Definitive Phase: 2026+</span>
-            </div>
-            <div>
-              <span>Covered Sectors: Cement, Iron & Steel, Aluminium, Fertilisers, Electricity, Hydrogen</span>
-            </div>
+      {/* Header + sub-navigation */}
+      <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
+            <Scale className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">CBAM</h1>
+            <p className="text-sm text-foreground-muted">Carbon Border Adjustment Mechanism</p>
           </div>
         </div>
-      </footer>
-    </div>
+
+        <nav className="flex items-center gap-1 flex-wrap">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentView === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setCurrentView(item.id)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-primary text-white'
+                    : 'text-foreground-muted hover:text-foreground hover:bg-background-muted'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="hidden sm:inline">{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Main content */}
+      {renderView()}
+
+      {/* Footer info */}
+      <div className="mt-8 border-t border-border pt-4 text-xs text-foreground-muted">
+        EU Regulation 2023/956 · Transitional Phase 2024–2025 · Definitive Phase 2026+ · Covered
+        sectors: Cement, Iron &amp; Steel, Aluminium, Fertilisers, Electricity, Hydrogen
+      </div>
+    </AppShell>
   );
 }

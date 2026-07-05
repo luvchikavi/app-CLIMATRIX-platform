@@ -15,6 +15,7 @@ const PLAN_LEVELS: Record<string, number> = {
 export default function PCAFModulePage() {
   return (
     <ComingSoonModule
+      moduleId="pcaf"
       name="PCAF"
       description="Partnership for Carbon Accounting Financials"
       icon={Coins}

@@ -53,6 +53,10 @@ export interface Organization {
   name: string;
   country_code: string;
   subscription_plan?: 'free' | 'starter' | 'professional' | 'enterprise';
+  default_region?: string;
+  industry_code?: string | null;
+  base_year?: number | null;
+  setup_complete?: boolean;
 }
 
 export type PeriodStatus = "draft" | "review" | "submitted" | "audit" | "verified" | "locked";
@@ -716,6 +720,7 @@ export interface OrganizationSettings {
   industry_code: string | null;
   base_year: number | null;
   default_region: string;
+  setup_complete?: boolean;
 }
 
 export interface Region {
@@ -1170,6 +1175,21 @@ class ApiClient {
     return this.fetch<OrganizationSettings>('/organization', {
       method: 'PATCH',
       body: JSON.stringify(data),
+    });
+  }
+
+  /** Mark org setup complete (server validates industry, base year, region, >=1 site, >=1 period). */
+  async completeSetup(): Promise<OrganizationSettings> {
+    return this.fetch<OrganizationSettings>('/organization/complete-setup', {
+      method: 'PATCH',
+    });
+  }
+
+  /** Join the 'Notify Me' waitlist for a Coming Soon module (captures a lead). */
+  async joinModuleWaitlist(moduleId: string, email?: string): Promise<{ ok: boolean; module_id: string }> {
+    return this.fetch<{ ok: boolean; module_id: string }>('/modules/waitlist', {
+      method: 'POST',
+      body: JSON.stringify({ module_id: moduleId, email }),
     });
   }
 

@@ -48,6 +48,10 @@ class OrganizationResponse(BaseModel):
     id: str
     name: str
     country_code: str | None
+    default_region: str = "Global"
+    industry_code: str | None = None
+    base_year: int | None = None
+    setup_complete: bool = False
 
 
 class Token(BaseModel):
@@ -207,6 +211,10 @@ async def login(
             id=str(organization.id),
             name=organization.name,
             country_code=organization.country_code,
+            default_region=organization.default_region or "Global",
+            industry_code=organization.industry_code,
+            base_year=organization.base_year,
+            setup_complete=organization.setup_complete,
         )
 
     return Token(
@@ -341,6 +349,10 @@ async def google_login(
             id=str(organization.id),
             name=organization.name,
             country_code=organization.country_code,
+            default_region=organization.default_region or "Global",
+            industry_code=organization.industry_code,
+            base_year=organization.base_year,
+            setup_complete=organization.setup_complete,
         )
 
     return Token(
@@ -517,6 +529,10 @@ async def register(
         id=str(organization.id),
         name=organization.name,
         country_code=organization.country_code,
+        default_region=organization.default_region or "Global",
+        industry_code=organization.industry_code,
+        base_year=organization.base_year,
+        setup_complete=organization.setup_complete,
     )
 
     return Token(
@@ -941,6 +957,10 @@ async def accept_invitation(
             id=str(organization.id),
             name=organization.name,
             country_code=organization.country_code,
+            default_region=organization.default_region or "Global",
+            industry_code=organization.industry_code,
+            base_year=organization.base_year,
+            setup_complete=organization.setup_complete,
         ),
     )
 

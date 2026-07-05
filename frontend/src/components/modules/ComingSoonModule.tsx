@@ -6,6 +6,7 @@ import { Card, CardContent, Button, Badge, Input } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { ArrowLeft, Bell, Mail, ExternalLink } from 'lucide-react';
 import { useState } from 'react';
+import { api } from '@/lib/api';
 
 interface ComingSoonModuleProps {
   name: string;
@@ -14,6 +15,8 @@ interface ComingSoonModuleProps {
   color: string;
   features: string[];
   expectedDate?: string;
+  /** Registry id used to record the waitlist signup (e.g. 'pcaf', 'lca', 'epd'). */
+  moduleId?: string;
 }
 
 export function ComingSoonModule({
@@ -23,16 +26,20 @@ export function ComingSoonModule({
   color,
   features,
   expectedDate,
+  moduleId,
 }: ComingSoonModuleProps) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
 
-  const handleSubscribe = () => {
-    if (email) {
-      setSubscribed(true);
-      // In production, this would call an API to subscribe the user
+  const handleSubscribe = async () => {
+    if (!email) return;
+    try {
+      await api.joinModuleWaitlist(moduleId || name.toLowerCase(), email);
+    } catch {
+      // Best-effort lead capture — never block the booth flow on an error.
     }
+    setSubscribed(true);
   };
 
   return (

@@ -15,6 +15,7 @@ const PLAN_LEVELS: Record<string, number> = {
 export default function EPDModulePage() {
   return (
     <ComingSoonModule
+      moduleId="epd"
       name="EPD Reports"
       description="Environmental Product Declarations"
       icon={FileStack}
