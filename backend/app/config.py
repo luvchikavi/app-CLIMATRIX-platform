@@ -91,7 +91,11 @@ class Settings(BaseSettings):
 
     # Claude AI (Anthropic)
     anthropic_api_key: str = ""  # Set ANTHROPIC_API_KEY in .env
-    claude_model: str = "claude-sonnet-4-20250514"  # Default model for AI extraction
+    # Ingestion parser models (owner-approved): Opus for mapping/clarifying
+    # questions, Haiku for cheap bulk classification/dedupe. Sonnet = cost-cap fallback.
+    claude_model: str = "claude-opus-4-8"  # mapping + clarifying questions
+    claude_model_fast: str = "claude-haiku-4-5"  # bulk per-cell classification/dedupe
+    claude_model_fallback: str = "claude-sonnet-4-6"  # cost-cap fallback only
     ai_extraction_enabled: bool = True  # Enable/disable AI-powered features
 
     # Monitoring & Error Tracking
