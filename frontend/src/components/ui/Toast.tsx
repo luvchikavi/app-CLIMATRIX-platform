@@ -27,6 +27,10 @@ let toasts: ToastItem[] = [];
 let listeners: Set<Listener> = new Set();
 let nextId = 0;
 
+// Stable empty reference for SSR — useSyncExternalStore requires getServerSnapshot
+// to return a cached value, otherwise React warns about a possible infinite loop.
+const EMPTY_TOASTS: ToastItem[] = [];
+
 function emitChange() {
   for (const listener of listeners) {
     listener();
@@ -45,7 +49,7 @@ function getSnapshot(): ToastItem[] {
 }
 
 function getServerSnapshot(): ToastItem[] {
-  return [];
+  return EMPTY_TOASTS;
 }
 
 function addToast(message: string, variant: ToastVariant): void {
