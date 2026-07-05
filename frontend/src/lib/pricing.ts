@@ -1,8 +1,11 @@
 export interface Plan {
+  id: string;
   name: string;
   description: string;
   icon: string;
+  /** Per-month price when billed monthly. null = custom (Book a Demo). */
   monthlyPrice: number | null;
+  /** Per-month price when billed annually (~15% off). null = custom. */
   annualPrice: number | null;
   features: string[];
   limitations: string[];
@@ -17,122 +20,90 @@ export interface AddOn {
   features: string[];
 }
 
+// Single source of truth for displayed pricing — mirrors backend PLAN_PRICING.
+// Starter $99/mo ($84 annual), Professional $349/mo ($297 annual).
 export const plans: Plan[] = [
   {
-    name: 'Starter',
-    description: 'Perfect for small businesses beginning their sustainability journey',
-    icon: 'Zap',
-    monthlyPrice: 649,
-    annualPrice: 649,
+    id: 'free',
+    name: 'Free',
+    description: 'Explore your footprint. Where trials land after 14 days — keep your data.',
+    icon: 'Leaf',
+    monthlyPrice: 0,
+    annualPrice: 0,
     features: [
-      'Scope 1 & 2 emissions',
-      'Up to 5 sites',
-      '3 users',
-      '200+ emission factors',
-      'Basic dashboard',
-      'PDF export',
-      'Email support (48hr)',
+      'GHG Scope 1 & 2 inventory',
+      '1 user · 1 site · 1 reporting period',
+      'Dashboards & on-screen summaries',
+      'CSV export',
     ],
     limitations: [
-      'No Scope 3',
-      'No decarbonization planning',
-      'No scenario modeling',
+      'No new report generation (preview only)',
+      'No CBAM / Decarbonization',
+      'No AI data import',
     ],
+    cta: 'Start Free',
+    popular: false,
+  },
+  {
+    id: 'starter',
+    name: 'Starter',
+    description: 'For small teams starting a proper carbon inventory.',
+    icon: 'Zap',
+    monthlyPrice: 99,
+    annualPrice: 84,
+    features: [
+      'Everything in Free',
+      'Scope 1 & 2, up to 5 sites',
+      '3 users',
+      '5 report generations / month',
+      'PDF & CSV export',
+      'Email support',
+    ],
+    limitations: ['No Scope 3', 'No CBAM / Decarbonization'],
     cta: 'Start Free Trial',
     popular: false,
   },
   {
+    id: 'professional',
     name: 'Professional',
-    description: 'Ideal for mid-size companies with comprehensive reporting needs',
+    description: 'Full Scope 1–3, CBAM, and unlimited audit-ready reports.',
     icon: 'Building2',
-    monthlyPrice: 1449,
-    annualPrice: 1449,
+    monthlyPrice: 349,
+    annualPrice: 297,
     features: [
       'Scope 1, 2 & 3 (all 15 categories)',
-      'Up to 25 sites',
-      '10 users',
-      '401+ emission factors',
+      'Up to 25 sites · 10 users',
       'AI-powered data import',
-      'ISO 14064-1 reports',
-      'CDP export',
+      'Unlimited ISO 14064-1 & CDP reports',
+      'CBAM (Beta) & Decarbonization',
       'SBTi-aligned targets',
-      'AI recommendations',
-      'Up to 5 scenarios',
-      'Full audit trail',
-      'Priority support (24hr)',
+      'Priority support',
     ],
     limitations: [],
     cta: 'Start Free Trial',
     popular: true,
   },
   {
+    id: 'enterprise',
     name: 'Enterprise',
-    description: 'For large organizations with complex compliance requirements',
+    description: 'For large or regulated organizations. Includes BDO advisory.',
     icon: 'Rocket',
     monthlyPrice: null,
     annualPrice: null,
     features: [
       'Everything in Professional',
       'Unlimited sites & users',
-      'Custom emission factors',
-      'CSRD/ESRS E1 reports',
-      'Unlimited scenarios',
-      'Advanced financial modeling',
-      'Auditor portal',
-      'SSO/SAML',
+      'CSRD / ESRS E1 reporting',
+      'SSO / SAML',
       'Full API access',
       'Dedicated account manager',
-      '99.9% SLA guarantee',
+      'Audit support + BDO advisory',
     ],
     limitations: [],
-    cta: 'Contact Sales',
+    cta: 'Book a Demo',
     popular: false,
   },
 ];
 
-export const addOns: AddOn[] = [
-  {
-    name: 'CBAM Module',
-    description: 'EU Carbon Border Adjustment Mechanism compliance',
-    price: 299,
-    features: [
-      'CBAM-covered goods classification',
-      'Embedded emissions calculation',
-      'Quarterly report generation',
-      'Certificate cost estimation',
-    ],
-  },
-  {
-    name: 'PCAF Module',
-    description: 'Financed emissions for financial institutions',
-    price: 399,
-    features: [
-      'All asset classes supported',
-      'Portfolio emissions tracking',
-      'PCAF data quality scoring',
-      'TCFD-aligned reporting',
-    ],
-  },
-  {
-    name: 'LCA Module',
-    description: 'Product-level carbon footprints',
-    price: 499,
-    features: [
-      'Cradle-to-gate analysis',
-      'Hotspot identification',
-      'ecoinvent database access',
-      'ISO 14040/14044 aligned',
-    ],
-  },
-  {
-    name: 'EPD Module',
-    description: 'Environmental Product Declarations',
-    price: 399,
-    features: [
-      'ISO 14025 aligned',
-      'PCR library access',
-      'EPD document generation',
-      'Registry publication support',
-    ],
-  },
-];
+// Advanced modules are bundled into tiers as Beta / Coming Soon — not sold as paid add-ons.
+export const addOns: AddOn[] = [];

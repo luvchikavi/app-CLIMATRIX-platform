@@ -12,7 +12,7 @@ from app.config import settings
 from app.database import get_session
 from app.models.core import Organization, User, SubscriptionPlan
 from app.api.auth import get_current_user
-from app.services.billing import BillingService, PLAN_LIMITS
+from app.services.billing import BillingService, PLAN_LIMITS, PLAN_PRICING
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
 
@@ -118,12 +118,8 @@ async def get_plans():
                 "id": plan.value,
                 "name": plan.value.title(),
                 "limits": limits,
-                "price_monthly": {
-                    SubscriptionPlan.FREE: 0,
-                    SubscriptionPlan.STARTER: 49,
-                    SubscriptionPlan.PROFESSIONAL: 199,
-                    SubscriptionPlan.ENTERPRISE: None,  # Custom pricing
-                }.get(plan),
+                "price_monthly": PLAN_PRICING[plan]["monthly"],
+                "price_annual": PLAN_PRICING[plan]["annual"],
                 "features": _get_plan_features(plan),
             }
         )

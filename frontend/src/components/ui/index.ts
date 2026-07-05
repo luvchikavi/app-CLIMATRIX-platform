@@ -75,3 +75,4 @@ export { ConfirmDialog } from './ConfirmDialog';
 export type { ConfirmDialogProps } from './ConfirmDialog';
 
 export { ToastContainer, toast } from './Toast';
+export { ThemeToggle } from './ThemeToggle';

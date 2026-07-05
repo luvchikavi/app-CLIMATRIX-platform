@@ -76,9 +76,9 @@ const team = [
 // Statistics
 const stats = [
   { value: '15+', label: 'Scope 3 Categories' },
-  { value: '99.9%', label: 'Uptime SLA' },
+  { value: '3', label: 'GHG scopes covered' },
   { value: '20+', label: 'CBAM Products' },
-  { value: '50+', label: 'Emission Factors' },
+  { value: '500+', label: 'Emission Factors' },
 ];
 
 // Features/Services
@@ -116,7 +116,7 @@ const features = [
   {
     icon: Lock,
     title: 'Enterprise Security',
-    description: 'SOC 2 ready, comprehensive audit logging, GDPR compliance, and multi-tenant data isolation.',
+    description: 'Comprehensive audit logging, GDPR-aligned data handling, and multi-tenant data isolation.',
     gradient: 'from-slate-500 to-zinc-500',
   },
 ];
@@ -150,6 +150,9 @@ function LandingPageContent() {
     if (searchParams.get('reset') === 'true') {
       logout();
       setShowLogin(true);
+    } else if (searchParams.get('register') === 'true') {
+      setShowLogin(true);
+      setIsRegistering(true);
     } else if (searchParams.get('login') === 'true') {
       setShowLogin(true);
     }
@@ -421,7 +424,7 @@ function LandingPageContent() {
           <div className="mt-12 flex items-center justify-center gap-8 text-gray-500">
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-emerald-500" />
-              <span className="text-sm">SOC 2 Ready</span>
+              <span className="text-sm">Audit logging</span>
             </div>
             <div className="flex items-center gap-2">
               <Lock className="w-5 h-5 text-emerald-500" />

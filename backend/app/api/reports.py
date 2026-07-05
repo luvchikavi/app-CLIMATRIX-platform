@@ -23,6 +23,7 @@ from app.database import get_session
 from app.models.core import User, ReportingPeriod, Organization
 from app.models.emission import Activity, Emission, EmissionFactor, ImportBatch
 from app.services.calculation.wtt import WTTService
+from app.services.entitlements import require_report_generation
 from app.data.reference_data import GRID_EMISSION_FACTORS
 
 router = APIRouter()
@@ -886,6 +887,7 @@ async def get_ghg_inventory_report(
     period_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
+    _gate: Annotated[None, Depends(require_report_generation)] = None,
 ):
     """
     Generate ISO 14064-1 compliant GHG Inventory Report.
@@ -1881,6 +1883,7 @@ async def export_cdp_format(
     period_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
+    _gate: Annotated[None, Depends(require_report_generation)] = None,
 ):
     """
     Export emissions data in CDP Climate Change questionnaire format.
@@ -2202,6 +2205,7 @@ async def export_esrs_e1_format(
     period_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
+    _gate: Annotated[None, Depends(require_report_generation)] = None,
 ):
     """
     Export emissions data in ESRS E1 (Climate Change) format.
@@ -2525,6 +2529,7 @@ async def export_report_pdf(
     site_id: UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    _gate: None = Depends(require_report_generation),
 ):
     """
     Export a GHG report as PDF.

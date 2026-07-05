@@ -272,22 +272,10 @@
 
 /* =============================================================================
    DARK THEME
+   Theme is controlled explicitly via the `.dark` class (next-themes, default dark).
+   The old @media (prefers-color-scheme: dark) block was removed because it only
+   overrode a subset of tokens and fought the class strategy (half-dark render).
    ============================================================================= */
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background-elevated: var(--color-neutral-900);
-    --background-muted: var(--color-neutral-800);
-    --foreground-muted: var(--color-neutral-400);
-    --border: var(--color-neutral-800);
-    --border-muted: var(--color-neutral-700);
-    --ring: var(--color-primary-400);
-
-    /* Adjusted shadows for dark mode */
-    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px 0 rgb(0 0 0 / 0.2);
-    --shadow-card-hover: 0 4px 12px 0 rgb(0 0 0 / 0.4);
-  }
-}
 
 /* Force light theme class */
 .light {

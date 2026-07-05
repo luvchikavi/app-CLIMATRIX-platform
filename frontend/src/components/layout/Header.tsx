@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
 import { usePeriods } from '@/hooks/useEmissions';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import {
   Menu,
   User,
@@ -140,6 +141,9 @@ export function Header({ onMenuClick, sidebarCollapsed }: HeaderProps) {
             </div>
           )}
         </div>
+
+        {/* Theme toggle (dark default, switch to light) */}
+        <ThemeToggle />
 
         {/* User Menu */}
         <div ref={userMenuRef} className="relative">

@@ -81,7 +81,7 @@ const comparisonFeatures: { category: string; features: PlanFeature[] }[] = [
       { name: 'Email Support', starter: '48hr', professional: '24hr', enterprise: '4hr' },
       { name: 'Phone Support', starter: false, professional: false, enterprise: true },
       { name: 'Dedicated Account Manager', starter: false, professional: false, enterprise: true },
-      { name: 'SLA Guarantee', starter: false, professional: false, enterprise: '99.9%' },
+      { name: 'SLA Guarantee', starter: false, professional: false, enterprise: 'Custom' },
     ],
   },
 ];
@@ -128,10 +128,10 @@ export default function PricingPage() {
             <span className="text-lg font-semibold text-foreground">CLIMATRIX</span>
           </Link>
           <div className="flex items-center gap-4">
-            <Link href="/login">
+            <Link href="/?login=true">
               <Button variant="ghost">Sign In</Button>
             </Link>
-            <Link href="/register">
+            <Link href="/?register=true">
               <Button>Get Started</Button>
             </Link>
           </div>
@@ -211,6 +211,14 @@ export default function PricingPage() {
                     <Button
                       className="w-full mb-6"
                       variant={plan.popular ? 'primary' : 'outline'}
+                      onClick={() => {
+                        if (plan.id === 'enterprise') {
+                          window.location.href =
+                            'mailto:sales@climatrix.io?subject=CLIMATRIX%20Enterprise%20Demo';
+                        } else {
+                          window.location.href = `/?register=true&plan=${plan.id}`;
+                        }
+                      }}
                     >
                       {plan.cta}
                     </Button>

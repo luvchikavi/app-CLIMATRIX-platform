@@ -22,7 +22,7 @@ from app.models.core import (
 stripe.api_key = settings.stripe_secret_key
 
 
-# Plan limits
+# Plan limits (-1 = unlimited). reports_per_month gates formal report generation/export.
 PLAN_LIMITS = {
     SubscriptionPlan.FREE: {
         "activities_per_month": 50,
@@ -30,6 +30,7 @@ PLAN_LIMITS = {
         "periods": 1,
         "sites": 1,
         "ai_extractions": 0,
+        "reports_per_month": 0,  # preview only, no new report generation
         "export_formats": ["csv"],
     },
     SubscriptionPlan.STARTER: {
@@ -38,6 +39,7 @@ PLAN_LIMITS = {
         "periods": 4,
         "sites": 5,
         "ai_extractions": 10,
+        "reports_per_month": 5,
         "export_formats": ["csv", "json"],
     },
     SubscriptionPlan.PROFESSIONAL: {
@@ -46,16 +48,30 @@ PLAN_LIMITS = {
         "periods": 12,
         "sites": 25,
         "ai_extractions": 100,
+        "reports_per_month": -1,  # unlimited
         "export_formats": ["csv", "json", "cdp", "esrs"],
     },
     SubscriptionPlan.ENTERPRISE: {
-        "activities_per_month": -1,  # Unlimited
-        "users": -1,  # Unlimited
-        "periods": -1,  # Unlimited
-        "sites": -1,  # Unlimited
-        "ai_extractions": -1,  # Unlimited
+        "activities_per_month": -1,
+        "users": -1,
+        "periods": -1,
+        "sites": -1,
+        "ai_extractions": -1,
+        "reports_per_month": -1,
         "export_formats": ["csv", "json", "cdp", "esrs", "custom"],
     },
+}
+
+# Canonical pricing — the single source of truth the frontend mirrors.
+# Annual totals are ~15% off the monthly rate.
+TRIAL_DAYS = 14
+TRIAL_REPORT_CAP = 1  # trial users get one (watermarked) report export
+
+PLAN_PRICING = {
+    SubscriptionPlan.FREE: {"monthly": 0, "annual": 0},
+    SubscriptionPlan.STARTER: {"monthly": 99, "annual": 1010},
+    SubscriptionPlan.PROFESSIONAL: {"monthly": 349, "annual": 3560},
+    SubscriptionPlan.ENTERPRISE: {"monthly": None, "annual": None},  # custom / Book a Demo
 }
 
 

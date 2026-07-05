@@ -858,7 +858,24 @@ class ApiClient {
         }
       }
 
-      throw new Error(error.detail || `API Error: ${response.status}`);
+      // 402 = plan limit reached. Surface a targeted upgrade prompt.
+      if (response.status === 402) {
+        const d =
+          error.detail && typeof error.detail === 'object' ? error.detail : {};
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('climatrix:limit-reached', { detail: d })
+          );
+        }
+        throw new Error(d.message || 'Upgrade required to use this feature.');
+      }
+
+      // detail can be a string or a structured object — never render "[object Object]"
+      const message =
+        typeof error.detail === 'string'
+          ? error.detail
+          : error.detail?.message || `API Error: ${response.status}`;
+      throw new Error(message);
     }
 
     return response.json();
