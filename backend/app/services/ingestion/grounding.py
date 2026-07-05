@@ -9,6 +9,7 @@ resolve, or whose unit can't be safely reconciled, becomes a clarifying QUESTION
 data-quality score (1..5) from the resolution strategy, so CSRD/PCAF disclosures
 come for free.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -44,6 +45,51 @@ _PCAF_SCORE = {
 
 _NORMALIZER = UnitNormalizer()
 
+# Currency detection for spend-vs-physical enforcement. A money value routed to a
+# physical factor (or vice-versa) is one of the easiest ways to get a wildly wrong
+# number, so we never silently reconcile the two — we ask.
+_CURRENCY_CODES = {
+    "usd",
+    "eur",
+    "gbp",
+    "ils",
+    "nis",
+    "cad",
+    "aud",
+    "jpy",
+    "cny",
+    "rmb",
+    "inr",
+    "chf",
+    "sek",
+    "nok",
+    "dkk",
+    "pln",
+    "brl",
+    "zar",
+    "mxn",
+    "sgd",
+    "hkd",
+}
+_CURRENCY_SYMBOLS = {"$", "€", "£", "₪", "¥", "₹"}
+
+
+def classify_unit(unit: str) -> str:
+    """Classify a unit as 'currency', 'physical', or 'unknown'."""
+    if not unit:
+        return "unknown"
+    u = unit.strip().lower()
+    if u in _CURRENCY_CODES or any(s in unit for s in _CURRENCY_SYMBOLS):
+        return "currency"
+    # Strip a leading symbol like "$" then re-check the code (e.g. "USD $").
+    if u.replace("$", "").replace("€", "").replace("£", "").strip() in _CURRENCY_CODES:
+        return "currency"
+    try:
+        _NORMALIZER.normalize(Decimal("1"), unit, unit)
+        return "physical"
+    except UnitConversionError:
+        return "unknown"
+
 
 @dataclass
 class GroundingVerdict:
@@ -64,13 +110,36 @@ class GroundingVerdict:
 def check_unit(input_unit: str, factor_unit: str) -> tuple[bool, str]:
     """Can the client's unit be reconciled to the factor's expected unit?
 
-    Non-convertible pairs (e.g. gas m3 <-> kWh, which needs a calorific value, not
-    a linear conversion) return False -> a clarifying question, never an auto-convert.
+    Enforces spend-vs-physical consistency first: a money value must never be
+    silently paired with a physical factor (or vice-versa). Currency<->currency is
+    allowed (the pipeline applies FX). Non-convertible physical pairs (e.g. gas m3
+    <-> kWh) return False -> a clarifying question, never an auto-convert.
     """
     if not input_unit or not factor_unit:
         return False, "Missing unit."
     if input_unit.strip().lower() == factor_unit.strip().lower():
         return True, "Unit matches the factor."
+
+    in_kind = classify_unit(input_unit)
+    factor_kind = classify_unit(factor_unit)
+
+    # Spend-vs-physical mismatch — the high-risk case. Always ask.
+    if in_kind == "currency" and factor_kind == "physical":
+        return False, (
+            f"This looks like a spend amount ('{input_unit}') but this activity's "
+            f"factor expects a physical quantity ('{factor_unit}'). Do you have the "
+            f"physical amount — or should we use a spend-based (EEIO) method instead?"
+        )
+    if in_kind == "physical" and factor_kind == "currency":
+        return False, (
+            f"This is a physical amount ('{input_unit}') but this is a spend-based "
+            f"(EEIO) factor expecting money ('{factor_unit}'). Provide the spend "
+            f"amount, or pick a physical activity for this row."
+        )
+    # Both are money — valid spend path; FX handled downstream.
+    if in_kind == "currency" and factor_kind == "currency":
+        return True, f"Spend-based: '{input_unit}' converted to '{factor_unit}' via FX."
+
     try:
         _NORMALIZER.normalize(Decimal("1"), input_unit, factor_unit)
         return True, f"Unit '{input_unit}' is convertible to '{factor_unit}'."
