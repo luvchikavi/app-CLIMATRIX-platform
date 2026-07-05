@@ -4,7 +4,6 @@ The single LLM mapping call is monkeypatched so the endpoints are exercised
 without an API key.
 """
 
-
 from app.services.ingestion import orchestrator
 from app.services.ingestion.mapper import MappedRow
 
@@ -102,6 +101,37 @@ async def test_full_funnel_over_http(
     committed = [r for r in final["rows"] if r["status"] == "committed"]
     assert len(committed) == 1
     assert committed[0]["committed_activity_id"] is not None
+
+
+async def test_duplicate_commit_warns(
+    client, auth_headers, test_period, seed_emission_factors, monkeypatch
+):
+    monkeypatch.setattr(orchestrator, "map_table", _fake_map_table)
+
+    async def upload():
+        return await client.post(
+            "/api/ingest",
+            headers=auth_headers,
+            files={"file": ("footprint.csv", _CSV, "text/csv")},
+            data={"reporting_period_id": str(test_period.id)},
+        )
+
+    # First upload + commit (approve the mapped row, then commit).
+    first = (await upload()).json()
+    for r in first["rows"]:
+        await client.patch(
+            f"/api/ingest/{first['id']}/rows/{r['id']}",
+            headers=auth_headers,
+            json={"status": "approved"},
+        )
+    await client.post(
+        f"/api/ingest/{first['id']}/commit", headers=auth_headers, json={}
+    )
+
+    # Re-uploading the exact same bytes must warn about double-counting.
+    second = (await upload()).json()
+    assert second["summary"].get("duplicate_warning")
+    assert second["summary"].get("duplicate_of") == first["id"]
 
 
 async def test_get_and_list(client, auth_headers, seed_emission_factors, monkeypatch):

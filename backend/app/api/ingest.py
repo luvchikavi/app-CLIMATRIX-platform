@@ -14,6 +14,7 @@ to reshape its data to fit the app.
 
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime
 from typing import Annotated, Optional
 from uuid import UUID
@@ -203,6 +204,8 @@ async def upload_and_analyze(
     except FileRejected as exc:
         raise HTTPException(status_code=400, detail=exc.message)
 
+    content_hash = hashlib.sha256(content).hexdigest()
+
     # Resolve region/year context from the org + (optional) reporting period.
     org = await session.get(Organization, current_user.organization_id)
     region = (org.default_region if org else None) or "Global"
@@ -214,12 +217,31 @@ async def upload_and_analyze(
         if period.start_date:
             year = period.start_date.year
 
+    # Idempotency: warn if this exact file was already committed for this org — a
+    # re-upload would double-count emissions in the ledger.
+    duplicate_of = (
+        (
+            await session.execute(
+                select(IngestionSession.id)
+                .where(
+                    IngestionSession.organization_id == current_user.organization_id,
+                    IngestionSession.content_hash == content_hash,
+                    IngestionSession.status == "committed",
+                )
+                .limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
+
     ingestion = IngestionSession(
         organization_id=current_user.organization_id,
         created_by=current_user.id,
         reporting_period_id=reporting_period_id,
         filename=report.filename,
         file_size_bytes=report.size_bytes,
+        content_hash=content_hash,
     )
     session.add(ingestion)
     await session.flush()
@@ -227,6 +249,17 @@ async def upload_and_analyze(
     await orchestrator.run_analysis(
         session, ingestion, content, report.filename, region=region, year=year
     )
+
+    # Surface the duplicate warning without blocking (the client may intend a re-import).
+    if duplicate_of is not None:
+        summary = dict(ingestion.summary or {})
+        summary["duplicate_warning"] = (
+            "This exact file was already imported and committed for your organization. "
+            "Committing again will double-count these emissions."
+        )
+        summary["duplicate_of"] = str(duplicate_of)
+        ingestion.summary = summary
+
     await session.commit()
 
     return await _detail(session, ingestion)
