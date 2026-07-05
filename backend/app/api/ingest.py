@@ -15,10 +15,13 @@ to reshape its data to fit the app.
 from __future__ import annotations
 
 import hashlib
+import os
 from datetime import datetime
 from typing import Annotated, Optional
 from uuid import UUID
 
+from arq import create_pool
+from arq.connections import RedisSettings
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -31,6 +34,7 @@ from app.models.core import Organization, ReportingPeriod, User
 from app.models.ingestion import (
     ClarificationQuestion,
     IngestionSession,
+    IngestionStatus,
     RowStatus,
     StagedRow,
 )
@@ -40,6 +44,31 @@ from app.services.ingestion.file_guard import FileRejected, check_upload
 router = APIRouter()
 
 _MAX_BYTES = settings.max_upload_size_mb * 1024 * 1024
+
+# Temp dir for files handed off to the worker (cleaned up once the job reads them).
+_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "uploads", "ingest")
+os.makedirs(_UPLOAD_DIR, exist_ok=True)
+
+
+def _upload_path(session_id: UUID, filename: str) -> str:
+    ext = filename.rsplit(".", 1)[-1] if "." in filename else "dat"
+    return os.path.join(_UPLOAD_DIR, f"{session_id}.{ext}")
+
+
+def _persist_upload(session_id: UUID, content: bytes, filename: str) -> str:
+    path = _upload_path(session_id, filename)
+    with open(path, "wb") as f:
+        f.write(content)
+    return path
+
+
+def _cleanup_upload(session_id: UUID, filename: str) -> None:
+    path = _upload_path(session_id, filename)
+    if os.path.exists(path):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +226,12 @@ async def upload_and_analyze(
     session: Annotated[AsyncSession, Depends(get_session)] = None,
     current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
-    """Upload a file, security-check it, and parse it into staged rows + questions."""
+    """Upload a file, security-check it, and parse it into staged rows + questions.
+
+    In production/staging the parse runs on the arq worker (upload returns instantly
+    with status 'analyzing'; the client polls GET /ingest/{id}). Everywhere else — or
+    if the queue is unreachable — it runs inline so dev/test stay self-contained.
+    """
     content = await file.read()
     try:
         report = check_upload(content, file.filename or "upload", max_bytes=_MAX_BYTES)
@@ -217,24 +251,6 @@ async def upload_and_analyze(
         if period.start_date:
             year = period.start_date.year
 
-    # Idempotency: warn if this exact file was already committed for this org — a
-    # re-upload would double-count emissions in the ledger.
-    duplicate_of = (
-        (
-            await session.execute(
-                select(IngestionSession.id)
-                .where(
-                    IngestionSession.organization_id == current_user.organization_id,
-                    IngestionSession.content_hash == content_hash,
-                    IngestionSession.status == "committed",
-                )
-                .limit(1)
-            )
-        )
-        .scalars()
-        .first()
-    )
-
     ingestion = IngestionSession(
         organization_id=current_user.organization_id,
         created_by=current_user.id,
@@ -246,20 +262,31 @@ async def upload_and_analyze(
     session.add(ingestion)
     await session.flush()
 
+    # Try to dispatch parsing to the worker (production/staging). If that isn't
+    # available, fall back to parsing inline so the upload still works.
+    if settings.environment in ("production", "staging"):
+        try:
+            file_path = _persist_upload(ingestion.id, content, report.filename)
+            redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+            await redis.enqueue_job(
+                "analyze_ingestion_session",
+                str(ingestion.id),
+                file_path,
+                report.filename,
+                region,
+                year,
+            )
+            ingestion.status = IngestionStatus.ANALYZING
+            await session.commit()
+            return await _detail(session, ingestion)
+        except Exception:
+            # Queue unreachable — clean up the temp file and parse inline below.
+            _cleanup_upload(ingestion.id, report.filename)
+
     await orchestrator.run_analysis(
         session, ingestion, content, report.filename, region=region, year=year
     )
-
-    # Surface the duplicate warning without blocking (the client may intend a re-import).
-    if duplicate_of is not None:
-        summary = dict(ingestion.summary or {})
-        summary["duplicate_warning"] = (
-            "This exact file was already imported and committed for your organization. "
-            "Committing again will double-count these emissions."
-        )
-        summary["duplicate_of"] = str(duplicate_of)
-        ingestion.summary = summary
-
+    await orchestrator.annotate_duplicate(session, ingestion)
     await session.commit()
 
     return await _detail(session, ingestion)

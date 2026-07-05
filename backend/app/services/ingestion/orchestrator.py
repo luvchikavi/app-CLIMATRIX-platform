@@ -53,6 +53,43 @@ from app.services.ingestion.rule_engine import check_row
 _COMMITTABLE = {RowStatus.READY, RowStatus.APPROVED}
 
 
+async def annotate_duplicate(
+    session: AsyncSession, ingestion: IngestionSession
+) -> None:
+    """Flag (non-blocking) when this exact file was already committed for the org.
+
+    Shared by the inline and worker analysis paths so re-importing the same bytes
+    always warns about double-counting, regardless of how parsing was dispatched.
+    """
+    if not ingestion.content_hash:
+        return
+    duplicate_of = (
+        (
+            await session.execute(
+                select(IngestionSession.id)
+                .where(
+                    IngestionSession.organization_id == ingestion.organization_id,
+                    IngestionSession.content_hash == ingestion.content_hash,
+                    IngestionSession.status == IngestionStatus.COMMITTED.value,
+                    IngestionSession.id != ingestion.id,
+                )
+                .limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if duplicate_of is None:
+        return
+    summary = dict(ingestion.summary or {})
+    summary["duplicate_warning"] = (
+        "This exact file was already imported and committed for your organization. "
+        "Committing again will double-count these emissions."
+    )
+    summary["duplicate_of"] = str(duplicate_of)
+    ingestion.summary = summary
+
+
 def _no_key_verdict(reason: str) -> GroundingVerdict:
     """Grounding verdict for a row the mapper could not confidently map to a key."""
     return GroundingVerdict(

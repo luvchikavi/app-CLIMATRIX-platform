@@ -25,8 +25,10 @@ from app.config import settings
 from app.models.jobs import ImportJob, JobStatus
 from app.models.emission import Activity, Emission, DataSource
 from app.models.core import ReportingPeriod
+from app.models.ingestion import IngestionSession, IngestionStatus
 from app.services.calculation import CalculationPipeline, ActivityInput
 from app.services.ai import ColumnMapper, DataExtractor, DataValidator
+from app.services.ingestion import orchestrator as ingest_orchestrator
 
 # =============================================================================
 # Database Session Factory
@@ -673,6 +675,63 @@ async def recalculate_period_job(ctx: dict, period_id: str, user_id: str) -> dic
 
 
 # =============================================================================
+# Smart Import (ingestion funnel) — parse a dropped file off the request path
+# =============================================================================
+
+
+async def analyze_ingestion_session(
+    ctx: dict,
+    session_id: str,
+    file_path: str,
+    filename: str,
+    region: str = "Global",
+    year: int = 2024,
+) -> dict:
+    """Parse an uploaded Smart Import file in the background.
+
+    The API endpoint persists the file, creates the IngestionSession (status
+    'analyzing'), and enqueues this job; the frontend polls until the session
+    reaches a terminal state. Mirrors the inline path exactly (run_analysis +
+    duplicate annotation) so results are identical regardless of dispatch.
+    """
+    session_factory = get_async_session_factory()
+    try:
+        async with session_factory() as session:
+            ingestion = await session.get(IngestionSession, UUID(session_id))
+            if ingestion is None:
+                return {"error": f"Ingestion session {session_id} not found"}
+            try:
+                with open(file_path, "rb") as f:
+                    content = f.read()
+                await ingest_orchestrator.run_analysis(
+                    session, ingestion, content, filename, region=region, year=year
+                )
+                await ingest_orchestrator.annotate_duplicate(session, ingestion)
+                await session.commit()
+                return {
+                    "session_id": session_id,
+                    "status": (
+                        ingestion.status.value
+                        if hasattr(ingestion.status, "value")
+                        else str(ingestion.status)
+                    ),
+                    "total_rows": ingestion.total_rows,
+                    "questions": ingestion.question_count,
+                }
+            except Exception as e:  # never leave a session stuck in 'analyzing'
+                ingestion.status = IngestionStatus.FAILED
+                ingestion.error_message = f"Analysis failed: {e}"[:1000]
+                await session.commit()
+                return {"error": str(e)}
+    finally:
+        if file_path and os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass
+
+
+# =============================================================================
 # Worker Settings
 # =============================================================================
 
@@ -688,6 +747,7 @@ class WorkerSettings:
         process_import_job,
         smart_import_job,  # AI-powered import
         recalculate_period_job,
+        analyze_ingestion_session,  # Smart Import parsing off the request path
     ]
 
     # Job timeout (10 minutes max per job)

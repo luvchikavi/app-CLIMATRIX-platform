@@ -103,6 +103,40 @@ async def test_full_funnel_over_http(
     assert committed[0]["committed_activity_id"] is not None
 
 
+async def test_upload_enqueues_worker_in_production(
+    client, auth_headers, test_period, seed_emission_factors, monkeypatch
+):
+    """In production the parse is dispatched to the worker: upload returns instantly
+    with status 'analyzing' and no rows yet; the client polls for the result."""
+    from app.api import ingest as ingest_module
+
+    enqueued = {}
+
+    class _FakeRedis:
+        async def enqueue_job(self, name, *args):
+            enqueued["name"] = name
+            enqueued["args"] = args
+
+    async def _fake_create_pool(*a, **k):
+        return _FakeRedis()
+
+    monkeypatch.setattr(ingest_module.settings, "environment", "production")
+    monkeypatch.setattr(ingest_module, "create_pool", _fake_create_pool)
+
+    resp = await client.post(
+        "/api/ingest",
+        headers=auth_headers,
+        files={"file": ("footprint.csv", _CSV, "text/csv")},
+        data={"reporting_period_id": str(test_period.id)},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["status"] == "analyzing"
+    assert body["rows"] == []
+    assert enqueued["name"] == "analyze_ingestion_session"
+    assert enqueued["args"][0] == body["id"]  # session id passed to the job
+
+
 async def test_duplicate_commit_warns(
     client, auth_headers, test_period, seed_emission_factors, monkeypatch
 ):
