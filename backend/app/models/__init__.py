@@ -68,6 +68,13 @@ from app.models.decarbonization import (
     RoadmapMilestone,
     EmissionCheckpoint,
 )
+from app.models.ingestion import (
+    IngestionSession,
+    StagedRow,
+    ClarificationQuestion,
+    IngestionStatus,
+    RowStatus,
+)
 
 __all__ = [
     # Core
@@ -134,4 +141,10 @@ __all__ = [
     "ScenarioInitiative",
     "RoadmapMilestone",
     "EmissionCheckpoint",
+    # Ingestion (the "drop any file" funnel)
+    "IngestionSession",
+    "StagedRow",
+    "ClarificationQuestion",
+    "IngestionStatus",
+    "RowStatus",
 ]
