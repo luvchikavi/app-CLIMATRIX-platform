@@ -101,8 +101,13 @@ class BillingService:
         session: AsyncSession,
         organization: Organization,
     ) -> None:
-        """Start a 14-day free trial for a new organization without requiring Stripe."""
+        """Start a 14-day free trial for a new organization without requiring Stripe.
+
+        The trial grants Professional-tier access; entitlement resolution treats the
+        org as Free once trial_ends_at passes with no active paid subscription.
+        """
         organization.trial_ends_at = datetime.utcnow() + timedelta(days=14)
+        organization.subscription_plan = SubscriptionPlan.PROFESSIONAL.value
         organization.subscription_status = SubscriptionStatus.TRIALING.value
         session.add(organization)
         await session.commit()
@@ -192,9 +197,9 @@ class BillingService:
         if not organization:
             return
 
-        # Update subscription details
+        # Update subscription details (columns are String — always store .value)
         organization.stripe_subscription_id = subscription.id
-        organization.subscription_status = SubscriptionStatus(subscription.status)
+        organization.subscription_status = SubscriptionStatus(subscription.status).value
         organization.subscription_current_period_end = datetime.fromtimestamp(
             subscription.current_period_end
         )
@@ -203,11 +208,11 @@ class BillingService:
         if subscription.items.data:
             price_id = subscription.items.data[0].price.id
             if price_id == settings.stripe_price_id_starter:
-                organization.subscription_plan = SubscriptionPlan.STARTER
+                organization.subscription_plan = SubscriptionPlan.STARTER.value
             elif price_id == settings.stripe_price_id_professional:
-                organization.subscription_plan = SubscriptionPlan.PROFESSIONAL
+                organization.subscription_plan = SubscriptionPlan.PROFESSIONAL.value
             elif price_id == settings.stripe_price_id_enterprise:
-                organization.subscription_plan = SubscriptionPlan.ENTERPRISE
+                organization.subscription_plan = SubscriptionPlan.ENTERPRISE.value
 
         session.add(organization)
         await session.commit()
@@ -229,8 +234,8 @@ class BillingService:
             return
 
         # Reset to free plan
-        organization.subscription_plan = SubscriptionPlan.FREE
-        organization.subscription_status = SubscriptionStatus.CANCELED
+        organization.subscription_plan = SubscriptionPlan.FREE.value
+        organization.subscription_status = SubscriptionStatus.CANCELED.value
         organization.stripe_subscription_id = None
 
         session.add(organization)

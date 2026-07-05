@@ -80,13 +80,17 @@ async def get_subscription(
     if not organization:
         raise HTTPException(status_code=404, detail="Organization not found")
 
+    # subscription_plan / subscription_status are stored as plain strings.
+    # Coerce the plan to the enum (defaulting to FREE) and keep status as a string.
+    try:
+        plan_enum = SubscriptionPlan(organization.subscription_plan or "free")
+    except ValueError:
+        plan_enum = SubscriptionPlan.FREE
+    status_str = organization.subscription_status or None
+
     return SubscriptionResponse(
-        plan=organization.subscription_plan.value,
-        status=(
-            organization.subscription_status.value
-            if organization.subscription_status
-            else None
-        ),
+        plan=plan_enum.value,
+        status=status_str,
         current_period_end=(
             organization.subscription_current_period_end.isoformat()
             if organization.subscription_current_period_end
@@ -97,10 +101,8 @@ async def get_subscription(
             if organization.trial_ends_at
             else None
         ),
-        is_trialing=organization.trial_ends_at is not None
-        and organization.subscription_status
-        and organization.subscription_status.value == "trialing",
-        plan_limits=BillingService.get_plan_limits(organization.subscription_plan),
+        is_trialing=organization.trial_ends_at is not None and status_str == "trialing",
+        plan_limits=BillingService.get_plan_limits(plan_enum),
     )
 
 

@@ -14,8 +14,10 @@ import sentry_sdk
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from sqlalchemy import text
+
 from app.config import settings
-from app.database import init_db, close_db
+from app.database import init_db, close_db, engine
 from app.rate_limit import limiter
 from app.api import (
     auth,
@@ -148,9 +150,24 @@ async def root():
 
 @app.get("/health")
 async def health():
-    """Detailed health check."""
-    return {
-        "status": "healthy",
+    """Readiness probe: verifies the database is reachable.
+
+    Returns 503 (not 200) when the DB check fails so a load balancer / Railway
+    takes an unhealthy instance out of rotation instead of routing traffic to it.
+    """
+    db_ok = True
+    db_error: str | None = None
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001 - report any DB failure as not-ready
+        db_ok = False
+        db_error = str(exc)
+
+    body = {
+        "status": "healthy" if db_ok else "unhealthy",
         "version": settings.app_version,
         "environment": settings.environment,
+        "checks": {"database": "ok" if db_ok else f"error: {db_error}"},
     }
+    return JSONResponse(status_code=200 if db_ok else 503, content=body)
