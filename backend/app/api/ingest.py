@@ -327,12 +327,25 @@ async def patch_row(
     if row.status == RowStatus.COMMITTED:
         raise HTTPException(status_code=409, detail="Row is already committed.")
 
+    data_edited = False
     if body.activity_key is not None:
         row.activity_key = body.activity_key
+        data_edited = True
     if body.quantity is not None:
         row.quantity = body.quantity
+        data_edited = True
     if body.unit is not None:
         row.unit = body.unit
+        data_edited = True
+
+    # A hand-edit to activity/unit/quantity must re-ground + re-score — otherwise the
+    # grid keeps a stale confidence band that no longer reflects the edited values.
+    if data_edited:
+        org = await session.get(Organization, current_user.organization_id)
+        region = (org.default_region if org else None) or "Global"
+        await orchestrator.reground_row(session, row, region=region)
+
+    # An explicit status change (Keep/Drop) always wins over the re-grounded status.
     if body.status is not None:
         try:
             row.status = RowStatus(body.status)

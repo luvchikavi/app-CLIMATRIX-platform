@@ -134,6 +134,34 @@ async def test_duplicate_commit_warns(
     assert second["summary"].get("duplicate_of") == first["id"]
 
 
+async def test_patch_edit_regrounds_row(
+    client, auth_headers, test_period, seed_emission_factors, monkeypatch
+):
+    """Editing a row's activity/unit must re-ground it — not keep a stale band."""
+    monkeypatch.setattr(orchestrator, "map_table", _fake_map_table)
+    up = await client.post(
+        "/api/ingest",
+        headers=auth_headers,
+        files={"file": ("footprint.csv", _CSV, "text/csv")},
+        data={"reporting_period_id": str(test_period.id)},
+    )
+    sid = up.json()["id"]
+    # The 'Mystery line' row came back unmapped (red, 0%). Hand-map it to a real key.
+    mystery = [r for r in up.json()["rows"] if r["activity_key"] is None][0]
+    assert mystery["band"] == "red"
+    patched = await client.patch(
+        f"/api/ingest/{sid}/rows/{mystery['id']}",
+        headers=auth_headers,
+        json={"activity_key": "electricity_kwh", "unit": "kWh", "quantity": 100},
+    )
+    assert patched.status_code == 200, patched.text
+    body = patched.json()
+    # Re-grounded: it now carries the catalog's scope and a real confidence, not 0/red.
+    assert body["scope"] == 2
+    assert body["confidence"] > 0
+    assert body["activity_key"] == "electricity_kwh"
+
+
 async def test_get_and_list(client, auth_headers, seed_emission_factors, monkeypatch):
     monkeypatch.setattr(orchestrator, "map_table", _fake_map_table)
     up = await client.post(

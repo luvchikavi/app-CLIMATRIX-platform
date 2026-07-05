@@ -354,6 +354,12 @@ async def commit_session(
             row.commit_error = "Missing activity, quantity, or unit."
             failed += 1
             continue
+        if row.scope not in (1, 2, 3) or not row.category_code:
+            # Never let a row with an invalid/absent scope reach the ledger — an
+            # Activity with scope=0 would corrupt every downstream scope rollup.
+            row.commit_error = "Invalid or missing scope/category."
+            failed += 1
+            continue
         try:
             calc = await pipeline.calculate(
                 ActivityInput(
@@ -366,13 +372,12 @@ async def commit_session(
                     year=year,
                 )
             )
-        except (
-            FactorNotFoundError,
-            UnitConversionError,
-            CalculationError,
-            Exception,
-        ) as exc:
+        except (FactorNotFoundError, UnitConversionError, CalculationError) as exc:
             row.commit_error = f"{type(exc).__name__}: {exc}"[:500]
+            failed += 1
+            continue
+        except Exception as exc:  # unexpected — record per-row, don't abort the batch
+            row.commit_error = f"Unexpected: {type(exc).__name__}: {exc}"[:500]
             failed += 1
             continue
 
@@ -505,10 +510,30 @@ def _apply_answer_to_row(row: StagedRow, field: str | None, answer: str, cat) ->
                 row.category_code = entry.category_code
 
 
+async def reground_row(
+    session: AsyncSession, row: StagedRow, *, region: str = "Global", year: int = 2024
+) -> StagedRow:
+    """Public: re-ground + re-score a single staged row after a manual edit.
+
+    A hand-edit to activity_key / unit / quantity must never keep the old
+    confidence band or status — the review grid would then lie about how sure we
+    are. This recomputes everything from the edited values (building the catalog
+    fresh so a newly-chosen activity_key resolves correctly)."""
+    cat = await catalog_mod.build_from_db(session)
+    await _reground_row(session, row, cat, region=region, year=year)
+    return row
+
+
 async def _reground_row(
     session: AsyncSession, row: StagedRow, cat, *, region: str, year: int
 ) -> None:
     if row.activity_key:
+        # Scope/category are authoritative from the catalog entry for this key —
+        # never left to whatever a hand-edit or the LLM put on the row.
+        entry = cat.get(row.activity_key)
+        if entry:
+            row.scope = entry.scope
+            row.category_code = entry.category_code
         grounding = await ground_row(
             session, row.activity_key, row.unit or "", region=region, year=year
         )
