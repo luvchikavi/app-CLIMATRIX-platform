@@ -364,6 +364,94 @@ async def create_target(
     )
 
 
+@router.put("/targets/{target_id}", response_model=TargetResponse)
+async def update_target(
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    target_id: UUID,
+    request: TargetCreateRequest,
+):
+    """Update an existing target in place (recalculates SBTi emissions like create).
+
+    Without this, the "Edit Target" flow POSTed a new target and stacked duplicates.
+    """
+    result = await session.execute(
+        select(DecarbonizationTarget).where(
+            DecarbonizationTarget.id == target_id,
+            DecarbonizationTarget.organization_id == current_user.organization_id,
+        )
+    )
+    target = result.scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="Target not found")
+
+    if request.framework in [
+        TargetFramework.SBTI_1_5C,
+        TargetFramework.SBTI_WELL_BELOW_2C,
+        TargetFramework.NET_ZERO,
+    ]:
+        target_emissions, reduction_pct = (
+            TargetCalculationService.calculate_target_emissions(
+                base_year_emissions=request.base_year_emissions_tco2e,
+                base_year=request.base_year,
+                target_year=request.target_year,
+                framework=request.framework,
+            )
+        )
+    else:
+        if (
+            request.target_reduction_percent is None
+            or request.target_emissions_tco2e is None
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Custom targets require target_reduction_percent and target_emissions_tco2e",
+            )
+        target_emissions = request.target_emissions_tco2e
+        reduction_pct = request.target_reduction_percent
+
+    target.name = request.name
+    target.description = request.description
+    target.target_type = request.target_type
+    target.framework = request.framework
+    target.base_year = request.base_year
+    target.base_year_period_id = (
+        UUID(request.base_year_period_id) if request.base_year_period_id else None
+    )
+    target.base_year_emissions_tco2e = request.base_year_emissions_tco2e
+    target.target_year = request.target_year
+    target.target_reduction_percent = reduction_pct
+    target.target_emissions_tco2e = target_emissions
+    target.includes_scope1 = request.includes_scope1
+    target.includes_scope2 = request.includes_scope2
+    target.includes_scope3 = request.includes_scope3
+    target.scope3_categories = request.scope3_categories
+
+    await session.commit()
+    await session.refresh(target)
+
+    return TargetResponse(
+        id=str(target.id),
+        name=target.name,
+        description=target.description,
+        target_type=target.target_type.value,
+        framework=target.framework.value,
+        base_year=target.base_year,
+        base_year_emissions_tco2e=target.base_year_emissions_tco2e,
+        target_year=target.target_year,
+        target_reduction_percent=target.target_reduction_percent,
+        target_emissions_tco2e=target.target_emissions_tco2e,
+        includes_scope1=target.includes_scope1,
+        includes_scope2=target.includes_scope2,
+        includes_scope3=target.includes_scope3,
+        scope3_categories=target.scope3_categories,
+        is_sbti_validated=target.is_sbti_validated,
+        is_public=target.is_public,
+        is_active=target.is_active,
+        created_at=target.created_at.isoformat(),
+    )
+
+
 @router.get("/targets/{target_id}", response_model=TargetResponse)
 async def get_target(
     current_user: Annotated[User, Depends(get_current_user)],
