@@ -247,12 +247,27 @@ async def run_analysis(
     ingestion.question_count = questions
     ingestion.open_question_count = questions
     ingestion.committed_count = 0
-    ingestion.summary = {
+    summary = {
         "sheets": sheets_summary,
         "by_scope": by_scope,
         "by_band": by_band,
         "security": security,
     }
+    # Empty result — explain WHY instead of silently showing "0 rows read".
+    if total == 0:
+        if not tables:
+            summary["notice"] = (
+                "We opened your file but every sheet looked like instructions or was "
+                "empty — no data rows to import. If this is the CLIMATRIX template, "
+                "enter your data beneath the grey SAMPLE row on each scope sheet and "
+                "re-upload."
+            )
+        else:
+            summary["notice"] = (
+                "We read your file but found no fillable data rows (only sample or "
+                "empty rows). Add your data and re-upload."
+            )
+    ingestion.summary = summary
     ingestion.status = (
         IngestionStatus.NEEDS_ANSWERS if questions else IngestionStatus.READY_FOR_REVIEW
     )

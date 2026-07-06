@@ -7,6 +7,7 @@ pick, and anything unsure becomes a clarifying question. This is what turns
 "keyword guessing" into "semantic understanding": the model reads the full row +
 sheet + column context and picks the correct candidate.
 """
+
 from __future__ import annotations
 
 import json
@@ -18,7 +19,14 @@ from app.config import get_settings
 from app.services.ingestion.catalog import FactorCatalog
 from app.services.ingestion.loader import RawTable
 
-_PLACEHOLDERS = {"[dropdown]", "[number]", "[paste/type]", "[optional]", "[date]", "[text]"}
+_PLACEHOLDERS = {
+    "[dropdown]",
+    "[number]",
+    "[paste/type]",
+    "[optional]",
+    "[date]",
+    "[text]",
+}
 
 _MAP_TOOL = {
     "name": "map_rows",
@@ -39,7 +47,10 @@ _MAP_TOOL = {
                         "quantity": {"type": ["number", "null"]},
                         "unit": {"type": ["string", "null"]},
                         "description": {"type": "string"},
-                        "confidence": {"type": "number", "description": "0..1 self-assessment"},
+                        "confidence": {
+                            "type": "number",
+                            "description": "0..1 self-assessment",
+                        },
                         "question": {
                             "type": ["string", "null"],
                             "description": "A short, targeted clarifying question if unsure (unit, which activity, spend vs physical), else null.",
@@ -70,9 +81,38 @@ class MappedRow:
     source: dict
 
 
+def _is_empty_row(row: dict) -> bool:
+    """A row with no meaningful data — all blank, or values only in unnamed helper
+    columns. Pandas names blank-header columns 'Unnamed: N'; in templates those hold
+    scaffolding ('Drop Down', 'Free text') rather than real data, so a row whose only
+    values sit there is treated as empty (avoids importing template noise rows)."""
+    return not any(
+        str(v).strip()
+        for k, v in row.items()
+        if v is not None and not str(k).startswith("Unnamed:")
+    )
+
+
 def _is_placeholder(row: dict) -> bool:
     vals = [str(v).strip().lower() for v in row.values() if v is not None]
     return bool(vals) and all(v in _PLACEHOLDERS or v == "" for v in vals)
+
+
+def _is_sample_row(row: dict) -> bool:
+    """CLIMATRIX's import template ships a greyed 'SAMPLE' row per sheet that the
+    user is meant to replace (its description ends with '- SAMPLE'). Skip it so it
+    never gets imported as real data. Matched narrowly to avoid false-positives on
+    legitimate text that merely contains the word 'sample'."""
+    for v in row.values():
+        if isinstance(v, str):
+            u = v.upper()
+            if (
+                "- SAMPLE" in u
+                or u.endswith("SAMPLE)")
+                or u.strip().endswith("- SAMPLE")
+            ):
+                return True
+    return False
 
 
 def _json_safe(v):
@@ -85,7 +125,11 @@ def _candidates(catalog: FactorCatalog, table: RawTable, k: int = 35):
     text = f"{table.sheet} {' '.join(table.columns)}"
     for r in table.rows[:10]:
         for v in r.values():
-            if isinstance(v, str) and v.strip().lower() not in _PLACEHOLDERS and len(v) > 2:
+            if (
+                isinstance(v, str)
+                and v.strip().lower() not in _PLACEHOLDERS
+                and len(v) > 2
+            ):
                 text += " " + v
     return catalog.search(text, top_n=k)
 
@@ -109,7 +153,11 @@ def map_table(
         for c in cands
     )
 
-    rows = [r for r in table.rows if not _is_placeholder(r)]
+    rows = [
+        r
+        for r in table.rows
+        if not _is_empty_row(r) and not _is_placeholder(r) and not _is_sample_row(r)
+    ]
     if max_rows:
         rows = rows[:max_rows]
     payload = [
