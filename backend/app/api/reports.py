@@ -2454,6 +2454,7 @@ async def export_report_csv(
     site_id: UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    _gate: None = Depends(require_report_generation),
 ):
     """
     Export a GHG report as CSV.
