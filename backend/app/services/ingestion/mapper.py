@@ -28,6 +28,10 @@ _PLACEHOLDERS = {
     "[text]",
 }
 
+# Max rows per LLM call — a big sheet is split into chunks so the tool output never
+# gets truncated (which would silently drop mapped rows).
+_CHUNK_ROWS = 40
+
 _MAP_TOOL = {
     "name": "map_rows",
     "description": "Map each source data row to a canonical CLIMATRIX activity.",
@@ -195,11 +199,6 @@ def map_table(
         f"- {c.activity_key} | Scope {c.scope}.{c.category_code} | expects {c.activity_unit} | {c.display_name}"
         for c in cands
     )
-    payload = [
-        {"row_index": i, **{k: _json_safe(v) for k, v in r.items()}}
-        for i, r in enumerate(rows)
-    ]
-
     system = (
         "You map messy client sustainability data to CLIMATRIX emission activities.\n"
         "RULES:\n"
@@ -214,41 +213,49 @@ def map_table(
         "4. confidence is your honest 0..1 self-assessment.\n\n"
         f"CANDIDATE KEYS (choose only from these):\n{cand_block}"
     )
-    user = (
-        f"Sheet: {table.sheet}\nColumns: {table.columns}\n"
-        f"Rows (JSON):\n{json.dumps(payload, default=str)}"
-    )
 
-    msg = client.messages.create(
-        model=settings.claude_model,
-        max_tokens=8000,
-        system=system,
-        tools=[_MAP_TOOL],
-        tool_choice={"type": "tool", "name": "map_rows"},
-        messages=[{"role": "user", "content": user}],
-    )
-    tool_input = next(b.input for b in msg.content if b.type == "tool_use")
-
+    # Chunk rows so a big sheet (100s of rows) never exceeds the model's output budget
+    # in a single call (which would truncate the tool result and drop rows).
     out: list[MappedRow] = []
-    for m in tool_input.get("rows", []):
-        idx = m.get("row_index", 0)
-        key = m.get("activity_key")
-        # Reject anything that isn't a real, offered candidate -> becomes a question.
-        if key and (key not in cand_keys and not catalog.is_real(key)):
-            key = None
-        entry = catalog.get(key) if key else None
-        out.append(
-            MappedRow(
-                row_index=idx,
-                activity_key=key,
-                scope=entry.scope if entry else None,
-                category_code=entry.category_code if entry else None,
-                quantity=m.get("quantity"),
-                unit=m.get("unit"),
-                description=str(m.get("description", "")),
-                llm_confidence=float(m.get("confidence", 0.5)),
-                question=m.get("question") if not key else m.get("question"),
-                source=rows[idx] if idx < len(rows) else {},
-            )
+    for start in range(0, len(rows), _CHUNK_ROWS):
+        chunk = rows[start : start + _CHUNK_ROWS]
+        payload = [
+            {"row_index": start + i, **{k: _json_safe(v) for k, v in r.items()}}
+            for i, r in enumerate(chunk)
+        ]
+        user = (
+            f"Sheet: {table.sheet}\nColumns: {table.columns}\n"
+            f"Rows (JSON):\n{json.dumps(payload, default=str)}"
         )
+        msg = client.messages.create(
+            model=settings.claude_model,
+            max_tokens=8000,
+            system=system,
+            tools=[_MAP_TOOL],
+            tool_choice={"type": "tool", "name": "map_rows"},
+            messages=[{"role": "user", "content": user}],
+        )
+        tool_input = next(b.input for b in msg.content if b.type == "tool_use")
+
+        for m in tool_input.get("rows", []):
+            idx = m.get("row_index", 0)
+            key = m.get("activity_key")
+            # Reject anything that isn't a real, offered candidate -> becomes a question.
+            if key and (key not in cand_keys and not catalog.is_real(key)):
+                key = None
+            entry = catalog.get(key) if key else None
+            out.append(
+                MappedRow(
+                    row_index=idx,
+                    activity_key=key,
+                    scope=entry.scope if entry else None,
+                    category_code=entry.category_code if entry else None,
+                    quantity=m.get("quantity"),
+                    unit=m.get("unit"),
+                    description=str(m.get("description", "")),
+                    llm_confidence=float(m.get("confidence", 0.5)),
+                    question=m.get("question") if not key else m.get("question"),
+                    source=rows[idx] if idx < len(rows) else {},
+                )
+            )
     return out

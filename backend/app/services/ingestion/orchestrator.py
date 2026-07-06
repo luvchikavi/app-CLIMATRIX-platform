@@ -14,6 +14,7 @@ rest of the app uses — so imported numbers are identical to hand-entered ones.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from uuid import UUID
@@ -51,6 +52,9 @@ from app.services.ingestion.rule_engine import check_row
 
 # Statuses that a commit will actually write to the ledger.
 _COMMITTABLE = {RowStatus.READY, RowStatus.APPROVED}
+
+# How many sheets to map concurrently (each is one or more LLM calls).
+_MAP_CONCURRENCY = 6
 
 
 async def annotate_duplicate(
@@ -147,18 +151,33 @@ async def run_analysis(
     sheets_summary: list[dict] = []
     security = {"formula_cells_sanitised": 0, "injection_flags": 0}
 
-    for table in tables:
-        # Scrub hostile cells (formula injection) before the LLM ever sees them.
-        clean_rows, formula_hits, injection_hits = sanitise_rows(table.rows)
-        table.rows = clean_rows
+    # Phase 1 — map every sheet CONCURRENTLY. The LLM calls are the slow, DB-free
+    # part; a 26-sheet workbook would otherwise be 10+ sequential AI calls (minutes).
+    # Grounding + staging (which touch the DB session) still run sequentially below.
+    _sem = asyncio.Semaphore(_MAP_CONCURRENCY)
+
+    async def _map_sheet(tbl):
+        clean, fh, ih = sanitise_rows(tbl.rows)
+        tbl.rows = clean
+        async with _sem:
+            try:
+                mr = await asyncio.to_thread(map_table, tbl, cat, None, client)
+                return (tbl, mr, fh, ih, None)
+            except Exception as exc:  # a bad sheet shouldn't kill the whole file
+                return (tbl, None, fh, ih, str(exc)[:200])
+
+    mapped_results = await asyncio.gather(*[_map_sheet(t) for t in tables])
+
+    for table, mapped_rows, formula_hits, injection_hits, err in mapped_results:
         security["formula_cells_sanitised"] += formula_hits
         security["injection_flags"] += injection_hits
-
-        try:
-            mapped_rows = map_table(table, cat, client=client)
-        except Exception as exc:  # a bad sheet shouldn't kill the whole file
+        if err is not None or mapped_rows is None:
             sheets_summary.append(
-                {"sheet": table.sheet, "rows": table.row_count, "error": str(exc)[:200]}
+                {
+                    "sheet": table.sheet,
+                    "rows": table.row_count,
+                    "error": err or "map failed",
+                }
             )
             continue
 
