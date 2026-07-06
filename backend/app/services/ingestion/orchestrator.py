@@ -53,8 +53,9 @@ from app.services.ingestion.rule_engine import check_row
 # Statuses that a commit will actually write to the ledger.
 _COMMITTABLE = {RowStatus.READY, RowStatus.APPROVED}
 
-# How many sheets to map concurrently (each is one or more LLM calls).
-_MAP_CONCURRENCY = 6
+# How many sheets to map concurrently (each sheet may itself fan out into concurrent
+# row-chunks, so keep this modest to stay within the model's request rate limits).
+_MAP_CONCURRENCY = 4
 
 
 async def annotate_duplicate(

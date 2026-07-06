@@ -11,6 +11,7 @@ sheet + column context and picks the correct candidate.
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 import anthropic
@@ -29,8 +30,9 @@ _PLACEHOLDERS = {
 }
 
 # Max rows per LLM call — a big sheet is split into chunks so the tool output never
-# gets truncated (which would silently drop mapped rows).
+# gets truncated (which would silently drop mapped rows). Chunks run concurrently.
 _CHUNK_ROWS = 40
+_CHUNK_CONCURRENCY = 5
 
 _MAP_TOOL = {
     "name": "map_rows",
@@ -215,9 +217,13 @@ def map_table(
     )
 
     # Chunk rows so a big sheet (100s of rows) never exceeds the model's output budget
-    # in a single call (which would truncate the tool result and drop rows).
+    # in a single call (which would truncate the tool result and drop rows). Chunks are
+    # independent, so run them CONCURRENTLY — a 180-row sheet is 5 chunks in parallel,
+    # not 5 sequential calls.
+    starts = list(range(0, len(rows), _CHUNK_ROWS))
     out: list[MappedRow] = []
-    for start in range(0, len(rows), _CHUNK_ROWS):
+
+    def _run_chunk(start: int) -> list[MappedRow]:
         chunk = rows[start : start + _CHUNK_ROWS]
         payload = [
             {"row_index": start + i, **{k: _json_safe(v) for k, v in r.items()}}
@@ -237,6 +243,7 @@ def map_table(
         )
         tool_input = next(b.input for b in msg.content if b.type == "tool_use")
 
+        rows_out: list[MappedRow] = []
         for m in tool_input.get("rows", []):
             idx = m.get("row_index", 0)
             key = m.get("activity_key")
@@ -244,7 +251,7 @@ def map_table(
             if key and (key not in cand_keys and not catalog.is_real(key)):
                 key = None
             entry = catalog.get(key) if key else None
-            out.append(
+            rows_out.append(
                 MappedRow(
                     row_index=idx,
                     activity_key=key,
@@ -258,4 +265,13 @@ def map_table(
                     source=rows[idx] if idx < len(rows) else {},
                 )
             )
+        return rows_out
+
+    if len(starts) <= 1:
+        for s in starts:
+            out.extend(_run_chunk(s))
+    else:
+        with ThreadPoolExecutor(max_workers=min(_CHUNK_CONCURRENCY, len(starts))) as ex:
+            for chunk_rows in ex.map(_run_chunk, starts):
+                out.extend(chunk_rows)
     return out
