@@ -90,7 +90,12 @@ export function SetTargetModal({
     : 0;
 
   const createMutation = useMutation({
-    mutationFn: (data: TargetCreateRequest) => api.createDecarbonizationTarget(data),
+    // Update in place when editing an existing target; otherwise create a new one.
+    // (Previously this always POSTed, stacking duplicate targets on "Edit".)
+    mutationFn: (data: TargetCreateRequest) =>
+      existingTarget
+        ? api.updateDecarbonizationTarget(existingTarget.id, data)
+        : api.createDecarbonizationTarget(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['decarbonization-targets'] });
       onClose();

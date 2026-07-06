@@ -20,6 +20,7 @@ import {
   Shield,
   CreditCard,
   History,
+  Sparkles,
 } from 'lucide-react';
 import { MODULE_REGISTRY, STATUS_META } from '@/lib/modules';
 
@@ -70,6 +71,7 @@ const navigation: NavGroup[] = [
     items: [
       { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { label: 'Add Activity', href: '/dashboard?wizard=true', icon: PlusCircle },
+      { label: 'Smart Import', href: '/ingest', icon: Sparkles, badge: 'New' },
       { label: 'Import Data', href: '/import', icon: Upload },
     ],
   },

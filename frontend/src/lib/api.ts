@@ -802,6 +802,8 @@ export interface ImportResult {
 
 class ApiClient {
   private token: string | null = null;
+  private refreshToken: string | null = null;
+  private refreshPromise: Promise<boolean> | null = null;
 
   setToken(token: string | null) {
     this.token = token;
@@ -811,10 +813,63 @@ class ApiClient {
     return this.token;
   }
 
+  setRefreshToken(token: string | null) {
+    this.refreshToken = token;
+    if (typeof window !== 'undefined') {
+      if (token) localStorage.setItem('climatrix_refresh', token);
+      else localStorage.removeItem('climatrix_refresh');
+    }
+  }
+
+  private getRefreshToken(): string | null {
+    if (!this.refreshToken && typeof window !== 'undefined') {
+      this.refreshToken = localStorage.getItem('climatrix_refresh');
+    }
+    return this.refreshToken;
+  }
+
+  /** Exchange the stored refresh token for a fresh access token. Deduped so a burst
+   *  of concurrent 401s triggers only one refresh call. Returns true on success. */
+  private async tryRefresh(): Promise<boolean> {
+    const rt = this.getRefreshToken();
+    if (!rt) return false;
+    if (!this.refreshPromise) {
+      this.refreshPromise = this.doRefresh(rt).finally(() => {
+        this.refreshPromise = null;
+      });
+    }
+    return this.refreshPromise;
+  }
+
+  private async doRefresh(rt: string): Promise<boolean> {
+    try {
+      const resp = await fetch(
+        `${API_BASE}/auth/refresh?refresh_token=${encodeURIComponent(rt)}`,
+        { method: 'POST' }
+      );
+      if (!resp.ok) return false;
+      const data = await resp.json();
+      this.setToken(data.access_token);
+      if (data.refresh_token) this.setRefreshToken(data.refresh_token);
+      if (typeof window !== 'undefined') {
+        // Let the auth store persist the new access token.
+        window.dispatchEvent(
+          new CustomEvent('climatrix:token-refreshed', {
+            detail: { access_token: data.access_token },
+          })
+        );
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   private async fetch<T>(
     endpoint: string,
     options: RequestInit = {},
-    timeoutMs: number = 30000
+    timeoutMs: number = 30000,
+    _retry: boolean = false
   ): Promise<T> {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -846,12 +901,22 @@ class ApiClient {
       clearTimeout(timeoutId);
     }
 
+    // On a 401, try to silently refresh the access token once and retry the request
+    // before giving up — so a 30-min access token expiring mid-session is invisible.
+    if (response.status === 401 && !_retry) {
+      const refreshed = await this.tryRefresh();
+      if (refreshed) {
+        return this.fetch<T>(endpoint, options, timeoutMs, true);
+      }
+    }
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
 
-      // If 401 Unauthorized, clear the token
+      // Refresh failed (or already retried): now it's a real auth expiry.
       if (response.status === 401) {
         this.setToken(null);
+        this.setRefreshToken(null);
         // Dispatch event to notify auth store
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('auth-expired'));
@@ -917,11 +982,13 @@ class ApiClient {
 
     const result = await response.json();
     this.setToken(result.access_token);
+    this.setRefreshToken(result.refresh_token ?? null);
     return result;
   }
 
   logout() {
     this.setToken(null);
+    this.setRefreshToken(null);
   }
 
   // Google OAuth
@@ -939,6 +1006,7 @@ class ApiClient {
 
     const result = await response.json();
     this.setToken(result.access_token);
+    this.setRefreshToken(result.refresh_token ?? null);
     return result;
   }
 
@@ -957,6 +1025,7 @@ class ApiClient {
 
     const result = await response.json();
     this.setToken(result.access_token);
+    this.setRefreshToken(result.refresh_token ?? null);
     return result;
   }
 
@@ -1624,6 +1693,78 @@ class ApiClient {
   }
 
   // ============================================================================
+  // AI Ingestion Funnel ("drop any file" → staged rows → review → commit)
+  // ============================================================================
+
+  async ingestUpload(file: File, reportingPeriodId?: string): Promise<IngestionSessionDetail> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (reportingPeriodId) formData.append('reporting_period_id', reportingPeriodId);
+
+    const token = this.getToken();
+    // Parsing can take a while (per-sheet LLM mapping) — allow up to 5 minutes.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 300000);
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE}/ingest`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Upload failed' }));
+      throw new Error(
+        typeof error.detail === 'string' ? error.detail : 'Upload failed'
+      );
+    }
+    return response.json();
+  }
+
+  async getIngestSession(sessionId: string): Promise<IngestionSessionDetail> {
+    return this.fetch<IngestionSessionDetail>(`/ingest/${sessionId}`);
+  }
+
+  async listIngestSessions(): Promise<IngestionSession[]> {
+    return this.fetch<IngestionSession[]>(`/ingest`);
+  }
+
+  async answerIngestQuestions(
+    sessionId: string,
+    answers: { question_id: string; answer: string }[]
+  ): Promise<IngestionSessionDetail> {
+    return this.fetch<IngestionSessionDetail>(`/ingest/${sessionId}/answers`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    });
+  }
+
+  async patchIngestRow(
+    sessionId: string,
+    rowId: string,
+    patch: { status?: string; activity_key?: string; quantity?: number; unit?: string }
+  ): Promise<StagedRow> {
+    return this.fetch<StagedRow>(`/ingest/${sessionId}/rows/${rowId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+  }
+
+  async commitIngestSession(
+    sessionId: string,
+    reportingPeriodId?: string
+  ): Promise<IngestionSessionDetail> {
+    return this.fetch<IngestionSessionDetail>(`/ingest/${sessionId}/commit`, {
+      method: 'POST',
+      body: JSON.stringify({ reporting_period_id: reportingPeriodId ?? null }),
+    });
+  }
+
+  // ============================================================================
   // CBAM Module (Phase 2) - EU Carbon Border Adjustment Mechanism
   // ============================================================================
 
@@ -1966,6 +2107,16 @@ class ApiClient {
   async createDecarbonizationTarget(data: TargetCreateRequest): Promise<DecarbonizationTarget> {
     return this.fetch<DecarbonizationTarget>('/decarbonization/targets', {
       method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateDecarbonizationTarget(
+    id: string,
+    data: TargetCreateRequest
+  ): Promise<DecarbonizationTarget> {
+    return this.fetch<DecarbonizationTarget>(`/decarbonization/targets/${id}`, {
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -2583,6 +2734,86 @@ export interface EmissionCheckpoint {
   variance_percent: number;
   on_track: boolean;
   created_at: string;
+}
+
+// ============================================================================
+// AI Ingestion Funnel types
+// ============================================================================
+
+export type IngestionStatus =
+  | 'uploaded'
+  | 'analyzing'
+  | 'needs_answers'
+  | 'ready_for_review'
+  | 'committing'
+  | 'committed'
+  | 'failed';
+
+export type RowStatus =
+  | 'needs_question'
+  | 'needs_review'
+  | 'ready'
+  | 'approved'
+  | 'rejected'
+  | 'committed';
+
+export interface StagedRow {
+  id: string;
+  sheet: string;
+  row_index: number;
+  source: Record<string, unknown> | null;
+  activity_key: string | null;
+  scope: number | null;
+  category_code: string | null;
+  quantity: number | null;
+  unit: string | null;
+  description: string;
+  confidence: number;
+  band: 'green' | 'amber' | 'red';
+  status: RowStatus;
+  pcaf_data_quality: number | null;
+  reasons: string[] | null;
+  committed_activity_id: string | null;
+  commit_error: string | null;
+}
+
+export interface ClarificationQuestion {
+  id: string;
+  staged_row_id: string | null;
+  question: string;
+  field: string | null;
+  choices: string[] | null;
+  answer: string | null;
+  answered: boolean;
+}
+
+export interface IngestionSession {
+  id: string;
+  filename: string;
+  status: IngestionStatus;
+  total_rows: number;
+  mapped_rows: number;
+  question_count: number;
+  open_question_count: number;
+  committed_count: number;
+  summary: {
+    sheets?: { sheet: string; rows: number; staged?: number; detected_scope?: number | null; error?: string }[];
+    by_scope?: Record<string, number>;
+    by_band?: Record<string, number>;
+    security?: { formula_cells_sanitised: number; injection_flags: number };
+    duplicate_warning?: string;
+    duplicate_of?: string;
+    notice?: string;
+  } | null;
+  error_message: string | null;
+  reporting_period_id: string | null;
+  import_batch_id: string | null;
+  created_at: string;
+}
+
+export interface IngestionSessionDetail extends IngestionSession {
+  rows: StagedRow[];
+  questions: ClarificationQuestion[];
 }
 
 export const api = new ApiClient();

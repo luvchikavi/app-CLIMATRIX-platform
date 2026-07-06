@@ -141,9 +141,13 @@ export default function RoadmapPage() {
                     const isTarget = year === activeTarget.target_year;
                     const isBase = year === activeTarget.base_year;
 
-                    // Calculate expected emissions for this year (linear interpolation)
+                    // Calculate expected emissions for this year (linear interpolation).
+                    // base_year_emissions_tco2e / target_reduction_percent arrive as strings
+                    // (Decimal serialized) — coerce with Number() or the math yields NaN.
+                    const baseEmissions = Number(activeTarget.base_year_emissions_tco2e || 0);
+                    const reductionPct = Number(activeTarget.target_reduction_percent || 0);
                     const progress = (year - activeTarget.base_year) / (activeTarget.target_year - activeTarget.base_year);
-                    const expectedEmissions = activeTarget.base_year_emissions_tco2e * (1 - progress * (activeTarget.target_reduction_percent / 100));
+                    const expectedEmissions = baseEmissions * (1 - progress * (reductionPct / 100));
 
                     return (
                       <div key={year} className="flex items-start gap-4 relative">

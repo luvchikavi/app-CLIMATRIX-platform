@@ -378,9 +378,10 @@ function ReportsPageContent() {
                 <Card padding="lg" className="border-l-4 border-l-scope3">
                   <p className="text-sm font-medium text-foreground-muted">Scope 3</p>
                   <p className="text-2xl font-bold text-foreground mt-1">
-                    {formatCO2e(summary.scope_3_co2e_kg + (summary.scope_3_wtt_co2e_kg || 0))}
+                    {/* Backend now includes WTT (3.3) inside scope_3_co2e_kg — don't re-add it */}
+                    {formatCO2e(summary.scope_3_co2e_kg)}
                   </p>
-                  <p className="text-xs text-foreground-muted mt-1">Value chain</p>
+                  <p className="text-xs text-foreground-muted mt-1">Value chain (incl. WTT)</p>
                 </Card>
               </div>
 

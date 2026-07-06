@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { api, InitiativeCategory } from '@/lib/api';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { api, InitiativeCategory, PersonalizedRecommendation } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
-import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '@/components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Badge, Button, toast } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import {
   Loader2,
@@ -21,6 +21,7 @@ import {
   Recycle,
   Filter,
   Plus,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -61,6 +62,13 @@ export default function RecommendationsPage() {
   const { user } = useAuthStore();
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
+  const [addingRec, setAddingRec] = useState<PersonalizedRecommendation | null>(null);
+
+  const { data: scenarios } = useQuery({
+    queryKey: ['scenarios', user?.organization_id],
+    queryFn: () => api.getScenarios(),
+    enabled: !!user?.organization_id,
+  });
 
   // Fetch periods
   const { data: periods } = useQuery({
@@ -172,7 +180,7 @@ export default function RecommendationsPage() {
                           <Badge variant={rec.impact_score >= 7 ? 'success' : rec.impact_score >= 4 ? 'warning' : 'secondary'}>
                             Impact: {rec.impact_score}/10
                           </Badge>
-                          <Button size="sm">
+                          <Button size="sm" onClick={() => setAddingRec(rec)}>
                             <Plus className="w-4 h-4 mr-1" />
                             Add to Scenario
                           </Button>
@@ -236,6 +244,96 @@ export default function RecommendationsPage() {
           })}
         </div>
       )}
+
+      {addingRec && (
+        <AddToScenarioModal
+          rec={addingRec}
+          scenarios={(scenarios ?? []).map((s) => ({ id: s.id, name: s.name }))}
+          onClose={() => setAddingRec(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function AddToScenarioModal({
+  rec,
+  scenarios,
+  onClose,
+}: {
+  rec: PersonalizedRecommendation;
+  scenarios: { id: string; name: string }[];
+  onClose: () => void;
+}) {
+  const [scenarioId, setScenarioId] = useState(scenarios[0]?.id || '');
+  const [error, setError] = useState<string | null>(null);
+
+  const addMutation = useMutation({
+    mutationFn: () =>
+      api.addInitiativeToScenario(scenarioId, {
+        initiative_id: rec.initiative_id,
+        target_activity_key: rec.target_activity_key,
+        expected_reduction_tco2e: Number(rec.potential_reduction_tco2e || 0),
+        expected_reduction_percent: Number(rec.reduction_as_percent_of_total || 0),
+        capex: Number(rec.estimated_capex || 0),
+      }),
+    onSuccess: () => {
+      toast.success('Added to scenario');
+      onClose();
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            Add to Scenario
+            <button onClick={onClose} aria-label="Close">
+              <X className="w-5 h-5 text-foreground-muted" />
+            </button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-foreground-muted">
+            Add <span className="font-medium text-foreground">{rec.initiative_name}</span> to:
+          </p>
+          {scenarios.length === 0 ? (
+            <div className="text-sm text-foreground-muted">
+              You don&apos;t have any scenarios yet.{' '}
+              <Link href="/decarbonization/scenarios" className="text-primary underline">
+                Create one first
+              </Link>
+              .
+            </div>
+          ) : (
+            <>
+              <select
+                value={scenarioId}
+                onChange={(e) => setScenarioId(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+              >
+                {scenarios.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              {error && <p className="text-sm text-error">{error}</p>}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button onClick={() => addMutation.mutate()} disabled={addMutation.isPending || !scenarioId}>
+                  {addMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Add
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
