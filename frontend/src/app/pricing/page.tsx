@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 
 const iconMap: Record<string, LucideIcon> = {
+  Leaf,
   Zap,
   Building2,
   Rocket,
@@ -160,7 +161,7 @@ export default function PricingPage() {
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-3 gap-8">
             {plans.map((plan) => {
-              const Icon = iconMap[plan.icon];
+              const Icon = iconMap[plan.icon] ?? Leaf; // fallback so an unmapped icon can't break the build
               const price = plan.annualPrice;
 
               return (
