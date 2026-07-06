@@ -121,17 +121,50 @@ def _json_safe(v):
     return str(v)
 
 
+def _row_text(row: dict) -> str:
+    """Free-text of a row's meaningful string values (for retrieval)."""
+    parts = []
+    for k, v in row.items():
+        if (
+            isinstance(v, str)
+            and v.strip().lower() not in _PLACEHOLDERS
+            and len(v.strip()) > 1
+        ):
+            parts.append(v)
+    return " ".join(parts)
+
+
 def _candidates(catalog: FactorCatalog, table: RawTable, k: int = 35):
+    """Legacy single-query retrieval over the whole sheet (kept for callers/tests)."""
     text = f"{table.sheet} {' '.join(table.columns)}"
     for r in table.rows[:10]:
-        for v in r.values():
-            if (
-                isinstance(v, str)
-                and v.strip().lower() not in _PLACEHOLDERS
-                and len(v) > 2
-            ):
-                text += " " + v
+        text += " " + _row_text(r)
     return catalog.search(text, top_n=k)
+
+
+def _candidates_for_rows(
+    catalog: FactorCatalog,
+    table: RawTable,
+    rows: list[dict],
+    per_row: int = 8,
+    cap: int = 120,
+):
+    """Union of PER-ROW retrievals — the key to handling a heterogeneous real-world
+    sheet (electricity + steel + refrigerant + hotel + cloud in one file). Each row
+    is matched against the whole catalog on its own terms, so the model always sees
+    the right candidates for every line, not just the sheet's dominant theme."""
+    seen: dict = {}
+    # Sheet/column context first, so shared theme keys are always present.
+    for e in catalog.search(f"{table.sheet} {' '.join(table.columns)}", top_n=15):
+        seen[e.activity_key] = e
+    # Then each row contributes its own best matches.
+    for r in rows:
+        text = _row_text(r)
+        if not text:
+            continue
+        for e in catalog.search(text, top_n=per_row):
+            seen[e.activity_key] = e
+    return list(seen.values())[:cap]
 
 
 def map_table(
@@ -146,13 +179,6 @@ def map_table(
     settings = get_settings()
     client = client or anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
-    cands = _candidates(catalog, table)
-    cand_keys = {c.activity_key for c in cands}
-    cand_block = "\n".join(
-        f"- {c.activity_key} | Scope {c.scope}.{c.category_code} | expects {c.activity_unit} | {c.display_name}"
-        for c in cands
-    )
-
     rows = [
         r
         for r in table.rows
@@ -160,6 +186,15 @@ def map_table(
     ]
     if max_rows:
         rows = rows[:max_rows]
+
+    # Retrieve candidates PER ROW (union) so a heterogeneous sheet still surfaces the
+    # right factor for every line — not just the sheet's dominant theme.
+    cands = _candidates_for_rows(catalog, table, rows)
+    cand_keys = {c.activity_key for c in cands}
+    cand_block = "\n".join(
+        f"- {c.activity_key} | Scope {c.scope}.{c.category_code} | expects {c.activity_unit} | {c.display_name}"
+        for c in cands
+    )
     payload = [
         {"row_index": i, **{k: _json_safe(v) for k, v in r.items()}}
         for i, r in enumerate(rows)
