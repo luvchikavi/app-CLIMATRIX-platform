@@ -30,6 +30,28 @@ async def test_login_success(client: AsyncClient, test_user):
 
 
 @pytest.mark.asyncio
+async def test_refresh_token_returns_fresh_session(client: AsyncClient, test_user):
+    """The refresh endpoint must exchange a refresh token for a full new session
+    (regression: it used to 500 on a UUID cast and return an incomplete Token)."""
+    login = await client.post(
+        "/api/auth/login",
+        data={"username": "test@example.com", "password": "testpassword123"},
+    )
+    rt = login.json()["refresh_token"]
+
+    resp = await client.post(f"/api/auth/refresh?refresh_token={rt}")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["access_token"]
+    assert data["refresh_token"]
+    assert data["user"]["email"] == "test@example.com"
+
+    # A garbage refresh token is rejected cleanly (not a 500).
+    bad = await client.post("/api/auth/refresh?refresh_token=not-a-real-token")
+    assert bad.status_code == 400
+
+
+@pytest.mark.asyncio
 async def test_login_wrong_password(client: AsyncClient, test_user):
     """Test login with wrong password."""
     response = await client.post(

@@ -369,6 +369,8 @@ async def refresh_token(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """Refresh access token using refresh token."""
+    from app.models.core import Organization
+
     try:
         payload = jwt.decode(
             refresh_token, settings.secret_key, algorithms=[settings.algorithm]
@@ -377,11 +379,21 @@ async def refresh_token(
             raise HTTPException(status_code=400, detail="Invalid token type")
 
         user_id = payload.get("sub")
-        result = await session.execute(select(User).where(User.id == user_id))
+        try:
+            user_uuid = UUID(str(user_id))
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Invalid refresh token")
+
+        result = await session.execute(select(User).where(User.id == user_uuid))
         user = result.scalar_one_or_none()
 
         if not user or not user.is_active:
             raise HTTPException(status_code=400, detail="Invalid user")
+
+        org_result = await session.execute(
+            select(Organization).where(Organization.id == user.organization_id)
+        )
+        organization = org_result.scalar_one_or_none()
 
         token_data = {
             "sub": str(user.id),
@@ -395,7 +407,31 @@ async def refresh_token(
         )
         new_refresh_token = create_refresh_token(token_data)
 
-        return Token(access_token=new_access_token, refresh_token=new_refresh_token)
+        user_response = UserResponse(
+            id=str(user.id),
+            email=user.email,
+            full_name=user.full_name,
+            role=user.role.value,
+            organization_id=str(user.organization_id),
+        )
+        org_response = None
+        if organization:
+            org_response = OrganizationResponse(
+                id=str(organization.id),
+                name=organization.name,
+                country_code=organization.country_code,
+                default_region=organization.default_region or "Global",
+                industry_code=organization.industry_code,
+                base_year=organization.base_year,
+                setup_complete=organization.setup_complete,
+            )
+
+        return Token(
+            access_token=new_access_token,
+            refresh_token=new_refresh_token,
+            user=user_response,
+            organization=org_response,
+        )
 
     except JWTError:
         raise HTTPException(status_code=400, detail="Invalid refresh token")
