@@ -113,6 +113,18 @@ async def init_db() -> None:
     # Check if we need to seed data
     await seed_if_needed()
 
+    # Seed the decarbonization initiative library (idempotent) so the
+    # Recommendations / Scenarios module works on any fresh deploy.
+    try:
+        from app.seeds.initiatives import seed_initiatives
+
+        async with async_session_maker() as session:
+            created = await seed_initiatives(session)
+            if created:
+                logger.info(f"Seeded {created} decarbonization initiatives")
+    except Exception as exc:  # never let seeding block startup
+        logger.warning(f"Initiative seeding skipped: {exc}")
+
 
 async def add_missing_emission_factors(session) -> None:
     """Add any emission factors that are in the code but missing from the database."""
