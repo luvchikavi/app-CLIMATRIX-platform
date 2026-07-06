@@ -299,6 +299,34 @@ async def get_report_summary(
         for row in category_rows
     ]
 
+    # --- Fold WTT (well-to-tank) into Scope 3.3 -----------------------------------
+    # WTT is derived from Scope 1/2 fuel & energy but is reported under GHG Protocol
+    # as Scope 3 Category 3 (fuel- and energy-related activities). It must be part of
+    # the Scope 3 total AND the grand total — otherwise the headline inventory number
+    # is understated. Surface it as an explicit 3.3 category row too.
+    if wtt_total > 0:
+        scope_totals[3] = scope_totals[3] + wtt_total
+        by_category.append(
+            CategorySummary(
+                scope=3,
+                category_code="3.3",
+                total_co2e_kg=float(wtt_total),
+                activity_count=0,
+            )
+        )
+        _s3 = next((s for s in by_scope if s.scope == 3), None)
+        if _s3 is not None:
+            _s3.total_co2e_kg = float(Decimal(str(_s3.total_co2e_kg)) + wtt_total)
+        else:
+            by_scope.append(
+                ScopeSummary(
+                    scope=3,
+                    total_co2e_kg=float(wtt_total),
+                    total_wtt_co2e_kg=float(wtt_total),
+                    activity_count=0,
+                )
+            )
+
     total_co2e = sum(scope_totals.values())
 
     # Calculate Scope 2 location-based and market-based totals
