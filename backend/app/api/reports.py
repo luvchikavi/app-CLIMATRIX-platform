@@ -977,10 +977,14 @@ async def get_ghg_inventory_report(
 
     total_quality_weighted_sum = Decimal(0)
     total_co2e = Decimal(0)
+    wtt_total = Decimal(0)
 
     for activity, emission, factor in rows:
         scope = activity.scope
         key = activity.activity_key
+        # WTT from Scope 1/2 energy is reported under Scope 3.3 (see fold below).
+        if scope in (1, 2):
+            wtt_total += emission.wtt_co2e_kg or Decimal(0)
 
         if key not in scope_data[scope]:
             scope_data[scope][key] = {
@@ -1028,6 +1032,29 @@ async def get_ghg_inventory_report(
             str(activity.data_quality_score or 5)
         )
 
+    # Fold WTT (well-to-tank) into Scope 3.3 + the grand total, consistent with the
+    # summary endpoint, so the official inventory total isn't understated.
+    if wtt_total > 0:
+        if "wtt_fuel_energy" not in scope_data[3]:
+            scope_data[3]["wtt_fuel_energy"] = {
+                "display_name": "Fuel & energy-related activities (WTT)",
+                "category_code": "3.3",
+                "count": 0,
+                "total_quantity": Decimal(0),
+                "unit": "kg CO2e",
+                "total_co2e_kg": Decimal(0),
+                "emission_factor": None,
+                "factor_source": "Derived (WTT)",
+                "factor_unit": None,
+                "quality_sum": Decimal(0),
+                "factor_year": None,
+                "factor_region": None,
+                "method_hierarchy": "wtt",
+            }
+        scope_data[3]["wtt_fuel_energy"]["total_co2e_kg"] += wtt_total
+        scope_totals[3] += wtt_total
+        total_co2e += wtt_total
+
     # Build scope details
     def build_scope_detail(scope: int) -> ScopeDetail:
         sources = []
@@ -1045,7 +1072,11 @@ async def get_ghg_inventory_report(
                     unit=data["unit"],
                     total_co2e_kg=float(data["total_co2e_kg"]),
                     total_co2e_tonnes=float(data["total_co2e_kg"]) / 1000,
-                    emission_factor=float(data["emission_factor"]),
+                    emission_factor=(
+                        float(data["emission_factor"])
+                        if data["emission_factor"] is not None
+                        else 0.0
+                    ),
                     factor_source=data["factor_source"],
                     factor_unit=data["factor_unit"],
                     avg_data_quality=round(avg_quality, 1),
@@ -2586,8 +2617,13 @@ async def export_report_pdf(
 
     # Aggregate scope totals
     scope_totals = {1: Decimal(0), 2: Decimal(0), 3: Decimal(0)}
+    wtt_total = Decimal(0)
     for activity, emission, _factor in rows:
         scope_totals[activity.scope] += emission.co2e_kg or Decimal(0)
+        if activity.scope in (1, 2):
+            wtt_total += emission.wtt_co2e_kg or Decimal(0)
+    # WTT -> Scope 3.3, so the PDF total matches the summary/inventory.
+    scope_totals[3] += wtt_total
     total_co2e = sum(scope_totals.values())
 
     # Calculate Scope 2 location-based and market-based totals for PDF
