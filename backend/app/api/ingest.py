@@ -266,9 +266,10 @@ async def upload_and_analyze(
     session.add(ingestion)
     await session.flush()
 
-    # Try to dispatch parsing to the worker (production/staging). If that isn't
-    # available, fall back to parsing inline so the upload still works.
-    if settings.environment in ("production", "staging"):
+    # Dispatch parsing to the arq worker only when explicitly enabled and a worker
+    # is deployed. Off by default — the parser is fast (~15-20s), so we parse inline
+    # in the request, which is reliable without any worker infrastructure.
+    if settings.ingest_use_worker:
         try:
             file_path = _persist_upload(ingestion.id, content, report.filename)
             redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))

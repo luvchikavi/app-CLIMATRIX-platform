@@ -127,6 +127,11 @@ class Settings(BaseSettings):
     # File Upload Limits
     max_upload_size_mb: int = 50  # Maximum file upload size in MB
 
+    # Smart Import: dispatch parsing to the arq worker (async) vs. parse inline in
+    # the request. Off by default — no worker is deployed and the parser is fast
+    # (~15-20s), so inline is reliable. Flip to True only if a worker is running.
+    ingest_use_worker: bool = False
+
     # Rate Limiting
     rate_limit_enabled: bool = True
     rate_limit_login: str = "10/minute"
