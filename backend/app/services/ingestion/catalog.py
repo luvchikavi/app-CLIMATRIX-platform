@@ -56,6 +56,34 @@ ALIASES: dict[str, str] = {
     "datacenter": "electricity",
 }
 
+# Measurement-unit words: intent hints (kwh → electricity via ALIASES) but weak
+# discriminators between candidate keys.
+_UNIT_TOKENS = {
+    "kwh",
+    "mwh",
+    "gj",
+    "liters",
+    "litres",
+    "liter",
+    "litre",
+    "gallons",
+    "gallon",
+    "kg",
+    "tonnes",
+    "tons",
+    "tonne",
+    "ton",
+    "km",
+    "miles",
+    "mile",
+    "m3",
+    "nights",
+    "usd",
+    "eur",
+    "ils",
+    "gbp",
+}
+
 # Region codes -> country name tokens, so "electricity Israel" finds the IL grid key.
 _REGION_NAMES: dict[str, str] = {
     "IL": "israel",
@@ -94,9 +122,18 @@ class FactorEntry:
     def score(self, q_tokens: set[str]) -> float:
         if not q_tokens:
             return 0.0
-        overlap = len(q_tokens & self.tokens)
-        substring = sum(1 for t in q_tokens if len(t) >= 3 and t in self.activity_key)
-        return overlap * 2.0 + substring
+        # Unit words (kwh, liters, km…) signal intent but shouldn't discriminate
+        # between keys: weighting them like real words made verbose Scope-3 keys
+        # ("downstream_leased_electricity_kwh") outrank the plain grid key.
+        overlap = sum(
+            0.5 if t in _UNIT_TOKENS else 2.0 for t in (q_tokens & self.tokens)
+        )
+        substring = sum(
+            1
+            for t in q_tokens
+            if len(t) >= 3 and t not in _UNIT_TOKENS and t in self.activity_key
+        )
+        return overlap + substring
 
 
 class FactorCatalog:
@@ -116,14 +153,34 @@ class FactorCatalog:
         return activity_key in self._by_key
 
     def search(
-        self, query: str, top_n: int = 15, scope: int | None = None
+        self,
+        query: str,
+        top_n: int = 15,
+        scope: int | None = None,
+        region: str | None = None,
     ) -> list[FactorEntry]:
         """Return the top-N candidate factors for a free-text query (a column
-        header, description, or the LLM's guess). Optionally constrain by scope."""
+        header, description, or the LLM's guess). Optionally constrain by scope.
+
+        When the organization's region is known, factors for THAT region are
+        boosted (and Global fallbacks slightly) — an Israeli org typing
+        "electricity" should be offered the IL grid key first, not an
+        alphabetical parade of other countries."""
         q = _tokens(query)
         q |= {ALIASES[t] for t in list(q) if t in ALIASES}
         pool = (e for e in self.entries if scope is None or e.scope == scope)
-        scored = [(e.score(q), e) for e in pool]
+
+        def ranked(e: FactorEntry) -> float:
+            base = e.score(q)
+            if base <= 0:
+                return 0.0
+            if region and e.region == region:
+                return base + 2.5
+            if e.region == "Global":
+                return base + 0.5
+            return base
+
+        scored = [(ranked(e), e) for e in pool]
         scored = [(s, e) for s, e in scored if s > 0]
         scored.sort(key=lambda x: (-x[0], x[1].activity_key))
         return [e for _, e in scored[:top_n]]

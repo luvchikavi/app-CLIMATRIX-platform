@@ -77,6 +77,15 @@ class FileAnalyzer:
         "site",
         "location",
         "country",
+        # generic header labels — without these, a first data row containing
+        # content words ("electricity", "kwh") can outscore the real header
+        "item",
+        "value",
+        "comment",
+        "notes",
+        "name",
+        "source",
+        "activity",
         "fuel",
         "electricity",
         "gas",
@@ -127,6 +136,10 @@ class FileAnalyzer:
         "sample",
         "notes",
         "definitions",
+        "lookup",  # reference/dropdown tables — never emission rows
+        "legend",
+        "clientinfo",
+        "client info",
     ]
 
     # Patterns to detect scope from sheet names
@@ -425,6 +438,10 @@ class FileAnalyzer:
             numeric_in_row = sum(1 for v in row if pd.notna(v) and self._is_numeric(v))
             score -= numeric_in_row * 2
 
+            # Headers precede data — on near-ties prefer the earlier row so a
+            # keyword-rich first data row can't steal the header slot.
+            score -= idx
+
             if score > best_score:
                 best_score = score
                 best_row = idx
@@ -454,15 +471,40 @@ class FileAnalyzer:
         if df.empty:
             return True
 
-        # Count numeric cells in first 10 rows
+        # A sheet with a real header row is a DATA sheet even if the numbers sit
+        # low or are sparse — data sheets often open with title/legend rows, and a
+        # sparsely-filled sheet (2 electricity readings under 4 banner rows) was
+        # being thrown away as "metadata" here, silently losing real data.
+        if self._has_header_like_row(df):
+            return False
+
+        # Count numeric cells in the first 30 rows (10 was too shallow: banner +
+        # legend + blank rows pushed real data out of the window)
         numeric_count = 0
-        for _, row in df.head(10).iterrows():
+        for _, row in df.head(30).iterrows():
             for v in row:
                 if pd.notna(v) and self._is_numeric(v):
                     numeric_count += 1
 
         # If very few numbers, likely metadata
         return numeric_count < 3
+
+    def _has_header_like_row(self, df: pd.DataFrame) -> bool:
+        """True if one of the first 15 rows looks like a column header: several
+        short string cells, at least one of them a known header keyword."""
+        for idx in range(min(15, len(df))):
+            row = df.iloc[idx]
+            strings = [
+                str(v).strip()
+                for v in row
+                if pd.notna(v) and isinstance(v, str) and 1 < len(str(v).strip()) < 40
+            ]
+            if len(strings) < 4:
+                continue
+            row_text = " ".join(strings).lower()
+            if any(keyword in row_text for keyword in self.HEADER_KEYWORDS):
+                return True
+        return False
 
     def _detect_scope_from_name(self, sheet_name: str) -> Optional[int]:
         """Detect scope number from sheet name"""

@@ -38,7 +38,10 @@ _PCAF_SCORE = {
     ResolutionStrategy.REGION: 3,
     ResolutionStrategy.DEFRA_PHYSICAL: 3,
     ResolutionStrategy.ECOINVENT: 3,
-    ResolutionStrategy.GLOBAL: 4,
+    # Physical activity data × a global-average factor is still "calculated"
+    # (PCAF 3) — otherwise every org outside the factor-rich regions would see
+    # its metered data branded "estimated". Spend-basis is forced to 4+ below.
+    ResolutionStrategy.GLOBAL: 3,
     ResolutionStrategy.EEIO_SPEND: 5,
     ResolutionStrategy.NOT_FOUND: 5,
 }
@@ -149,6 +152,19 @@ def check_unit(input_unit: str, factor_unit: str) -> tuple[bool, str]:
         _NORMALIZER.normalize(Decimal("1"), input_unit, factor_unit)
         return True, f"Unit '{input_unit}' is convertible to '{factor_unit}'."
     except UnitConversionError:
+        # Messy sources often carry the unit inside a sentence ("kWh for the
+        # year", "liters total"). If the FIRST word alone is a clean unit that
+        # converts, accept it — the verbatim source is preserved either way.
+        first = input_unit.strip().split()[0] if input_unit.strip() else ""
+        if first and first.lower() != input_unit.strip().lower():
+            try:
+                _NORMALIZER.normalize(Decimal("1"), first, factor_unit)
+                return True, (
+                    f"Read unit '{first}' from '{input_unit}' — convertible to "
+                    f"'{factor_unit}'."
+                )
+            except UnitConversionError:
+                pass
         return False, (
             f"Unit '{input_unit}' cannot be safely converted to the factor unit "
             f"'{factor_unit}' — needs a clarifying question "
@@ -189,6 +205,13 @@ async def ground_row(
     if not unit_ok:
         cap = min(cap, 0.4)
 
+    # PCAF honesty: the strategy says HOW the factor was found, but a factor whose
+    # basis is money (EEIO spend) is an estimate no matter how cleanly it resolved.
+    # measured/calculated must never be claimed for a spend-based line.
+    pcaf = _PCAF_SCORE.get(res.strategy, 4)
+    if classify_unit(factor_unit or "") == "currency":
+        pcaf = max(pcaf, 4)
+
     return GroundingVerdict(
         resolved=True,
         strategy=res.strategy.value,
@@ -196,7 +219,7 @@ async def ground_row(
         unit_ok=unit_ok,
         needs_question=not unit_ok,
         confidence_cap=cap,
-        pcaf_data_quality=_PCAF_SCORE.get(res.strategy, 4),
+        pcaf_data_quality=pcaf,
         reason=unit_reason if not unit_ok else res.message,
         factor_source=getattr(res.factor, "source", None),
         factor_year=getattr(res.factor, "year", None),

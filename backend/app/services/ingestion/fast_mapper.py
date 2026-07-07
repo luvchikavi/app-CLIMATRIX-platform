@@ -113,7 +113,7 @@ def _clean_rows(table: RawTable) -> list[dict]:
     ]
 
 
-def detect_columns(table: RawTable, client, settings) -> ColumnMap:
+def detect_columns(table: RawTable, client, settings, context=None) -> ColumnMap:
     """One LLM call: figure out which column is activity / quantity / unit / date."""
     sample = _clean_rows(table)[:8]
     payload = [{k: _json_safe(v) for k, v in r.items()} for r in sample]
@@ -122,6 +122,8 @@ def detect_columns(table: RawTable, client, settings) -> ColumnMap:
         "role of each column so the rows can be read programmatically. Use the EXACT "
         "column names from the header."
     )
+    if context is not None:
+        system = f"{context.prompt_block()}\n\n{system}"
     user = (
         f"Sheet: {table.sheet}\nColumns: {table.columns}\n"
         f"Sample rows (JSON):\n{json.dumps(payload, default=str)}"
@@ -183,37 +185,52 @@ def _candidates_for_texts(
     texts: list[str],
     per: int = 6,
     cap: int = 120,
+    region: str | None = None,
 ):
     seen: dict = {}
-    for e in catalog.search(f"{table.sheet} {' '.join(table.columns)}", top_n=12):
+    for e in catalog.search(
+        f"{table.sheet} {' '.join(table.columns)}", top_n=12, region=region
+    ):
         seen[e.activity_key] = e
     for t in texts:
-        for e in catalog.search(t, top_n=per):
+        for e in catalog.search(t, top_n=per, region=region):
             seen[e.activity_key] = e
     return list(seen.values())[:cap]
 
 
 def map_distinct(
-    distinct: list[str], catalog: FactorCatalog, table: RawTable, client, settings
+    distinct: list[str],
+    catalog: FactorCatalog,
+    table: RawTable,
+    client,
+    settings,
+    context=None,
 ) -> dict:
     """One LLM call: map distinct activity texts -> catalog keys. Returns {text: dict}."""
-    cands = _candidates_for_texts(catalog, table, distinct)
+    region = getattr(context, "default_region", None) if context is not None else None
+    cands = _candidates_for_texts(catalog, table, distinct, region=region)
     cand_keys = {c.activity_key for c in cands}
     cand_block = "\n".join(
         f"- {c.activity_key} | Scope {c.scope}.{c.category_code} | expects {c.activity_unit} | {c.display_name}"
         for c in cands
     )
+    ctx_block = f"{context.prompt_block()}\n\n" if context is not None else ""
     system = (
+        f"{ctx_block}"
         "Map each distinct client activity description to EXACTLY one candidate key "
         "below, or null if none truly fits / you're unsure — never invent a key.\n"
         "RULES:\n"
         "- Read the sheet name for context (a 'Scope2_Electricity' sheet is electricity).\n"
         "- COUNTRY MATTERS: if the text names a country/region, pick the key for THAT "
         "country (e.g. 'electricity Israel' → an Israel electricity key, NEVER another "
-        "country's). If no country is named, prefer a generic/global key over a random "
-        "country-specific one.\n"
+        "country's). If no country is named, use the organization context above: its "
+        "country/region and sites decide the default (an Israeli org's electricity is "
+        "Israeli grid electricity). Only fall back to a generic/global key when the "
+        "context doesn't settle it.\n"
         "- Match the physical basis: a spend/$ amount → a spend key; a physical amount "
-        "(kg, kWh, L, km) → a physical key.\n\n"
+        "(kg, kWh, L, km) → a physical key. Bare money amounts are in the "
+        "organization's declared currency.\n"
+        "- Prefer keys in the organization's EXPECTED categories when several fit.\n\n"
         f"Sheet: {table.sheet}\nCANDIDATE KEYS (key | scope | expected unit | name):\n{cand_block}"
     )
     user = "Distinct activities to map:\n" + json.dumps(distinct, default=str)
@@ -247,6 +264,7 @@ def map_table_fast(
     catalog: FactorCatalog,
     max_rows: int | None = None,
     client: anthropic.Anthropic | None = None,
+    context=None,
 ) -> list[MappedRow]:
     """Drop-in replacement for map_table(): ~2 LLM calls per sheet regardless of size."""
     settings = get_settings()
@@ -259,7 +277,7 @@ def map_table_fast(
         return []
 
     # 1) column roles (1 call)
-    cmap = detect_columns(table, client, settings)
+    cmap = detect_columns(table, client, settings, context)
 
     # 2) extract deterministically + collect distinct activity texts
     extracted = []
@@ -275,7 +293,9 @@ def map_table_fast(
 
     distinct = sorted({e[2] for e in extracted if e[2]})
     key_map = (
-        map_distinct(distinct, catalog, table, client, settings) if distinct else {}
+        map_distinct(distinct, catalog, table, client, settings, context)
+        if distinct
+        else {}
     )
 
     # 3) apply the distinct mapping to every row (no further LLM cost)

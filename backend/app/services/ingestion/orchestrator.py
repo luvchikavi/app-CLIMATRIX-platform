@@ -50,10 +50,12 @@ from app.services.ingestion.grounding import (
     ground_row,
     classify_unit,
 )
+from app.services.ingestion.context import build_parsing_context
 from app.services.ingestion.loader import load
 from app.services.ingestion.mapper import map_table
 from app.services.ingestion.fast_mapper import map_table_fast
 from app.services.ingestion.rule_engine import check_row
+from app.services.ingestion.template_bridge import detect_template, map_template
 
 # Statuses that a commit will actually write to the ledger.
 _COMMITTABLE = {RowStatus.READY, RowStatus.APPROVED}
@@ -159,20 +161,36 @@ async def run_analysis(
     ingestion.updated_at = datetime.utcnow()
     await session.flush()
 
-    try:
-        tables = load(content, filename)
-    except NotImplementedError as exc:
-        ingestion.status = IngestionStatus.FAILED
-        ingestion.error_message = str(exc)
-        await session.flush()
-        return ingestion
-    except Exception as exc:  # pragma: no cover - defensive
-        ingestion.status = IngestionStatus.FAILED
-        ingestion.error_message = f"Could not read the file: {exc}"
-        await session.flush()
-        return ingestion
-
     cat = await catalog_mod.build_from_db(session)
+
+    # Everything the org already declared (hub profile, currency, units, sites)
+    # rides along on every parse — the LLM never guesses what the client answered.
+    context = await build_parsing_context(
+        session, ingestion.organization_id, ingestion.reporting_period_id
+    )
+
+    # FAST PATH — our own template. Known sheets, exact semantics: parse
+    # deterministically (no LLM), stage directly. Foreign files fall through.
+    template_results = None
+    if detect_template(content, filename):
+        template_results = await asyncio.to_thread(map_template, content, filename)
+
+    parse_mode = "template" if template_results is not None else "ai"
+    if template_results is not None:
+        mapped_results = [(tbl, rows, 0, 0, None) for tbl, rows in template_results]
+    else:
+        try:
+            tables = load(content, filename)
+        except NotImplementedError as exc:
+            ingestion.status = IngestionStatus.FAILED
+            ingestion.error_message = str(exc)
+            await session.flush()
+            return ingestion
+        except Exception as exc:  # pragma: no cover - defensive
+            ingestion.status = IngestionStatus.FAILED
+            ingestion.error_message = f"Could not read the file: {exc}"
+            await session.flush()
+            return ingestion
 
     total = 0
     mapped = 0
@@ -186,28 +204,31 @@ async def run_analysis(
     # (all "PP" rows share one question) instead of once per row. Keyed by group_key.
     question_groups: dict[str, dict] = {}
 
-    # Phase 1 — map every sheet CONCURRENTLY. The LLM calls are the slow, DB-free
-    # part; a 26-sheet workbook would otherwise be 10+ sequential AI calls (minutes).
-    # Grounding + staging (which touch the DB session) still run sequentially below.
-    _sem = asyncio.Semaphore(_MAP_CONCURRENCY)
+    if template_results is None:
+        # Phase 1 — map every sheet CONCURRENTLY. The LLM calls are the slow, DB-free
+        # part; a 26-sheet workbook would otherwise be 10+ sequential AI calls (minutes).
+        # Grounding + staging (which touch the DB session) still run sequentially below.
+        _sem = asyncio.Semaphore(_MAP_CONCURRENCY)
 
-    async def _map_sheet(tbl):
-        clean, fh, ih = sanitise_rows(tbl.rows)
-        tbl.rows = clean
-        async with _sem:
-            try:
-                # Fast path: ~2 LLM calls/sheet (column map + distinct values).
-                mr = await asyncio.to_thread(map_table_fast, tbl, cat, None, client)
-                return (tbl, mr, fh, ih, None)
-            except Exception:
-                # Fall back to the slower but battle-tested row-level mapper.
+        async def _map_sheet(tbl):
+            clean, fh, ih = sanitise_rows(tbl.rows)
+            tbl.rows = clean
+            async with _sem:
                 try:
-                    mr = await asyncio.to_thread(map_table, tbl, cat, None, client)
+                    # Fast path: ~2 LLM calls/sheet (column map + distinct values).
+                    mr = await asyncio.to_thread(
+                        map_table_fast, tbl, cat, None, client, context
+                    )
                     return (tbl, mr, fh, ih, None)
-                except Exception as exc:  # a bad sheet shouldn't kill the whole file
-                    return (tbl, None, fh, ih, str(exc)[:200])
+                except Exception:
+                    # Fall back to the slower but battle-tested row-level mapper.
+                    try:
+                        mr = await asyncio.to_thread(map_table, tbl, cat, None, client)
+                        return (tbl, mr, fh, ih, None)
+                    except Exception as exc:  # a bad sheet shouldn't kill the file
+                        return (tbl, None, fh, ih, str(exc)[:200])
 
-    mapped_results = await asyncio.gather(*[_map_sheet(t) for t in tables])
+        mapped_results = await asyncio.gather(*[_map_sheet(t) for t in tables])
 
     for table, mapped_rows, formula_hits, injection_hits, err in mapped_results:
         security["formula_cells_sanitised"] += formula_hits
@@ -284,8 +305,14 @@ async def run_analysis(
             # Accumulate a clarifying question into its GROUP (deduped across rows).
             # We only ask about real blockers — an unmatched activity, a mapper that
             # flagged its own pick, or a unit that doesn't fit the factor. Confident
-            # rows are never questioned.
-            spec = _question_spec(cat, grounding, m)
+            # rows are never questioned; neither are rows with NO quantity at all
+            # (template scaffolding, to-be-filled rows) — there is no number to fix,
+            # so they stage as gaps instead of interrogating the client.
+            spec = (
+                _question_spec(cat, grounding, m)
+                if m.quantity not in (None, 0)
+                else None
+            )
             if spec is not None:
                 grp = question_groups.setdefault(
                     spec["group_key"],
@@ -341,7 +368,13 @@ async def run_analysis(
         "by_band": by_band,
         "by_tier": by_tier,
         "security": security,
+        "mode": parse_mode,
     }
+    if parse_mode == "template":
+        summary["notice"] = (
+            "Recognised the CLIMATRIX template — mapped deterministically, no AI "
+            "guessing needed."
+        )
     # Empty result — explain WHY instead of silently showing "0 rows read".
     if total == 0:
         if not tables:
