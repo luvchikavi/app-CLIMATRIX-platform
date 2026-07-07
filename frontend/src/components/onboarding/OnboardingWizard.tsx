@@ -256,7 +256,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
       }
       clearProgress();
       onComplete();
-      router.push('/import');
+      router.push('/ingest');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Please complete all required steps first.';
       toast.error(msg);
@@ -731,7 +731,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button variant="outline" onClick={() => router.push('/import')}>
+                <Button variant="outline" onClick={() => router.push('/ingest')}>
                   <Upload className="w-4 h-4 mr-2" />
                   Import Data
                 </Button>

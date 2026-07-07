@@ -101,7 +101,7 @@ export default function GHGModulePage() {
         <Card
           padding="md"
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => router.push('/import')}
+          onClick={() => router.push('/ingest')}
         >
           <div className="flex items-center gap-4">
             <div className="p-3 rounded-lg bg-secondary/10">

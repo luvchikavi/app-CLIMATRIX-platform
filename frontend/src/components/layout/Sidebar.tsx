@@ -7,8 +7,7 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
 import {
   LayoutDashboard,
-  PlusCircle,
-  Upload,
+  Activity,
   Building2,
   FileText,
   Settings,
@@ -65,27 +64,34 @@ const moduleNavItems: NavItem[] = MODULE_REGISTRY.map((m) => ({
     : { badge: STATUS_META[m.status].label }),
 }));
 
+// Clean 3-zone information architecture: get DATA in → ANALYSE it → REPORT it.
+// Every feature has exactly one home; a single "Import Data" entry (the AI parser).
 const navigation: NavGroup[] = [
   {
-    title: 'Main',
+    title: 'Overview',
+    items: [{ label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }],
+  },
+  {
+    title: 'Data',
     items: [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'Add Activity', href: '/dashboard?wizard=true', icon: PlusCircle },
-      { label: 'Smart Import', href: '/ingest', icon: Sparkles, badge: 'New' },
-      { label: 'Import Data', href: '/import', icon: Upload },
+      { label: 'Import Data', href: '/ingest', icon: Sparkles, badge: 'AI' },
+      { label: 'Activities', href: '/activities', icon: Activity },
     ],
   },
   {
-    title: 'Modules',
+    title: 'Analysis',
     items: moduleNavItems,
+  },
+  {
+    title: 'Reporting',
+    items: [{ label: 'Reports', href: '/reports', icon: FileText }],
   },
   {
     title: 'Organization',
     items: [
       { label: 'Sites & Locations', href: '/sites', icon: Building2 },
-      { label: 'Reports', href: '/reports', icon: FileText },
-      { label: 'Billing', href: '/billing', icon: CreditCard },
       { label: 'Settings', href: '/settings', icon: Settings },
+      { label: 'Billing', href: '/billing', icon: CreditCard },
       { label: 'Roadmap', href: '/roadmap', icon: Map },
     ],
   },
