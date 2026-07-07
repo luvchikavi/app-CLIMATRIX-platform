@@ -164,7 +164,7 @@ function SiteDetailContent() {
           </Button>
           <Button
             variant="primary"
-            onClick={() => router.push(`/import?period=${activePeriodId}&site=${siteId}`)}
+            onClick={() => router.push('/hub')}
             leftIcon={<Upload className="w-4 h-4" />}
           >
             Upload Data
@@ -304,7 +304,7 @@ function SiteDetailContent() {
                   description="Upload an Excel file or add activities manually to start tracking emissions for this site."
                   action={{
                     label: 'Upload Data',
-                    onClick: () => router.push(`/import?period=${activePeriodId}&site=${siteId}`),
+                    onClick: () => router.push('/hub'),
                   }}
                 />
               )}

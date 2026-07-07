@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
@@ -27,13 +27,16 @@ import {
 } from '@/components/ui';
 import { Plus, Loader2, Trash2, Pencil, ArrowLeft, Filter, FileSpreadsheet, ChevronDown, Calendar, X, Building2 } from 'lucide-react';
 import { SiteSelector } from '@/components/SiteSelector';
+import { AddActivityModal } from '@/components/wizard/AddActivityModal';
 import { api, ImportBatch, ActivityWithEmission } from '@/lib/api';
 
-export default function ActivitiesPage() {
+function ActivitiesContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated } = useAuthStore();
 
   // All useState hooks
+  const [showWizard, setShowWizard] = useState(searchParams.get('add') === '1');
   const [selectedScope, setSelectedScope] = useState<number | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
   const [batchDropdownOpen, setBatchDropdownOpen] = useState(false);
@@ -154,7 +157,10 @@ export default function ActivitiesPage() {
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">All Activities</h1>
+            <h1 className="text-2xl font-bold text-foreground">Activity Ledger</h1>
+            <p className="text-sm text-foreground-muted">
+              Every committed emission line — from uploads and manual entry alike
+            </p>
             {periods && periods.length > 1 ? (
               <div className="flex items-center gap-2 mt-1">
                 <Calendar className="w-4 h-4 text-foreground-muted" />
@@ -178,7 +184,7 @@ export default function ActivitiesPage() {
         <div className="flex items-center gap-3">
           <Button
             variant="primary"
-            onClick={() => router.push('/dashboard?wizard=true')}
+            onClick={() => setShowWizard(true)}
             leftIcon={<Plus className="w-4 h-4" />}
           >
             Add Activity
@@ -425,7 +431,7 @@ export default function ActivitiesPage() {
                       setSelectedScope(null);
                       setSelectedBatch(null);
                     } else {
-                      router.push('/dashboard?wizard=true');
+                      setShowWizard(true);
                     }
                   },
                 }}
@@ -540,6 +546,23 @@ export default function ActivitiesPage() {
           </div>
         </div>
       )}
+
+      {/* Add Activity — the ledger is the single home of manual entry */}
+      {showWizard && activePeriodId && (
+        <AddActivityModal
+          periodId={activePeriodId}
+          onClose={() => setShowWizard(false)}
+          onSuccess={() => setShowWizard(false)}
+        />
+      )}
     </AppShell>
+  );
+}
+
+export default function ActivitiesPage() {
+  return (
+    <Suspense fallback={null}>
+      <ActivitiesContent />
+    </Suspense>
   );
 }

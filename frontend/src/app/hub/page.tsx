@@ -11,12 +11,13 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { AppShell } from '@/components/layout';
 import { Card, CardContent, Button, toast } from '@/components/ui';
 import { usePeriods } from '@/hooks/useEmissions';
 import { useHubOverview, useSaveHubProfile } from '@/hooks/useHub';
 import { usePeriodStore } from '@/stores/period';
-import { HubCategory, HubRelevance } from '@/lib/api';
+import { api, HubCategory, HubRelevance } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
   UploadCloud,
@@ -27,7 +28,33 @@ import {
   Loader2,
   ArrowRight,
   Ban,
+  FileSpreadsheet,
+  PlusCircle,
+  ChevronRight,
 } from 'lucide-react';
+
+const SESSION_STATUS: Record<string, { label: string; chip: string }> = {
+  needs_answers: {
+    label: 'Questions waiting',
+    chip: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300',
+  },
+  ready_for_review: {
+    label: 'Ready to review',
+    chip: 'bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300',
+  },
+  committed: {
+    label: 'In ledger',
+    chip: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
+  },
+  analyzing: {
+    label: 'Analyzing…',
+    chip: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+  },
+  failed: {
+    label: 'Failed',
+    chip: 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300',
+  },
+};
 
 // The data-quality ladder colours — same language as the import review grid.
 const TIER_SEGMENT: Record<string, { bar: string; label: string }> = {
@@ -259,6 +286,12 @@ export default function HubPage() {
 
   const { data, isLoading } = useHubOverview(periodId);
   const saveProfile = useSaveHubProfile();
+  const { data: sessions } = useQuery({
+    queryKey: ['ingest-sessions'],
+    queryFn: () => api.listIngestSessions(),
+    staleTime: 30 * 1000,
+  });
+  const recentSessions = (sessions ?? []).slice(0, 5);
 
   const setupMode = useMemo(
     () => !!data && data.stats.not_sure === data.stats.total_categories,
@@ -286,12 +319,20 @@ export default function HubPage() {
               still missing.
             </p>
           </div>
-          <Link href="/ingest">
-            <Button>
-              <UploadCloud className="mr-2 h-4 w-4" />
-              Upload data
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/activities?add=1">
+              <Button variant="outline">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add manually
+              </Button>
+            </Link>
+            <Link href="/ingest">
+              <Button>
+                <UploadCloud className="mr-2 h-4 w-4" />
+                Upload data
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {data && (
@@ -333,6 +374,51 @@ export default function HubPage() {
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {recentSessions.length > 0 && (
+          <Card>
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    Recent uploads
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Every file lands here — answer its questions, review, commit.
+                  </p>
+                </div>
+              </div>
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {recentSessions.map((s) => {
+                  const meta = SESSION_STATUS[s.status] ?? {
+                    label: s.status,
+                    chip: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+                  };
+                  return (
+                    <Link
+                      key={s.id}
+                      href={`/ingest?session=${s.id}`}
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                    >
+                      <FileSpreadsheet className="h-4 w-4 shrink-0 text-slate-400" />
+                      <span className="min-w-0 flex-1 truncate text-sm text-slate-800 dark:text-slate-200">
+                        {s.filename}
+                      </span>
+                      <span className="hidden text-xs text-slate-400 sm:inline">
+                        {s.total_rows} rows
+                        {s.open_question_count > 0 && ` · ${s.open_question_count} open questions`}
+                      </span>
+                      <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', meta.chip)}>
+                        {meta.label}
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
+                    </Link>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {setupMode && (

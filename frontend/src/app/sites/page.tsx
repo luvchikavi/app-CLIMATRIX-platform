@@ -253,7 +253,7 @@ function SitesPageContent() {
                   variant="outline"
                   size="sm"
                   className="flex-1"
-                  onClick={() => router.push(`/import?period=${activePeriodId}&site=${site.id}`)}
+                  onClick={() => router.push('/hub')}
                   leftIcon={<Upload className="w-3.5 h-3.5" />}
                 >
                   Upload

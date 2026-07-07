@@ -326,7 +326,7 @@ function ReportsPageContent() {
                 description="Add activities to your reporting period to generate reports."
                 action={{
                   label: 'Add Activity',
-                  onClick: () => router.push('/dashboard?wizard=true'),
+                  onClick: () => router.push('/activities?add=1'),
                 }}
               />
             </Card>

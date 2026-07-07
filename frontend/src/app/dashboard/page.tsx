@@ -31,13 +31,9 @@ import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
 import { ScopeDrillDown } from '@/components/dashboard/ScopeDrillDown';
 import { SiteBreakdownChart } from '@/components/dashboard/SiteBreakdownChart';
 import { SiteSelector } from '@/components/SiteSelector';
-import { ActivityWizard } from '@/components/wizard';
-import { ImportHistory } from '@/components/ImportHistory';
-import { useWizardStore } from '@/stores/wizard';
 import { cn, formatCO2e } from '@/lib/utils';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import {
-  Plus,
   RefreshCw,
   Loader2,
   Upload,
@@ -50,33 +46,13 @@ import {
   List,
   Calendar,
   ArrowRight,
-  ArrowLeft,
   Download,
   Filter,
   FileSpreadsheet,
-  File,
   ChevronDown,
   Building2,
 } from 'lucide-react';
 import { api, CategorySummary, ImportBatch } from '@/lib/api';
-
-// Back button for wizard - only shows when not on first step
-function WizardBackButton() {
-  const step = useWizardStore((s) => s.step);
-  const goBack = useWizardStore((s) => s.goBack);
-
-  if (step === 'scope') return null;
-
-  return (
-    <button
-      onClick={goBack}
-      className="flex items-center gap-1 px-3 py-2 text-sm text-foreground-muted hover:text-foreground hover:bg-background-muted rounded-lg transition-colors"
-    >
-      <ArrowLeft className="w-4 h-4" />
-      Back
-    </button>
-  );
-}
 
 function DashboardContent() {
   const router = useRouter();
@@ -86,14 +62,12 @@ function DashboardContent() {
   const { selectedSiteId } = useSiteStore();
 
   // All useState hooks at top
-  const [showWizard, setShowWizard] = useState(searchParams.get('wizard') === 'true');
   const [mounted, setMounted] = useState(false);
   const [drillDownCategory, setDrillDownCategory] = useState<CategorySummary | null>(null);
   const [drillDownScope, setDrillDownScope] = useState<1 | 2 | 3 | null>(null);
   // Initialize batch filter from URL parameter (for import redirect)
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(searchParams.get('batchId'));
   const [showBatchDropdown, setShowBatchDropdown] = useState(false);
-  const wizardTrapRef = useFocusTrap<HTMLDivElement>(showWizard);
   const categoryTrapRef = useFocusTrap<HTMLDivElement>(!!drillDownCategory);
 
   // All data fetching hooks (must be before any conditional returns)
@@ -236,33 +210,6 @@ function DashboardContent() {
     document.body.removeChild(a);
   };
 
-  // Server-side report exports (full GHG report)
-  const handleExportCSV = async () => {
-    if (!activePeriodId) {
-      toast.error('Please select a reporting period');
-      return;
-    }
-    try {
-      await api.downloadReportExport('csv', activePeriodId);
-      toast.success('CSV report downloaded');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to export CSV');
-    }
-  };
-
-  const handleExportPDF = async () => {
-    if (!activePeriodId) {
-      toast.error('Please select a reporting period');
-      return;
-    }
-    try {
-      await api.downloadReportExport('pdf', activePeriodId);
-      toast.success('PDF report downloaded');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to export PDF');
-    }
-  };
-
   return (
     <AppShell>
       {/* Page Header */}
@@ -276,6 +223,8 @@ function DashboardContent() {
             <SiteSelector compact />
           </div>
         </div>
+        {/* Analysis zone: the dashboard only READS the inventory. Data comes in
+            through the Data Hub; exports live on Reports — one home per feature. */}
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
@@ -288,32 +237,10 @@ function DashboardContent() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleExportCSV}
-            leftIcon={<FileSpreadsheet className="w-4 h-4" />}
-          >
-            CSV
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportPDF}
-            leftIcon={<File className="w-4 h-4" />}
-          >
-            PDF
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => router.push(`/import?period=${activePeriodId}`)}
+            onClick={() => router.push('/hub')}
             leftIcon={<Upload className="w-4 h-4" />}
           >
-            Import
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => setShowWizard(true)}
-            leftIcon={<Plus className="w-4 h-4" />}
-          >
-            Add Activity
+            Data Hub
           </Button>
         </div>
       </div>
@@ -708,57 +635,12 @@ function DashboardContent() {
                   description={selectedBatchId ? "This import file has no activities" : "Add your first activity to start tracking emissions"}
                   action={selectedBatchId ? undefined : {
                     label: 'Add Activity',
-                    onClick: () => setShowWizard(true),
+                    onClick: () => router.push('/activities?add=1'),
                   }}
                 />
               )}
             </CardContent>
           </Card>
-
-          {/* Import History */}
-          <ImportHistory periodId={activePeriodId} limit={5} />
-        </div>
-      )}
-
-      {/* Activity Wizard Modal */}
-      {showWizard && activePeriodId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Add Activity">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-neutral-950/50 backdrop-blur-sm"
-            onClick={() => setShowWizard(false)}
-          />
-
-          {/* Modal */}
-          <div ref={wizardTrapRef} className="relative bg-background-elevated rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-fade-in-up">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">Add Activity</h2>
-                <p className="text-sm text-foreground-muted">Record a new emission activity</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <WizardBackButton />
-                <button
-                  onClick={() => setShowWizard(false)}
-                  className="p-2 rounded-lg hover:bg-background-muted transition-colors"
-                >
-                  <X className="w-5 h-5 text-foreground-muted" />
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
-              <ActivityWizard
-                periodId={activePeriodId}
-                onSuccess={() => {
-                  setShowWizard(false);
-                  refetchSummary();
-                }}
-              />
-            </div>
-          </div>
         </div>
       )}
 

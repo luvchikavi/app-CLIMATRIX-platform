@@ -84,7 +84,7 @@ export default function GHGModulePage() {
         <Card
           padding="md"
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => router.push('/dashboard?wizard=true')}
+          onClick={() => router.push('/activities?add=1')}
         >
           <div className="flex items-center gap-4">
             <div className="p-3 rounded-lg bg-primary-light">
@@ -215,7 +215,7 @@ export default function GHGModulePage() {
             description="Start tracking your GHG emissions by adding activities or importing data."
             action={{
               label: 'Add Activity',
-              onClick: () => router.push('/dashboard?wizard=true'),
+              onClick: () => router.push('/activities?add=1'),
             }}
           />
         </Card>

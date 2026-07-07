@@ -8,8 +8,9 @@
  * few targeted questions, and the rows land in the ledger.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/layout';
 import { Card, CardContent, Button, toast } from '@/components/ui';
 import { usePeriods } from '@/hooks/useEmissions';
@@ -117,14 +118,33 @@ const CATEGORY_NAMES: Record<string, string> = {
 };
 
 
-export default function IngestPage() {
+function IngestContent() {
   const { data: periods } = usePeriods();
+  const searchParams = useSearchParams();
   const { selectedPeriodId, setSelectedPeriodId } = usePeriodStore();
   const [session, setSession] = useState<IngestionSessionDetail | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Deep link from the Data Hub's "Recent uploads": /ingest?session=<id>
+  const linkedSessionId = searchParams.get('session');
+  useEffect(() => {
+    if (!linkedSessionId) return;
+    let cancelled = false;
+    api
+      .getIngestSession(linkedSessionId)
+      .then((s) => {
+        if (!cancelled) setSession(s);
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Could not load that upload session.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [linkedSessionId]);
 
   // Only trust the saved period if it actually belongs to the current org's list —
   // a stale localStorage value from another session/org would 404 on upload.
@@ -259,6 +279,12 @@ export default function IngestPage() {
       <div className="mx-auto max-w-5xl space-y-6 py-2">
         {/* Header */}
         <div>
+          <Link
+            href="/hub"
+            className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          >
+            ← Data Hub
+          </Link>
           <h1 className="flex items-center gap-2 text-2xl font-semibold text-slate-900 dark:text-white">
             <Sparkles className="h-6 w-6 text-emerald-500" />
             Drop your data — we&apos;ll do the rest
@@ -490,10 +516,13 @@ export default function IngestPage() {
                 They&apos;re now calculated and included in your dashboard totals.
               </p>
               <div className="mt-2 flex gap-3">
-                <Link href="/dashboard">
+                <Link href="/hub">
                   <Button>
-                    View dashboard <ArrowRight className="ml-1 h-4 w-4" />
+                    Back to Data Hub <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
+                </Link>
+                <Link href="/dashboard">
+                  <Button variant="secondary">View dashboard</Button>
                 </Link>
                 <Button variant="secondary" onClick={() => setSession(null)}>
                   Import another file
@@ -504,6 +533,14 @@ export default function IngestPage() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+export default function IngestPage() {
+  return (
+    <Suspense fallback={null}>
+      <IngestContent />
+    </Suspense>
   );
 }
 
