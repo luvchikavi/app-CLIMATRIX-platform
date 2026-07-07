@@ -43,6 +43,9 @@ class OrganizationResponse(BaseModel):
     base_year: int | None
     default_region: str
     setup_complete: bool = False
+    currency: str | None = None
+    unit_system: str = "metric"
+    consolidation_approach: str = "operational_control"
 
 
 class OrganizationUpdate(BaseModel):
@@ -53,6 +56,17 @@ class OrganizationUpdate(BaseModel):
     industry_code: str | None = None
     base_year: int | None = None
     default_region: str | None = None
+    currency: str | None = None
+    unit_system: str | None = None
+    consolidation_approach: str | None = None
+
+
+UNIT_SYSTEMS = ["metric", "imperial"]
+CONSOLIDATION_APPROACHES = [
+    "operational_control",
+    "financial_control",
+    "equity_share",
+]
 
 
 class SiteResponse(BaseModel):
@@ -110,6 +124,21 @@ SUPPORTED_REGIONS = [
 # ============================================================================
 
 
+def _org_response(org: Organization) -> OrganizationResponse:
+    return OrganizationResponse(
+        id=str(org.id),
+        name=org.name,
+        country_code=org.country_code,
+        industry_code=org.industry_code,
+        base_year=org.base_year,
+        default_region=org.default_region or "Global",
+        setup_complete=org.setup_complete,
+        currency=org.currency,
+        unit_system=org.unit_system or "metric",
+        consolidation_approach=org.consolidation_approach or "operational_control",
+    )
+
+
 @router.get("/organization", response_model=OrganizationResponse)
 async def get_organization(
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -123,15 +152,7 @@ async def get_organization(
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    return OrganizationResponse(
-        id=str(org.id),
-        name=org.name,
-        country_code=org.country_code,
-        industry_code=org.industry_code,
-        base_year=org.base_year,
-        default_region=org.default_region or "Global",
-        setup_complete=org.setup_complete,
-    )
+    return _org_response(org)
 
 
 @router.patch("/organization", response_model=OrganizationResponse)
@@ -163,6 +184,27 @@ async def update_organization(
                 detail=f"Invalid region. Supported regions: {', '.join(valid_regions)}",
             )
 
+    if data.currency is not None and len(data.currency) != 3:
+        raise HTTPException(
+            status_code=400, detail="Currency must be a 3-letter ISO code (e.g. USD)"
+        )
+    if data.unit_system is not None and data.unit_system not in UNIT_SYSTEMS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unit system must be one of: {', '.join(UNIT_SYSTEMS)}",
+        )
+    if (
+        data.consolidation_approach is not None
+        and data.consolidation_approach not in CONSOLIDATION_APPROACHES
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Consolidation approach must be one of: "
+                f"{', '.join(CONSOLIDATION_APPROACHES)}"
+            ),
+        )
+
     # Update fields
     if data.name is not None:
         org.name = data.name
@@ -174,19 +216,17 @@ async def update_organization(
         org.base_year = data.base_year
     if data.default_region is not None:
         org.default_region = data.default_region
+    if data.currency is not None:
+        org.currency = data.currency.upper()
+    if data.unit_system is not None:
+        org.unit_system = data.unit_system
+    if data.consolidation_approach is not None:
+        org.consolidation_approach = data.consolidation_approach
 
     await session.commit()
     await session.refresh(org)
 
-    return OrganizationResponse(
-        id=str(org.id),
-        name=org.name,
-        country_code=org.country_code,
-        industry_code=org.industry_code,
-        base_year=org.base_year,
-        default_region=org.default_region or "Global",
-        setup_complete=org.setup_complete,
-    )
+    return _org_response(org)
 
 
 @router.get("/organization/regions")
@@ -469,9 +509,7 @@ async def complete_setup(
     """
     org = (
         await session.execute(
-            select(Organization).where(
-                Organization.id == current_user.organization_id
-            )
+            select(Organization).where(Organization.id == current_user.organization_id)
         )
     ).scalar_one_or_none()
     if not org:
@@ -515,15 +553,7 @@ async def complete_setup(
     await session.commit()
     await session.refresh(org)
 
-    return OrganizationResponse(
-        id=str(org.id),
-        name=org.name,
-        country_code=org.country_code,
-        industry_code=org.industry_code,
-        base_year=org.base_year,
-        default_region=org.default_region or "Global",
-        setup_complete=org.setup_complete,
-    )
+    return _org_response(org)
 
 
 class WaitlistRequest(BaseModel):

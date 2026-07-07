@@ -36,6 +36,7 @@ from app.api import (
     ingest,
     demo,
     leads,
+    hub,
 )
 
 # Initialize Sentry for error tracking (only if DSN is configured)
@@ -142,6 +143,7 @@ app.include_router(
 app.include_router(ingest.router, prefix="/api", tags=["Ingestion"])
 app.include_router(demo.router, prefix="/api", tags=["Demo"])
 app.include_router(leads.router, prefix="/api", tags=["Leads"])
+app.include_router(hub.router, prefix="/api", tags=["Data Hub"])
 
 
 @app.get("/")

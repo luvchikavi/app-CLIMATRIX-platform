@@ -294,6 +294,7 @@ async def run_analysis(
                         "field": spec["field"],
                         "choices": spec["choices"],
                         "row_ids": [],
+                        "category_code": staged.category_code,
                     },
                 )
                 grp["row_ids"].append(staged.id)
@@ -324,6 +325,7 @@ async def run_analysis(
                 field=grp["field"],
                 choices=grp["choices"],
                 applies_to_row_ids=[str(rid) for rid in row_ids],
+                category_code=grp["category_code"],
             )
         )
         questions += 1

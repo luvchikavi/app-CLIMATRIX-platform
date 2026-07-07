@@ -114,6 +114,15 @@ class Organization(OrganizationBase, table=True):
     setup_complete: bool = Field(default=False)
     setup_completed_at: Optional[datetime] = Field(default=None)
 
+    # Inventory profile (Layer 0 — formal facts every parse and report needs).
+    # currency: ISO 4217, for spend-based data; unit_system disambiguates
+    # "gal"/"ton"; consolidation_approach is the GHG Protocol boundary choice.
+    currency: Optional[str] = Field(default=None, max_length=3)
+    unit_system: str = Field(default="metric", max_length=10)  # metric | imperial
+    consolidation_approach: str = Field(
+        default="operational_control", max_length=30
+    )  # operational_control | financial_control | equity_share
+
     # Relationships
     users: list["User"] = Relationship(back_populates="organization")
     sites: list["Site"] = Relationship(back_populates="organization")

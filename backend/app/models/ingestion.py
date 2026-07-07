@@ -187,6 +187,11 @@ class ClarificationQuestion(SQLModel, table=True):
     group_key: Optional[str] = Field(default=None, max_length=200, index=True)
     applies_to_row_ids: Optional[list] = Field(default=None, sa_column=Column(JSON))
 
+    # Which GHG category the question belongs to, so the Data Hub can pool open
+    # questions per category across all uploads (falls back to the linked
+    # staged row's category for questions created before this column existed).
+    category_code: Optional[str] = Field(default=None, max_length=10, index=True)
+
     answer: Optional[str] = Field(default=None, max_length=1000)
     answered: bool = Field(default=False, index=True)
 
