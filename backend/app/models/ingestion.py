@@ -123,6 +123,9 @@ class StagedRow(SQLModel, table=True):
     band: str = Field(default="red", max_length=10)  # green | amber | red
     status: RowStatus = Field(default=RowStatus.NEEDS_REVIEW, index=True)
     pcaf_data_quality: Optional[int] = Field(default=None)
+    # Data-quality ladder: measured | calculated | estimated | gap (the spine of the
+    # inventory — what we can stand behind vs what's an estimate vs a gap).
+    measurement_tier: Optional[str] = Field(default=None, max_length=12, index=True)
     reasons: Optional[list] = Field(default=None, sa_column=Column(JSON))
 
     # Set on commit — links to the real Activity created from this row

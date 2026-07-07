@@ -101,6 +101,7 @@ class StagedRowOut(BaseModel):
     band: str
     status: str
     pcaf_data_quality: Optional[int]
+    measurement_tier: Optional[str]
     reasons: Optional[list]
     committed_activity_id: Optional[UUID]
     commit_error: Optional[str]
@@ -161,6 +162,7 @@ def _row_out(r: StagedRow) -> StagedRowOut:
         band=r.band,
         status=r.status.value if hasattr(r.status, "value") else str(r.status),
         pcaf_data_quality=r.pcaf_data_quality,
+        measurement_tier=r.measurement_tier,
         reasons=r.reasons,
         committed_activity_id=r.committed_activity_id,
         commit_error=r.commit_error,

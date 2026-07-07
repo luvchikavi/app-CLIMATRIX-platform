@@ -39,15 +39,34 @@ const BAND: Record<string, { dot: string; text: string; label: string }> = {
   red: { dot: 'bg-red-500', text: 'text-red-600 dark:text-red-400', label: 'Needs attention' },
 };
 
-// PCAF data-quality score (1 = verified … 5 = estimated). Distinct from confidence:
-// a row can be confidently mapped yet inherently low quality (e.g. spend-based).
-const PCAF_DQ: Record<number, { cls: string; label: string }> = {
-  1: { cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300', label: 'Verified / metered primary data' },
-  2: { cls: 'bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300', label: 'Primary data + average factor' },
-  3: { cls: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300', label: 'Modelled activity + average factor' },
-  4: { cls: 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300', label: 'Proxy (spend-based EEIO)' },
-  5: { cls: 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300', label: 'Estimated / extrapolated' },
+// The data-quality ladder — the client-friendly view of what they can stand behind.
+const TIER: Record<string, { label: string; chip: string; dot: string; blurb: string }> = {
+  measured: {
+    label: 'Measured',
+    chip: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
+    dot: 'bg-emerald-500',
+    blurb: 'Primary / supplier data — highest quality',
+  },
+  calculated: {
+    label: 'Calculated',
+    chip: 'bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300',
+    dot: 'bg-teal-500',
+    blurb: 'Real activity data × a standard factor',
+  },
+  estimated: {
+    label: 'Estimated',
+    chip: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
+    dot: 'bg-amber-500',
+    blurb: 'From spend/proxy — an estimate you can upgrade',
+  },
+  gap: {
+    label: 'Gap',
+    chip: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+    dot: 'bg-slate-400',
+    blurb: 'Not yet measurable — needs the right data',
+  },
 };
+const TIER_ORDER = ['measured', 'calculated', 'estimated', 'gap'] as const;
 
 export default function IngestPage() {
   const { data: periods } = usePeriods();
@@ -330,6 +349,13 @@ export default function IngestPage() {
           !isAnalyzing &&
           session.total_rows > 0 && <SummaryBar session={session} />}
 
+        {/* Inventory quality — measure / estimate / gap (the spine) */}
+        {session &&
+          session.status !== 'failed' &&
+          !isAnalyzing &&
+          session.total_rows > 0 &&
+          session.summary?.by_tier && <InventoryQuality byTier={session.summary.by_tier} />}
+
         {/* Duplicate-import warning */}
         {session?.summary?.duplicate_warning && !isCommitted && (
           <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
@@ -421,6 +447,52 @@ export default function IngestPage() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+function InventoryQuality({
+  byTier,
+}: {
+  byTier: { measured: number; calculated: number; estimated: number; gap: number };
+}) {
+  const total = TIER_ORDER.reduce((n, t) => n + (byTier[t] || 0), 0) || 1;
+  const solid = (byTier.measured || 0) + (byTier.calculated || 0);
+  const pct = Math.round((solid / total) * 100);
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/50">
+      <div className="mb-2 flex items-baseline justify-between">
+        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+          Inventory quality
+        </p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          <span className="font-semibold text-emerald-600 dark:text-emerald-400">{pct}%</span> you
+          can stand behind (measured + calculated)
+        </p>
+      </div>
+      {/* stacked bar */}
+      <div className="flex h-2.5 w-full overflow-hidden rounded-full">
+        {TIER_ORDER.map((t) =>
+          byTier[t] ? (
+            <div
+              key={t}
+              className={cn('h-full', TIER[t].dot)}
+              style={{ width: `${((byTier[t] || 0) / total) * 100}%` }}
+              title={`${TIER[t].label}: ${byTier[t]}`}
+            />
+          ) : null
+        )}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs">
+        {TIER_ORDER.map((t) => (
+          <span key={t} className="flex items-center gap-1.5">
+            <span className={cn('h-2 w-2 rounded-full', TIER[t].dot)} />
+            <span className="font-medium text-slate-700 dark:text-slate-200">{TIER[t].label}</span>
+            <span className="text-slate-400">{byTier[t] || 0}</span>
+            <span className="text-slate-400 dark:text-slate-500">· {TIER[t].blurb}</span>
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -563,15 +635,18 @@ function ReviewGrid({
                   )}
                 </td>
                 <td className="py-2 pr-3">
-                  {r.pcaf_data_quality && PCAF_DQ[r.pcaf_data_quality] ? (
+                  {r.measurement_tier && TIER[r.measurement_tier] ? (
                     <span
                       className={cn(
                         'inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium',
-                        PCAF_DQ[r.pcaf_data_quality].cls
+                        TIER[r.measurement_tier].chip
                       )}
-                      title={`PCAF data quality ${r.pcaf_data_quality}/5 — ${PCAF_DQ[r.pcaf_data_quality].label}`}
+                      title={
+                        `${TIER[r.measurement_tier].blurb}` +
+                        (r.pcaf_data_quality ? ` · PCAF ${r.pcaf_data_quality}/5` : '')
+                      }
                     >
-                      DQ {r.pcaf_data_quality}
+                      {TIER[r.measurement_tier].label}
                     </span>
                   ) : (
                     <span className="text-xs text-slate-400">—</span>

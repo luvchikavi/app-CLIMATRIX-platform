@@ -2798,10 +2798,13 @@ export interface StagedRow {
   band: 'green' | 'amber' | 'red';
   status: RowStatus;
   pcaf_data_quality: number | null;
+  measurement_tier: MeasurementTier | null;
   reasons: string[] | null;
   committed_activity_id: string | null;
   commit_error: string | null;
 }
+
+export type MeasurementTier = 'measured' | 'calculated' | 'estimated' | 'gap';
 
 export interface ClarificationQuestion {
   id: string;
@@ -2826,6 +2829,7 @@ export interface IngestionSession {
     sheets?: { sheet: string; rows: number; staged?: number; detected_scope?: number | null; error?: string }[];
     by_scope?: Record<string, number>;
     by_band?: Record<string, number>;
+    by_tier?: { measured: number; calculated: number; estimated: number; gap: number };
     security?: { formula_cells_sanitised: number; injection_flags: number };
     duplicate_warning?: string;
     duplicate_of?: string;

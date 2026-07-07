@@ -9,6 +9,7 @@ Owner-locked bands: green >= 0.85, amber 0.60-0.85, red < 0.60 (needs_review < 0
 Human review is mandatory on every import, so 'ready' rows are still shown for a
 final approval — the band just orders the review grid.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -20,12 +21,35 @@ AMBER = 0.60
 REVIEW = 0.75
 
 
+# The data-quality ladder — how the client (and a validator) thinks about each line.
+# This is the spine of the whole system: measure what's measurable, estimate what's
+# only estimable (and say so), and mark what we cannot measure at all.
+MEASURED = "measured"  # primary / supplier-specific data — highest quality
+CALCULATED = "calculated"  # real activity data + a standard factor — good
+ESTIMATED = "estimated"  # spend/proxy (EEIO) or global fallback — labelled, PCAF 4-5
+GAP = "gap"  # no factor / not resolved — we cannot measure this yet
+
+
+def measurement_tier(resolved: bool, pcaf_data_quality: int) -> str:
+    """Place a line on the data-quality ladder from how its factor resolved.
+    Mirrors PCAF: supplier/primary (1-2) = measured, activity+standard factor (3) =
+    calculated, spend/proxy/global (4-5) = estimated, unresolved = gap."""
+    if not resolved:
+        return GAP
+    if pcaf_data_quality <= 2:
+        return MEASURED
+    if pcaf_data_quality == 3:
+        return CALCULATED
+    return ESTIMATED
+
+
 @dataclass
 class RowVerdict:
     confidence: float
     band: str  # "green" | "amber" | "red"
     status: str  # "ready" | "needs_review" | "needs_question"
     pcaf_data_quality: int
+    tier: str = GAP  # measured | calculated | estimated | gap
     reasons: list[str] = field(default_factory=list)
 
 
@@ -67,7 +91,12 @@ def score_row(
     confidence = round(max(0.0, min(1.0, confidence)), 3)
     band = _band(confidence)
 
-    if grounding.needs_question or not grounding.resolved or not grounding.unit_ok or rule_violations:
+    if (
+        grounding.needs_question
+        or not grounding.resolved
+        or not grounding.unit_ok
+        or rule_violations
+    ):
         status = "needs_question"
     elif confidence < REVIEW:
         status = "needs_review"
@@ -82,5 +111,6 @@ def score_row(
         band=band,
         status=status,
         pcaf_data_quality=grounding.pcaf_data_quality,
+        tier=measurement_tier(grounding.resolved, grounding.pcaf_data_quality),
         reasons=reasons,
     )

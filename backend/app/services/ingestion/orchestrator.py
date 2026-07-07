@@ -150,6 +150,7 @@ async def run_analysis(
     questions = 0
     by_scope: dict[str, int] = {}
     by_band = {"green": 0, "amber": 0, "red": 0}
+    by_tier = {"measured": 0, "calculated": 0, "estimated": 0, "gap": 0}
     sheets_summary: list[dict] = []
     security = {"formula_cells_sanitised": 0, "injection_flags": 0}
 
@@ -234,6 +235,7 @@ async def run_analysis(
                 band=verdict.band,
                 status=RowStatus(verdict.status),
                 pcaf_data_quality=verdict.pcaf_data_quality,
+                measurement_tier=verdict.tier,
                 reasons=verdict.reasons,
             )
             session.add(staged)
@@ -241,6 +243,7 @@ async def run_analysis(
             sheet_staged += 1
 
             by_band[verdict.band] = by_band.get(verdict.band, 0) + 1
+            by_tier[verdict.tier] = by_tier.get(verdict.tier, 0) + 1
             if m.scope:
                 key = f"scope_{m.scope}"
                 by_scope[key] = by_scope.get(key, 0) + 1
@@ -278,6 +281,7 @@ async def run_analysis(
         "sheets": sheets_summary,
         "by_scope": by_scope,
         "by_band": by_band,
+        "by_tier": by_tier,
         "security": security,
     }
     # Empty result — explain WHY instead of silently showing "0 rows read".
@@ -627,6 +631,7 @@ async def _reground_row(
     row.confidence = verdict.confidence
     row.band = verdict.band
     row.pcaf_data_quality = verdict.pcaf_data_quality
+    row.measurement_tier = verdict.tier
     row.reasons = verdict.reasons
     # Once answered, a previously-blocked row moves to human review (not auto-ready).
     row.status = (
