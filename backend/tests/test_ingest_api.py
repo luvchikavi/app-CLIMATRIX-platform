@@ -104,11 +104,12 @@ async def test_full_funnel_over_http(
     assert committed[0]["committed_activity_id"] is not None
 
 
-async def test_upload_enqueues_worker_in_production(
+async def test_upload_enqueues_worker_when_enabled(
     client, auth_headers, test_period, seed_emission_factors, monkeypatch
 ):
-    """In production the parse is dispatched to the worker: upload returns instantly
-    with status 'analyzing' and no rows yet; the client polls for the result."""
+    """When ingest_use_worker is on, the parse is dispatched to the worker: upload
+    returns instantly with status 'analyzing' and no rows; the client polls the
+    result. (Off by default — the parser is fast, so we normally parse inline.)"""
     from app.api import ingest as ingest_module
 
     enqueued = {}
@@ -121,7 +122,7 @@ async def test_upload_enqueues_worker_in_production(
     async def _fake_create_pool(*a, **k):
         return _FakeRedis()
 
-    monkeypatch.setattr(ingest_module.settings, "environment", "production")
+    monkeypatch.setattr(ingest_module.settings, "ingest_use_worker", True)
     monkeypatch.setattr(ingest_module, "create_pool", _fake_create_pool)
 
     resp = await client.post(

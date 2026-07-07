@@ -15,6 +15,7 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID, uuid4
 
+from sqlalchemy import String
 from sqlmodel import SQLModel, Field, Relationship, Column, JSON
 
 
@@ -58,7 +59,13 @@ class IngestionSession(SQLModel, table=True):
     file_size_bytes: Optional[int] = Field(default=None)
     content_hash: Optional[str] = Field(default=None, max_length=64, index=True)
 
-    status: IngestionStatus = Field(default=IngestionStatus.UPLOADED, index=True)
+    # Stored as a plain string (varchar) — NOT a native PG enum — so query params
+    # bind as varchar and match the column type on Postgres. (SQLModel would
+    # otherwise map this to a native enum and break WHERE comparisons on PG.)
+    status: IngestionStatus = Field(
+        default=IngestionStatus.UPLOADED,
+        sa_column=Column(String, index=True, nullable=False),
+    )
 
     # Rollup counts (kept in sync by the orchestrator for a cheap status poll)
     total_rows: int = Field(default=0)
@@ -121,7 +128,11 @@ class StagedRow(SQLModel, table=True):
     # Confidence + review state
     confidence: float = Field(default=0.0)
     band: str = Field(default="red", max_length=10)  # green | amber | red
-    status: RowStatus = Field(default=RowStatus.NEEDS_REVIEW, index=True)
+    # Plain-string column (see IngestionSession.status) — avoids native PG enum.
+    status: RowStatus = Field(
+        default=RowStatus.NEEDS_REVIEW,
+        sa_column=Column(String, index=True, nullable=False),
+    )
     pcaf_data_quality: Optional[int] = Field(default=None)
     # Data-quality ladder: measured | calculated | estimated | gap (the spine of the
     # inventory — what we can stand behind vs what's an estimate vs a gap).
