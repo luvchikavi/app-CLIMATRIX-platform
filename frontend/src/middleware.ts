@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const PUBLIC_PATHS = new Set([
   '/',
+  '/try',
   '/pricing',
   '/terms',
   '/privacy',

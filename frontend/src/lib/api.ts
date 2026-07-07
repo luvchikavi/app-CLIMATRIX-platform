@@ -2870,4 +2870,67 @@ export interface LeadCapture {
   what_tried?: string;
 }
 
+// ============================================================================
+// Public "Try Climatrix" demo (no auth)
+// ============================================================================
+
+export interface DemoMethodology {
+  factor_value: number | null;
+  factor_unit: string | null;
+  factor_source: string | null;
+  factor_year: number | null;
+  factor_region: string | null;
+  formula: string | null;
+  resolution_strategy: string | null;
+  confidence: string | null;
+}
+
+export interface DemoRow {
+  sheet: string;
+  source_description: string;
+  activity_key: string | null;
+  scope: number | null;
+  category: string | null;
+  quantity: number | null;
+  unit: string | null;
+  co2e_kg: number | null;
+  methodology: DemoMethodology | null;
+  note: string | null;
+}
+
+export interface DemoResult {
+  filename: string;
+  rows_read: number;
+  rows_calculated: number;
+  capped: boolean;
+  total_tco2e: number;
+  by_scope: { scope: number; tco2e: number }[];
+  rows: DemoRow[];
+  notice: string | null;
+}
+
+/** Public demo parse — no auth. Used by the /try landing page. */
+export async function demoAnalyze(file: File): Promise<DemoResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120000);
+  try {
+    const resp = await fetch(`${API_BASE}/demo/analyze`, {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: 'Analysis failed' }));
+      throw new Error(
+        typeof err.detail === 'string' ? err.detail : 'We could not analyze that file.'
+      );
+    }
+    return resp.json();
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export const api = new ApiClient();
