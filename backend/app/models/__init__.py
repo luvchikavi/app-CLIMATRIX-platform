@@ -75,6 +75,7 @@ from app.models.ingestion import (
     IngestionStatus,
     RowStatus,
 )
+from app.models.crm import Lead
 
 __all__ = [
     # Core
@@ -147,4 +148,6 @@ __all__ = [
     "ClarificationQuestion",
     "IngestionStatus",
     "RowStatus",
+    # CRM / Leads
+    "Lead",
 ]

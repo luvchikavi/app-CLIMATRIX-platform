@@ -35,6 +35,7 @@ from app.api import (
     decarbonization,
     ingest,
     demo,
+    leads,
 )
 
 # Initialize Sentry for error tracking (only if DSN is configured)
@@ -140,6 +141,7 @@ app.include_router(
 )
 app.include_router(ingest.router, prefix="/api", tags=["Ingestion"])
 app.include_router(demo.router, prefix="/api", tags=["Demo"])
+app.include_router(leads.router, prefix="/api", tags=["Leads"])
 
 
 @app.get("/")
