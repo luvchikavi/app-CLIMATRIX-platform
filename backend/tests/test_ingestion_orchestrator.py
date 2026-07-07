@@ -99,6 +99,7 @@ async def test_full_ingestion_flow(
             {},
         ),
     ]
+    monkeypatch.setattr(orchestrator, "map_table_fast", _fake_map(mapped))
     monkeypatch.setattr(orchestrator, "map_table", _fake_map(mapped))
 
     # 1) ANALYZE

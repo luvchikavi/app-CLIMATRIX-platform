@@ -48,14 +48,15 @@ from app.services.ingestion.file_guard import sanitise_rows, scan_text_for_injec
 from app.services.ingestion.grounding import GroundingVerdict, ground_row
 from app.services.ingestion.loader import load
 from app.services.ingestion.mapper import map_table
+from app.services.ingestion.fast_mapper import map_table_fast
 from app.services.ingestion.rule_engine import check_row
 
 # Statuses that a commit will actually write to the ledger.
 _COMMITTABLE = {RowStatus.READY, RowStatus.APPROVED}
 
-# How many sheets to map concurrently (each sheet may itself fan out into concurrent
-# row-chunks, so keep this modest to stay within the model's request rate limits).
-_MAP_CONCURRENCY = 4
+# How many sheets to map concurrently. The fast mapper is only ~2 LLM calls/sheet,
+# so we can run many sheets at once (a 26-sheet file finishes in a couple of waves).
+_MAP_CONCURRENCY = 10
 
 
 async def annotate_duplicate(
@@ -162,10 +163,16 @@ async def run_analysis(
         tbl.rows = clean
         async with _sem:
             try:
-                mr = await asyncio.to_thread(map_table, tbl, cat, None, client)
+                # Fast path: ~2 LLM calls/sheet (column map + distinct values).
+                mr = await asyncio.to_thread(map_table_fast, tbl, cat, None, client)
                 return (tbl, mr, fh, ih, None)
-            except Exception as exc:  # a bad sheet shouldn't kill the whole file
-                return (tbl, None, fh, ih, str(exc)[:200])
+            except Exception:
+                # Fall back to the slower but battle-tested row-level mapper.
+                try:
+                    mr = await asyncio.to_thread(map_table, tbl, cat, None, client)
+                    return (tbl, mr, fh, ih, None)
+                except Exception as exc:  # a bad sheet shouldn't kill the whole file
+                    return (tbl, None, fh, ih, str(exc)[:200])
 
     mapped_results = await asyncio.gather(*[_map_sheet(t) for t in tables])
 

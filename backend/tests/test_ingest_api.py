@@ -53,6 +53,7 @@ async def test_upload_rejects_executable(client, auth_headers, seed_emission_fac
 async def test_full_funnel_over_http(
     client, auth_headers, test_period, seed_emission_factors, monkeypatch
 ):
+    monkeypatch.setattr(orchestrator, "map_table_fast", _fake_map_table)
     monkeypatch.setattr(orchestrator, "map_table", _fake_map_table)
 
     # 1) upload
@@ -140,6 +141,7 @@ async def test_upload_enqueues_worker_in_production(
 async def test_duplicate_commit_warns(
     client, auth_headers, test_period, seed_emission_factors, monkeypatch
 ):
+    monkeypatch.setattr(orchestrator, "map_table_fast", _fake_map_table)
     monkeypatch.setattr(orchestrator, "map_table", _fake_map_table)
 
     async def upload():
@@ -172,6 +174,7 @@ async def test_patch_edit_regrounds_row(
     client, auth_headers, test_period, seed_emission_factors, monkeypatch
 ):
     """Editing a row's activity/unit must re-ground it — not keep a stale band."""
+    monkeypatch.setattr(orchestrator, "map_table_fast", _fake_map_table)
     monkeypatch.setattr(orchestrator, "map_table", _fake_map_table)
     up = await client.post(
         "/api/ingest",
@@ -197,6 +200,7 @@ async def test_patch_edit_regrounds_row(
 
 
 async def test_get_and_list(client, auth_headers, seed_emission_factors, monkeypatch):
+    monkeypatch.setattr(orchestrator, "map_table_fast", _fake_map_table)
     monkeypatch.setattr(orchestrator, "map_table", _fake_map_table)
     up = await client.post(
         "/api/ingest",
