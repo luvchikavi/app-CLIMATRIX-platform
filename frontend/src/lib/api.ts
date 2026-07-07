@@ -2817,14 +2817,20 @@ export interface StagedProvenance {
   unit_kind?: string | null;
 }
 
+export interface QuestionChoice {
+  value: string;
+  label: string;
+}
+
 export interface ClarificationQuestion {
   id: string;
   staged_row_id: string | null;
   question: string;
   field: string | null;
-  choices: string[] | null;
+  choices: QuestionChoice[] | null;
   answer: string | null;
   answered: boolean;
+  applies_count: number;
 }
 
 export interface IngestionSession {

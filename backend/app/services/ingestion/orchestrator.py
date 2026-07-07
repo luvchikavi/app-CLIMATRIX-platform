@@ -182,6 +182,9 @@ async def run_analysis(
     by_tier = {"measured": 0, "calculated": 0, "estimated": 0, "gap": 0}
     sheets_summary: list[dict] = []
     security = {"formula_cells_sanitised": 0, "injection_flags": 0}
+    # Clarifying questions accumulate into GROUPS so we ask each distinct issue once
+    # (all "PP" rows share one question) instead of once per row. Keyed by group_key.
+    question_groups: dict[str, dict] = {}
 
     # Phase 1 — map every sheet CONCURRENTLY. The LLM calls are the slow, DB-free
     # part; a 26-sheet workbook would otherwise be 10+ sequential AI calls (minutes).
@@ -278,20 +281,22 @@ async def run_analysis(
                 key = f"scope_{m.scope}"
                 by_scope[key] = by_scope.get(key, 0) + 1
 
-            # A clarifying question if the mapper asked one OR the row is blocked.
-            q_text = m.question
-            if not q_text and verdict.status == RowStatus.NEEDS_QUESTION.value:
-                q_text = _default_question(grounding, m)
-            if q_text:
-                session.add(
-                    ClarificationQuestion(
-                        session_id=ingestion.id,
-                        staged_row_id=staged.id,
-                        question=q_text[:1000],
-                        field=_infer_field(grounding, m),
-                    )
+            # Accumulate a clarifying question into its GROUP (deduped across rows).
+            # We only ask about real blockers — an unmatched activity, a mapper that
+            # flagged its own pick, or a unit that doesn't fit the factor. Confident
+            # rows are never questioned.
+            spec = _question_spec(cat, grounding, m)
+            if spec is not None:
+                grp = question_groups.setdefault(
+                    spec["group_key"],
+                    {
+                        "question": spec["question"],
+                        "field": spec["field"],
+                        "choices": spec["choices"],
+                        "row_ids": [],
+                    },
                 )
-                questions += 1
+                grp["row_ids"].append(staged.id)
 
         sheets_summary.append(
             {
@@ -301,6 +306,27 @@ async def run_analysis(
                 "detected_scope": table.detected_scope,
             }
         )
+
+    # Emit ONE question per group (largest groups first — those move the most rows).
+    for grp in sorted(
+        question_groups.values(), key=lambda g: len(g["row_ids"]), reverse=True
+    ):
+        row_ids = grp["row_ids"]
+        n = len(row_ids)
+        text = grp["question"]
+        if n > 1:
+            text = f"{text} (applies to {n} rows)"
+        session.add(
+            ClarificationQuestion(
+                session_id=ingestion.id,
+                staged_row_id=row_ids[0],  # representative row
+                question=text[:1000],
+                field=grp["field"],
+                choices=grp["choices"],
+                applies_to_row_ids=[str(rid) for rid in row_ids],
+            )
+        )
+        questions += 1
 
     ingestion.total_rows = total
     ingestion.mapped_rows = mapped
@@ -363,13 +389,16 @@ async def apply_answers(
         q.answered = True
         q.answered_at = datetime.utcnow()
 
-        if not q.staged_row_id:
-            continue
-        row = await session.get(StagedRow, q.staged_row_id)
-        if row is None:
-            continue
-        _apply_answer_to_row(row, q.field, answer, cat)
-        touched_rows.add(row.id)
+        # One answer resolves every row in the group (all "PP" rows at once).
+        row_ids = list(q.applies_to_row_ids or [])
+        if not row_ids and q.staged_row_id:
+            row_ids = [str(q.staged_row_id)]
+        for rid in row_ids:
+            row = await session.get(StagedRow, UUID(str(rid)))
+            if row is None:
+                continue
+            _apply_answer_to_row(row, q.field, answer, cat)
+            touched_rows.add(row.id)
 
     # Re-ground + re-score every touched row.
     for rid in touched_rows:
@@ -579,25 +608,86 @@ def _json_safe_dict(d: dict | None) -> dict:
     return out
 
 
-def _default_question(grounding: GroundingVerdict, m) -> str:
-    if not grounding.resolved:
-        return (
-            f"We couldn't match \"{m.description or 'this row'}\" to an activity type. "
-            "Which activity does it represent?"
-        )
-    if not grounding.unit_ok:
-        return (
-            f"The unit '{m.unit}' doesn't match what this factor expects "
-            f"({grounding.factor_unit}). Which unit is correct?"
-        )
-    return "Please confirm this row before we include it."
+# Explicit "I don't know / leave it out" answer. Non-empty on purpose so it
+# survives the client's "did they answer?" filter and means "make this a gap".
+_GAP_ANSWER = "__leave_gap__"
 
 
-def _infer_field(grounding: GroundingVerdict, m) -> str | None:
+def _norm(s: str | None) -> str:
+    """Group key normaliser — lowercase, collapse whitespace."""
+    return " ".join((s or "").lower().split())
+
+
+def _choice_label(entry) -> str:
+    """Human label for an activity choice: real-world name + the canonical key."""
+    name = (getattr(entry, "display_name", "") or "").strip()
+    if name and name.lower() != entry.activity_key.lower():
+        return f"{name} · {entry.activity_key}"
+    return entry.activity_key
+
+
+def _activity_choices(cat, description: str, picked: str | None) -> list[dict]:
+    """Candidate activity keys for a mapping/confirm question, picked one first."""
+    seen: set[str] = set()
+    choices: list[dict] = []
+    if picked and cat.is_real(picked):
+        entry = cat.get(picked)
+        choices.append({"value": picked, "label": _choice_label(entry)})
+        seen.add(picked)
+    for entry in cat.search(description, top_n=6):
+        if entry.activity_key in seen:
+            continue
+        seen.add(entry.activity_key)
+        choices.append({"value": entry.activity_key, "label": _choice_label(entry)})
+        if len(choices) >= 6:
+            break
+    choices.append({"value": _GAP_ANSWER, "label": "None of these — leave as a gap"})
+    return choices
+
+
+def _question_spec(cat, grounding: GroundingVerdict, m) -> dict | None:
+    """Build a grouped, typed clarifying question for a row — or None if the row is
+    confident enough to need no question. The group_key dedupes identical issues so
+    every "PP" row (or every diesel-in-liters row) is asked about exactly once."""
+    desc = (m.description or "").strip()
+
+    # 1) Activity couldn't be matched at all — offer real candidates to pick from.
     if not grounding.resolved:
-        return "activity"
+        return {
+            "group_key": f"map:{_norm(desc)}",
+            "field": "activity",
+            "choices": _activity_choices(cat, desc, m.activity_key),
+            "question": f'Which activity type is "{desc or "this row"}"?',
+        }
+
+    # 2) Mapped, but the unit doesn't fit the factor — expected vs. as-given.
     if not grounding.unit_ok:
-        return "unit"
+        expected = grounding.factor_unit or "the factor's unit"
+        given = m.unit or "(none)"
+        choices = [{"value": expected, "label": f"{expected} — expected by the factor"}]
+        if given and _norm(given) != _norm(expected):
+            choices.append({"value": given, "label": f"{given} — as in your file"})
+        return {
+            "group_key": f"unit:{m.activity_key}:{_norm(given)}",
+            "field": "unit",
+            "choices": choices,
+            "question": (
+                f'"{desc or "This row"}" is recorded in "{given}", but the factor '
+                f"expects {expected}. Which unit is correct?"
+            ),
+        }
+
+    # 3) Mapped cleanly, but the mapper flagged its own pick — a quick confirm.
+    if m.question:
+        picked_entry = cat.get(m.activity_key)
+        picked_label = _choice_label(picked_entry) if picked_entry else m.activity_key
+        return {
+            "group_key": f"map:{_norm(desc)}",
+            "field": "activity",
+            "choices": _activity_choices(cat, desc, m.activity_key),
+            "question": f'We mapped "{desc}" to {picked_label}. Is that right?',
+        }
+
     return None
 
 
@@ -614,8 +704,14 @@ def _apply_answer_to_row(row: StagedRow, field: str | None, answer: str, cat) ->
         except (ValueError, InvalidOperation):
             pass
     elif field == "activity":
-        # Accept only a real catalog key; pull scope/category from the catalog entry.
-        if cat.is_real(answer):
+        if answer == _GAP_ANSWER:
+            # Client chose "leave as a gap" — clear any tentative mapping so the row
+            # is honestly a gap rather than a guessed factor.
+            row.activity_key = None
+            row.scope = None
+            row.category_code = None
+        elif cat.is_real(answer):
+            # Accept only a real catalog key; pull scope/category from the entry.
             entry = cat.get(answer)
             row.activity_key = answer
             if entry:

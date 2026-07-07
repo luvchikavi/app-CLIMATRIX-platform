@@ -175,9 +175,10 @@ export default function IngestPage() {
 
   const submitAnswers = async () => {
     if (!session) return;
+    // '__unanswered__' is the dropdown placeholder — treat it as "not answered".
     const payload = openQuestions
-      .filter((q) => (answers[q.id] ?? '').trim().length > 0)
-      .map((q) => ({ question_id: q.id, answer: answers[q.id].trim() }));
+      .map((q) => ({ question_id: q.id, answer: (answers[q.id] ?? '').trim() }))
+      .filter((a) => a.answer.length > 0 && a.answer !== '__unanswered__');
     if (payload.length === 0) {
       toast.error('Answer at least one question first.');
       return;
@@ -613,33 +614,58 @@ function QuestionRow({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const choices = q.choices ?? [];
+  const selected = choices.find((c) => c.value === value);
   return (
     <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-      <p className="mb-2 text-sm text-slate-700 dark:text-slate-200">{q.question}</p>
-      {q.choices && q.choices.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {q.choices.map((c) => (
-            <button
-              key={c}
-              onClick={() => onChange(c)}
-              className={cn(
-                'rounded-full border px-3 py-1 text-xs transition-colors',
-                value === c
-                  ? 'border-emerald-500 bg-emerald-500 text-white'
-                  : 'border-slate-300 text-slate-600 hover:border-emerald-400 dark:border-slate-700 dark:text-slate-300'
-              )}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-      ) : (
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <p className="text-sm text-slate-700 dark:text-slate-200">{q.question}</p>
+        {q.applies_count > 1 && (
+          <span className="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+            {q.applies_count} rows
+          </span>
+        )}
+      </div>
+      {choices.length === 0 ? (
+        // No preset options — free text as a last resort.
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Type your answer…"
           className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
         />
+      ) : choices.length <= 4 ? (
+        // A few options — show them as pick-one buttons.
+        <div className="flex flex-wrap gap-2">
+          {choices.map((c) => (
+            <button
+              key={c.value || '__gap__'}
+              onClick={() => onChange(c.value)}
+              className={cn(
+                'rounded-full border px-3 py-1 text-xs transition-colors',
+                selected?.value === c.value
+                  ? 'border-emerald-500 bg-emerald-500 text-white'
+                  : 'border-slate-300 text-slate-600 hover:border-emerald-400 dark:border-slate-700 dark:text-slate-300'
+              )}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      ) : (
+        // Many options — a dropdown keeps it compact.
+        <select
+          value={value || '__unanswered__'}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+        >
+          <option value="__unanswered__">Choose the right activity…</option>
+          {choices.map((c) => (
+            <option key={c.value || '__gap__'} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
       )}
     </div>
   );

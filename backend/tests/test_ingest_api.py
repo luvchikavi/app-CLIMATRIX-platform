@@ -39,6 +39,73 @@ def _fake_map_table(table, catalog, max_rows=None, client=None):
     ]
 
 
+def _fake_map_many_duplicates(table, catalog, max_rows=None, client=None):
+    """Six rows: five identical unmappable "PP" rows + one clean electricity row.
+    The five PP rows must collapse to ONE grouped question, not five."""
+    rows = [
+        MappedRow(
+            0,
+            "electricity_kwh",
+            2,
+            "2",
+            100,
+            "kWh",
+            "Office electricity",
+            0.95,
+            None,
+            {},
+        ),
+    ]
+    for i in range(1, 6):
+        rows.append(
+            MappedRow(
+                i, None, None, None, 10, "kg", "PP (polypropylene)", 0.3, None, {}
+            )
+        )
+    return rows
+
+
+async def test_duplicate_questions_are_grouped(
+    client, auth_headers, test_period, seed_emission_factors, monkeypatch
+):
+    monkeypatch.setattr(orchestrator, "map_table_fast", _fake_map_many_duplicates)
+    monkeypatch.setattr(orchestrator, "map_table", _fake_map_many_duplicates)
+
+    resp = await client.post(
+        "/api/ingest",
+        headers=auth_headers,
+        files={"file": ("materials.csv", _CSV, "text/csv")},
+        data={"reporting_period_id": str(test_period.id)},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total_rows"] == 6
+    # Five identical "PP" rows -> exactly ONE question, not five.
+    assert len(body["questions"]) == 1
+    q = body["questions"][0]
+    assert q["applies_count"] == 5
+    assert q["field"] == "activity"
+    assert q["choices"], "a mapping question must offer typed choices"
+    # The final choice is always an explicit 'leave as a gap' escape hatch.
+    assert q["choices"][-1]["value"] == "__leave_gap__"
+
+    # Answering the single question resolves all five rows at once.
+    sid = body["id"]
+    qid = q["id"]
+    resp = await client.post(
+        f"/api/ingest/{sid}/answers",
+        headers=auth_headers,
+        json={"answers": [{"question_id": qid, "answer": "__leave_gap__"}]},
+    )
+    assert resp.status_code == 200, resp.text
+    detail = resp.json()
+    assert detail["open_question_count"] == 0
+    # All five PP rows are honestly gaps now (no guessed factor).
+    pp = [r for r in detail["rows"] if r["description"] == "PP (polypropylene)"]
+    assert len(pp) == 5
+    assert all(r["activity_key"] is None for r in pp)
+
+
 async def test_upload_rejects_executable(client, auth_headers, seed_emission_factors):
     macho = b"\xcf\xfa\xed\xfe" + b"\x00" * 64
     resp = await client.post(

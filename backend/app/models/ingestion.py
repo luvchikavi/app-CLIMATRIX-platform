@@ -177,7 +177,15 @@ class ClarificationQuestion(SQLModel, table=True):
     field: Optional[str] = Field(
         default=None, max_length=50
     )  # unit | activity | quantity | scope
+    # Typed answer options: a list of {"value","label"}. The UI renders these as
+    # buttons (few) or a dropdown (many); free text only when there are no choices.
     choices: Optional[list] = Field(default=None, sa_column=Column(JSON))
+
+    # Grouping: one question stands in for every row with the same issue (all "PP"
+    # rows, all diesel-in-liters rows). group_key dedupes at generation time;
+    # applies_to_row_ids is every staged row the single answer resolves.
+    group_key: Optional[str] = Field(default=None, max_length=200, index=True)
+    applies_to_row_ids: Optional[list] = Field(default=None, sa_column=Column(JSON))
 
     answer: Optional[str] = Field(default=None, max_length=1000)
     answered: bool = Field(default=False, index=True)

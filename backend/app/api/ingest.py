@@ -84,6 +84,7 @@ class QuestionOut(BaseModel):
     choices: Optional[list]
     answer: Optional[str]
     answered: bool
+    applies_count: int = 1
 
 
 class StagedRowOut(BaseModel):
@@ -180,6 +181,7 @@ def _question_out(q: ClarificationQuestion) -> QuestionOut:
         choices=q.choices,
         answer=q.answer,
         answered=q.answered,
+        applies_count=len(q.applies_to_row_ids or []) or 1,
     )
 
 
