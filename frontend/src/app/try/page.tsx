@@ -8,7 +8,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import Link from 'next/link';
-import { demoAnalyze, DemoResult } from '@/lib/api';
+import { api, demoAnalyze, DemoResult } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
   UploadCloud,
@@ -31,7 +31,24 @@ export default function TryPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [email, setEmail] = useState('');
+  const [captured, setCaptured] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const captureEmail = useCallback(async () => {
+    const value = email.trim();
+    if (!value || !value.includes('@')) return;
+    try {
+      await api.captureLead({
+        email: value,
+        source: 'website_tryit',
+        what_tried: result?.filename,
+      });
+    } catch {
+      // non-blocking — never let capture failure interrupt the prospect
+    }
+    setCaptured(true);
+  }, [email, result]);
 
   const handleFile = useCallback(async (file: File) => {
     setBusy(true);
@@ -210,6 +227,31 @@ export default function TryPage() {
               <p className="mt-1 text-sm text-slate-300">
                 Sign up to keep it, run full Scope 1/2/3 reports, and build a decarbonization plan.
               </p>
+
+              {/* Email capture — turn a trial into a lead we can follow up */}
+              {captured ? (
+                <p className="mt-4 text-sm text-emerald-300">
+                  Thanks — we&apos;ll be in touch. Create your account to keep these results.
+                </p>
+              ) : (
+                <div className="mx-auto mt-4 flex max-w-md gap-2">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && captureEmail()}
+                    placeholder="you@company.com — get the full breakdown"
+                    className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                  />
+                  <button
+                    onClick={captureEmail}
+                    className="rounded-lg border border-emerald-500 px-4 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-500/10"
+                  >
+                    Send it
+                  </button>
+                </div>
+              )}
+
               <div className="mt-4 flex justify-center gap-3">
                 <Link
                   href="/"
