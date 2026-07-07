@@ -1,0 +1,194 @@
+"""
+Lead-management (lightweight CRM) API endpoints.
+
+- Public capture endpoint for people who try the app / leave details at a
+  conference / come from forums (no auth, rate-limited).
+- Admin endpoints to list and update leads for follow-up.
+"""
+
+from datetime import datetime
+from typing import Annotated, Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from pydantic import BaseModel, EmailStr
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+
+from app.api.auth import get_current_user
+from app.config import settings
+from app.database import get_session
+from app.rate_limit import limiter
+from app.models.core import User
+from app.models.crm import Lead
+
+router = APIRouter()
+
+# Allowed enum-like values (kept as plain strings on the model for flexibility).
+VALID_SOURCES = {"website_tryit", "conference", "signup", "forum", "manual"}
+VALID_STATUSES = {"new", "contacted", "trial", "customer", "lost"}
+
+
+# ============================================================================
+# Schemas
+# ============================================================================
+
+
+class LeadCapture(BaseModel):
+    """Public lead-capture payload."""
+
+    email: EmailStr
+    name: Optional[str] = None
+    organization_name: Optional[str] = None
+    source: str
+    what_tried: Optional[str] = None
+
+
+class LeadUpdate(BaseModel):
+    """Admin update payload for status / notes."""
+
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class LeadResponse(BaseModel):
+    """Lead representation returned to clients."""
+
+    id: str
+    name: Optional[str]
+    email: str
+    organization_name: Optional[str]
+    source: str
+    status: str
+    notes: Optional[str]
+    what_tried: Optional[str]
+    created_at: datetime
+    updated_at: Optional[datetime]
+
+    @classmethod
+    def from_lead(cls, lead: Lead) -> "LeadResponse":
+        return cls(
+            id=str(lead.id),
+            name=lead.name,
+            email=lead.email,
+            organization_name=lead.organization_name,
+            source=lead.source,
+            status=lead.status,
+            notes=lead.notes,
+            what_tried=lead.what_tried,
+            created_at=lead.created_at,
+            updated_at=lead.updated_at,
+        )
+
+
+# ============================================================================
+# Endpoints
+# ============================================================================
+
+
+@router.post("/leads", response_model=LeadResponse)
+@limiter.limit(settings.rate_limit_default)
+async def capture_lead(
+    request: Request,
+    payload: LeadCapture,
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+):
+    """
+    PUBLIC lead capture (no auth).
+
+    Upserts by email: if a lead with the same email already exists it is
+    updated with any newly provided details; otherwise a new lead is created.
+    """
+    if payload.source not in VALID_SOURCES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid source. Must be one of: {', '.join(sorted(VALID_SOURCES))}",
+        )
+
+    email = str(payload.email).lower().strip()
+
+    existing_query = select(Lead).where(Lead.email == email)
+    existing_result = await session.execute(existing_query)
+    lead = existing_result.scalar_one_or_none()
+
+    if lead:
+        # Update with any freshly supplied details (don't wipe existing data).
+        if payload.name:
+            lead.name = payload.name
+        if payload.organization_name:
+            lead.organization_name = payload.organization_name
+        if payload.what_tried:
+            lead.what_tried = payload.what_tried
+        lead.source = payload.source
+        lead.updated_at = datetime.utcnow()
+    else:
+        lead = Lead(
+            email=email,
+            name=payload.name,
+            organization_name=payload.organization_name,
+            source=payload.source,
+            what_tried=payload.what_tried,
+        )
+        session.add(lead)
+
+    await session.commit()
+    await session.refresh(lead)
+
+    return LeadResponse.from_lead(lead)
+
+
+@router.get("/leads", response_model=list[LeadResponse])
+async def list_leads(
+    status: Optional[str] = Query(default=None, description="Filter by status"),
+    source: Optional[str] = Query(default=None, description="Filter by source"),
+    limit: int = Query(default=200, le=1000),
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_user: Annotated[User, Depends(get_current_user)] = None,
+):
+    """List leads, newest first. Admin only. Optional status/source filters."""
+    query = select(Lead)
+
+    if status:
+        query = query.where(Lead.status == status)
+    if source:
+        query = query.where(Lead.source == source)
+
+    query = query.order_by(Lead.created_at.desc()).limit(limit)
+
+    result = await session.execute(query)
+    leads = result.scalars().all()
+
+    return [LeadResponse.from_lead(lead) for lead in leads]
+
+
+@router.patch("/leads/{lead_id}", response_model=LeadResponse)
+async def update_lead(
+    lead_id: UUID,
+    payload: LeadUpdate,
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_user: Annotated[User, Depends(get_current_user)] = None,
+):
+    """Update a lead's status and/or notes. Admin only."""
+    result = await session.execute(select(Lead).where(Lead.id == lead_id))
+    lead = result.scalar_one_or_none()
+
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    if payload.status is not None:
+        if payload.status not in VALID_STATUSES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status. Must be one of: {', '.join(sorted(VALID_STATUSES))}",
+            )
+        lead.status = payload.status
+
+    if payload.notes is not None:
+        lead.notes = payload.notes
+
+    lead.updated_at = datetime.utcnow()
+
+    await session.commit()
+    await session.refresh(lead)
+
+    return LeadResponse.from_lead(lead)

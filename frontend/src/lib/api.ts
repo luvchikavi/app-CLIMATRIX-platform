@@ -2215,6 +2215,32 @@ class ApiClient {
       { method: 'POST' }
     );
   }
+
+  // Leads (lightweight CRM)
+  async captureLead(data: LeadCapture): Promise<Lead> {
+    return this.fetch<Lead>('/leads', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getLeads(params?: { status?: LeadStatus; source?: LeadSource }): Promise<Lead[]> {
+    const query = new URLSearchParams();
+    if (params?.status) query.append('status', params.status);
+    if (params?.source) query.append('source', params.source);
+    const qs = query.toString();
+    return this.fetch<Lead[]>(`/leads${qs ? `?${qs}` : ''}`);
+  }
+
+  async updateLead(
+    leadId: string,
+    data: { status?: LeadStatus; notes?: string }
+  ): Promise<Lead> {
+    return this.fetch<Lead>(`/leads/${leadId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 // CBAM Types for API
@@ -2814,6 +2840,34 @@ export interface IngestionSession {
 export interface IngestionSessionDetail extends IngestionSession {
   rows: StagedRow[];
   questions: ClarificationQuestion[];
+}
+
+// ============================================================================
+// Leads (lightweight CRM) types
+// ============================================================================
+
+export type LeadSource = 'website_tryit' | 'conference' | 'signup' | 'forum' | 'manual';
+export type LeadStatus = 'new' | 'contacted' | 'trial' | 'customer' | 'lost';
+
+export interface Lead {
+  id: string;
+  name: string | null;
+  email: string;
+  organization_name: string | null;
+  source: LeadSource;
+  status: LeadStatus;
+  notes: string | null;
+  what_tried: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface LeadCapture {
+  email: string;
+  name?: string;
+  organization_name?: string;
+  source: LeadSource;
+  what_tried?: string;
 }
 
 export const api = new ApiClient();

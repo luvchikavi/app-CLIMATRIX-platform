@@ -21,6 +21,7 @@ import {
   CreditCard,
   History,
   Sparkles,
+  UserPlus,
 } from 'lucide-react';
 import { MODULE_REGISTRY, STATUS_META } from '@/lib/modules';
 
@@ -83,6 +84,7 @@ const navigation: NavGroup[] = [
     title: 'Organization',
     items: [
       { label: 'Sites & Locations', href: '/sites', icon: Building2 },
+      { label: 'Leads', href: '/leads', icon: UserPlus },
       { label: 'Reports', href: '/reports', icon: FileText },
       { label: 'Billing', href: '/billing', icon: CreditCard },
       { label: 'Settings', href: '/settings', icon: Settings },
