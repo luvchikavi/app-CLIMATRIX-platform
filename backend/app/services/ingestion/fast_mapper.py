@@ -205,9 +205,16 @@ def map_distinct(
     )
     system = (
         "Map each distinct client activity description to EXACTLY one candidate key "
-        "below, or null if none truly fits / you're unsure — never invent a key. Read "
-        "the sheet name for context (e.g. a 'Scope2_Electricity' sheet is electricity).\n\n"
-        f"Sheet: {table.sheet}\nCANDIDATE KEYS:\n{cand_block}"
+        "below, or null if none truly fits / you're unsure — never invent a key.\n"
+        "RULES:\n"
+        "- Read the sheet name for context (a 'Scope2_Electricity' sheet is electricity).\n"
+        "- COUNTRY MATTERS: if the text names a country/region, pick the key for THAT "
+        "country (e.g. 'electricity Israel' → an Israel electricity key, NEVER another "
+        "country's). If no country is named, prefer a generic/global key over a random "
+        "country-specific one.\n"
+        "- Match the physical basis: a spend/$ amount → a spend key; a physical amount "
+        "(kg, kWh, L, km) → a physical key.\n\n"
+        f"Sheet: {table.sheet}\nCANDIDATE KEYS (key | scope | expected unit | name):\n{cand_block}"
     )
     user = "Distinct activities to map:\n" + json.dumps(distinct, default=str)
     # Use the FAST model — distinct-value mapping is a constrained pick from the

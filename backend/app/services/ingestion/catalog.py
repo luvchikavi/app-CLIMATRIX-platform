@@ -7,6 +7,7 @@ no external deps — so it's cheap, deterministic, and testable.
 
 Replaces the stale ~40-key hardcoded list that used to live in the LLM prompt.
 """
+
 from __future__ import annotations
 
 import re
@@ -21,18 +22,62 @@ def _tokens(s: str) -> set[str]:
 
 # Everyday words a client might use -> tokens that appear in catalog keys.
 ALIASES: dict[str, str] = {
-    "power": "electricity", "grid": "electricity", "kwh": "electricity",
-    "elec": "electricity", "mains": "electricity",
-    "gas": "natural_gas", "ng": "natural_gas",
-    "gasoline": "petrol", "benzine": "petrol",
-    "flights": "flight", "air": "flight", "airfare": "flight", "plane": "flight",
-    "commuting": "commute", "commuter": "commute",
-    "recycling": "recycled", "landfilled": "landfill", "trash": "waste",
+    "power": "electricity",
+    "grid": "electricity",
+    "kwh": "electricity",
+    "elec": "electricity",
+    "mains": "electricity",
+    "gas": "natural_gas",
+    "ng": "natural_gas",
+    "gasoline": "petrol",
+    "benzine": "petrol",
+    "flights": "flight",
+    "air": "flight",
+    "airfare": "flight",
+    "plane": "flight",
+    "commuting": "commute",
+    "commuter": "commute",
+    "recycling": "recycled",
+    "landfilled": "landfill",
+    "trash": "waste",
     "aluminium": "aluminum",
-    "shipping": "freight", "haulage": "freight", "logistics": "freight",
-    "hotels": "hotel", "accommodation": "hotel", "lodging": "hotel",
-    "fuel": "diesel", "vehicle": "car", "fleet": "car", "van": "van",
-    "cloud": "electricity", "server": "electricity", "datacenter": "electricity",
+    "shipping": "freight",
+    "haulage": "freight",
+    "logistics": "freight",
+    "hotels": "hotel",
+    "accommodation": "hotel",
+    "lodging": "hotel",
+    "fuel": "diesel",
+    "vehicle": "car",
+    "fleet": "car",
+    "van": "van",
+    "cloud": "electricity",
+    "server": "electricity",
+    "datacenter": "electricity",
+}
+
+# Region codes -> country name tokens, so "electricity Israel" finds the IL grid key.
+_REGION_NAMES: dict[str, str] = {
+    "IL": "israel",
+    "US": "usa united states america",
+    "UK": "uk britain united kingdom",
+    "GB": "uk britain united kingdom",
+    "DE": "germany",
+    "FR": "france",
+    "ES": "spain",
+    "IT": "italy",
+    "NL": "netherlands",
+    "PL": "poland",
+    "EU": "europe european",
+    "CN": "china",
+    "IN": "india",
+    "JP": "japan",
+    "AU": "australia",
+    "CA": "canada",
+    "BR": "brazil",
+    "TR": "turkey",
+    "ZA": "south africa",
+    "MX": "mexico",
 }
 
 
@@ -92,12 +137,15 @@ def entry_from_record(
     region: str,
     description: str = "",
 ) -> FactorEntry:
-    display = activity_key.replace("_", " ").title()
+    # `description` here is the DB display_name (e.g. "Israel Grid") — carries the
+    # real name + country, so tokenize it for search and use it as the display name.
+    display = (description or "").strip() or activity_key.replace("_", " ").title()
     toks = (
         _tokens(activity_key)
         | _tokens(category_code)
         | _tokens(description)
         | _tokens(display)
+        | _tokens(_REGION_NAMES.get((region or "").upper(), ""))
     )
     try:
         scope_int = int(scope)
@@ -118,10 +166,13 @@ async def build_from_db(session) -> FactorCatalog:
     """Build the index from the live emission_factors table (the authoritative catalog)."""
     from sqlalchemy import text
 
+    # Include display_name — it carries the real-world name/country (e.g. "Israel Grid")
+    # so a search for "electricity Israel" can find electricity_il.
     rows = (
         await session.execute(
             text(
-                "SELECT DISTINCT activity_key, scope, category_code, activity_unit, region "
+                "SELECT DISTINCT activity_key, scope, category_code, activity_unit, "
+                "region, display_name "
                 "FROM emission_factors WHERE activity_key IS NOT NULL"
             )
         )
