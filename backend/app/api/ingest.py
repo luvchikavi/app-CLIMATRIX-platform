@@ -103,6 +103,7 @@ class StagedRowOut(BaseModel):
     pcaf_data_quality: Optional[int]
     measurement_tier: Optional[str]
     reasons: Optional[list]
+    provenance: Optional[dict]
     committed_activity_id: Optional[UUID]
     commit_error: Optional[str]
 
@@ -164,6 +165,7 @@ def _row_out(r: StagedRow) -> StagedRowOut:
         pcaf_data_quality=r.pcaf_data_quality,
         measurement_tier=r.measurement_tier,
         reasons=r.reasons,
+        provenance=r.provenance,
         committed_activity_id=r.committed_activity_id,
         commit_error=r.commit_error,
     )

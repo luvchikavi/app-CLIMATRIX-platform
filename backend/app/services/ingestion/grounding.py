@@ -101,6 +101,11 @@ class GroundingVerdict:
     confidence_cap: float
     pcaf_data_quality: int
     reason: str
+    # Provenance of the factor actually used — the "full story" a validator traces.
+    factor_source: str | None = None
+    factor_year: int | None = None
+    factor_region: str | None = None
+    factor_name: str | None = None
 
     @property
     def ok(self) -> bool:
@@ -193,4 +198,8 @@ async def ground_row(
         confidence_cap=cap,
         pcaf_data_quality=_PCAF_SCORE.get(res.strategy, 4),
         reason=unit_reason if not unit_ok else res.message,
+        factor_source=getattr(res.factor, "source", None),
+        factor_year=getattr(res.factor, "year", None),
+        factor_region=getattr(res.factor, "region", None),
+        factor_name=getattr(res.factor, "display_name", None),
     )

@@ -68,6 +68,55 @@ const TIER: Record<string, { label: string; chip: string; dot: string; blurb: st
 };
 const TIER_ORDER = ['measured', 'calculated', 'estimated', 'gap'] as const;
 
+// Scope is the classification a validator (and the client) cares about most —
+// keep it unmistakable and colour-coded throughout.
+const SCOPE: Record<number, { label: string; blurb: string; chip: string; dot: string }> = {
+  1: {
+    label: 'Scope 1',
+    blurb: 'Direct emissions',
+    chip: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300',
+    dot: 'bg-rose-500',
+  },
+  2: {
+    label: 'Scope 2',
+    blurb: 'Purchased energy',
+    chip: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
+    dot: 'bg-amber-500',
+  },
+  3: {
+    label: 'Scope 3',
+    blurb: 'Value chain',
+    chip: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
+    dot: 'bg-emerald-500',
+  },
+};
+
+const CATEGORY_NAMES: Record<string, string> = {
+  '1.1': 'Stationary combustion',
+  '1.2': 'Mobile combustion',
+  '1.3': 'Fugitive emissions',
+  '2': 'Purchased electricity',
+  '2.1': 'Purchased electricity',
+  '2.2': 'Purchased heat & steam',
+  '2.3': 'Purchased cooling',
+  '3.1': 'Purchased goods & services',
+  '3.2': 'Capital goods',
+  '3.3': 'Fuel & energy (WTT/T&D)',
+  '3.4': 'Upstream transport',
+  '3.5': 'Waste',
+  '3.6': 'Business travel',
+  '3.7': 'Employee commuting',
+  '3.8': 'Upstream leased assets',
+  '3.9': 'Downstream transport',
+  '3.10': 'Processing of sold products',
+  '3.11': 'Use of sold products',
+  '3.12': 'End-of-life treatment',
+  '3.13': 'Downstream leased assets',
+  '3.14': 'Franchises',
+  '3.15': 'Investments',
+};
+
+
 export default function IngestPage() {
   const { data: periods } = usePeriods();
   const { selectedPeriodId, setSelectedPeriodId } = usePeriodStore();
@@ -356,6 +405,13 @@ export default function IngestPage() {
           session.total_rows > 0 &&
           session.summary?.by_tier && <InventoryQuality byTier={session.summary.by_tier} />}
 
+        {/* Scope split — the classification a validator cares about most */}
+        {session &&
+          session.status !== 'failed' &&
+          !isAnalyzing &&
+          session.total_rows > 0 &&
+          session.summary?.by_scope && <ScopeBreakdown byScope={session.summary.by_scope} />}
+
         {/* Duplicate-import warning */}
         {session?.summary?.duplicate_warning && !isCommitted && (
           <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
@@ -496,6 +552,30 @@ function InventoryQuality({
   );
 }
 
+function ScopeBreakdown({ byScope }: { byScope: Record<string, number> }) {
+  const rows = [1, 2, 3].map((s) => ({ scope: s, count: byScope[`scope_${s}`] || 0 }));
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900/50">
+      <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">Scope split</span>
+      {rows.map(({ scope, count }) => (
+        <span
+          key={scope}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm',
+            SCOPE[scope].chip
+          )}
+          title={SCOPE[scope].blurb}
+        >
+          <span className="font-semibold">{SCOPE[scope].label}</span>
+          <span className="opacity-70">·</span>
+          <span>{count}</span>
+          <span className="hidden text-xs opacity-70 sm:inline">{SCOPE[scope].blurb}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function SummaryBar({ session }: { session: IngestionSessionDetail }) {
   const band = session.summary?.by_band ?? {};
   const security = session.summary?.security;
@@ -613,13 +693,45 @@ function ReviewGrid({
                 </td>
                 <td className="py-2 pr-3">
                   {r.activity_key ? (
-                    <span className="font-mono text-xs text-slate-700 dark:text-slate-200">{r.activity_key}</span>
+                    <>
+                      <span className="font-mono text-xs text-slate-700 dark:text-slate-200">
+                        {r.activity_key}
+                      </span>
+                      {r.provenance?.factor_source && (
+                        <div
+                          className="mt-0.5 text-xs text-slate-400"
+                          title={r.provenance.method_label || undefined}
+                        >
+                          {r.provenance.factor_source}
+                          {r.provenance.factor_region ? ` · ${r.provenance.factor_region}` : ''}
+                          {r.provenance.factor_year ? ` · ${r.provenance.factor_year}` : ''}
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <span className="text-xs italic text-amber-500">unmapped</span>
                   )}
                 </td>
-                <td className="py-2 pr-3 text-slate-600 dark:text-slate-300">
-                  {r.scope ? `${r.scope}${r.category_code ? `.${r.category_code.split('.')[1] ?? ''}` : ''}` : '—'}
+                <td className="py-2 pr-3">
+                  {r.scope && SCOPE[r.scope] ? (
+                    <div>
+                      <span
+                        className={cn(
+                          'inline-flex items-center rounded px-1.5 py-0.5 text-xs font-semibold',
+                          SCOPE[r.scope].chip
+                        )}
+                      >
+                        {SCOPE[r.scope].label}
+                      </span>
+                      {r.category_code && CATEGORY_NAMES[r.category_code] && (
+                        <div className="mt-0.5 text-xs text-slate-500">
+                          {r.category_code} · {CATEGORY_NAMES[r.category_code]}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-slate-400">—</span>
+                  )}
                 </td>
                 <td className="py-2 pr-3 text-slate-600 dark:text-slate-300">
                   {r.quantity != null ? `${r.quantity} ${r.unit ?? ''}` : '—'}

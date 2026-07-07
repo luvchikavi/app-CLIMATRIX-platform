@@ -45,7 +45,11 @@ from app.services.calculation.normalizer import UnitConversionError
 from app.services.ingestion import catalog as catalog_mod
 from app.services.ingestion.confidence import score_row
 from app.services.ingestion.file_guard import sanitise_rows, scan_text_for_injection
-from app.services.ingestion.grounding import GroundingVerdict, ground_row
+from app.services.ingestion.grounding import (
+    GroundingVerdict,
+    ground_row,
+    classify_unit,
+)
 from app.services.ingestion.loader import load
 from app.services.ingestion.mapper import map_table
 from app.services.ingestion.fast_mapper import map_table_fast
@@ -94,6 +98,31 @@ async def annotate_duplicate(
     )
     summary["duplicate_of"] = str(duplicate_of)
     ingestion.summary = summary
+
+
+_METHOD_LABEL = {
+    "exact": "Activity data × specific factor",
+    "region": "Activity data × regional factor",
+    "supplier": "Supplier-specific factor",
+    "defra_physical": "Activity data × DEFRA factor",
+    "ecoinvent": "Activity data × ecoinvent factor",
+    "global": "Activity data × global-average factor",
+    "eeio_spend": "Spend-based (EEIO) estimate",
+    "not_found": "No factor found",
+}
+
+
+def _provenance(grounding: GroundingVerdict, unit: str | None) -> dict:
+    """The full 'story' of a line for review + audit: which factor, from where, how."""
+    return {
+        "factor_source": grounding.factor_source,
+        "factor_year": grounding.factor_year,
+        "factor_region": grounding.factor_region,
+        "factor_name": grounding.factor_name,
+        "method": grounding.strategy,
+        "method_label": _METHOD_LABEL.get(grounding.strategy, grounding.strategy),
+        "unit_kind": classify_unit(unit) if unit else None,
+    }
 
 
 def _no_key_verdict(reason: str) -> GroundingVerdict:
@@ -237,6 +266,7 @@ async def run_analysis(
                 pcaf_data_quality=verdict.pcaf_data_quality,
                 measurement_tier=verdict.tier,
                 reasons=verdict.reasons,
+                provenance=_provenance(grounding, m.unit),
             )
             session.add(staged)
             await session.flush()  # assign staged.id for question FK
@@ -633,6 +663,7 @@ async def _reground_row(
     row.pcaf_data_quality = verdict.pcaf_data_quality
     row.measurement_tier = verdict.tier
     row.reasons = verdict.reasons
+    row.provenance = _provenance(grounding, row.unit)
     # Once answered, a previously-blocked row moves to human review (not auto-ready).
     row.status = (
         RowStatus.NEEDS_REVIEW

@@ -2800,11 +2800,22 @@ export interface StagedRow {
   pcaf_data_quality: number | null;
   measurement_tier: MeasurementTier | null;
   reasons: string[] | null;
+  provenance: StagedProvenance | null;
   committed_activity_id: string | null;
   commit_error: string | null;
 }
 
 export type MeasurementTier = 'measured' | 'calculated' | 'estimated' | 'gap';
+
+export interface StagedProvenance {
+  factor_source?: string | null;
+  factor_year?: number | null;
+  factor_region?: string | null;
+  factor_name?: string | null;
+  method?: string | null;
+  method_label?: string | null;
+  unit_kind?: string | null;
+}
 
 export interface ClarificationQuestion {
   id: string;

@@ -127,6 +127,9 @@ class StagedRow(SQLModel, table=True):
     # inventory — what we can stand behind vs what's an estimate vs a gap).
     measurement_tier: Optional[str] = Field(default=None, max_length=12, index=True)
     reasons: Optional[list] = Field(default=None, sa_column=Column(JSON))
+    # The full "story" of the factor used, for review + audit trail:
+    # {factor_source, factor_year, factor_region, factor_name, method, unit_kind}.
+    provenance: Optional[dict] = Field(default=None, sa_column=Column(JSON))
 
     # Set on commit — links to the real Activity created from this row
     committed_activity_id: Optional[UUID] = Field(
