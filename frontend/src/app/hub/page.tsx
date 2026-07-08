@@ -9,14 +9,15 @@
  * matrix is always visible — nothing is hidden, including what you exclude.
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppShell } from '@/components/layout';
 import { Card, CardContent, Button, toast } from '@/components/ui';
-import { usePeriods } from '@/hooks/useEmissions';
+import { usePeriods, useSites } from '@/hooks/useEmissions';
 import { useHubOverview, useSaveHubProfile } from '@/hooks/useHub';
 import { usePeriodStore } from '@/stores/period';
+import { CategoryDrawer } from '@/components/hub/CategoryDrawer';
 import { api, HubCategory, HubRelevance } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
@@ -172,10 +173,12 @@ function CoverageBar({ category }: { category: HubCategory }) {
 function CategoryRow({
   category,
   onRelevance,
+  onOpen,
   saving,
 }: {
   category: HubCategory;
   onRelevance: (code: string, relevance: HubRelevance, reason?: string) => void;
+  onOpen: (category: HubCategory) => void;
   saving: boolean;
 }) {
   const relevance = category.profile?.relevance ?? 'not_sure';
@@ -208,15 +211,20 @@ function CategoryRow({
         relevance === 'not_relevant' && 'opacity-60'
       )}
     >
-      <div className="min-w-0">
+      <button type="button" onClick={() => onOpen(category)} className="min-w-0 text-left">
         <div className="flex items-baseline gap-2">
           <span className="text-xs font-mono text-slate-400 dark:text-slate-500">{category.code}</span>
-          <span className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+          <span className="truncate text-sm font-medium text-slate-800 hover:text-emerald-600 dark:text-slate-100 dark:hover:text-emerald-400">
             {category.name}
           </span>
+          {category.profile?.data_owner && (
+            <span className="hidden truncate text-xs text-slate-400 lg:inline">
+              · {category.profile.data_owner}
+            </span>
+          )}
         </div>
         <p className="truncate text-xs text-slate-500 dark:text-slate-400">{category.description}</p>
-      </div>
+      </button>
 
       <CoverageBar category={category} />
 
@@ -283,15 +291,40 @@ export default function HubPage() {
   const { data: periods } = usePeriods();
   const { selectedPeriodId } = usePeriodStore();
   const periodId = periods?.find((p) => p.id === selectedPeriodId)?.id ?? periods?.[0]?.id;
+  const queryClient = useQueryClient();
 
-  const { data, isLoading } = useHubOverview(periodId);
-  const saveProfile = useSaveHubProfile();
+  // Per-site profile layer: org-wide by default; large orgs override per site.
+  const { data: sites } = useSites();
+  const [siteId, setSiteId] = useState<string>('');
+
+  const { data, isLoading } = useHubOverview(periodId, siteId || undefined);
+  const saveProfile = useSaveHubProfile(siteId || undefined);
+  const [drawer, setDrawer] = useState<HubCategory | null>(null);
   const { data: sessions } = useQuery({
     queryKey: ['ingest-sessions'],
     queryFn: () => api.listIngestSessions(),
     staleTime: 30 * 1000,
   });
   const recentSessions = (sessions ?? []).slice(0, 5);
+
+  // Multi-file drop: each file becomes its own session; the list below tracks them.
+  const [uploading, setUploading] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const uploadFiles = async (files: FileList | File[]) => {
+    const list = Array.from(files);
+    for (let i = 0; i < list.length; i++) {
+      setUploading(`${list[i].name} (${i + 1}/${list.length})`);
+      try {
+        await api.ingestUpload(list[i], periodId);
+      } catch (e) {
+        toast.error(`${list[i].name}: ${e instanceof Error ? e.message : 'upload failed'}`);
+      }
+      queryClient.invalidateQueries({ queryKey: ['ingest-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['hub-overview'] });
+    }
+    setUploading(null);
+    toast.success(`${list.length} file${list.length > 1 ? 's' : ''} processed — review below`);
+  };
 
   const setupMode = useMemo(
     () => !!data && data.stats.not_sure === data.stats.total_categories,
@@ -320,6 +353,19 @@ export default function HubPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {(sites?.length ?? 0) > 1 && (
+              <select
+                value={siteId}
+                onChange={(e) => setSiteId(e.target.value)}
+                className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                title="Which profile layer to view/edit — coverage is org-wide"
+              >
+                <option value="">All sites (org profile)</option>
+                {(sites ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            )}
             <Link href="/activities?add=1">
               <Button variant="outline">
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -333,6 +379,42 @@ export default function HubPage() {
               </Button>
             </Link>
           </div>
+        </div>
+
+        {/* Drop several files at once — each becomes its own upload session */}
+        <div
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (e.dataTransfer.files?.length) uploadFiles(e.dataTransfer.files);
+          }}
+          onClick={() => !uploading && fileRef.current?.click()}
+          className={cn(
+            'flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-3 text-sm transition-colors',
+            uploading
+              ? 'border-emerald-400 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
+              : 'border-slate-300 text-slate-500 hover:border-emerald-400 dark:border-slate-700 dark:text-slate-400'
+          )}
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Reading {uploading}…
+            </>
+          ) : (
+            <>
+              <UploadCloud className="h-4 w-4" />
+              Drop one or many files here — invoices export, fuel cards, the CLIMATRIX template…
+            </>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            hidden
+            accept=".xlsx,.xlsm,.csv"
+            onChange={(e) => e.target.files?.length && uploadFiles(e.target.files)}
+          />
         </div>
 
         {data && (
@@ -375,6 +457,38 @@ export default function HubPage() {
             </Card>
           </div>
         )}
+
+        {/* The chase list — relevant categories still waiting for data */}
+        {data && (() => {
+          const missing = data.categories.filter(
+            (c) =>
+              (c.profile?.relevance ?? 'not_sure') === 'relevant' &&
+              c.coverage.committed_count === 0 &&
+              c.coverage.staged_count === 0
+          );
+          if (missing.length === 0) return null;
+          return (
+            <Card className="border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20">
+              <CardContent className="p-4">
+                <p className="mb-2 text-sm font-semibold text-slate-900 dark:text-white">
+                  Still missing — your chase list
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {missing.map((c) => (
+                    <button
+                      key={c.code}
+                      onClick={() => setDrawer(c)}
+                      className="rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-transparent dark:text-amber-300"
+                    >
+                      {c.code} {c.name}
+                      {c.profile?.data_owner && ` → ask ${c.profile.data_owner}`}
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {recentSessions.length > 0 && (
           <Card>
@@ -465,6 +579,7 @@ export default function HubPage() {
                         key={c.code}
                         category={c}
                         onRelevance={handleRelevance}
+                        onOpen={setDrawer}
                         saving={saveProfile.isPending}
                       />
                     ))}
@@ -488,6 +603,17 @@ export default function HubPage() {
           </div>
         )}
       </div>
+
+      {drawer && (
+        <CategoryDrawer
+          key={drawer.code}
+          // keep the drawer in sync with fresh overview data after saves
+          category={data?.categories.find((c) => c.code === drawer.code) ?? drawer}
+          siteId={siteId || undefined}
+          periodId={periodId}
+          onClose={() => setDrawer(null)}
+        />
+      )}
     </AppShell>
   );
 }

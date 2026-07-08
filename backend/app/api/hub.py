@@ -106,6 +106,63 @@ class HubOverview(BaseModel):
     stats: HubStats
 
 
+class HubQuestion(BaseModel):
+    """An open clarifying question, pooled per category for the drawer."""
+
+    id: str
+    session_id: str
+    filename: str
+    question: str
+    field: str | None = None
+    choices: list | None = None
+    applies_count: int = 1
+
+
+@router.get("/hub/questions", response_model=list[HubQuestion])
+async def hub_questions(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    category_code: str,
+    period_id: UUID | None = None,
+):
+    """Open questions for one hub category, across every upload session."""
+    codes = CATEGORY_BY_CODE.get(category_code, {}).get("aggregates", [category_code])
+    filters = [
+        IngestionSession.organization_id == current_user.organization_id,
+        ClarificationQuestion.answered == False,  # noqa: E712
+        func.coalesce(ClarificationQuestion.category_code, StagedRow.category_code).in_(
+            codes
+        ),
+    ]
+    if period_id:
+        filters.append(IngestionSession.reporting_period_id == period_id)
+    rows = (
+        await session.execute(
+            select(ClarificationQuestion, IngestionSession.filename)
+            .join(
+                IngestionSession,
+                ClarificationQuestion.session_id == IngestionSession.id,
+            )
+            .outerjoin(StagedRow, ClarificationQuestion.staged_row_id == StagedRow.id)
+            .where(*filters)
+            .order_by(ClarificationQuestion.created_at.desc())
+            .limit(50)
+        )
+    ).all()
+    return [
+        HubQuestion(
+            id=str(q.id),
+            session_id=str(q.session_id),
+            filename=filename,
+            question=q.question,
+            field=q.field,
+            choices=q.choices,
+            applies_count=len(q.applies_to_row_ids or []) or 1,
+        )
+        for q, filename in rows
+    ]
+
+
 # ============================================================================
 # Canonical category list
 # ============================================================================

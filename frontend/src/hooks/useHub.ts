@@ -18,6 +18,16 @@ export function useHubOverview(periodId?: string, siteId?: string) {
   });
 }
 
+/** Open questions for one category, across all uploads (drawer). */
+export function useHubQuestions(categoryCode: string | null, periodId?: string) {
+  return useQuery({
+    queryKey: ['hub-questions', categoryCode, periodId],
+    queryFn: () => api.getHubQuestions(categoryCode!, periodId),
+    enabled: !!categoryCode,
+    staleTime: 30 * 1000,
+  });
+}
+
 /** Bulk-save profile rows (any subset of the matrix). */
 export function useSaveHubProfile(siteId?: string) {
   const queryClient = useQueryClient();

@@ -779,6 +779,16 @@ export interface HubOverview {
   stats: HubStats;
 }
 
+export interface HubQuestion {
+  id: string;
+  session_id: string;
+  filename: string;
+  question: string;
+  field: string | null;
+  choices: { value: string; label: string }[] | null;
+  applies_count: number;
+}
+
 export interface Region {
   code: string;
   name: string;
@@ -1381,6 +1391,12 @@ class ApiClient {
       method: 'PUT',
       body: JSON.stringify({ site_id: siteId ?? null, entries }),
     });
+  }
+
+  async getHubQuestions(categoryCode: string, periodId?: string): Promise<HubQuestion[]> {
+    const params = new URLSearchParams({ category_code: categoryCode });
+    if (periodId) params.set('period_id', periodId);
+    return this.fetch<HubQuestion[]>(`/hub/questions?${params.toString()}`);
   }
 
   async getSitesBreakdown(periodId?: string): Promise<SiteEmissionSummary[]> {

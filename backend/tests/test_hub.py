@@ -278,3 +278,57 @@ async def test_organization_profile_fields_roundtrip(client, auth_headers):
         "/api/organization", json={"currency": "SHEKELS"}, headers=auth_headers
     )
     assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_hub_questions_pooled_per_category(
+    client, auth_headers, test_session, test_org, test_user, test_period
+):
+    from app.models.ingestion import ClarificationQuestion, IngestionSession, StagedRow
+
+    ingestion = IngestionSession(
+        organization_id=test_org.id,
+        reporting_period_id=test_period.id,
+        created_by=test_user.id,
+        filename="fleet.xlsx",
+        status="needs_answers",
+    )
+    test_session.add(ingestion)
+    await test_session.commit()
+    row = StagedRow(
+        session_id=ingestion.id, category_code="2.2", scope=2, status="needs_question"
+    )
+    test_session.add(row)
+    await test_session.commit()
+    test_session.add(
+        ClarificationQuestion(
+            session_id=ingestion.id,
+            question="Diesel or petrol?",
+            category_code="1.2",
+            applies_to_row_ids=["a", "b", "c"],
+        )
+    )
+    # legacy question without its own category — resolves via its row (2.2 → hub 2.1)
+    test_session.add(
+        ClarificationQuestion(
+            session_id=ingestion.id,
+            staged_row_id=row.id,
+            question="Which supplier factor?",
+        )
+    )
+    await test_session.commit()
+
+    resp = await client.get(
+        "/api/hub/questions?category_code=1.2", headers=auth_headers
+    )
+    assert resp.status_code == 200
+    qs = resp.json()
+    assert len(qs) == 1
+    assert qs[0]["question"] == "Diesel or petrol?"
+    assert qs[0]["applies_count"] == 3
+    assert qs[0]["filename"] == "fleet.xlsx"
+
+    resp = await client.get(
+        "/api/hub/questions?category_code=2.1", headers=auth_headers
+    )
+    assert [q["question"] for q in resp.json()] == ["Which supplier factor?"]
