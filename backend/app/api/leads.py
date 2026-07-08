@@ -25,7 +25,7 @@ from app.models.crm import Lead
 router = APIRouter()
 
 # Allowed enum-like values (kept as plain strings on the model for flexibility).
-VALID_SOURCES = {"website_tryit", "conference", "signup", "forum", "manual"}
+VALID_SOURCES = {"website_tryit", "website_trial", "conference", "signup", "forum", "manual"}
 VALID_STATUSES = {"new", "contacted", "trial", "customer", "lost"}
 
 
