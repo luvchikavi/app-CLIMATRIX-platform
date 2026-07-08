@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueries } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
 import { useSiteStore } from '@/stores/site';
@@ -67,22 +68,87 @@ function DashboardContent() {
   const { data: periods, isLoading: periodsLoading } = usePeriods();
   // Only trust the persisted period if it belongs to THIS org's list — a stale
   // localStorage value from another session/org would 404 every query.
-  const activePeriodId = periods?.find((p) => p.id === selectedPeriodId)?.id ?? periods?.[0]?.id;
+  const globalPeriodId = periods?.find((p) => p.id === selectedPeriodId)?.id ?? periods?.[0]?.id;
+
+  // What the user wants to SEE here: the top-bar period, a specific year, or
+  // every period combined ('all'). Site filtering composes via SiteSelector.
+  const [viewScope, setViewScope] = useState<'selected' | 'all' | string>('selected');
+  const allMode = viewScope === 'all';
+  const activePeriodId = allMode
+    ? globalPeriodId
+    : viewScope === 'selected'
+      ? globalPeriodId
+      : viewScope;
 
   const {
-    data: summary,
+    data: periodSummary,
     isLoading: summaryLoading,
     isError: summaryError,
     refetch: refetchSummary
   } = useReportSummary(activePeriodId || '', selectedSiteId || undefined);
 
-  const { data: activities, isLoading: activitiesLoading } = useActivities(
+  const { data: periodActivities, isLoading: activitiesLoading } = useActivities(
     activePeriodId || '',
     selectedSiteId ? { site_id: selectedSiteId } : undefined
   );
 
-  // Fetch site breakdown for chart
-  const { data: sitesBreakdown } = useSitesBreakdown(activePeriodId);
+  // 'All years': pull each period's summary + activities and merge client-side.
+  const allSummaryQueries = useQueries({
+    queries: (periods ?? []).map((p) => ({
+      queryKey: ['report-summary', p.id, selectedSiteId],
+      queryFn: () => api.getReportSummary(p.id, selectedSiteId || undefined),
+      enabled: allMode,
+    })),
+  });
+  const allActivityQueries = useQueries({
+    queries: (periods ?? []).map((p) => ({
+      queryKey: ['activities', p.id, selectedSiteId ? { site_id: selectedSiteId } : undefined],
+      queryFn: () =>
+        api.getActivities(p.id, selectedSiteId ? { site_id: selectedSiteId } : undefined),
+      enabled: allMode,
+    })),
+  });
+
+  const summary = allMode
+    ? (() => {
+        const parts = allSummaryQueries.map((q) => q.data).filter(Boolean);
+        if (!parts.length) return undefined;
+        const sum = (f: (s: NonNullable<typeof parts[number]>) => number | null | undefined) =>
+          parts.reduce((n, s) => n + (f(s!) || 0), 0);
+        const byCat = new Map<string, CategorySummary>();
+        parts.forEach((s) =>
+          (s!.by_category || []).forEach((c: CategorySummary) => {
+            const prev = byCat.get(c.category_code);
+            if (prev) {
+              prev.total_co2e_kg += c.total_co2e_kg;
+              prev.activity_count += c.activity_count;
+            } else byCat.set(c.category_code, { ...c });
+          })
+        );
+        return {
+          ...parts[0]!,
+          period_name: 'All years combined',
+          total_co2e_kg: sum((s) => s.total_co2e_kg),
+          scope_1_co2e_kg: sum((s) => s.scope_1_co2e_kg),
+          scope_2_co2e_kg: sum((s) => s.scope_2_co2e_kg),
+          scope_2_location_based_co2e_kg: sum((s) => s.scope_2_location_based_co2e_kg),
+          scope_2_market_based_co2e_kg: null,
+          scope_3_co2e_kg: sum((s) => s.scope_3_co2e_kg),
+          scope_3_wtt_co2e_kg: sum((s) => s.scope_3_wtt_co2e_kg),
+          total_co2e_tonnes: sum((s) => s.total_co2e_kg) / 1000,
+          by_category: Array.from(byCat.values()).sort(
+            (a, b) => b.total_co2e_kg - a.total_co2e_kg
+          ),
+        };
+      })()
+    : periodSummary;
+
+  const activities = allMode
+    ? allActivityQueries.flatMap((q) => q.data ?? [])
+    : periodActivities;
+
+  // Site breakdown chart: omitting the period id aggregates org-wide.
+  const { data: sitesBreakdown } = useSitesBreakdown(allMode ? undefined : activePeriodId);
 
   // Reviewing a specific import lives on the Activity Ledger (its batch
   // filter) — the dashboard always shows the whole period.
@@ -180,6 +246,23 @@ function DashboardContent() {
             <p className="text-foreground-muted">
               Track and manage your organization's emissions
             </p>
+            {/* What to show: the top-bar period, one specific year, or everything */}
+            <select
+              value={viewScope}
+              onChange={(e) => setViewScope(e.target.value)}
+              className="rounded-lg border border-border bg-background px-2 py-1 text-sm text-foreground"
+              title="Which data this dashboard shows"
+            >
+              <option value="selected">
+                {periods?.find((p) => p.id === globalPeriodId)?.name || 'Current period'}
+              </option>
+              {(periods ?? [])
+                .filter((p) => p.id !== globalPeriodId)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              <option value="all">All years combined</option>
+            </select>
             <SiteSelector compact />
           </div>
         </div>
