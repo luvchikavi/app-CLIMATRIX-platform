@@ -332,3 +332,67 @@ async def test_hub_questions_pooled_per_category(
         "/api/hub/questions?category_code=2.1", headers=auth_headers
     )
     assert [q["question"] for q in resp.json()] == ["Which supplier factor?"]
+
+
+@pytest.mark.asyncio
+async def test_punch_list_verdicts_and_actions(
+    client, auth_headers, test_session, test_org, test_user, test_period
+):
+    from datetime import date
+    from decimal import Decimal
+    from app.models.emission import Activity, DataSource
+
+    # profile: 1.1 relevant with owner, 2.3 excluded with reason, rest undecided
+    await client.put(
+        "/api/hub/profile",
+        json={
+            "entries": [
+                {"category_code": "1.1", "relevance": "relevant", "data_owner": "Facilities"},
+                {"category_code": "1.2", "relevance": "relevant"},
+                {
+                    "category_code": "2.3",
+                    "relevance": "not_relevant",
+                    "exclusion_reason": "No district heating",
+                },
+            ]
+        },
+        headers=auth_headers,
+    )
+    # committed activity in 1.2 (calculated basis, PCAF 3)
+    test_session.add(
+        Activity(
+            organization_id=test_org.id,
+            reporting_period_id=test_period.id,
+            scope=1,
+            category_code="1.2",
+            activity_key="petrol_liters",
+            quantity=Decimal("100"),
+            unit="liters",
+            activity_date=date(2025, 3, 1),
+            data_quality_score=3,
+            data_source=DataSource.MANUAL,
+        )
+    )
+    await test_session.commit()
+
+    resp = await client.get(
+        f"/api/hub/punch-list?period_id={test_period.id}", headers=auth_headers
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    by_code = {c["code"]: c for c in data["categories"]}
+    assert by_code["1.1"]["verdict"] == "gap"
+    assert "Facilities" in by_code["1.1"]["action"]
+    assert by_code["1.2"]["verdict"] == "solid"
+    assert by_code["2.3"]["verdict"] == "excluded"
+    assert "No district heating" in by_code["2.3"]["action"]
+    assert by_code["3.6"]["verdict"] == "undecided"
+    assert any("GAP" in a for a in data["punch_list"])
+
+    # CSV variant renders
+    resp = await client.get(
+        f"/api/hub/punch-list?period_id={test_period.id}&format=csv",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.text.splitlines()[0].startswith("code,name,scope")

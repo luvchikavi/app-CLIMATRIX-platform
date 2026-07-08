@@ -2,7 +2,17 @@
 
 declare global {
   interface Window {
-    google: any;
+    google?: {
+      accounts?: {
+        id?: {
+          initialize: (config: {
+            client_id?: string;
+            callback: (response: { credential: string }) => void;
+          }) => void;
+          renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
+        };
+      };
+    };
   }
 }
 
@@ -149,6 +159,7 @@ function LandingPageContent() {
   useEffect(() => {
     if (searchParams.get('reset') === 'true') {
       logout();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
       setShowLogin(true);
     } else if (searchParams.get('register') === 'true') {
       setShowLogin(true);
@@ -168,6 +179,7 @@ function LandingPageContent() {
   useEffect(() => {
     const existingScript = document.getElementById('google-gsi-script');
     if (existingScript) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
       if (window.google?.accounts?.id) setGoogleReady(true);
       else existingScript.addEventListener('load', () => setGoogleReady(true));
       return;
@@ -190,7 +202,7 @@ function LandingPageContent() {
     if (!googleInitialized.current) {
       window.google.accounts.id.initialize({
         client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim(),
-        callback: async (response: any) => {
+        callback: async (response) => {
           try {
             await googleLogin(response.credential);
             router.push('/dashboard');

@@ -24,7 +24,7 @@ interface ToastItem {
 type Listener = () => void;
 
 let toasts: ToastItem[] = [];
-let listeners: Set<Listener> = new Set();
+const listeners: Set<Listener> = new Set();
 let nextId = 0;
 
 // Stable empty reference for SSR — useSyncExternalStore requires getServerSnapshot

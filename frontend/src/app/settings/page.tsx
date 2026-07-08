@@ -265,7 +265,7 @@ function SettingsPageContent() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Settings</h1>
           <p className="text-foreground-muted mt-1">
-            Manage your organization's settings and preferences
+            Manage your organization&apos;s settings and preferences
           </p>
         </div>
       </div>

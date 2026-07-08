@@ -70,6 +70,7 @@ function DecarbonizationPageContent() {
     if (periods && periods.length > 0 && !selectedPeriodId) {
       // Find latest non-locked period, or fall back to first
       const activePeriod = periods.find(p => !p.is_locked) || periods[0];
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
       setSelectedPeriodId(activePeriod.id);
     }
   }, [periods, selectedPeriodId]);
@@ -103,6 +104,7 @@ function DecarbonizationPageContent() {
   });
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
     setMounted(true);
   }, []);
 

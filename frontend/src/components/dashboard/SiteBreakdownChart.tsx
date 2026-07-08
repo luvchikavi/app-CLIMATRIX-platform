@@ -44,9 +44,12 @@ export function SiteBreakdownChart({ data, onSiteClick }: SiteBreakdownChartProp
         data={chartData}
         layout="vertical"
         margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
-        onClick={(e: any) => {
-          if (e?.activePayload?.[0]?.payload?.siteId && onSiteClick) {
-            onSiteClick(e.activePayload[0].payload.siteId);
+        onClick={(e) => {
+          // recharts' MouseHandlerDataParam does not expose activePayload in its types
+          const clicked = (e as { activePayload?: { payload?: { siteId?: string } }[] })
+            ?.activePayload?.[0]?.payload;
+          if (clicked?.siteId && onSiteClick) {
+            onSiteClick(clicked.siteId);
           }
         }}
       >
@@ -68,7 +71,7 @@ export function SiteBreakdownChart({ data, onSiteClick }: SiteBreakdownChartProp
           tick={{ fill: 'var(--foreground-muted)' }}
         />
         <Tooltip
-          formatter={(value: any, name: any) => [
+          formatter={(value, name) => [
             `${Number(value).toLocaleString()} kg CO2e`,
             String(name),
           ]}

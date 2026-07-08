@@ -80,6 +80,7 @@ export default function RecommendationsPage() {
   // Set default period
   useEffect(() => {
     if (periods && periods.length > 0 && !selectedPeriodId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
       setSelectedPeriodId(periods[0].id);
     }
   }, [periods, selectedPeriodId]);

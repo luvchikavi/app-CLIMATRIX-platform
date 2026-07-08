@@ -208,7 +208,7 @@ export default function AdminDashboard() {
                   ...orgReport.by_scope.scope_1.activities,
                   ...orgReport.by_scope.scope_2.activities,
                   ...orgReport.by_scope.scope_3.activities,
-                ].map((act: any) => (
+                ].map((act) => (
                   <TableRow key={act.id}>
                     <TableCell>
                       <ScopeBadge scope={parseInt(act.category_code.split('.')[0]) as 1 | 2 | 3 || 1} />

@@ -156,6 +156,7 @@ function DashboardContent() {
 
   // All useEffect hooks
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
     setMounted(true);
   }, []);
 
@@ -244,7 +245,7 @@ function DashboardContent() {
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
           <div className="flex items-center gap-4 mt-1">
             <p className="text-foreground-muted">
-              Track and manage your organization's emissions
+              Track and manage your organization&apos;s emissions
             </p>
             {/* What to show: the top-bar period, one specific year, or everything */}
             <select

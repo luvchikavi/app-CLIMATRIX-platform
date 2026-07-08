@@ -297,7 +297,7 @@ export function SetTargetModal({
                   </label>
                 </div>
                 <p className="text-xs text-foreground-muted mt-2">
-                  SBTi requires Scope 1+2. Scope 3 is recommended if it's more than 40% of your footprint.
+                  SBTi requires Scope 1+2. Scope 3 is recommended if it&apos;s more than 40% of your footprint.
                 </p>
               </div>
             </div>

@@ -19,7 +19,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.core import Organization, ReportingPeriod
@@ -51,6 +51,7 @@ from app.services.ingestion.grounding import (
     classify_unit,
 )
 from app.services.ingestion.context import build_parsing_context
+from app.services.ingestion.plausibility import check_batch
 from app.services.ingestion.loader import load
 from app.services.ingestion.mapper import map_table
 from app.services.ingestion.fast_mapper import map_table_fast
@@ -203,6 +204,7 @@ async def run_analysis(
     # Clarifying questions accumulate into GROUPS so we ask each distinct issue once
     # (all "PP" rows share one question) instead of once per row. Keyed by group_key.
     question_groups: dict[str, dict] = {}
+    all_staged: list[StagedRow] = []
 
     if template_results is None:
         # Phase 1 — map every sheet CONCURRENTLY. The LLM calls are the slow, DB-free
@@ -294,6 +296,7 @@ async def run_analysis(
             )
             session.add(staged)
             await session.flush()  # assign staged.id for question FK
+            all_staged.append(staged)
             sheet_staged += 1
 
             by_band[verdict.band] = by_band.get(verdict.band, 0) + 1
@@ -335,6 +338,16 @@ async def run_analysis(
             }
         )
 
+    # Plausibility pass (§4 of the verification spec) — needs the WHOLE batch,
+    # so it runs after staging: value sanity, magnitude ceilings, in-batch
+    # outliers, and drift vs what this org committed last period.
+    prior_totals = await _prior_period_totals(session, ingestion)
+    plausibility_flags = check_batch(all_staged, prior_totals)
+    if plausibility_flags:
+        by_band = {"green": 0, "amber": 0, "red": 0}
+        for r in all_staged:
+            by_band[r.band] = by_band.get(r.band, 0) + 1
+
     # Emit ONE question per group (largest groups first — those move the most rows).
     for grp in sorted(
         question_groups.values(), key=lambda g: len(g["row_ids"]), reverse=True
@@ -369,6 +382,7 @@ async def run_analysis(
         "by_tier": by_tier,
         "security": security,
         "mode": parse_mode,
+        "plausibility_flags": plausibility_flags,
     }
     if parse_mode == "template":
         summary["notice"] = (
@@ -678,6 +692,39 @@ def _activity_choices(cat, description: str, picked: str | None) -> list[dict]:
             break
     choices.append({"value": _GAP_ANSWER, "label": "None of these — leave as a gap"})
     return choices
+
+
+async def _prior_period_totals(
+    session: AsyncSession, ingestion: IngestionSession
+) -> dict[str, float]:
+    """Committed quantity per activity_key in the most recent PRIOR period of
+    this org — the baseline the consistency check compares against."""
+    if not ingestion.reporting_period_id:
+        return {}
+    current = await session.get(ReportingPeriod, ingestion.reporting_period_id)
+    if current is None:
+        return {}
+    prior = (
+        await session.execute(
+            select(ReportingPeriod)
+            .where(
+                ReportingPeriod.organization_id == ingestion.organization_id,
+                ReportingPeriod.start_date < current.start_date,
+            )
+            .order_by(ReportingPeriod.start_date.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if prior is None:
+        return {}
+    rows = (
+        await session.execute(
+            select(Activity.activity_key, func.sum(Activity.quantity))
+            .where(Activity.reporting_period_id == prior.id)
+            .group_by(Activity.activity_key)
+        )
+    ).all()
+    return {key: float(total or 0) for key, total in rows}
 
 
 def _question_spec(cat, grounding: GroundingVerdict, m) -> dict | None:

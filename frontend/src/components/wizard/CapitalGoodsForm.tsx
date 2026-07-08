@@ -11,6 +11,7 @@
 
 import { useState } from 'react';
 import { useWizardStore } from '@/stores/wizard';
+import type { ActivityCreate } from '@/lib/api';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
 import { formatCO2e } from '@/lib/utils';
@@ -253,7 +254,7 @@ export function CapitalGoodsForm({ periodId, onSuccess }: CapitalGoodsFormProps)
     setSaveSuccess(false);
 
     try {
-      const payload: any = {
+      const payload: ActivityCreate = {
         scope: 3 as const,
         category_code: '3.2',
         activity_key: getActivityKey(),
@@ -298,7 +299,7 @@ export function CapitalGoodsForm({ periodId, onSuccess }: CapitalGoodsFormProps)
     setSaveError(null);
 
     try {
-      const payload: any = {
+      const payload: ActivityCreate = {
         scope: 3 as const,
         category_code: '3.2',
         activity_key: getActivityKey(),
@@ -568,7 +569,7 @@ export function CapitalGoodsForm({ periodId, onSuccess }: CapitalGoodsFormProps)
               step={0.001}
             />
             <p className="mt-1 text-xs text-foreground-muted">
-              Enter the emission factor from your supplier's EPD or environmental data
+              Enter the emission factor from your supplier&apos;s EPD or environmental data
             </p>
           </div>
         </>

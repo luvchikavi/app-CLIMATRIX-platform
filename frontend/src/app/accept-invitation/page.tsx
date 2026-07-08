@@ -143,7 +143,7 @@ function AcceptInvitationContent() {
             </div>
             <h1 className="text-2xl font-bold text-foreground">Accept Invitation</h1>
             <p className="text-foreground-muted mt-2">
-              You've been invited to join a team on CLIMATRIX
+              You&apos;ve been invited to join a team on CLIMATRIX
             </p>
           </div>
 

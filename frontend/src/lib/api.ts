@@ -496,9 +496,9 @@ export interface CalculationMethodologySection {
   overview: string;
   ghg_protocol_alignment: string;
   calculation_approach: string;
-  scope_1_methodology: Record<string, any>;
-  scope_2_methodology: Record<string, any>;
-  scope_3_methodology: Record<string, any>;
+  scope_1_methodology: Record<string, unknown>;
+  scope_2_methodology: Record<string, unknown>;
+  scope_3_methodology: Record<string, unknown>;
   unit_conversion_approach: string;
   wtt_calculation_method: string;
   data_validation_rules: string[];
@@ -845,6 +845,15 @@ export interface ImportPreview {
   rows: ImportRow[];
   columns_found: string[];
   columns_missing: string[];
+}
+
+/** Raw per-row error payload returned by the import endpoints (shape varies by endpoint). */
+interface ImportErrorPayload {
+  row?: number;
+  activity_key?: string;
+  errors?: string | string[];
+  error?: string | string[];
+  message?: string;
 }
 
 export interface ImportResult {
@@ -1245,11 +1254,11 @@ class ApiClient {
     return this.fetch<ReportSummary>(`/periods/${periodId}/report/summary${query}`);
   }
 
-  async getReportByScope(periodId: string): Promise<any> {
+  async getReportByScope(periodId: string): Promise<unknown> {
     return this.fetch(`/periods/${periodId}/report/by-scope`);
   }
 
-  async getWTTReport(periodId: string): Promise<any> {
+  async getWTTReport(periodId: string): Promise<unknown> {
     return this.fetch(`/periods/${periodId}/report/scope-3-3-wtt`);
   }
 
@@ -1312,7 +1321,7 @@ class ApiClient {
   }
 
   // Recalculate
-  async recalculatePeriod(periodId: string): Promise<any> {
+  async recalculatePeriod(periodId: string): Promise<unknown> {
     return this.fetch(`/periods/${periodId}/emissions/recalculate`, {
       method: 'POST',
     });
@@ -1399,6 +1408,29 @@ class ApiClient {
     return this.fetch<HubQuestion[]>(`/hub/questions?${params.toString()}`);
   }
 
+  /** Download the auditor punch-list (verification pack) as CSV. */
+  async downloadPunchList(periodId?: string): Promise<void> {
+    const token = this.getToken();
+    const params = new URLSearchParams({ format: 'csv' });
+    if (periodId) params.set('period_id', periodId);
+    const response = await fetch(`${API_BASE}/hub/punch-list?${params.toString()}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Export failed' }));
+      throw new Error(error.detail || `Export failed: ${response.status}`);
+    }
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = 'climatrix-punch-list.csv';
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(blobUrl);
+    document.body.removeChild(a);
+  }
+
   async getSitesBreakdown(periodId?: string): Promise<SiteEmissionSummary[]> {
     const query = periodId ? `?period_id=${periodId}` : '';
     return this.fetch<SiteEmissionSummary[]>(`/organization/sites-breakdown${query}`);
@@ -1438,7 +1470,18 @@ class ApiClient {
       // Collect activities from each scope
       for (const [scopeNum, scopeData] of Object.entries(data.by_scope || {})) {
         const scope = parseInt(scopeNum);
-        const activities = (scopeData as { activities?: any[] }).activities || [];
+        const activities =
+          (scopeData as {
+            activities?: {
+              category_code: string;
+              activity_key: string;
+              description: string;
+              quantity: number;
+              unit: string;
+              activity_date?: string;
+              warnings?: string[];
+            }[];
+          }).activities || [];
         for (const act of activities) {
           rows.push({
             row_number: rowNum++,
@@ -1526,7 +1569,7 @@ class ApiClient {
         imported: data.imported || data.activities_created,
         failed: data.failed || data.activities_failed || 0,
         import_batch_id: data.import_batch_id,
-        errors: (data.errors || []).map((e: any) => ({
+        errors: (data.errors || []).map((e: ImportErrorPayload) => ({
           row: e.row,
           activity_key: e.activity_key,
           // Backend returns 'errors' (array) or 'error' (string) depending on endpoint
@@ -1539,7 +1582,7 @@ class ApiClient {
 
     // For CSV import or other endpoints, normalize the error format
     if (data.errors) {
-      data.errors = data.errors.map((e: any) => ({
+      data.errors = data.errors.map((e: ImportErrorPayload) => ({
         row: e.row,
         activity_key: e.activity_key,
         errors: Array.isArray(e.errors) ? e.errors :
@@ -2426,7 +2469,7 @@ export interface UnifiedSheetPreview {
   total_rows: number;
   columns: string[];
   column_mappings: UnifiedColumnMapping[];
-  sample_data: Record<string, any>[];
+  sample_data: Record<string, unknown>[];
   activities_preview: UnifiedActivityPreview[];
   is_importable: boolean;
   skip_reason: string | null;
@@ -2549,10 +2592,21 @@ export interface AdminOrgReport {
   total_co2e_kg: number;
   total_co2e_tonnes: number;
   by_scope: {
-    scope_1: { total_co2e_kg: number; activity_count: number; activities: any[] };
-    scope_2: { total_co2e_kg: number; activity_count: number; activities: any[] };
-    scope_3: { total_co2e_kg: number; activity_count: number; activities: any[] };
+    scope_1: { total_co2e_kg: number; activity_count: number; activities: AdminOrgReportActivity[] };
+    scope_2: { total_co2e_kg: number; activity_count: number; activities: AdminOrgReportActivity[] };
+    scope_3: { total_co2e_kg: number; activity_count: number; activities: AdminOrgReportActivity[] };
   };
+}
+
+export interface AdminOrgReportActivity {
+  id: string;
+  category_code: string;
+  activity_key?: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  co2e_kg: number | null;
+  activity_date?: string;
 }
 
 // ============================================================================

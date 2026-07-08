@@ -79,7 +79,7 @@ export function ComingSoonModule({
             </h2>
 
             <p className="text-foreground-muted mb-6 max-w-md mx-auto">
-              We're working hard to bring you this powerful module.
+              We&apos;re working hard to bring you this powerful module.
               {expectedDate && ` Expected release: ${expectedDate}.`}
             </p>
 
@@ -127,10 +127,10 @@ export function ComingSoonModule({
               <div className="bg-success/10 rounded-xl p-6">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Mail className="w-5 h-5 text-success" />
-                  <h3 className="font-semibold text-success">You're on the list!</h3>
+                  <h3 className="font-semibold text-success">You&apos;re on the list!</h3>
                 </div>
                 <p className="text-sm text-foreground-muted">
-                  We'll notify you at {email} when {name} launches.
+                  We&apos;ll notify you at {email} when {name} launches.
                 </p>
               </div>
             )}

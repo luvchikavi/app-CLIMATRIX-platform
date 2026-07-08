@@ -23,10 +23,12 @@ export function AppShell({ children }: AppShellProps) {
   // Wait one tick for the persisted auth store to rehydrate — redirecting on the
   // very first render bounced hard page-loads of authed routes back to login.
   const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
   useEffect(() => setMounted(true), []);
 
   // Close mobile menu on route change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
     setMobileMenuOpen(false);
   }, [pathname]);
 

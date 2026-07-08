@@ -369,7 +369,7 @@ export function ExportOptions({
               <p className="text-sm text-foreground-muted">
                 CDP is a not-for-profit charity that runs the global disclosure system for
                 investors, companies, cities, states and regions to manage their environmental
-                impacts. The exported JSON follows CDP's climate change questionnaire structure.
+                impacts. The exported JSON follows CDP&apos;s climate change questionnaire structure.
               </p>
             </div>
             <div>
@@ -385,7 +385,7 @@ export function ExportOptions({
             <p className="text-sm text-info">
               <strong>Note:</strong> These exports provide structured data in JSON format. For
               official submissions, you may need to transfer this data to the respective reporting
-              platforms' submission systems.
+              platforms&apos; submission systems.
             </p>
           </div>
         </CardContent>

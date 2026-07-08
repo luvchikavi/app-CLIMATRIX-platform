@@ -169,6 +169,7 @@ export default function RoadmapPage() {
 
   // Handle client-side mounting
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
     setMounted(true);
   }, []);
 
@@ -194,7 +195,7 @@ export default function RoadmapPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground">Product Roadmap</h1>
         <p className="text-foreground-muted mt-1">
-          See what we're building and what's coming next
+          See what we&apos;re building and what&apos;s coming next
         </p>
       </div>
 
@@ -287,7 +288,7 @@ export default function RoadmapPage() {
             <div>
               <h3 className="text-lg font-semibold text-foreground">Have a Feature Request?</h3>
               <p className="text-foreground-muted mt-1">
-                We'd love to hear your ideas. Contact us to suggest new features or modules.
+                We&apos;d love to hear your ideas. Contact us to suggest new features or modules.
               </p>
             </div>
             <Button variant="primary">

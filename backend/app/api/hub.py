@@ -458,3 +458,217 @@ async def hub_overview(
         )
 
     return HubOverview(categories=categories, stats=stats)
+
+
+# ============================================================================
+# Punch-list — the verification export (§5 of the spec)
+# ============================================================================
+
+
+def _tier_of_score(score: int | None) -> str:
+    if score is None:
+        return "estimated"
+    if score <= 2:
+        return "measured"
+    if score == 3:
+        return "calculated"
+    return "estimated"
+
+
+@router.get("/hub/punch-list")
+async def punch_list(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    period_id: UUID | None = None,
+    format: str = "json",
+):
+    """The auditor-facing punch-list: per category, what's solid, what's an
+    estimate (and what would upgrade it), what's a documented exclusion, and
+    what's still missing entirely — with the concrete next action for each."""
+    from datetime import timezone
+
+    from fastapi.responses import PlainTextResponse
+
+    from app.models.core import Organization, ReportingPeriod
+
+    org_id = current_user.organization_id
+    org = await session.get(Organization, org_id)
+    period = await session.get(ReportingPeriod, period_id) if period_id else None
+    if period and period.organization_id != org_id:
+        raise HTTPException(status_code=404, detail="Reporting period not found")
+
+    profiles = await _load_profiles(session, org_id, None)
+
+    act_filters = [Activity.organization_id == org_id]
+    if period_id:
+        act_filters.append(Activity.reporting_period_id == period_id)
+    committed = (
+        await session.execute(
+            select(
+                Activity.category_code,
+                Activity.data_quality_score,
+                func.count(Activity.id),
+                func.coalesce(func.sum(Emission.co2e_kg), 0),
+            )
+            .outerjoin(Emission, Emission.activity_id == Activity.id)
+            .where(*act_filters)
+            .group_by(Activity.category_code, Activity.data_quality_score)
+        )
+    ).all()
+
+    q_filters = [
+        IngestionSession.organization_id == org_id,
+        ClarificationQuestion.answered == False,  # noqa: E712
+    ]
+    if period_id:
+        q_filters.append(IngestionSession.reporting_period_id == period_id)
+    open_qs = (
+        await session.execute(
+            select(
+                func.coalesce(
+                    ClarificationQuestion.category_code, StagedRow.category_code
+                ),
+                func.count(ClarificationQuestion.id),
+            )
+            .join(
+                IngestionSession,
+                ClarificationQuestion.session_id == IngestionSession.id,
+            )
+            .outerjoin(StagedRow, ClarificationQuestion.staged_row_id == StagedRow.id)
+            .where(*q_filters)
+            .group_by(
+                func.coalesce(
+                    ClarificationQuestion.category_code, StagedRow.category_code
+                )
+            )
+        )
+    ).all()
+
+    per_cat: dict[str, dict] = {
+        c["code"]: {
+            "count": 0,
+            "co2e_kg": 0.0,
+            "tiers": {"measured": 0.0, "calculated": 0.0, "estimated": 0.0},
+            "questions": 0,
+        }
+        for c in GHG_CATEGORIES
+    }
+    for code, score, count, co2e in committed:
+        hub = HUB_CODE_FOR.get(code)
+        if not hub:
+            continue
+        entry = per_cat[hub]
+        entry["count"] += count
+        entry["co2e_kg"] += float(co2e or 0)
+        entry["tiers"][_tier_of_score(score)] += float(co2e or 0)
+    for code, count in open_qs:
+        hub = HUB_CODE_FOR.get(code or "")
+        if hub:
+            per_cat[hub]["questions"] += count
+
+    total_co2e = sum(e["co2e_kg"] for e in per_cat.values())
+    solid_co2e = sum(
+        e["tiers"]["measured"] + e["tiers"]["calculated"] for e in per_cat.values()
+    )
+
+    categories = []
+    actions = []
+    for cat in GHG_CATEGORIES:
+        p = profiles.get(cat["code"])
+        relevance = (
+            (p.relevance if isinstance(p.relevance, str) else p.relevance.value)
+            if p
+            else "not_sure"
+        )
+        e = per_cat[cat["code"]]
+        owner = p.data_owner if p else None
+        ask = f" — ask {owner}" if owner else ""
+
+        if relevance == "not_relevant":
+            verdict, action = "excluded", (
+                f"Documented exclusion: {p.exclusion_reason or 'no reason recorded'}"
+            )
+            if not (p and p.exclusion_reason):
+                actions.append(
+                    f"{cat['code']} {cat['name']}: excluded WITHOUT a reason — record one."
+                )
+        elif relevance == "not_sure":
+            verdict, action = "undecided", "Decide: is this category relevant?"
+            actions.append(
+                f"{cat['code']} {cat['name']}: still undecided — settle relevance."
+            )
+        elif e["count"] == 0:
+            verdict, action = "gap", f"No data at all{ask}."
+            actions.append(f"{cat['code']} {cat['name']}: GAP — no data{ask}.")
+        elif e["tiers"]["estimated"] > 0.5 * max(e["co2e_kg"], 1e-9):
+            verdict = "estimated"
+            action = (
+                "Mostly spend/proxy-based — request physical quantities "
+                f"(meter readings, invoices with amounts){ask} to upgrade."
+            )
+            actions.append(
+                f"{cat['code']} {cat['name']}: {e['tiers']['estimated'] / 1000:,.1f} t "
+                f"is estimate-based — physical data would upgrade it{ask}."
+            )
+        else:
+            verdict, action = "solid", "Measured/calculated basis — stands as reported."
+        if e["questions"]:
+            actions.append(
+                f"{cat['code']} {cat['name']}: {e['questions']} open question(s) blocking rows."
+            )
+        categories.append(
+            {
+                "code": cat["code"],
+                "name": cat["name"],
+                "scope": cat["scope"],
+                "relevance": relevance,
+                "verdict": verdict,
+                "action": action,
+                "data_owner": owner,
+                "activity_count": e["count"],
+                "co2e_kg": round(e["co2e_kg"], 1),
+                "co2e_by_tier_kg": {k: round(v, 1) for k, v in e["tiers"].items()},
+                "open_questions": e["questions"],
+            }
+        )
+
+    result = {
+        "organization": {
+            "name": org.name if org else "",
+            "country_code": org.country_code if org else None,
+            "consolidation_approach": (
+                org.consolidation_approach if org else "operational_control"
+            ),
+            "currency": org.currency if org else None,
+        },
+        "period": {
+            "name": period.name if period else "all periods",
+            "start_date": str(period.start_date) if period else None,
+            "end_date": str(period.end_date) if period else None,
+        },
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "totals": {
+            "co2e_kg": round(total_co2e, 1),
+            "solid_co2e_kg": round(solid_co2e, 1),
+            "solid_share": round(solid_co2e / total_co2e, 3) if total_co2e else None,
+        },
+        "categories": categories,
+        "punch_list": actions,
+    }
+
+    if format == "csv":
+        lines = ["code,name,scope,relevance,verdict,co2e_kg,open_questions,action"]
+        for c in categories:
+            action_text = c["action"].replace('"', "'")
+            lines.append(
+                f"{c['code']},\"{c['name']}\",{c['scope']},{c['relevance']},"
+                f"{c['verdict']},{c['co2e_kg']},{c['open_questions']},\"{action_text}\""
+            )
+        return PlainTextResponse(
+            "\n".join(lines),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": "attachment; filename=climatrix-punch-list.csv"
+            },
+        )
+    return result
