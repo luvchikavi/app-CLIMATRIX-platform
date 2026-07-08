@@ -1399,6 +1399,29 @@ class ApiClient {
     return this.fetch<HubQuestion[]>(`/hub/questions?${params.toString()}`);
   }
 
+  /** Download the auditor punch-list (verification pack) as CSV. */
+  async downloadPunchList(periodId?: string): Promise<void> {
+    const token = this.getToken();
+    const params = new URLSearchParams({ format: 'csv' });
+    if (periodId) params.set('period_id', periodId);
+    const response = await fetch(`${API_BASE}/hub/punch-list?${params.toString()}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Export failed' }));
+      throw new Error(error.detail || `Export failed: ${response.status}`);
+    }
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = 'climatrix-punch-list.csv';
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(blobUrl);
+    document.body.removeChild(a);
+  }
+
   async getSitesBreakdown(periodId?: string): Promise<SiteEmissionSummary[]> {
     const query = periodId ? `?period_id=${periodId}` : '';
     return this.fetch<SiteEmissionSummary[]>(`/organization/sites-breakdown${query}`);

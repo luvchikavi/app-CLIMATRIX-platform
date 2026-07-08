@@ -353,6 +353,20 @@ export default function HubPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={() =>
+                api
+                  .downloadPunchList(periodId)
+                  .catch((e) =>
+                    toast.error(e instanceof Error ? e.message : 'Export failed')
+                  )
+              }
+              title="The auditor punch-list: what's solid, what's estimated, what's missing"
+            >
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Verification pack
+            </Button>
             {(sites?.length ?? 0) > 1 && (
               <select
                 value={siteId}
