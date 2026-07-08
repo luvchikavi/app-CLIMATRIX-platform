@@ -57,7 +57,9 @@ function SiteDetailContent() {
   const [mounted, setMounted] = useState(false);
 
   const { data: periods } = usePeriods();
-  const activePeriodId = selectedPeriodId || periods?.[0]?.id;
+  // Only trust the persisted period if it belongs to THIS org's list — a stale
+  // localStorage value from another session/org would 404 every query.
+  const activePeriodId = periods?.find((p) => p.id === selectedPeriodId)?.id ?? periods?.[0]?.id;
 
   const { data: siteDetail, isLoading: siteLoading } = useSiteDetail(siteId, activePeriodId);
   const { data: summary } = useReportSummary(activePeriodId || '', siteId);

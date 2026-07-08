@@ -279,12 +279,27 @@ function IngestContent() {
       <div className="mx-auto max-w-5xl space-y-6 py-2">
         {/* Header */}
         <div>
-          <Link
-            href="/hub"
-            className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-          >
-            ← Data Hub
-          </Link>
+          <div className="mb-1 flex items-center justify-between">
+            <Link
+              href="/hub"
+              className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            >
+              ← Data Hub
+            </Link>
+            {session && !busy && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setSession(null);
+                  setAnswers({});
+                }}
+              >
+                <UploadCloud className="mr-1.5 h-4 w-4" />
+                New upload
+              </Button>
+            )}
+          </div>
           <h1 className="flex items-center gap-2 text-2xl font-semibold text-slate-900 dark:text-white">
             <Sparkles className="h-6 w-6 text-emerald-500" />
             Drop your data — we&apos;ll do the rest

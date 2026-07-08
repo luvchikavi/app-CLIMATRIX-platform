@@ -52,7 +52,9 @@ function ActivitiesContent() {
   const { data: sites } = useSites();
 
   // Use selected period from store, fall back to first available period
-  const activePeriodId = selectedPeriodId || periods?.[0]?.id;
+  // Only trust the persisted period if it belongs to THIS org's list — a stale
+  // localStorage value from another session/org would 404 every query.
+  const activePeriodId = periods?.find((p) => p.id === selectedPeriodId)?.id ?? periods?.[0]?.id;
   const activePeriod = periods?.find((p) => p.id === activePeriodId) || periods?.[0];
 
   // Build filters including site

@@ -75,6 +75,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
   });
   const [periodYear, setPeriodYear] = useState<number>(new Date().getFullYear());
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [createdSites, setCreatedSites] = useState<string[]>([]);
 
   const { data: regions } = useSupportedRegions();
   const createPeriod = useCreatePeriod();
@@ -200,17 +201,13 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
     }
   };
 
-  const handleCreateSite = async () => {
-    // Validate required fields
-    const errors: FieldErrors = {};
+  // Many organizations report across several sites — the wizard lets them add
+  // as many as they need before moving on ("Save & add another").
+  const saveSite = async (): Promise<boolean> => {
     if (!siteDetails.name.trim()) {
-      errors.site_name = 'Site name is required';
+      setFieldErrors({ site_name: 'Site name is required' });
+      return false;
     }
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      return;
-    }
-
     try {
       await createSite.mutateAsync({
         name: siteDetails.name.trim(),
@@ -218,11 +215,30 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
         address: siteDetails.address.trim() || undefined,
         grid_region: siteDetails.grid_region || undefined,
       });
-      toast.success('Site created successfully');
-      nextStep();
+      setCreatedSites((prev) => [...prev, siteDetails.name.trim()]);
+      // Keep country/grid — sibling sites usually share them; clear the rest.
+      setSiteDetails((prev) => ({ ...prev, name: '', address: '' }));
+      return true;
     } catch {
       toast.error('Failed to create site');
+      return false;
     }
+  };
+
+  const handleAddAnotherSite = async () => {
+    if (await saveSite()) toast.success('Site added — enter the next one');
+  };
+
+  const handleSiteContinue = async () => {
+    if (siteDetails.name.trim()) {
+      if (await saveSite()) nextStep();
+      return;
+    }
+    if (createdSites.length > 0) {
+      nextStep();
+      return;
+    }
+    setFieldErrors({ site_name: 'Add at least one site' });
   };
 
   const handleCreatePeriod = async () => {
@@ -289,7 +305,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
         </div>
 
         {/* Step Content */}
-        <Card padding="lg" className="animate-fade-in p-8">
+        <Card padding="lg" className="animate-fade-in max-h-[85vh] overflow-y-auto p-8">
           {/* Welcome Step */}
           {currentStep === 'welcome' && (
             <div className="text-center">
@@ -429,7 +445,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                 </div>
               </div>
 
-              <div className="flex justify-between mt-8">
+              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between border-t border-border bg-background-elevated px-8 py-4">
                 <Button variant="outline" onClick={prevStep}>
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Back
@@ -489,7 +505,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                 ))}
               </div>
 
-              <div className="flex justify-between mt-8">
+              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between border-t border-border bg-background-elevated px-8 py-4">
                 <Button variant="outline" onClick={prevStep}>
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Back
@@ -519,6 +535,23 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                   <p className="text-foreground-muted">Where does your organization operate?</p>
                 </div>
               </div>
+
+              {createdSites.length > 0 && (
+                <div className="mb-5 flex flex-wrap items-center gap-2">
+                  {createdSites.map((name, i) => (
+                    <span
+                      key={`${name}-${i}`}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-primary-light px-3 py-1 text-sm font-medium text-primary"
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                      {name}
+                    </span>
+                  ))}
+                  <span className="text-sm text-foreground-muted">
+                    {createdSites.length} site{createdSites.length > 1 ? 's' : ''} added
+                  </span>
+                </div>
+              )}
 
               <div className="space-y-5">
                 {/* Site Name (required) */}
@@ -611,19 +644,26 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                 </div>
               </div>
 
-              <div className="flex justify-between mt-8">
+              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between border-t border-border bg-background-elevated px-8 py-4">
                 <Button variant="outline" onClick={prevStep}>
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Back
                 </Button>
                 <div className="flex gap-3">
                   <Button
+                    variant="outline"
+                    onClick={handleAddAnotherSite}
+                    disabled={createSite.isPending}
+                  >
+                    Save & add another
+                  </Button>
+                  <Button
                     variant="primary"
-                    onClick={handleCreateSite}
+                    onClick={handleSiteContinue}
                     disabled={createSite.isPending}
                     isLoading={createSite.isPending}
                   >
-                    Create Site
+                    Continue
                     <ChevronRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
@@ -670,7 +710,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                 </p>
               </div>
 
-              <div className="flex justify-between mt-8">
+              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between border-t border-border bg-background-elevated px-8 py-4">
                 <Button variant="outline" onClick={prevStep}>
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Back

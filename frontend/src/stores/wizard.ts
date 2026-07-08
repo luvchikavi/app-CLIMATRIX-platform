@@ -86,6 +86,7 @@ export const CATEGORIES = {
     { code: '3.12', name: 'End-of-Life Treatment', description: 'Disposal of sold products' },
     { code: '3.13', name: 'Downstream Leased Assets', description: 'Assets leased to others' },
     { code: '3.14', name: 'Franchises', description: 'Franchise operations' },
+    { code: '3.15', name: 'Investments', description: 'Financed emissions — equity, debt, projects' },
   ],
 };
 

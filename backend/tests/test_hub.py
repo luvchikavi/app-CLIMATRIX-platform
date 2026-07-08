@@ -12,9 +12,9 @@ async def test_hub_categories_lists_full_matrix(client, auth_headers):
     resp = await client.get("/api/hub/categories", headers=auth_headers)
     assert resp.status_code == 200
     cats = resp.json()
-    assert len(cats) == len(GHG_CATEGORIES) == 19
+    assert len(cats) == len(GHG_CATEGORIES) == 20
     codes = [c["code"] for c in cats]
-    assert "1.1" in codes and "2.1" in codes and "3.14" in codes
+    assert "1.1" in codes and "2.1" in codes and "3.15" in codes
 
 
 @pytest.mark.asyncio
@@ -155,8 +155,8 @@ async def test_overview_defaults_to_all_not_sure(client, auth_headers):
     resp = await client.get("/api/hub/overview", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data["categories"]) == 19
-    assert data["stats"]["not_sure"] == 19
+    assert len(data["categories"]) == 20
+    assert data["stats"]["not_sure"] == 20
     assert data["stats"]["open_questions"] == 0
 
 

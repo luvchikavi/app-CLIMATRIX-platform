@@ -224,6 +224,13 @@ GHG_CATEGORIES: list[dict] = [
         "description": "Franchise operations",
         "aggregates": ["3.14"],
     },
+    {
+        "scope": 3,
+        "code": "3.15",
+        "name": "Investments",
+        "description": "Financed emissions — equity, debt, projects",
+        "aggregates": ["3.15"],
+    },
 ]
 
 # code → canonical hub category dict

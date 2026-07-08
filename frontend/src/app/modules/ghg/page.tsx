@@ -14,10 +14,6 @@ import {
   Flame,
   Zap,
   Globe,
-  ArrowRight,
-  Plus,
-  FileText,
-  Upload,
   Loader2,
 } from 'lucide-react';
 
@@ -79,59 +75,8 @@ export default function GHGModulePage() {
         <Badge variant="success" className="ml-auto">Active</Badge>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <Card
-          padding="md"
-          className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => router.push('/activities?add=1')}
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-primary-light">
-              <Plus className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-foreground">Add Activity</h3>
-              <p className="text-sm text-foreground-muted">Record new emission data</p>
-            </div>
-            <ArrowRight className="w-5 h-5 text-foreground-muted ml-auto" />
-          </div>
-        </Card>
-
-        <Card
-          padding="md"
-          className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => router.push('/ingest')}
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-secondary/10">
-              <Upload className="w-5 h-5 text-secondary" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-foreground">Import Data</h3>
-              <p className="text-sm text-foreground-muted">Bulk upload from file</p>
-            </div>
-            <ArrowRight className="w-5 h-5 text-foreground-muted ml-auto" />
-          </div>
-        </Card>
-
-        <Card
-          padding="md"
-          className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => router.push('/reports')}
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-info/10">
-              <FileText className="w-5 h-5 text-info" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-foreground">View Reports</h3>
-              <p className="text-sm text-foreground-muted">Analyze emissions data</p>
-            </div>
-            <ArrowRight className="w-5 h-5 text-foreground-muted ml-auto" />
-          </div>
-        </Card>
-      </div>
+      {/* This is an ANALYSIS view — data collection lives in the Data Hub and
+          report generation on Reports; no duplicate entry points here. */}
 
       {/* Loading State */}
       {isLoading && (
