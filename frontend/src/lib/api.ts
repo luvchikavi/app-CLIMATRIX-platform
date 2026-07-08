@@ -2337,6 +2337,10 @@ class ApiClient {
       body: JSON.stringify(data),
     });
   }
+
+  async sendLeadFollowUp(leadId: string): Promise<Lead> {
+    return this.fetch<Lead>(`/leads/${leadId}/follow-up`, { method: 'POST' });
+  }
 }
 
 // CBAM Types for API

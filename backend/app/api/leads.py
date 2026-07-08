@@ -192,3 +192,53 @@ async def update_lead(
     await session.refresh(lead)
 
     return LeadResponse.from_lead(lead)
+
+
+@router.post("/leads/{lead_id}/follow-up", response_model=LeadResponse)
+async def send_follow_up(
+    lead_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_user: Annotated[User, Depends(get_current_user)] = None,
+):
+    """Send the follow-up email to a lead and move it to 'contacted'. Admin only."""
+    from app.services.email import email_service
+
+    result = await session.execute(select(Lead).where(Lead.id == lead_id))
+    lead = result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    first_name = (lead.name or "").split(" ")[0] or "there"
+    tried = f" on {lead.what_tried}" if lead.what_tried else ""
+    ok = email_service.send_email(
+        to_email=lead.email,
+        subject="Your Climatrix results — and what they'd look like audit-ready",
+        html_content=(
+            f"<p>Hi {first_name},</p>"
+            f"<p>Thanks for trying Climatrix{tried}. What you saw is the same engine "
+            "our clients use to turn messy spreadsheets from finance, fleet and "
+            "facilities into a defensible GHG inventory — every line marked "
+            "<b>measured / calculated / estimated / gap</b>, with the factor and "
+            "formula shown.</p>"
+            "<p>If you'd like, I'll walk you through what your full Scope 1/2/3 "
+            "picture would look like — 20 minutes, your data.</p>"
+            "<p>Avi Luvchik<br/>Founder, Climatrix — climetrix.io</p>"
+        ),
+        text_content=(
+            f"Hi {first_name},\n\nThanks for trying Climatrix{tried}. Happy to walk "
+            "you through your full Scope 1/2/3 picture — 20 minutes, your data.\n\n"
+            "Avi Luvchik, Founder — climetrix.io"
+        ),
+    )
+    if not ok:
+        raise HTTPException(status_code=502, detail="Email could not be sent")
+
+    if lead.status == "new":
+        lead.status = "contacted"
+    stamp = datetime.utcnow().strftime("%Y-%m-%d")
+    note = f"[{stamp}] follow-up email sent"
+    lead.notes = f"{lead.notes}\n{note}" if lead.notes else note
+    lead.updated_at = datetime.utcnow()
+    await session.commit()
+    await session.refresh(lead)
+    return LeadResponse.from_lead(lead)

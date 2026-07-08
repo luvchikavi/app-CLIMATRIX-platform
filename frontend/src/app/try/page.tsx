@@ -34,23 +34,13 @@ export default function TryPage() {
   const [email, setEmail] = useState('');
   const [captured, setCaptured] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Lead-before-results: the file is held until the prospect leaves contact
+  // details — every trial becomes a trackable lead.
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [leadName, setLeadName] = useState('');
+  const [leadOrg, setLeadOrg] = useState('');
 
-  const captureEmail = useCallback(async () => {
-    const value = email.trim();
-    if (!value || !value.includes('@')) return;
-    try {
-      await api.captureLead({
-        email: value,
-        source: 'website_tryit',
-        what_tried: result?.filename,
-      });
-    } catch {
-      // non-blocking — never let capture failure interrupt the prospect
-    }
-    setCaptured(true);
-  }, [email, result]);
-
-  const handleFile = useCallback(async (file: File) => {
+  const analyze = useCallback(async (file: File) => {
     setBusy(true);
     setError(null);
     setResult(null);
@@ -62,6 +52,38 @@ export default function TryPage() {
       setBusy(false);
     }
   }, []);
+
+  const submitLeadAndAnalyze = useCallback(async () => {
+    const value = email.trim();
+    if (!value || !value.includes('@') || !pendingFile) return;
+    try {
+      await api.captureLead({
+        email: value,
+        name: leadName.trim() || undefined,
+        organization_name: leadOrg.trim() || undefined,
+        source: 'website_tryit',
+        what_tried: pendingFile.name,
+      });
+    } catch {
+      // non-blocking — never let capture failure interrupt the prospect
+    }
+    setCaptured(true);
+    const file = pendingFile;
+    setPendingFile(null);
+    await analyze(file);
+  }, [email, leadName, leadOrg, pendingFile, analyze]);
+
+  const handleFile = useCallback(
+    (file: File) => {
+      if (!captured) {
+        setPendingFile(file);
+        setError(null);
+        return;
+      }
+      analyze(file);
+    },
+    [captured, analyze]
+  );
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -95,7 +117,7 @@ export default function TryPage() {
         {/* Hero */}
         <div className="text-center">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
-            <Sparkles className="h-3.5 w-3.5" /> No login. Nothing saved. Just try it.
+            <Sparkles className="h-3.5 w-3.5" /> No account needed. Your file is never stored.
           </div>
           <h1 className="text-3xl font-bold sm:text-4xl">
             Drop your messiest emissions data.
@@ -147,6 +169,48 @@ export default function TryPage() {
                 if (f) handleFile(f);
               }}
             />
+          </div>
+        )}
+
+        {/* Lead gate — who are we showing these results to? */}
+        {pendingFile && !captured && (
+          <div className="mx-auto mt-8 max-w-md rounded-2xl border border-emerald-500/30 bg-slate-900 p-6">
+            <p className="font-medium text-white">
+              Ready to analyze <span className="text-emerald-300">{pendingFile.name}</span>
+            </p>
+            <p className="mt-1 text-sm text-slate-400">
+              Tell us where to send the full breakdown and we&apos;ll run it right now.
+            </p>
+            <div className="mt-4 space-y-2">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Work email (required)"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+              />
+              <input
+                value={leadName}
+                onChange={(e) => setLeadName(e.target.value)}
+                placeholder="Your name (optional)"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+              />
+              <input
+                value={leadOrg}
+                onChange={(e) => setLeadOrg(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && submitLeadAndAnalyze()}
+                placeholder="Organization (optional)"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+              />
+              <button
+                onClick={submitLeadAndAnalyze}
+                disabled={!email.includes('@')}
+                className="w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-40"
+              >
+                Show my results
+              </button>
+            </div>
           </div>
         )}
 
@@ -228,28 +292,12 @@ export default function TryPage() {
                 Sign up to keep it, run full Scope 1/2/3 reports, and build a decarbonization plan.
               </p>
 
-              {/* Email capture — turn a trial into a lead we can follow up */}
-              {captured ? (
+              {/* Contact was captured before the results ran — just confirm */}
+              {captured && (
                 <p className="mt-4 text-sm text-emerald-300">
-                  Thanks — we&apos;ll be in touch. Create your account to keep these results.
+                  We&apos;ll send the full breakdown to {email.trim()}. Create an account to keep
+                  these results.
                 </p>
-              ) : (
-                <div className="mx-auto mt-4 flex max-w-md gap-2">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && captureEmail()}
-                    placeholder="you@company.com — get the full breakdown"
-                    className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500"
-                  />
-                  <button
-                    onClick={captureEmail}
-                    className="rounded-lg border border-emerald-500 px-4 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-500/10"
-                  >
-                    Send it
-                  </button>
-                </div>
               )}
 
               <div className="mt-4 flex justify-center gap-3">

@@ -66,6 +66,30 @@ export default function LeadsPage() {
     },
   });
 
+  const notesMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      api.updateLead(id, { notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      toast.success('Notes saved');
+    },
+    onError: (err: Error) => toast.error(err.message || 'Failed to save notes'),
+  });
+
+  const followUpMutation = useMutation({
+    mutationFn: (id: string) => api.sendLeadFollowUp(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      toast.success('Follow-up email sent');
+    },
+    onError: (err: Error) => toast.error(err.message || 'Email failed'),
+  });
+
+  const editNotes = (id: string, current: string | null) => {
+    const next = window.prompt('Notes for this lead:', current ?? '');
+    if (next !== null) notesMutation.mutate({ id, notes: next });
+  };
+
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString(undefined, {
       year: 'numeric',
@@ -145,6 +169,7 @@ export default function LeadsPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Notes</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -191,7 +216,23 @@ export default function LeadsPage() {
                       {formatDate(lead.created_at)}
                     </TableCell>
                     <TableCell className="max-w-xs text-foreground-muted">
-                      {lead.notes || '—'}
+                      <button
+                        onClick={() => editNotes(lead.id, lead.notes)}
+                        className="whitespace-pre-line text-left hover:text-foreground"
+                        title="Click to edit notes"
+                      >
+                        {lead.notes || 'Add note…'}
+                      </button>
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        onClick={() => followUpMutation.mutate(lead.id)}
+                        disabled={followUpMutation.isPending}
+                        className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-foreground-muted hover:border-primary hover:text-primary disabled:opacity-50"
+                        title="Send the follow-up email and mark as contacted"
+                      >
+                        Send follow-up
+                      </button>
                     </TableCell>
                   </TableRow>
                 ))}
