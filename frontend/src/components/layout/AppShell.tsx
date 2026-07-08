@@ -20,6 +20,10 @@ export function AppShell({ children }: AppShellProps) {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Wait one tick for the persisted auth store to rehydrate — redirecting on the
+  // very first render bounced hard page-loads of authed routes back to login.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -28,10 +32,10 @@ export function AppShell({ children }: AppShellProps) {
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (mounted && !isLoading && !isAuthenticated) {
       router.push('/');
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [mounted, isAuthenticated, isLoading, router]);
 
   // Setup gate: an authenticated user whose org isn't set up yet is sent to /setup.
   // This single check gates dashboard, import, modules, activities, reports, etc.
