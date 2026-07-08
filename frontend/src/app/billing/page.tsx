@@ -112,7 +112,8 @@ function BillingPageContent() {
   // Compute trial info
   const trialEndsAt = subscription?.trial_ends_at ? new Date(subscription.trial_ends_at) : null;
   const trialDaysRemaining = trialEndsAt
-    ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    ? // eslint-disable-next-line react-hooks/purity -- day-granularity countdown; stable within a render
+      Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : 0;
 
   const getPlanIcon = (planId: string) => {
@@ -147,6 +148,7 @@ function BillingPageContent() {
 
   const handleUpgrade = (plan: SubscriptionPlan) => {
     if (plan === 'enterprise') {
+      // eslint-disable-next-line react-hooks/immutability -- intentional navigation side effect inside an event handler
       window.location.href = 'mailto:sales@climatrix.io?subject=Enterprise Plan Inquiry';
       return;
     }
@@ -405,7 +407,7 @@ function BillingPageContent() {
                 <div>
                   <h4 className="font-semibold text-foreground mb-2">Can I change plans at any time?</h4>
                   <p className="text-foreground-muted">
-                    Yes, you can upgrade or downgrade your plan at any time. When upgrading, you'll be charged the prorated difference. When downgrading, your current plan continues until the end of the billing period.
+                    Yes, you can upgrade or downgrade your plan at any time. When upgrading, you&apos;ll be charged the prorated difference. When downgrading, your current plan continues until the end of the billing period.
                   </p>
                 </div>
                 <div>
@@ -417,13 +419,13 @@ function BillingPageContent() {
                 <div>
                   <h4 className="font-semibold text-foreground mb-2">Is there a free trial?</h4>
                   <p className="text-foreground-muted">
-                    Yes! All paid plans come with a 14-day free trial. You won't be charged until the trial ends, and you can cancel anytime.
+                    Yes! All paid plans come with a 14-day free trial. You won&apos;t be charged until the trial ends, and you can cancel anytime.
                   </p>
                 </div>
                 <div>
                   <h4 className="font-semibold text-foreground mb-2">What happens if I exceed my plan limits?</h4>
                   <p className="text-foreground-muted">
-                    If you approach your limits, we'll notify you so you can upgrade. We never delete your data - you can always view your existing data, but adding new activities may be restricted until you upgrade.
+                    If you approach your limits, we&apos;ll notify you so you can upgrade. We never delete your data - you can always view your existing data, but adding new activities may be restricted until you upgrade.
                   </p>
                 </div>
               </div>

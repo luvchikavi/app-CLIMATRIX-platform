@@ -316,7 +316,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                 Welcome to CLIMATRIX
               </h1>
               <p className="text-lg text-foreground-muted mb-8 max-w-md mx-auto">
-                Let's set up your organization for carbon accounting in just a few minutes.
+                Let&apos;s set up your organization for carbon accounting in just a few minutes.
               </p>
               {organizationName && (
                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-light rounded-full text-primary font-medium mb-8">
@@ -735,7 +735,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                 <Check className="w-10 h-10 text-success" />
               </div>
               <h2 className="text-2xl font-bold text-foreground mb-4">
-                You're All Set!
+                You&apos;re All Set!
               </h2>
               <p className="text-lg text-foreground-muted mb-8 max-w-md mx-auto">
                 Your organization is ready. Next: map your inventory in the Data Hub —

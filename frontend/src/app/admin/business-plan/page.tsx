@@ -102,6 +102,26 @@ interface Assumptions {
 type ScenarioKey = 'optimistic' | 'realistic' | 'pessimistic';
 type TabKey = 'overview' | 'revenue' | 'market' | 'competitive' | 'costs' | 'sla';
 
+interface ScenarioMetrics {
+  netCustomers: number;
+  starterCustomers: number;
+  proCustomers: number;
+  entCustomers: number;
+  newCustomers: number;
+  mrr: number;
+  arr: number;
+  implementationRevenue: number;
+  totalRevenue: number;
+  hostingCost: number;
+  salaryCost: number;
+  marketingCost: number;
+  supportCost: number;
+  totalCosts: number;
+  profit: number;
+  margin: number;
+  penetration: number;
+}
+
 // ─── Default Assumptions ─────────────────────────────────────────────────────
 
 const DEFAULT_ASSUMPTIONS: Assumptions = {
@@ -196,7 +216,7 @@ const COMPETITORS = [
   },
 ];
 
-const RADAR_CATEGORIES = [
+const RADAR_CATEGORIES: { key: keyof (typeof COMPETITORS)[number]['features']; label: string }[] = [
   { key: 'ghg', label: 'GHG Tracking' },
   { key: 'cbam', label: 'CBAM' },
   { key: 'ai', label: 'AI Features' },
@@ -291,12 +311,26 @@ function fmtNum(n: number): string {
 
 // ─── Custom Tooltip ──────────────────────────────────────────────────────────
 
-function CustomTooltip({ active, payload, label }: any) {
+interface TooltipEntry {
+  color?: string;
+  name?: string | number;
+  value?: string | number;
+}
+
+function CustomTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string | number;
+}) {
   if (!active || !payload) return null;
   return (
     <div className="bg-background-elevated border border-border rounded-lg p-3 shadow-lg">
       <p className="font-semibold text-sm mb-1">{label}</p>
-      {payload.map((entry: any, i: number) => (
+      {payload.map((entry, i: number) => (
         <p key={i} className="text-xs" style={{ color: entry.color }}>
           {entry.name}: {typeof entry.value === 'number' && entry.value > 100
             ? fmt(entry.value)
@@ -331,12 +365,12 @@ export default function BusinessPlanPage() {
 
   const projections = useMemo(() => {
     const a = assumptions;
-    const years: any[] = [];
+    const years: { year: number; scenarios: Record<ScenarioKey, ScenarioMetrics> }[] = [];
 
     for (let y = 0; y < a.projectionYears; y++) {
       const year = 2026 + y;
 
-      const scenarios: Record<ScenarioKey, any> = {} as any;
+      const scenarios = {} as Record<ScenarioKey, ScenarioMetrics>;
       (['optimistic', 'realistic', 'pessimistic'] as ScenarioKey[]).forEach(scenario => {
         const growthRate = scenario === 'optimistic'
           ? a.annualGrowthOptimistic / 100
@@ -448,9 +482,9 @@ export default function BusinessPlanPage() {
 
   const radarData = useMemo(() =>
     RADAR_CATEGORIES.map(cat => {
-      const row: any = { category: cat.label };
+      const row: Record<string, string | number> = { category: cat.label };
       COMPETITORS.forEach(c => {
-        row[c.name] = (c.features as any)[cat.key];
+        row[c.name] = c.features[cat.key];
       });
       return row;
     }), []);
@@ -984,7 +1018,7 @@ export default function BusinessPlanPage() {
                         cy="50%"
                         outerRadius={130}
                         dataKey="revenue"
-                        label={({ name, percent }: any) => `${String(name).split(' ')[0]}: ${((percent || 0) * 100).toFixed(0)}%`}
+                        label={({ name, percent }: { name?: string | number; percent?: number }) => `${String(name).split(' ')[0]}: ${((percent || 0) * 100).toFixed(0)}%`}
                       >
                         {marketSegmentData.map((entry, i) => (
                           <Cell key={i} fill={entry.color} />
@@ -1339,7 +1373,7 @@ export default function BusinessPlanPage() {
                       <tr key={row.label} className={`border-b border-border/50 ${row.bold ? 'bg-background-muted/50' : ''}`}>
                         <td className={`py-2 px-3 ${row.bold ? 'font-bold' : ''}`}>{row.label}</td>
                         {projections.map(p => {
-                          const val = (p.scenarios[selectedScenario] as any)[row.key];
+                          const val = p.scenarios[selectedScenario][row.key as keyof ScenarioMetrics];
                           return (
                             <td key={p.year} className={`py-2 px-3 text-right ${row.bold ? 'font-bold' : ''} ${
                               row.key === 'profit' ? (val > 0 ? 'text-success' : 'text-error') : row.color

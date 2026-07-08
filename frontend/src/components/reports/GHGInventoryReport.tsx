@@ -452,7 +452,7 @@ export function GHGInventoryReport({ report }: GHGInventoryReportProps) {
           )}
           {report.verification.verification_statement && (
             <p className="text-sm text-foreground-muted mt-2 italic">
-              "{report.verification.verification_statement}"
+              &quot;{report.verification.verification_statement}&quot;
             </p>
           )}
         </CardContent>

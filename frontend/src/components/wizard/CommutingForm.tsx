@@ -11,6 +11,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useWizardStore } from '@/stores/wizard';
+import type { ActivityCreate } from '@/lib/api';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
 import { formatCO2e } from '@/lib/utils';
@@ -288,7 +289,7 @@ export function CommutingForm({ periodId, onSuccess }: CommutingFormProps) {
     if (!isValid()) return;
 
     const payload = buildPayload();
-    await createActivity.mutateAsync(payload as any);
+    await createActivity.mutateAsync(payload as ActivityCreate);
 
     if (addAnother) {
       // Reset form but keep method

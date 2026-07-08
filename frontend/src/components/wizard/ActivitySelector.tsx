@@ -216,7 +216,7 @@ export function ActivitySelector() {
                 {/* No results */}
                 {filteredOptions.length === 0 && searchQuery && (
                   <div className="px-3 py-6 text-center text-sm text-foreground-muted">
-                    No activities found for "{searchQuery}"
+                    No activities found for &quot;{searchQuery}&quot;
                   </div>
                 )}
               </div>

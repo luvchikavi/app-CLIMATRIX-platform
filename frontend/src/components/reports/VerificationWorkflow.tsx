@@ -152,7 +152,7 @@ export function VerificationWorkflow({
                   </p>
                   {period.verification_statement && (
                     <p className="text-sm text-foreground-muted mt-2 italic">
-                      "{period.verification_statement}"
+                      &quot;{period.verification_statement}&quot;
                     </p>
                   )}
                 </div>

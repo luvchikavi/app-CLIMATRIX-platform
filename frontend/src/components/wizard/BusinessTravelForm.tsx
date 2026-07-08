@@ -11,6 +11,7 @@
 
 import { useState, useMemo } from 'react';
 import { useWizardStore } from '@/stores/wizard';
+import type { ActivityCreate } from '@/lib/api';
 import { useCreateActivity, useFlightDistance } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
 import { formatCO2e } from '@/lib/utils';
@@ -189,8 +190,12 @@ export function BusinessTravelForm({ periodId, onSuccess }: BusinessTravelFormPr
         originName: `${result.origin.name} (${result.origin.city})`,
         destName: `${result.destination.name} (${result.destination.city})`,
       });
-    } catch (error: any) {
-      setDistanceCalcError(error.message || 'Airport not found. Please check the codes.');
+    } catch (error) {
+      setDistanceCalcError(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Airport not found. Please check the codes.'
+      );
     }
   };
 
@@ -354,7 +359,7 @@ export function BusinessTravelForm({ periodId, onSuccess }: BusinessTravelFormPr
     if (!isValid()) return;
 
     const payload = buildPayload();
-    await createActivity.mutateAsync(payload as any);
+    await createActivity.mutateAsync(payload as ActivityCreate);
 
     if (addAnother) {
       // Reset form but keep travel type

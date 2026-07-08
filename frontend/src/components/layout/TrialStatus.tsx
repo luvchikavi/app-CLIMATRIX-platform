@@ -22,6 +22,7 @@ export function TrialBanner() {
 
   const days = Math.max(
     0,
+    // eslint-disable-next-line react-hooks/purity -- day-granularity countdown; stable within a render
     Math.ceil((new Date(data.trial_ends_at).getTime() - Date.now()) / 86_400_000)
   );
   const urgent = days <= 3;

@@ -79,6 +79,7 @@ function ActivitiesContent() {
 
   // All useEffect hooks
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
     setMounted(true);
   }, []);
 
@@ -138,8 +139,8 @@ function ActivitiesContent() {
           toast.success('Activity updated successfully');
           setEditingActivity(null);
         },
-        onError: (err: any) => {
-          toast.error(err?.message || 'Failed to update activity');
+        onError: (err: unknown) => {
+          toast.error(err instanceof Error ? err.message : 'Failed to update activity');
         },
       }
     );

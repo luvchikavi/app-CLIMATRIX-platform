@@ -11,6 +11,7 @@
 
 import { useState, useMemo } from 'react';
 import { useWizardStore } from '@/stores/wizard';
+import type { ActivityCreate } from '@/lib/api';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
 import { formatCO2e } from '@/lib/utils';
@@ -232,7 +233,7 @@ export function LeasedAssetsForm({ periodId, onSuccess }: LeasedAssetsFormProps)
     if (!isValid()) return;
 
     const payload = buildPayload();
-    await createActivity.mutateAsync(payload as any);
+    await createActivity.mutateAsync(payload as ActivityCreate);
 
     if (addAnother) {
       // Reset form but keep method
@@ -268,7 +269,7 @@ export function LeasedAssetsForm({ periodId, onSuccess }: LeasedAssetsFormProps)
       {/* Info Box */}
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
         <strong>Note:</strong> Only include assets where you do NOT have operational control.
-        If you control the asset's operations, report in Scope 1 (fuel) or Scope 2 (electricity).
+        If you control the asset&apos;s operations, report in Scope 1 (fuel) or Scope 2 (electricity).
       </div>
 
       {/* Method Selection */}

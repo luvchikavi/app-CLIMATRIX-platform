@@ -2,7 +2,7 @@ import { HTMLAttributes, TdHTMLAttributes, ThHTMLAttributes, forwardRef } from '
 import { cn } from '@/lib/utils';
 
 // Table Root
-export interface TableProps extends HTMLAttributes<HTMLTableElement> {}
+export type TableProps = HTMLAttributes<HTMLTableElement>;
 
 export const Table = forwardRef<HTMLTableElement, TableProps>(
   ({ className, ...props }, ref) => (
@@ -19,7 +19,7 @@ export const Table = forwardRef<HTMLTableElement, TableProps>(
 Table.displayName = 'Table';
 
 // Table Header
-export interface TableHeaderProps extends HTMLAttributes<HTMLTableSectionElement> {}
+export type TableHeaderProps = HTMLAttributes<HTMLTableSectionElement>;
 
 export const TableHeader = forwardRef<HTMLTableSectionElement, TableHeaderProps>(
   ({ className, ...props }, ref) => (
@@ -30,7 +30,7 @@ export const TableHeader = forwardRef<HTMLTableSectionElement, TableHeaderProps>
 TableHeader.displayName = 'TableHeader';
 
 // Table Body
-export interface TableBodyProps extends HTMLAttributes<HTMLTableSectionElement> {}
+export type TableBodyProps = HTMLAttributes<HTMLTableSectionElement>;
 
 export const TableBody = forwardRef<HTMLTableSectionElement, TableBodyProps>(
   ({ className, ...props }, ref) => (
@@ -45,7 +45,7 @@ export const TableBody = forwardRef<HTMLTableSectionElement, TableBodyProps>(
 TableBody.displayName = 'TableBody';
 
 // Table Footer
-export interface TableFooterProps extends HTMLAttributes<HTMLTableSectionElement> {}
+export type TableFooterProps = HTMLAttributes<HTMLTableSectionElement>;
 
 export const TableFooter = forwardRef<HTMLTableSectionElement, TableFooterProps>(
   ({ className, ...props }, ref) => (
@@ -117,7 +117,7 @@ export const TableHead = forwardRef<HTMLTableCellElement, TableHeadProps>(
 TableHead.displayName = 'TableHead';
 
 // Table Cell
-export interface TableCellProps extends TdHTMLAttributes<HTMLTableCellElement> {}
+export type TableCellProps = TdHTMLAttributes<HTMLTableCellElement>;
 
 export const TableCell = forwardRef<HTMLTableCellElement, TableCellProps>(
   ({ className, ...props }, ref) => (
@@ -135,7 +135,7 @@ export const TableCell = forwardRef<HTMLTableCellElement, TableCellProps>(
 TableCell.displayName = 'TableCell';
 
 // Table Caption
-export interface TableCaptionProps extends HTMLAttributes<HTMLTableCaptionElement> {}
+export type TableCaptionProps = HTMLAttributes<HTMLTableCaptionElement>;
 
 export const TableCaption = forwardRef<HTMLTableCaptionElement, TableCaptionProps>(
   ({ className, ...props }, ref) => (

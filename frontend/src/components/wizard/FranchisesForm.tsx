@@ -125,7 +125,7 @@ export function FranchisesForm({ periodId, onSuccess }: FranchisesFormProps) {
       if (!franchise) return null;
 
       let quantity = 0;
-      let unitLabel = franchise.unit;
+      const unitLabel = franchise.unit;
 
       if (franchise.unit === 'unit') {
         quantity = parseFloat(numLocations) || 0;

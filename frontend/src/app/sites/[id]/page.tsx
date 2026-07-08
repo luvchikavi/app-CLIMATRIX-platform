@@ -68,6 +68,7 @@ function SiteDetailContent() {
     { site_id: siteId }
   );
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
     if (mounted && !isAuthenticated) router.push('/');
@@ -88,8 +89,8 @@ function SiteDetailContent() {
     try {
       await api.downloadReportExport('csv', activePeriodId, siteId);
       toast.success('CSV report downloaded');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to export CSV');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to export CSV');
     }
   };
 
@@ -98,8 +99,8 @@ function SiteDetailContent() {
     try {
       await api.downloadReportExport('pdf', activePeriodId, siteId);
       toast.success('PDF report downloaded');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to export PDF');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to export PDF');
     }
   };
 

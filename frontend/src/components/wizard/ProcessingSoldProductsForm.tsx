@@ -324,7 +324,7 @@ export function ProcessingSoldProductsForm({ periodId, onSuccess }: ProcessingSo
             <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-blue-800">
               <strong>Site-Specific Method:</strong> Use actual energy consumption data from your
-              customer's processing facility. This is the most accurate method when data is available.
+              customer&apos;s processing facility. This is the most accurate method when data is available.
             </p>
           </div>
 

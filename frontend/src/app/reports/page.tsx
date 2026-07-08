@@ -151,6 +151,7 @@ function ReportsPageContent() {
 
   // All useEffect hooks
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
     setMounted(true);
   }, []);
 
@@ -195,8 +196,8 @@ function ReportsPageContent() {
     try {
       await api.downloadReportExport('csv', activePeriodId);
       toast.success('CSV report downloaded');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to export CSV');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to export CSV');
     }
   };
 
@@ -208,8 +209,8 @@ function ReportsPageContent() {
     try {
       await api.downloadReportExport('pdf', activePeriodId);
       toast.success('PDF report downloaded');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to export PDF');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to export PDF');
     }
   };
 

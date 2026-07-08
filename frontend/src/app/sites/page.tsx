@@ -76,6 +76,7 @@ function SitesPageContent() {
 
   // All useEffect hooks
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
     setMounted(true);
   }, []);
 
@@ -128,7 +129,7 @@ function SitesPageContent() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Sites & Locations</h1>
           <p className="text-foreground-muted mt-1">
-            Manage your organization's facilities and locations
+            Manage your organization&apos;s facilities and locations
           </p>
         </div>
         <Button

@@ -34,8 +34,8 @@ export default function TermsOfServicePage() {
           <section className="mb-8">
             <h2 className="text-xl font-semibold text-foreground mb-4">1. Acceptance of Terms</h2>
             <p className="text-foreground-muted mb-4">
-              By accessing or using CLIMATRIX ("the Service"), you agree to be bound by these Terms of Service
-              ("Terms"). If you disagree with any part of the terms, you may not access the Service.
+              By accessing or using CLIMATRIX (&quot;the Service&quot;), you agree to be bound by these Terms of Service
+              (&quot;Terms&quot;). If you disagree with any part of the terms, you may not access the Service.
             </p>
           </section>
 
@@ -100,7 +100,7 @@ export default function TermsOfServicePage() {
               fees and charges. Subscription fees are billed in advance on a monthly or annual basis.
             </p>
             <ul className="list-disc list-inside text-foreground-muted space-y-2">
-              <li>Prices may change with 30 days' notice</li>
+              <li>Prices may change with 30 days&apos; notice</li>
               <li>You may cancel your subscription at any time</li>
               <li>Refunds are provided in accordance with our refund policy</li>
             </ul>
@@ -109,7 +109,7 @@ export default function TermsOfServicePage() {
           <section className="mb-8">
             <h2 className="text-xl font-semibold text-foreground mb-4">8. Disclaimer of Warranties</h2>
             <p className="text-foreground-muted mb-4">
-              The Service is provided "as is" without warranties of any kind. While we strive for accuracy
+              The Service is provided &quot;as is&quot; without warranties of any kind. While we strive for accuracy
               in emission calculations, the results should be verified by qualified professionals before
               official reporting or compliance purposes.
             </p>
