@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect, Suspense, useMemo, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect, Suspense, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
 import { useSiteStore } from '@/stores/site';
@@ -48,15 +47,12 @@ import {
   ArrowRight,
   Download,
   Filter,
-  FileSpreadsheet,
-  ChevronDown,
   Building2,
 } from 'lucide-react';
-import { api, CategorySummary, ImportBatch } from '@/lib/api';
+import { api, CategorySummary } from '@/lib/api';
 
 function DashboardContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { isAuthenticated, organization, user } = useAuthStore();
   const { selectedPeriodId } = usePeriodStore();
   const { selectedSiteId } = useSiteStore();
@@ -65,9 +61,6 @@ function DashboardContent() {
   const [mounted, setMounted] = useState(false);
   const [drillDownCategory, setDrillDownCategory] = useState<CategorySummary | null>(null);
   const [drillDownScope, setDrillDownScope] = useState<1 | 2 | 3 | null>(null);
-  // Initialize batch filter from URL parameter (for import redirect)
-  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(searchParams.get('batchId'));
-  const [showBatchDropdown, setShowBatchDropdown] = useState(false);
   const categoryTrapRef = useFocusTrap<HTMLDivElement>(!!drillDownCategory);
 
   // All data fetching hooks (must be before any conditional returns)
@@ -91,43 +84,9 @@ function DashboardContent() {
   // Fetch site breakdown for chart
   const { data: sitesBreakdown } = useSitesBreakdown(activePeriodId);
 
-  // Fetch import batches for filter
-  const { data: importBatches } = useQuery({
-    queryKey: ['import-batches', activePeriodId],
-    queryFn: () => api.getImportBatches(activePeriodId, 50),
-    enabled: !!activePeriodId,
-  });
-
-  // Filter activities by selected batch
-  const filteredActivities = useMemo(() => {
-    if (!activities) return [];
-    if (!selectedBatchId) return activities; // Show all if no batch selected
-    return activities.filter(a => a.activity.import_batch_id === selectedBatchId);
-  }, [activities, selectedBatchId]);
-
-  // Calculate totals from filtered activities
-  const filteredTotals = useMemo(() => {
-    const scope1 = filteredActivities
-      .filter(a => a.activity.scope === 1)
-      .reduce((sum, a) => sum + (a.emission?.co2e_kg || 0), 0);
-    const scope2 = filteredActivities
-      .filter(a => a.activity.scope === 2)
-      .reduce((sum, a) => sum + (a.emission?.co2e_kg || 0), 0);
-    const scope3 = filteredActivities
-      .filter(a => a.activity.scope === 3)
-      .reduce((sum, a) => sum + (a.emission?.co2e_kg || 0), 0);
-    return {
-      total: scope1 + scope2 + scope3,
-      scope1,
-      scope2,
-      scope2LocationBased: scope2,
-      scope2MarketBased: null as number | null | undefined,
-      scope3,
-    };
-  }, [filteredActivities]);
-
-  // Get selected batch info
-  const selectedBatch = importBatches?.find(b => b.id === selectedBatchId);
+  // Reviewing a specific import lives on the Activity Ledger (its batch
+  // filter) — the dashboard always shows the whole period.
+  const filteredActivities = activities ?? [];
 
   // All useEffect hooks
   useEffect(() => {
@@ -153,8 +112,7 @@ function DashboardContent() {
 
   const isLoading = periodsLoading || summaryLoading;
 
-  // Use filtered totals when batch is selected, otherwise use server summary
-  const displayTotals = selectedBatchId ? filteredTotals : {
+  const displayTotals = {
     total: summary?.total_co2e_kg || 0,
     scope1: summary?.scope_1_co2e_kg || 0,
     scope2: summary?.scope_2_co2e_kg || 0,
@@ -204,7 +162,7 @@ function DashboardContent() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const exportName = selectedBatch ? selectedBatch.file_name.replace(/\.[^.]+$/, '') : summary?.period_name || 'export';
+    const exportName = summary?.period_name || 'export';
     a.download = `activities_${exportName}_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
@@ -246,135 +204,6 @@ function DashboardContent() {
           </Button>
         </div>
       </div>
-
-      {/* Import Results Banner - shown when coming from import with batch filter */}
-      {selectedBatchId && selectedBatch && searchParams.get('batchId') && (
-        <div className="mb-6 p-4 bg-success/10 border border-success/30 rounded-xl flex items-center justify-between" role="status" aria-live="polite">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-success/20">
-              <FileSpreadsheet className="w-5 h-5 text-success" />
-            </div>
-            <div>
-              <p className="font-medium text-success">Import Results: {selectedBatch.file_name}</p>
-              <p className="text-sm text-success/80">
-                Showing {filteredActivities.length} activities from this import.
-                Export below will only include these activities.
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setSelectedBatchId(null);
-              router.replace('/dashboard');
-            }}
-            className="text-success border-success/50 hover:bg-success/10"
-          >
-            Show All Activities
-          </Button>
-        </div>
-      )}
-
-      {/* Import Batch Filter */}
-      {importBatches && importBatches.length > 0 && (
-        <Card padding="md" className="mb-6 bg-background-muted/50">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <FileSpreadsheet className="w-5 h-5 text-foreground-muted" />
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  {selectedBatchId ? 'Filtered by Import' : 'Showing All Imports'}
-                </p>
-                <p className="text-xs text-foreground-muted">
-                  {selectedBatchId
-                    ? `${selectedBatch?.file_name} - ${filteredActivities.length} activities`
-                    : `${importBatches.length} imports, ${activities?.length || 0} total activities`
-                  }
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* Batch Selector Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowBatchDropdown(!showBatchDropdown)}
-                  className={cn(
-                    'flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all',
-                    selectedBatchId
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-background hover:border-primary/50 text-foreground'
-                  )}
-                >
-                  <Filter className="w-4 h-4" />
-                  {selectedBatchId ? 'Filtered' : 'Filter by Import'}
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-
-                {showBatchDropdown && (
-                  <div className="absolute right-0 mt-2 w-80 bg-background-elevated rounded-xl shadow-lg border border-border py-2 z-50 animate-fade-in-down">
-                    <div className="px-3 py-2 border-b border-border">
-                      <p className="text-xs font-semibold text-foreground-muted uppercase">
-                        Select Import File
-                      </p>
-                    </div>
-
-                    {/* All option */}
-                    <button
-                      onClick={() => {
-                        setSelectedBatchId(null);
-                        setShowBatchDropdown(false);
-                      }}
-                      className={cn(
-                        'w-full text-left px-3 py-2 hover:bg-background-muted transition-colors',
-                        !selectedBatchId && 'bg-primary-light'
-                      )}
-                    >
-                      <p className="font-medium text-sm">All Imports</p>
-                      <p className="text-xs text-foreground-muted">
-                        Show all {activities?.length || 0} activities
-                      </p>
-                    </button>
-
-                    <div className="max-h-64 overflow-y-auto">
-                      {importBatches.map((batch) => (
-                        <button
-                          key={batch.id}
-                          onClick={() => {
-                            setSelectedBatchId(batch.id);
-                            setShowBatchDropdown(false);
-                          }}
-                          className={cn(
-                            'w-full text-left px-3 py-2 hover:bg-background-muted transition-colors',
-                            selectedBatchId === batch.id && 'bg-primary-light'
-                          )}
-                        >
-                          <p className="font-medium text-sm truncate">{batch.file_name}</p>
-                          <p className="text-xs text-foreground-muted">
-                            {new Date(batch.uploaded_at).toLocaleDateString()} - {batch.successful_rows} activities
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Clear filter button */}
-              {selectedBatchId && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedBatchId(null)}
-                  leftIcon={<X className="w-4 h-4" />}
-                >
-                  Clear
-                </Button>
-              )}
-            </div>
-          </div>
-        </Card>
-      )}
 
       {/* Loading State */}
       {isLoading && (
@@ -433,15 +262,12 @@ function DashboardContent() {
                 <div>
                   <p className="text-sm font-medium text-foreground-muted uppercase tracking-wide">
                     Total Emissions
-                    {selectedBatchId && (
-                      <span className="ml-2 text-primary">(Filtered)</span>
-                    )}
                   </p>
                   <p className="text-4xl font-bold text-foreground mt-2 tracking-tight">
                     {formatCO2e(displayTotals.total)}
                   </p>
                   <p className="text-sm text-foreground-muted mt-1">
-                    {selectedBatch ? selectedBatch.file_name : summary.period_name}
+                    {summary.period_name}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-primary-light">
@@ -550,7 +376,7 @@ function DashboardContent() {
               <div className="flex items-center justify-between w-full">
                 <CardTitle className="flex items-center gap-2">
                   <List className="w-5 h-5 text-foreground-muted" />
-                  {selectedBatchId ? 'Filtered Activities' : 'Recent Activities'}
+                  Recent Activities
                   <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-background-muted text-foreground-muted">
                     {filteredActivities.length}
                   </span>
@@ -633,9 +459,9 @@ function DashboardContent() {
               ) : (
                 <EmptyState
                   variant="minimal"
-                  title={selectedBatchId ? "No activities in this import" : "No activities yet"}
-                  description={selectedBatchId ? "This import file has no activities" : "Add your first activity to start tracking emissions"}
-                  action={selectedBatchId ? undefined : {
+                  title="No activities yet"
+                  description="Add your first activity to start tracking emissions"
+                  action={{
                     label: 'Add Activity',
                     onClick: () => router.push('/activities?add=1'),
                   }}

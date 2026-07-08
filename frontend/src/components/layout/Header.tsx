@@ -48,9 +48,11 @@ export function Header({ onMenuClick, sidebarCollapsed }: HeaderProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Set default period if none selected
+  // Set default period if none selected — and heal a persisted id that doesn't
+  // belong to this org's list (stale localStorage from another login).
   useEffect(() => {
-    if (periods?.length && !selectedPeriodId) {
+    if (!periods?.length) return;
+    if (!selectedPeriodId || !periods.some((p) => p.id === selectedPeriodId)) {
       setSelectedPeriodId(periods[0].id);
     }
   }, [periods, selectedPeriodId, setSelectedPeriodId]);

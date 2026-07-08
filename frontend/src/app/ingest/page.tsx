@@ -121,7 +121,7 @@ const CATEGORY_NAMES: Record<string, string> = {
 function IngestContent() {
   const { data: periods } = usePeriods();
   const searchParams = useSearchParams();
-  const { selectedPeriodId, setSelectedPeriodId } = usePeriodStore();
+  const { selectedPeriodId } = usePeriodStore();
   const [session, setSession] = useState<IngestionSessionDetail | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -311,21 +311,13 @@ function IngestContent() {
           </p>
         </div>
 
-        {/* Period selector */}
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-slate-500 dark:text-slate-400">Reporting period:</span>
-          <select
-            value={periodId || ''}
-            onChange={(e) => setSelectedPeriodId(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-          >
-            {(periods ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* The period is chosen once, in the top bar — pages only display it. */}
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Reporting period:{' '}
+          <span className="font-medium text-slate-700 dark:text-slate-200">
+            {periods?.find((p) => p.id === periodId)?.name || '…'}
+          </span>
+        </p>
 
         {/* Dropzone */}
         {!session && (

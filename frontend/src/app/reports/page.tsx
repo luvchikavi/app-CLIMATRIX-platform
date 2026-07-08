@@ -13,7 +13,6 @@ import {
   CardHeader,
   CardTitle,
   CardContent,
-  Select,
   Table,
   TableHeader,
   TableBody,
@@ -70,7 +69,7 @@ function ReportsPageContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isAuthenticated, user } = useAuthStore();
-  const { selectedPeriodId, setSelectedPeriodId } = usePeriodStore();
+  const { selectedPeriodId } = usePeriodStore();
 
   // All useState hooks
   const [activeTab, setActiveTab] = useState<ReportTab>('summary');
@@ -246,6 +245,13 @@ function ReportsPageContent() {
     { id: 'verification', label: 'Verification', icon: Shield },
   ];
 
+  // Nine flat tabs were unscannable — cluster them by the question they answer.
+  const tabGroups: { title: string; ids: ReportTab[] }[] = [
+    { title: 'Overview', ids: ['summary', 'by-scope', 'by-category', 'by-site'] },
+    { title: 'Inventory & Quality', ids: ['inventory', 'data-quality'] },
+    { title: 'Audit & Compliance', ids: ['audit', 'verification', 'export'] },
+  ];
+
   return (
     <AppShell>
       {/* Page Header */}
@@ -256,18 +262,11 @@ function ReportsPageContent() {
             {activePeriod && <PeriodStatusBadge status={activePeriod.status} />}
           </div>
           <p className="text-foreground-muted mt-1">
-            View and export your emission reports
+            {/* The period is chosen once, in the top bar — pages only display it. */}
+            View and export your emission reports · {activePeriod?.name || '…'}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Select
-            value={selectedPeriodId || ''}
-            onChange={(e) => setSelectedPeriodId(e.target.value)}
-            options={[
-              ...(periods?.map((p) => ({ value: p.id, label: p.name })) || []),
-            ]}
-            className="w-48"
-          />
           <Button
             variant="outline"
             onClick={handleExportCSV}
@@ -296,26 +295,36 @@ function ReportsPageContent() {
       {/* Report Content - Always show tabs */}
       {!isLoading && (
         <div className="space-y-6 animate-fade-in">
-          {/* Tab Navigation - Always visible */}
-          <div className="flex items-center gap-2 border-b border-border pb-4 overflow-x-auto">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    'flex items-center gap-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap',
-                    activeTab === tab.id
-                      ? 'bg-primary text-white'
-                      : 'text-foreground-muted hover:bg-background-muted'
-                  )}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="font-medium">{tab.label}</span>
-                </button>
-              );
-            })}
+          {/* Tab Navigation - grouped by purpose, always visible */}
+          <div className="flex items-start gap-6 border-b border-border pb-4 overflow-x-auto">
+            {tabGroups.map((group) => (
+              <div key={group.title} className="shrink-0">
+                <p className="mb-1.5 px-1 text-xs font-medium uppercase tracking-wide text-foreground-muted">
+                  {group.title}
+                </p>
+                <div className="flex items-center gap-1">
+                  {group.ids.map((id) => {
+                    const tab = tabs.find((t) => t.id === id)!;
+                    const Icon = tab.icon;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={cn(
+                          'flex items-center gap-2 px-3 py-2 rounded-lg transition-colors whitespace-nowrap',
+                          activeTab === tab.id
+                            ? 'bg-primary text-white'
+                            : 'text-foreground-muted hover:bg-background-muted'
+                        )}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span className="font-medium">{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* No Data State - Show for data-dependent tabs only */}

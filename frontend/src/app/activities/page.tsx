@@ -47,7 +47,7 @@ function ActivitiesContent() {
 
   // All data fetching hooks (must be before any conditional returns)
   const { data: periods, isLoading: periodsLoading } = usePeriods();
-  const { selectedPeriodId, setSelectedPeriodId } = usePeriodStore();
+  const { selectedPeriodId } = usePeriodStore();
   const { selectedSiteId } = useSiteStore();
   const { data: sites } = useSites();
 
@@ -163,24 +163,11 @@ function ActivitiesContent() {
             <p className="text-sm text-foreground-muted">
               Every committed emission line — from uploads and manual entry alike
             </p>
-            {periods && periods.length > 1 ? (
-              <div className="flex items-center gap-2 mt-1">
-                <Calendar className="w-4 h-4 text-foreground-muted" />
-                <select
-                  value={activePeriodId || ''}
-                  onChange={(e) => setSelectedPeriodId(e.target.value || null)}
-                  className="text-sm bg-transparent border border-border rounded-lg px-2 py-1 text-foreground-muted focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  {periods.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <p className="text-foreground-muted mt-1">
-                {activePeriod?.name || 'Loading...'}
-              </p>
-            )}
+            {/* The period is chosen once, in the top bar — pages only display it. */}
+            <p className="text-foreground-muted mt-1 flex items-center gap-1.5">
+              <Calendar className="w-4 h-4" />
+              {activePeriod?.name || 'Loading...'}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
