@@ -9,6 +9,7 @@ UI can one-click fix them (human review is mandatory — nothing auto-commits).
 
 No LLM, no DB — pure logic over the catalog. Cheap and testable.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -17,8 +18,17 @@ from app.services.ingestion.catalog import FactorCatalog
 
 # EU CBAM-covered goods (cement, iron & steel, aluminium, fertilisers, hydrogen).
 CBAM_KEYWORDS = (
-    "steel", "iron", "aluminum", "aluminium", "cement", "clinker",
-    "fertiliser", "fertilizer", "ammonia", "nitric", "hydrogen",
+    "steel",
+    "iron",
+    "aluminum",
+    "aluminium",
+    "cement",
+    "clinker",
+    "fertiliser",
+    "fertilizer",
+    "ammonia",
+    "nitric",
+    "hydrogen",
 )
 
 
@@ -34,6 +44,18 @@ def is_cbam_good(activity_key: str) -> bool:
     """True if the activity looks like a CBAM-covered good (feeds the CBAM module)."""
     k = (activity_key or "").lower()
     return any(w in k for w in CBAM_KEYWORDS)
+
+
+# Scope-2 electricity is encoded three ways across the catalog and templates:
+# bare legacy "2", "2.1" (location-based) and "2.2" (market-based). They are the
+# same decision for classification purposes — never flag them against each other.
+_EQUIVALENT_CATEGORIES = ({"2", "2.1", "2.2"},)
+
+
+def _categories_equivalent(a: str, b: str) -> bool:
+    if a == b:
+        return True
+    return any(a in group and b in group for group in _EQUIVALENT_CATEGORIES)
 
 
 def scope_category_consistent(scope: int, category_code: str) -> bool:
@@ -65,9 +87,11 @@ def check_row(
                     f"(a {category_code.split('.')[0]}.x category is Scope "
                     f"{category_code.split('.')[0]})."
                 ),
-                suggested_scope=int(category_code.split(".")[0])
-                if category_code and category_code.split(".")[0].isdigit()
-                else None,
+                suggested_scope=(
+                    int(category_code.split(".")[0])
+                    if category_code and category_code.split(".")[0].isdigit()
+                    else None
+                ),
                 suggested_category=category_code,
             )
         )
@@ -90,7 +114,11 @@ def check_row(
             )
         )
 
-    if entry.category_code and category_code and entry.category_code != category_code:
+    if (
+        entry.category_code
+        and category_code
+        and not _categories_equivalent(entry.category_code, category_code)
+    ):
         violations.append(
             RuleViolation(
                 rule="category_mismatch",

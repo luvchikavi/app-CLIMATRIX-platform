@@ -14,13 +14,10 @@ import {
   Building2,
   Globe,
   Calendar,
-  Upload,
   Check,
   ChevronRight,
   ChevronLeft,
   Loader2,
-  Download,
-  Sparkles,
   MapPin,
 } from 'lucide-react';
 
@@ -29,23 +26,29 @@ interface OnboardingWizardProps {
   organizationName?: string;
 }
 
-type Step = 'welcome' | 'organization' | 'region' | 'site' | 'period' | 'import' | 'complete';
+// Formal facts only — everything environmental (categories, data sources,
+// uploads) lives in the Data Hub, which this wizard lands on when done.
+type Step = 'welcome' | 'organization' | 'region' | 'site' | 'period' | 'complete';
 
-const STEPS: Step[] = ['welcome', 'organization', 'region', 'site', 'period', 'import', 'complete'];
-
-/** Steps that can be skipped without filling in data.
- * Organization + Site are REQUIRED (this is the setup gate); only Import is optional. */
-const OPTIONAL_STEPS: Step[] = ['import'];
+const STEPS: Step[] = ['welcome', 'organization', 'region', 'site', 'period', 'complete'];
 
 const STORAGE_KEY = 'onboarding_wizard_state';
 
 interface WizardPersistedState {
   currentStep: Step;
-  orgDetails: { industry_code: string; base_year: number };
+  orgDetails: {
+    industry_code: string;
+    base_year: number;
+    currency: string;
+    unit_system: string;
+    consolidation_approach: string;
+  };
   selectedRegion: string;
   siteDetails: { name: string; country_code: string; address: string; grid_region: string };
   periodYear: number;
 }
+
+const CURRENCY_OPTIONS = ['USD', 'EUR', 'GBP', 'ILS', 'CHF', 'JPY', 'CAD', 'AUD'];
 
 interface FieldErrors {
   [field: string]: string;
@@ -59,6 +62,9 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
   const [orgDetails, setOrgDetails] = useState({
     industry_code: '',
     base_year: new Date().getFullYear() - 1,
+    currency: 'USD',
+    unit_system: 'metric',
+    consolidation_approach: 'operational_control',
   });
   const [selectedRegion, setSelectedRegion] = useState<string>('Global');
   const [siteDetails, setSiteDetails] = useState({
@@ -69,14 +75,21 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
   });
   const [periodYear, setPeriodYear] = useState<number>(new Date().getFullYear());
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [createdSites, setCreatedSites] = useState<string[]>([]);
 
   const { data: regions } = useSupportedRegions();
   const createPeriod = useCreatePeriod();
   const createSite = useCreateSite();
 
   const updateOrg = useMutation({
-    mutationFn: (data: { default_region?: string; industry_code?: string; base_year?: number }) =>
-      api.updateOrganization(data),
+    mutationFn: (data: {
+      default_region?: string;
+      industry_code?: string;
+      base_year?: number;
+      currency?: string;
+      unit_system?: string;
+      consolidation_approach?: string;
+    }) => api.updateOrganization(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization'] });
     },
@@ -153,11 +166,6 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
     }
   };
 
-  const skipStep = () => {
-    setFieldErrors({});
-    nextStep();
-  };
-
   // ---- Validation helpers ----
   const clearError = (field: string) => {
     setFieldErrors((prev) => {
@@ -172,6 +180,9 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
       await updateOrg.mutateAsync({
         industry_code: orgDetails.industry_code || undefined,
         base_year: orgDetails.base_year || undefined,
+        currency: orgDetails.currency || undefined,
+        unit_system: orgDetails.unit_system || undefined,
+        consolidation_approach: orgDetails.consolidation_approach || undefined,
       });
       toast.success('Organization details saved');
       nextStep();
@@ -190,17 +201,13 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
     }
   };
 
-  const handleCreateSite = async () => {
-    // Validate required fields
-    const errors: FieldErrors = {};
+  // Many organizations report across several sites — the wizard lets them add
+  // as many as they need before moving on ("Save & add another").
+  const saveSite = async (): Promise<boolean> => {
     if (!siteDetails.name.trim()) {
-      errors.site_name = 'Site name is required';
+      setFieldErrors({ site_name: 'Site name is required' });
+      return false;
     }
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      return;
-    }
-
     try {
       await createSite.mutateAsync({
         name: siteDetails.name.trim(),
@@ -208,11 +215,30 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
         address: siteDetails.address.trim() || undefined,
         grid_region: siteDetails.grid_region || undefined,
       });
-      toast.success('Site created successfully');
-      nextStep();
+      setCreatedSites((prev) => [...prev, siteDetails.name.trim()]);
+      // Keep country/grid — sibling sites usually share them; clear the rest.
+      setSiteDetails((prev) => ({ ...prev, name: '', address: '' }));
+      return true;
     } catch {
       toast.error('Failed to create site');
+      return false;
     }
+  };
+
+  const handleAddAnotherSite = async () => {
+    if (await saveSite()) toast.success('Site added — enter the next one');
+  };
+
+  const handleSiteContinue = async () => {
+    if (siteDetails.name.trim()) {
+      if (await saveSite()) nextStep();
+      return;
+    }
+    if (createdSites.length > 0) {
+      nextStep();
+      return;
+    }
+    setFieldErrors({ site_name: 'Add at least one site' });
   };
 
   const handleCreatePeriod = async () => {
@@ -226,15 +252,6 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
       nextStep();
     } catch {
       toast.error('Failed to create reporting period');
-    }
-  };
-
-  const handleDownloadTemplate = async (scope: '1-2' | '3') => {
-    try {
-      await api.downloadTemplate(scope);
-    } catch (error) {
-      console.error('Failed to download template:', error);
-      toast.error('Failed to download template');
     }
   };
 
@@ -256,7 +273,8 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
       }
       clearProgress();
       onComplete();
-      router.push('/ingest');
+      // Land in the Data Hub — mapping the inventory is the natural next step.
+      router.push('/hub');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Please complete all required steps first.';
       toast.error(msg);
@@ -287,7 +305,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
         </div>
 
         {/* Step Content */}
-        <Card padding="lg" className="animate-fade-in p-8">
+        <Card padding="lg" className="animate-fade-in max-h-[85vh] overflow-y-auto p-8">
           {/* Welcome Step */}
           {currentStep === 'welcome' && (
             <div className="text-center">
@@ -367,9 +385,67 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                     The base year is used to track emissions reductions over time
                   </p>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Currency
+                    </label>
+                    <select
+                      value={orgDetails.currency}
+                      onChange={(e) => setOrgDetails({ ...orgDetails, currency: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      {CURRENCY_OPTIONS.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                    <p className="mt-1.5 text-sm text-foreground-muted">
+                      For any spend-based data you upload
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Units
+                    </label>
+                    <select
+                      value={orgDetails.unit_system}
+                      onChange={(e) => setOrgDetails({ ...orgDetails, unit_system: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      <option value="metric">Metric (liters, km, kg)</option>
+                      <option value="imperial">Imperial (gallons, miles, lbs)</option>
+                    </select>
+                    <p className="mt-1.5 text-sm text-foreground-muted">
+                      So &quot;gal&quot; and &quot;ton&quot; are never ambiguous
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Reporting Boundary
+                  </label>
+                  <select
+                    value={orgDetails.consolidation_approach}
+                    onChange={(e) =>
+                      setOrgDetails({ ...orgDetails, consolidation_approach: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="operational_control">
+                      Operational control (most common) — what you operate
+                    </option>
+                    <option value="financial_control">Financial control — what you control financially</option>
+                    <option value="equity_share">Equity share — your ownership percentage</option>
+                  </select>
+                  <p className="mt-1.5 text-sm text-foreground-muted">
+                    The GHG Protocol consolidation approach — keep the default if unsure
+                  </p>
+                </div>
               </div>
 
-              <div className="flex justify-between mt-8">
+              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between border-t border-border bg-background-elevated px-8 py-4">
                 <Button variant="outline" onClick={prevStep}>
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Back
@@ -429,7 +505,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                 ))}
               </div>
 
-              <div className="flex justify-between mt-8">
+              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between border-t border-border bg-background-elevated px-8 py-4">
                 <Button variant="outline" onClick={prevStep}>
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Back
@@ -459,6 +535,23 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                   <p className="text-foreground-muted">Where does your organization operate?</p>
                 </div>
               </div>
+
+              {createdSites.length > 0 && (
+                <div className="mb-5 flex flex-wrap items-center gap-2">
+                  {createdSites.map((name, i) => (
+                    <span
+                      key={`${name}-${i}`}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-primary-light px-3 py-1 text-sm font-medium text-primary"
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                      {name}
+                    </span>
+                  ))}
+                  <span className="text-sm text-foreground-muted">
+                    {createdSites.length} site{createdSites.length > 1 ? 's' : ''} added
+                  </span>
+                </div>
+              )}
 
               <div className="space-y-5">
                 {/* Site Name (required) */}
@@ -551,19 +644,26 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                 </div>
               </div>
 
-              <div className="flex justify-between mt-8">
+              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between border-t border-border bg-background-elevated px-8 py-4">
                 <Button variant="outline" onClick={prevStep}>
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Back
                 </Button>
                 <div className="flex gap-3">
                   <Button
+                    variant="outline"
+                    onClick={handleAddAnotherSite}
+                    disabled={createSite.isPending}
+                  >
+                    Save & add another
+                  </Button>
+                  <Button
                     variant="primary"
-                    onClick={handleCreateSite}
+                    onClick={handleSiteContinue}
                     disabled={createSite.isPending}
                     isLoading={createSite.isPending}
                   >
-                    Create Site
+                    Continue
                     <ChevronRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
@@ -610,7 +710,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                 </p>
               </div>
 
-              <div className="flex justify-between mt-8">
+              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between border-t border-border bg-background-elevated px-8 py-4">
                 <Button variant="outline" onClick={prevStep}>
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Back
@@ -628,94 +728,6 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
             </div>
           )}
 
-          {/* Import Step */}
-          {currentStep === 'import' && (
-            <div>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 rounded-xl bg-primary-light">
-                  <Upload className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-foreground">Import Your Data</h2>
-                  <p className="text-foreground-muted">Get started with our templates</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="p-4 rounded-xl border border-border bg-background-muted">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <Download className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-foreground">Scope 1 & 2 Template</h4>
-                        <p className="text-sm text-foreground-muted">Direct emissions and purchased energy</p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDownloadTemplate('1-2')}
-                    >
-                      Download
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl border border-border bg-background-muted">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-secondary/10">
-                        <Download className="w-5 h-5 text-secondary" />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-foreground">Scope 3 Template</h4>
-                        <p className="text-sm text-foreground-muted">Value chain emissions</p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDownloadTemplate('3')}
-                    >
-                      Download
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl bg-primary-light border border-primary/20">
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="w-5 h-5 text-primary mt-0.5" />
-                    <div>
-                      <h4 className="font-semibold text-primary">AI-Powered Import</h4>
-                      <p className="text-sm text-primary/80 mt-1">
-                        Don't have the exact template format? No problem! Our AI can analyze
-                        any Excel or CSV file and automatically map your data to emission factors.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-between mt-8">
-                <Button variant="outline" onClick={prevStep}>
-                  <ChevronLeft className="w-4 h-4 mr-2" />
-                  Back
-                </Button>
-                <div className="flex gap-3">
-                  <Button variant="ghost" onClick={skipStep}>
-                    Skip
-                  </Button>
-                  <Button variant="primary" onClick={nextStep}>
-                    Continue
-                    <ChevronRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Complete Step */}
           {currentStep === 'complete' && (
             <div className="text-center">
@@ -726,17 +738,13 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                 You're All Set!
               </h2>
               <p className="text-lg text-foreground-muted mb-8 max-w-md mx-auto">
-                Your organization is ready for carbon accounting. Start by importing your
-                emission data or adding activities manually.
+                Your organization is ready. Next: map your inventory in the Data Hub —
+                mark what&apos;s relevant, then start dropping in your data.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button variant="outline" onClick={() => router.push('/ingest')}>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Import Data
-                </Button>
+              <div className="flex justify-center">
                 <Button variant="primary" onClick={handleComplete}>
-                  Go to Dashboard
+                  Open the Data Hub
                   <ChevronRight className="w-4 h-4 ml-2" />
                 </Button>
               </div>

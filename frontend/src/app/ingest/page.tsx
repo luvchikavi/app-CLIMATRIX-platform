@@ -8,8 +8,9 @@
  * few targeted questions, and the rows land in the ledger.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/layout';
 import { Card, CardContent, Button, toast } from '@/components/ui';
 import { usePeriods } from '@/hooks/useEmissions';
@@ -117,14 +118,33 @@ const CATEGORY_NAMES: Record<string, string> = {
 };
 
 
-export default function IngestPage() {
+function IngestContent() {
   const { data: periods } = usePeriods();
-  const { selectedPeriodId, setSelectedPeriodId } = usePeriodStore();
+  const searchParams = useSearchParams();
+  const { selectedPeriodId } = usePeriodStore();
   const [session, setSession] = useState<IngestionSessionDetail | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Deep link from the Data Hub's "Recent uploads": /ingest?session=<id>
+  const linkedSessionId = searchParams.get('session');
+  useEffect(() => {
+    if (!linkedSessionId) return;
+    let cancelled = false;
+    api
+      .getIngestSession(linkedSessionId)
+      .then((s) => {
+        if (!cancelled) setSession(s);
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Could not load that upload session.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [linkedSessionId]);
 
   // Only trust the saved period if it actually belongs to the current org's list —
   // a stale localStorage value from another session/org would 404 on upload.
@@ -175,9 +195,10 @@ export default function IngestPage() {
 
   const submitAnswers = async () => {
     if (!session) return;
+    // '__unanswered__' is the dropdown placeholder — treat it as "not answered".
     const payload = openQuestions
-      .filter((q) => (answers[q.id] ?? '').trim().length > 0)
-      .map((q) => ({ question_id: q.id, answer: answers[q.id].trim() }));
+      .map((q) => ({ question_id: q.id, answer: (answers[q.id] ?? '').trim() }))
+      .filter((a) => a.answer.length > 0 && a.answer !== '__unanswered__');
     if (payload.length === 0) {
       toast.error('Answer at least one question first.');
       return;
@@ -258,6 +279,27 @@ export default function IngestPage() {
       <div className="mx-auto max-w-5xl space-y-6 py-2">
         {/* Header */}
         <div>
+          <div className="mb-1 flex items-center justify-between">
+            <Link
+              href="/hub"
+              className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            >
+              ← Data Hub
+            </Link>
+            {session && !busy && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setSession(null);
+                  setAnswers({});
+                }}
+              >
+                <UploadCloud className="mr-1.5 h-4 w-4" />
+                New upload
+              </Button>
+            )}
+          </div>
           <h1 className="flex items-center gap-2 text-2xl font-semibold text-slate-900 dark:text-white">
             <Sparkles className="h-6 w-6 text-emerald-500" />
             Drop your data — we&apos;ll do the rest
@@ -269,21 +311,13 @@ export default function IngestPage() {
           </p>
         </div>
 
-        {/* Period selector */}
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-slate-500 dark:text-slate-400">Reporting period:</span>
-          <select
-            value={periodId || ''}
-            onChange={(e) => setSelectedPeriodId(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-          >
-            {(periods ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* The period is chosen once, in the top bar — pages only display it. */}
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Reporting period:{' '}
+          <span className="font-medium text-slate-700 dark:text-slate-200">
+            {periods?.find((p) => p.id === periodId)?.name || '…'}
+          </span>
+        </p>
 
         {/* Dropzone */}
         {!session && (
@@ -489,10 +523,13 @@ export default function IngestPage() {
                 They&apos;re now calculated and included in your dashboard totals.
               </p>
               <div className="mt-2 flex gap-3">
-                <Link href="/dashboard">
+                <Link href="/hub">
                   <Button>
-                    View dashboard <ArrowRight className="ml-1 h-4 w-4" />
+                    Back to Data Hub <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
+                </Link>
+                <Link href="/dashboard">
+                  <Button variant="secondary">View dashboard</Button>
                 </Link>
                 <Button variant="secondary" onClick={() => setSession(null)}>
                   Import another file
@@ -503,6 +540,14 @@ export default function IngestPage() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+export default function IngestPage() {
+  return (
+    <Suspense fallback={null}>
+      <IngestContent />
+    </Suspense>
   );
 }
 
@@ -613,33 +658,58 @@ function QuestionRow({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const choices = q.choices ?? [];
+  const selected = choices.find((c) => c.value === value);
   return (
     <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-      <p className="mb-2 text-sm text-slate-700 dark:text-slate-200">{q.question}</p>
-      {q.choices && q.choices.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {q.choices.map((c) => (
-            <button
-              key={c}
-              onClick={() => onChange(c)}
-              className={cn(
-                'rounded-full border px-3 py-1 text-xs transition-colors',
-                value === c
-                  ? 'border-emerald-500 bg-emerald-500 text-white'
-                  : 'border-slate-300 text-slate-600 hover:border-emerald-400 dark:border-slate-700 dark:text-slate-300'
-              )}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-      ) : (
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <p className="text-sm text-slate-700 dark:text-slate-200">{q.question}</p>
+        {q.applies_count > 1 && (
+          <span className="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+            {q.applies_count} rows
+          </span>
+        )}
+      </div>
+      {choices.length === 0 ? (
+        // No preset options — free text as a last resort.
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Type your answer…"
           className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
         />
+      ) : choices.length <= 4 ? (
+        // A few options — show them as pick-one buttons.
+        <div className="flex flex-wrap gap-2">
+          {choices.map((c) => (
+            <button
+              key={c.value || '__gap__'}
+              onClick={() => onChange(c.value)}
+              className={cn(
+                'rounded-full border px-3 py-1 text-xs transition-colors',
+                selected?.value === c.value
+                  ? 'border-emerald-500 bg-emerald-500 text-white'
+                  : 'border-slate-300 text-slate-600 hover:border-emerald-400 dark:border-slate-700 dark:text-slate-300'
+              )}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      ) : (
+        // Many options — a dropdown keeps it compact.
+        <select
+          value={value || '__unanswered__'}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+        >
+          <option value="__unanswered__">Choose the right activity…</option>
+          {choices.map((c) => (
+            <option key={c.value || '__gap__'} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
       )}
     </div>
   );

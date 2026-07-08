@@ -721,6 +721,72 @@ export interface OrganizationSettings {
   base_year: number | null;
   default_region: string;
   setup_complete?: boolean;
+  currency?: string | null;
+  unit_system?: string;
+  consolidation_approach?: string;
+}
+
+// ============================================================================
+// Data Hub — inventory profile + coverage matrix
+// ============================================================================
+
+export type HubRelevance = 'relevant' | 'not_relevant' | 'not_sure';
+
+export interface HubProfileEntry {
+  category_code: string;
+  relevance: HubRelevance;
+  exclusion_reason?: string | null;
+  calculate_this_period?: boolean;
+  data_owner?: string | null;
+  expected_form?: string | null;
+  details?: Record<string, unknown> | null;
+}
+
+export interface HubProfileEntryResponse extends HubProfileEntry {
+  scope: number;
+  site_id: string | null;
+  updated_at: string | null;
+}
+
+export interface HubCoverage {
+  committed_count: number;
+  total_co2e_kg: number;
+  staged_count: number;
+  staged_by_tier: Record<string, number>;
+  open_questions: number;
+}
+
+export interface HubCategory {
+  scope: number;
+  code: string;
+  name: string;
+  description: string;
+  profile: HubProfileEntryResponse | null;
+  coverage: HubCoverage;
+}
+
+export interface HubStats {
+  total_categories: number;
+  relevant: number;
+  not_relevant: number;
+  not_sure: number;
+  with_data: number;
+  open_questions: number;
+}
+
+export interface HubOverview {
+  categories: HubCategory[];
+  stats: HubStats;
+}
+
+export interface HubQuestion {
+  id: string;
+  session_id: string;
+  filename: string;
+  question: string;
+  field: string | null;
+  choices: { value: string; label: string }[] | null;
+  applies_count: number;
 }
 
 export interface Region {
@@ -1301,6 +1367,36 @@ class ApiClient {
   async getSiteDetail(siteId: string, periodId?: string): Promise<SiteDetail> {
     const query = periodId ? `?period_id=${periodId}` : '';
     return this.fetch<SiteDetail>(`/organization/sites/${siteId}${query}`);
+  }
+
+  // Data Hub
+  async getHubOverview(periodId?: string, siteId?: string): Promise<HubOverview> {
+    const params = new URLSearchParams();
+    if (periodId) params.set('period_id', periodId);
+    if (siteId) params.set('site_id', siteId);
+    const query = params.size ? `?${params.toString()}` : '';
+    return this.fetch<HubOverview>(`/hub/overview${query}`);
+  }
+
+  async getHubProfile(siteId?: string): Promise<HubProfileEntryResponse[]> {
+    const query = siteId ? `?site_id=${siteId}` : '';
+    return this.fetch<HubProfileEntryResponse[]>(`/hub/profile${query}`);
+  }
+
+  async saveHubProfile(
+    entries: HubProfileEntry[],
+    siteId?: string
+  ): Promise<HubProfileEntryResponse[]> {
+    return this.fetch<HubProfileEntryResponse[]>('/hub/profile', {
+      method: 'PUT',
+      body: JSON.stringify({ site_id: siteId ?? null, entries }),
+    });
+  }
+
+  async getHubQuestions(categoryCode: string, periodId?: string): Promise<HubQuestion[]> {
+    const params = new URLSearchParams({ category_code: categoryCode });
+    if (periodId) params.set('period_id', periodId);
+    return this.fetch<HubQuestion[]>(`/hub/questions?${params.toString()}`);
   }
 
   async getSitesBreakdown(periodId?: string): Promise<SiteEmissionSummary[]> {
@@ -2817,14 +2913,20 @@ export interface StagedProvenance {
   unit_kind?: string | null;
 }
 
+export interface QuestionChoice {
+  value: string;
+  label: string;
+}
+
 export interface ClarificationQuestion {
   id: string;
   staged_row_id: string | null;
   question: string;
   field: string | null;
-  choices: string[] | null;
+  choices: QuestionChoice[] | null;
   answer: string | null;
   answered: boolean;
+  applies_count: number;
 }
 
 export interface IngestionSession {

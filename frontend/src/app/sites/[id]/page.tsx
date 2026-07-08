@@ -57,7 +57,9 @@ function SiteDetailContent() {
   const [mounted, setMounted] = useState(false);
 
   const { data: periods } = usePeriods();
-  const activePeriodId = selectedPeriodId || periods?.[0]?.id;
+  // Only trust the persisted period if it belongs to THIS org's list — a stale
+  // localStorage value from another session/org would 404 every query.
+  const activePeriodId = periods?.find((p) => p.id === selectedPeriodId)?.id ?? periods?.[0]?.id;
 
   const { data: siteDetail, isLoading: siteLoading } = useSiteDetail(siteId, activePeriodId);
   const { data: summary } = useReportSummary(activePeriodId || '', siteId);
@@ -164,7 +166,7 @@ function SiteDetailContent() {
           </Button>
           <Button
             variant="primary"
-            onClick={() => router.push(`/import?period=${activePeriodId}&site=${siteId}`)}
+            onClick={() => router.push('/hub')}
             leftIcon={<Upload className="w-4 h-4" />}
           >
             Upload Data
@@ -304,7 +306,7 @@ function SiteDetailContent() {
                   description="Upload an Excel file or add activities manually to start tracking emissions for this site."
                   action={{
                     label: 'Upload Data',
-                    onClick: () => router.push(`/import?period=${activePeriodId}&site=${siteId}`),
+                    onClick: () => router.push('/hub'),
                   }}
                 />
               )}

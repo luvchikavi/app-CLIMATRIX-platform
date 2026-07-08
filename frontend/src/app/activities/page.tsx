@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
@@ -27,13 +27,16 @@ import {
 } from '@/components/ui';
 import { Plus, Loader2, Trash2, Pencil, ArrowLeft, Filter, FileSpreadsheet, ChevronDown, Calendar, X, Building2 } from 'lucide-react';
 import { SiteSelector } from '@/components/SiteSelector';
+import { AddActivityModal } from '@/components/wizard/AddActivityModal';
 import { api, ImportBatch, ActivityWithEmission } from '@/lib/api';
 
-export default function ActivitiesPage() {
+function ActivitiesContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated } = useAuthStore();
 
   // All useState hooks
+  const [showWizard, setShowWizard] = useState(searchParams.get('add') === '1');
   const [selectedScope, setSelectedScope] = useState<number | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
   const [batchDropdownOpen, setBatchDropdownOpen] = useState(false);
@@ -44,12 +47,14 @@ export default function ActivitiesPage() {
 
   // All data fetching hooks (must be before any conditional returns)
   const { data: periods, isLoading: periodsLoading } = usePeriods();
-  const { selectedPeriodId, setSelectedPeriodId } = usePeriodStore();
+  const { selectedPeriodId } = usePeriodStore();
   const { selectedSiteId } = useSiteStore();
   const { data: sites } = useSites();
 
   // Use selected period from store, fall back to first available period
-  const activePeriodId = selectedPeriodId || periods?.[0]?.id;
+  // Only trust the persisted period if it belongs to THIS org's list — a stale
+  // localStorage value from another session/org would 404 every query.
+  const activePeriodId = periods?.find((p) => p.id === selectedPeriodId)?.id ?? periods?.[0]?.id;
   const activePeriod = periods?.find((p) => p.id === activePeriodId) || periods?.[0];
 
   // Build filters including site
@@ -154,31 +159,21 @@ export default function ActivitiesPage() {
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">All Activities</h1>
-            {periods && periods.length > 1 ? (
-              <div className="flex items-center gap-2 mt-1">
-                <Calendar className="w-4 h-4 text-foreground-muted" />
-                <select
-                  value={activePeriodId || ''}
-                  onChange={(e) => setSelectedPeriodId(e.target.value || null)}
-                  className="text-sm bg-transparent border border-border rounded-lg px-2 py-1 text-foreground-muted focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  {periods.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <p className="text-foreground-muted mt-1">
-                {activePeriod?.name || 'Loading...'}
-              </p>
-            )}
+            <h1 className="text-2xl font-bold text-foreground">Activity Ledger</h1>
+            <p className="text-sm text-foreground-muted">
+              Every committed emission line — from uploads and manual entry alike
+            </p>
+            {/* The period is chosen once, in the top bar — pages only display it. */}
+            <p className="text-foreground-muted mt-1 flex items-center gap-1.5">
+              <Calendar className="w-4 h-4" />
+              {activePeriod?.name || 'Loading...'}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <Button
             variant="primary"
-            onClick={() => router.push('/dashboard?wizard=true')}
+            onClick={() => setShowWizard(true)}
             leftIcon={<Plus className="w-4 h-4" />}
           >
             Add Activity
@@ -425,7 +420,7 @@ export default function ActivitiesPage() {
                       setSelectedScope(null);
                       setSelectedBatch(null);
                     } else {
-                      router.push('/dashboard?wizard=true');
+                      setShowWizard(true);
                     }
                   },
                 }}
@@ -540,6 +535,23 @@ export default function ActivitiesPage() {
           </div>
         </div>
       )}
+
+      {/* Add Activity — the ledger is the single home of manual entry */}
+      {showWizard && activePeriodId && (
+        <AddActivityModal
+          periodId={activePeriodId}
+          onClose={() => setShowWizard(false)}
+          onSuccess={() => setShowWizard(false)}
+        />
+      )}
     </AppShell>
+  );
+}
+
+export default function ActivitiesPage() {
+  return (
+    <Suspense fallback={null}>
+      <ActivitiesContent />
+    </Suspense>
   );
 }

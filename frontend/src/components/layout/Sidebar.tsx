@@ -66,7 +66,8 @@ const moduleNavItems: NavItem[] = MODULE_REGISTRY.map((m) => ({
 }));
 
 // Clean 3-zone information architecture: get DATA in → ANALYSE it → REPORT it.
-// Every feature has exactly one home; a single "Import Data" entry (the AI parser).
+// Every feature has exactly one home; the Data Hub is the single front door for
+// data collection (uploads live inside it — /ingest is reached from the hub).
 const navigation: NavGroup[] = [
   {
     title: 'Overview',
@@ -75,7 +76,7 @@ const navigation: NavGroup[] = [
   {
     title: 'Data',
     items: [
-      { label: 'Import Data', href: '/ingest', icon: Sparkles, badge: 'AI' },
+      { label: 'Data Hub', href: '/hub', icon: Sparkles, badge: 'AI' },
       { label: 'Activities', href: '/activities', icon: Activity },
     ],
   },

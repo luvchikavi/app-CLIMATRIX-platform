@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, Suspense, useMemo, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect, Suspense, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { useQueries } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
 import { useSiteStore } from '@/stores/site';
@@ -31,13 +31,9 @@ import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
 import { ScopeDrillDown } from '@/components/dashboard/ScopeDrillDown';
 import { SiteBreakdownChart } from '@/components/dashboard/SiteBreakdownChart';
 import { SiteSelector } from '@/components/SiteSelector';
-import { ActivityWizard } from '@/components/wizard';
-import { ImportHistory } from '@/components/ImportHistory';
-import { useWizardStore } from '@/stores/wizard';
 import { cn, formatCO2e } from '@/lib/utils';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import {
-  Plus,
   RefreshCw,
   Loader2,
   Upload,
@@ -50,108 +46,113 @@ import {
   List,
   Calendar,
   ArrowRight,
-  ArrowLeft,
   Download,
   Filter,
-  FileSpreadsheet,
-  File,
-  ChevronDown,
   Building2,
 } from 'lucide-react';
-import { api, CategorySummary, ImportBatch } from '@/lib/api';
-
-// Back button for wizard - only shows when not on first step
-function WizardBackButton() {
-  const step = useWizardStore((s) => s.step);
-  const goBack = useWizardStore((s) => s.goBack);
-
-  if (step === 'scope') return null;
-
-  return (
-    <button
-      onClick={goBack}
-      className="flex items-center gap-1 px-3 py-2 text-sm text-foreground-muted hover:text-foreground hover:bg-background-muted rounded-lg transition-colors"
-    >
-      <ArrowLeft className="w-4 h-4" />
-      Back
-    </button>
-  );
-}
+import { api, CategorySummary } from '@/lib/api';
 
 function DashboardContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { isAuthenticated, organization, user } = useAuthStore();
   const { selectedPeriodId } = usePeriodStore();
   const { selectedSiteId } = useSiteStore();
 
   // All useState hooks at top
-  const [showWizard, setShowWizard] = useState(searchParams.get('wizard') === 'true');
   const [mounted, setMounted] = useState(false);
   const [drillDownCategory, setDrillDownCategory] = useState<CategorySummary | null>(null);
   const [drillDownScope, setDrillDownScope] = useState<1 | 2 | 3 | null>(null);
-  // Initialize batch filter from URL parameter (for import redirect)
-  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(searchParams.get('batchId'));
-  const [showBatchDropdown, setShowBatchDropdown] = useState(false);
-  const wizardTrapRef = useFocusTrap<HTMLDivElement>(showWizard);
   const categoryTrapRef = useFocusTrap<HTMLDivElement>(!!drillDownCategory);
 
   // All data fetching hooks (must be before any conditional returns)
   const { data: periods, isLoading: periodsLoading } = usePeriods();
-  const activePeriodId = selectedPeriodId || periods?.[0]?.id;
+  // Only trust the persisted period if it belongs to THIS org's list — a stale
+  // localStorage value from another session/org would 404 every query.
+  const globalPeriodId = periods?.find((p) => p.id === selectedPeriodId)?.id ?? periods?.[0]?.id;
+
+  // What the user wants to SEE here: the top-bar period, a specific year, or
+  // every period combined ('all'). Site filtering composes via SiteSelector.
+  const [viewScope, setViewScope] = useState<'selected' | 'all' | string>('selected');
+  const allMode = viewScope === 'all';
+  const activePeriodId = allMode
+    ? globalPeriodId
+    : viewScope === 'selected'
+      ? globalPeriodId
+      : viewScope;
 
   const {
-    data: summary,
+    data: periodSummary,
     isLoading: summaryLoading,
     isError: summaryError,
     refetch: refetchSummary
   } = useReportSummary(activePeriodId || '', selectedSiteId || undefined);
 
-  const { data: activities, isLoading: activitiesLoading } = useActivities(
+  const { data: periodActivities, isLoading: activitiesLoading } = useActivities(
     activePeriodId || '',
     selectedSiteId ? { site_id: selectedSiteId } : undefined
   );
 
-  // Fetch site breakdown for chart
-  const { data: sitesBreakdown } = useSitesBreakdown(activePeriodId);
-
-  // Fetch import batches for filter
-  const { data: importBatches } = useQuery({
-    queryKey: ['import-batches', activePeriodId],
-    queryFn: () => api.getImportBatches(activePeriodId, 50),
-    enabled: !!activePeriodId,
+  // 'All years': pull each period's summary + activities and merge client-side.
+  const allSummaryQueries = useQueries({
+    queries: (periods ?? []).map((p) => ({
+      queryKey: ['report-summary', p.id, selectedSiteId],
+      queryFn: () => api.getReportSummary(p.id, selectedSiteId || undefined),
+      enabled: allMode,
+    })),
+  });
+  const allActivityQueries = useQueries({
+    queries: (periods ?? []).map((p) => ({
+      queryKey: ['activities', p.id, selectedSiteId ? { site_id: selectedSiteId } : undefined],
+      queryFn: () =>
+        api.getActivities(p.id, selectedSiteId ? { site_id: selectedSiteId } : undefined),
+      enabled: allMode,
+    })),
   });
 
-  // Filter activities by selected batch
-  const filteredActivities = useMemo(() => {
-    if (!activities) return [];
-    if (!selectedBatchId) return activities; // Show all if no batch selected
-    return activities.filter(a => a.activity.import_batch_id === selectedBatchId);
-  }, [activities, selectedBatchId]);
+  const summary = allMode
+    ? (() => {
+        const parts = allSummaryQueries.map((q) => q.data).filter(Boolean);
+        if (!parts.length) return undefined;
+        const sum = (f: (s: NonNullable<typeof parts[number]>) => number | null | undefined) =>
+          parts.reduce((n, s) => n + (f(s!) || 0), 0);
+        const byCat = new Map<string, CategorySummary>();
+        parts.forEach((s) =>
+          (s!.by_category || []).forEach((c: CategorySummary) => {
+            const prev = byCat.get(c.category_code);
+            if (prev) {
+              prev.total_co2e_kg += c.total_co2e_kg;
+              prev.activity_count += c.activity_count;
+            } else byCat.set(c.category_code, { ...c });
+          })
+        );
+        return {
+          ...parts[0]!,
+          period_name: 'All years combined',
+          total_co2e_kg: sum((s) => s.total_co2e_kg),
+          scope_1_co2e_kg: sum((s) => s.scope_1_co2e_kg),
+          scope_2_co2e_kg: sum((s) => s.scope_2_co2e_kg),
+          scope_2_location_based_co2e_kg: sum((s) => s.scope_2_location_based_co2e_kg),
+          scope_2_market_based_co2e_kg: null,
+          scope_3_co2e_kg: sum((s) => s.scope_3_co2e_kg),
+          scope_3_wtt_co2e_kg: sum((s) => s.scope_3_wtt_co2e_kg),
+          total_co2e_tonnes: sum((s) => s.total_co2e_kg) / 1000,
+          by_category: Array.from(byCat.values()).sort(
+            (a, b) => b.total_co2e_kg - a.total_co2e_kg
+          ),
+        };
+      })()
+    : periodSummary;
 
-  // Calculate totals from filtered activities
-  const filteredTotals = useMemo(() => {
-    const scope1 = filteredActivities
-      .filter(a => a.activity.scope === 1)
-      .reduce((sum, a) => sum + (a.emission?.co2e_kg || 0), 0);
-    const scope2 = filteredActivities
-      .filter(a => a.activity.scope === 2)
-      .reduce((sum, a) => sum + (a.emission?.co2e_kg || 0), 0);
-    const scope3 = filteredActivities
-      .filter(a => a.activity.scope === 3)
-      .reduce((sum, a) => sum + (a.emission?.co2e_kg || 0), 0);
-    return {
-      total: scope1 + scope2 + scope3,
-      scope1,
-      scope2,
-      scope2LocationBased: scope2,
-      scope2MarketBased: null as number | null | undefined,
-      scope3,
-    };
-  }, [filteredActivities]);
+  const activities = allMode
+    ? allActivityQueries.flatMap((q) => q.data ?? [])
+    : periodActivities;
 
-  // Get selected batch info
-  const selectedBatch = importBatches?.find(b => b.id === selectedBatchId);
+  // Site breakdown chart: omitting the period id aggregates org-wide.
+  const { data: sitesBreakdown } = useSitesBreakdown(allMode ? undefined : activePeriodId);
+
+  // Reviewing a specific import lives on the Activity Ledger (its batch
+  // filter) — the dashboard always shows the whole period.
+  const filteredActivities = activities ?? [];
 
   // All useEffect hooks
   useEffect(() => {
@@ -177,8 +178,7 @@ function DashboardContent() {
 
   const isLoading = periodsLoading || summaryLoading;
 
-  // Use filtered totals when batch is selected, otherwise use server summary
-  const displayTotals = selectedBatchId ? filteredTotals : {
+  const displayTotals = {
     total: summary?.total_co2e_kg || 0,
     scope1: summary?.scope_1_co2e_kg || 0,
     scope2: summary?.scope_2_co2e_kg || 0,
@@ -228,39 +228,12 @@ function DashboardContent() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const exportName = selectedBatch ? selectedBatch.file_name.replace(/\.[^.]+$/, '') : summary?.period_name || 'export';
+    const exportName = summary?.period_name || 'export';
     a.download = `activities_${exportName}_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
-  };
-
-  // Server-side report exports (full GHG report)
-  const handleExportCSV = async () => {
-    if (!activePeriodId) {
-      toast.error('Please select a reporting period');
-      return;
-    }
-    try {
-      await api.downloadReportExport('csv', activePeriodId);
-      toast.success('CSV report downloaded');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to export CSV');
-    }
-  };
-
-  const handleExportPDF = async () => {
-    if (!activePeriodId) {
-      toast.error('Please select a reporting period');
-      return;
-    }
-    try {
-      await api.downloadReportExport('pdf', activePeriodId);
-      toast.success('PDF report downloaded');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to export PDF');
-    }
   };
 
   return (
@@ -273,9 +246,28 @@ function DashboardContent() {
             <p className="text-foreground-muted">
               Track and manage your organization's emissions
             </p>
+            {/* What to show: the top-bar period, one specific year, or everything */}
+            <select
+              value={viewScope}
+              onChange={(e) => setViewScope(e.target.value)}
+              className="rounded-lg border border-border bg-background px-2 py-1 text-sm text-foreground"
+              title="Which data this dashboard shows"
+            >
+              <option value="selected">
+                {periods?.find((p) => p.id === globalPeriodId)?.name || 'Current period'}
+              </option>
+              {(periods ?? [])
+                .filter((p) => p.id !== globalPeriodId)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              <option value="all">All years combined</option>
+            </select>
             <SiteSelector compact />
           </div>
         </div>
+        {/* Analysis zone: the dashboard only READS the inventory. Data comes in
+            through the Data Hub; exports live on Reports — one home per feature. */}
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
@@ -288,164 +280,13 @@ function DashboardContent() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleExportCSV}
-            leftIcon={<FileSpreadsheet className="w-4 h-4" />}
-          >
-            CSV
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportPDF}
-            leftIcon={<File className="w-4 h-4" />}
-          >
-            PDF
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => router.push(`/import?period=${activePeriodId}`)}
+            onClick={() => router.push('/hub')}
             leftIcon={<Upload className="w-4 h-4" />}
           >
-            Import
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => setShowWizard(true)}
-            leftIcon={<Plus className="w-4 h-4" />}
-          >
-            Add Activity
+            Data Hub
           </Button>
         </div>
       </div>
-
-      {/* Import Results Banner - shown when coming from import with batch filter */}
-      {selectedBatchId && selectedBatch && searchParams.get('batchId') && (
-        <div className="mb-6 p-4 bg-success/10 border border-success/30 rounded-xl flex items-center justify-between" role="status" aria-live="polite">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-success/20">
-              <FileSpreadsheet className="w-5 h-5 text-success" />
-            </div>
-            <div>
-              <p className="font-medium text-success">Import Results: {selectedBatch.file_name}</p>
-              <p className="text-sm text-success/80">
-                Showing {filteredActivities.length} activities from this import.
-                Export below will only include these activities.
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setSelectedBatchId(null);
-              router.replace('/dashboard');
-            }}
-            className="text-success border-success/50 hover:bg-success/10"
-          >
-            Show All Activities
-          </Button>
-        </div>
-      )}
-
-      {/* Import Batch Filter */}
-      {importBatches && importBatches.length > 0 && (
-        <Card padding="md" className="mb-6 bg-background-muted/50">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <FileSpreadsheet className="w-5 h-5 text-foreground-muted" />
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  {selectedBatchId ? 'Filtered by Import' : 'Showing All Imports'}
-                </p>
-                <p className="text-xs text-foreground-muted">
-                  {selectedBatchId
-                    ? `${selectedBatch?.file_name} - ${filteredActivities.length} activities`
-                    : `${importBatches.length} imports, ${activities?.length || 0} total activities`
-                  }
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* Batch Selector Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowBatchDropdown(!showBatchDropdown)}
-                  className={cn(
-                    'flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all',
-                    selectedBatchId
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-background hover:border-primary/50 text-foreground'
-                  )}
-                >
-                  <Filter className="w-4 h-4" />
-                  {selectedBatchId ? 'Filtered' : 'Filter by Import'}
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-
-                {showBatchDropdown && (
-                  <div className="absolute right-0 mt-2 w-80 bg-background-elevated rounded-xl shadow-lg border border-border py-2 z-50 animate-fade-in-down">
-                    <div className="px-3 py-2 border-b border-border">
-                      <p className="text-xs font-semibold text-foreground-muted uppercase">
-                        Select Import File
-                      </p>
-                    </div>
-
-                    {/* All option */}
-                    <button
-                      onClick={() => {
-                        setSelectedBatchId(null);
-                        setShowBatchDropdown(false);
-                      }}
-                      className={cn(
-                        'w-full text-left px-3 py-2 hover:bg-background-muted transition-colors',
-                        !selectedBatchId && 'bg-primary-light'
-                      )}
-                    >
-                      <p className="font-medium text-sm">All Imports</p>
-                      <p className="text-xs text-foreground-muted">
-                        Show all {activities?.length || 0} activities
-                      </p>
-                    </button>
-
-                    <div className="max-h-64 overflow-y-auto">
-                      {importBatches.map((batch) => (
-                        <button
-                          key={batch.id}
-                          onClick={() => {
-                            setSelectedBatchId(batch.id);
-                            setShowBatchDropdown(false);
-                          }}
-                          className={cn(
-                            'w-full text-left px-3 py-2 hover:bg-background-muted transition-colors',
-                            selectedBatchId === batch.id && 'bg-primary-light'
-                          )}
-                        >
-                          <p className="font-medium text-sm truncate">{batch.file_name}</p>
-                          <p className="text-xs text-foreground-muted">
-                            {new Date(batch.uploaded_at).toLocaleDateString()} - {batch.successful_rows} activities
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Clear filter button */}
-              {selectedBatchId && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedBatchId(null)}
-                  leftIcon={<X className="w-4 h-4" />}
-                >
-                  Clear
-                </Button>
-              )}
-            </div>
-          </div>
-        </Card>
-      )}
 
       {/* Loading State */}
       {isLoading && (
@@ -504,15 +345,12 @@ function DashboardContent() {
                 <div>
                   <p className="text-sm font-medium text-foreground-muted uppercase tracking-wide">
                     Total Emissions
-                    {selectedBatchId && (
-                      <span className="ml-2 text-primary">(Filtered)</span>
-                    )}
                   </p>
                   <p className="text-4xl font-bold text-foreground mt-2 tracking-tight">
                     {formatCO2e(displayTotals.total)}
                   </p>
                   <p className="text-sm text-foreground-muted mt-1">
-                    {selectedBatch ? selectedBatch.file_name : summary.period_name}
+                    {summary.period_name}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-primary-light">
@@ -621,7 +459,7 @@ function DashboardContent() {
               <div className="flex items-center justify-between w-full">
                 <CardTitle className="flex items-center gap-2">
                   <List className="w-5 h-5 text-foreground-muted" />
-                  {selectedBatchId ? 'Filtered Activities' : 'Recent Activities'}
+                  Recent Activities
                   <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-background-muted text-foreground-muted">
                     {filteredActivities.length}
                   </span>
@@ -704,61 +542,16 @@ function DashboardContent() {
               ) : (
                 <EmptyState
                   variant="minimal"
-                  title={selectedBatchId ? "No activities in this import" : "No activities yet"}
-                  description={selectedBatchId ? "This import file has no activities" : "Add your first activity to start tracking emissions"}
-                  action={selectedBatchId ? undefined : {
+                  title="No activities yet"
+                  description="Add your first activity to start tracking emissions"
+                  action={{
                     label: 'Add Activity',
-                    onClick: () => setShowWizard(true),
+                    onClick: () => router.push('/activities?add=1'),
                   }}
                 />
               )}
             </CardContent>
           </Card>
-
-          {/* Import History */}
-          <ImportHistory periodId={activePeriodId} limit={5} />
-        </div>
-      )}
-
-      {/* Activity Wizard Modal */}
-      {showWizard && activePeriodId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Add Activity">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-neutral-950/50 backdrop-blur-sm"
-            onClick={() => setShowWizard(false)}
-          />
-
-          {/* Modal */}
-          <div ref={wizardTrapRef} className="relative bg-background-elevated rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-fade-in-up">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">Add Activity</h2>
-                <p className="text-sm text-foreground-muted">Record a new emission activity</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <WizardBackButton />
-                <button
-                  onClick={() => setShowWizard(false)}
-                  className="p-2 rounded-lg hover:bg-background-muted transition-colors"
-                >
-                  <X className="w-5 h-5 text-foreground-muted" />
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
-              <ActivityWizard
-                periodId={activePeriodId}
-                onSuccess={() => {
-                  setShowWizard(false);
-                  refetchSummary();
-                }}
-              />
-            </div>
-          </div>
         </div>
       )}
 

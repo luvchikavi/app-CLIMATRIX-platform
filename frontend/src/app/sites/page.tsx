@@ -67,7 +67,9 @@ function SitesPageContent() {
   const { data: regions } = useSupportedRegions();
   const { data: periods } = usePeriods();
   const { selectedPeriodId } = usePeriodStore();
-  const activePeriodId = selectedPeriodId || periods?.[0]?.id;
+  // Only trust the persisted period if it belongs to THIS org's list — a stale
+  // localStorage value from another session/org would 404 every query.
+  const activePeriodId = periods?.find((p) => p.id === selectedPeriodId)?.id ?? periods?.[0]?.id;
   const { data: sitesBreakdown } = useSitesBreakdown(activePeriodId);
   const createSite = useCreateSite();
   const deleteSite = useDeleteSite();
@@ -253,7 +255,7 @@ function SitesPageContent() {
                   variant="outline"
                   size="sm"
                   className="flex-1"
-                  onClick={() => router.push(`/import?period=${activePeriodId}&site=${site.id}`)}
+                  onClick={() => router.push('/hub')}
                   leftIcon={<Upload className="w-3.5 h-3.5" />}
                 >
                   Upload

@@ -76,6 +76,7 @@ from app.models.ingestion import (
     RowStatus,
 )
 from app.models.crm import Lead
+from app.models.hub import CategoryProfile, CategoryRelevance, ExpectedDataForm
 
 __all__ = [
     # Core
@@ -150,4 +151,8 @@ __all__ = [
     "RowStatus",
     # CRM / Leads
     "Lead",
+    # Data Hub (inventory profile)
+    "CategoryProfile",
+    "CategoryRelevance",
+    "ExpectedDataForm",
 ]
