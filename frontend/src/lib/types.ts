@@ -886,7 +886,9 @@ export interface CBAMImport {
   sector: CBAMSector;
   product_description?: string;
   import_date: string;
+  origin_country?: string | null;
   mass_tonnes: number;
+  mass_kg: number;
   calculation_method: CBAMCalculationMethod;
   direct_see: number;
   indirect_see: number;
@@ -899,11 +901,12 @@ export interface CBAMImport {
 }
 
 export interface CBAMImportCreate {
-  installation_id: string;
+  installation_id?: string;
   cn_code: string;
   product_description?: string;
   import_date: string;
   mass_tonnes: number;
+  origin_country?: string;
   customs_procedure?: string;
   customs_declaration_number?: string;
   actual_direct_see?: number;
@@ -911,6 +914,18 @@ export interface CBAMImportCreate {
   electricity_consumption_mwh?: number;
   foreign_carbon_price_eur?: number;
   foreign_carbon_price_currency?: string;
+}
+
+// Reference values for client-side certificate-cost estimates
+// (GET /api/cbam/screen-defaults)
+export interface CBAMScreenDefaults {
+  ets_price_eur: number;
+  ets_price_date: string | null;
+  ets_price_source: string;
+  ets_price_is_fallback: boolean;
+  default_value_markup_pct: number;
+  sector_default_intensities: Record<string, number>;
+  assumptions: string[];
 }
 
 // CBAM Quarterly Report (transitional period 2024-2025)

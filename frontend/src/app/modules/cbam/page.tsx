@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { AppShell } from '@/components/layout';
 import {
   CBAMDashboard,
@@ -16,6 +17,7 @@ import {
   FileText,
   Calculator,
   Scale,
+  ExternalLink,
 } from 'lucide-react';
 
 type CBAMView = 'dashboard' | 'installations' | 'imports' | 'reports' | 'calculator';
@@ -23,7 +25,7 @@ type CBAMView = 'dashboard' | 'installations' | 'imports' | 'reports' | 'calcula
 const NAV_ITEMS: { id: CBAMView; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'installations', label: 'Installations', icon: Factory },
-  { id: 'imports', label: 'Imports', icon: Package },
+  { id: 'imports', label: 'Imports register', icon: Package },
   { id: 'reports', label: 'Reports', icon: FileText },
   { id: 'calculator', label: 'Calculator', icon: Calculator },
 ];
@@ -73,6 +75,13 @@ export default function CBAMModulePage() {
         </div>
 
         <nav className="flex items-center gap-1 flex-wrap">
+          <Link
+            href="/cbam-check"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground hover:bg-background-muted"
+          >
+            <ExternalLink className="w-4 h-4" />
+            <span className="hidden sm:inline">Exemption checker</span>
+          </Link>
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;

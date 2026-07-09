@@ -342,7 +342,8 @@ class CBAMAnnualDeclaration(SQLModel, table=True):
     Annual CBAM declaration for definitive phase.
 
     Required: From 2026 onwards
-    Deadline: May 31 of following year
+    Deadline: 30 September of the following year (Omnibus, Reg. (EU)
+    2025/2083 — moved from the original 31 May). First: 30 Sep 2027.
     Requires: Purchase and surrender of CBAM certificates
     """
 
@@ -404,10 +405,13 @@ class CBAMAnnualDeclaration(SQLModel, table=True):
 
 class CBAMDefaultValue(SQLModel, table=True):
     """
-    EU Commission default emission values per CN code.
+    EU Commission default emission values per CN code and origin country.
 
     Used when actual installation data is not available.
-    Values are published by EU and updated periodically.
+    Values are published by the EU Commission (definitive-period defaults
+    published 13 Feb 2026, per CN code x origin country) and updated
+    periodically. `country_code` is NULL for country-independent values
+    (fallback row for a CN code / prefix).
     """
 
     __tablename__ = "cbam_default_values"
@@ -418,6 +422,13 @@ class CBAMDefaultValue(SQLModel, table=True):
     cn_code: str = Field(max_length=10, index=True)
     sector: CBAMSector = Field(index=True)
     product_description: str = Field(max_length=500)
+
+    # Origin country (ISO 3166-1 alpha-2); NULL = applies to any country
+    country_code: Optional[str] = Field(default=None, max_length=2, index=True)
+
+    # Dataset versioning (e.g. year 2026, version "13-Feb-2026")
+    dataset_year: Optional[int] = Field(default=None, index=True)
+    dataset_version: Optional[str] = Field(default=None, max_length=50)
 
     # Default specific embedded emissions (tCO2e per tonne)
     direct_see: Decimal = Field()

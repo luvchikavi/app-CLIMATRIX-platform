@@ -22,7 +22,15 @@ import { Users, Loader2, Filter } from 'lucide-react';
 import { api, Lead, LeadStatus, LeadSource } from '@/lib/api';
 
 const STATUS_OPTIONS: LeadStatus[] = ['new', 'contacted', 'trial', 'customer', 'lost'];
-const SOURCE_OPTIONS: LeadSource[] = ['website_tryit', 'conference', 'signup', 'forum', 'manual'];
+const SOURCE_OPTIONS: LeadSource[] = [
+  'website_tryit',
+  'website_trial',
+  'website_demo',
+  'conference',
+  'signup',
+  'forum',
+  'manual',
+];
 
 const STATUS_VARIANT: Record<LeadStatus, 'default' | 'info' | 'warning' | 'success' | 'error'> = {
   new: 'info',
@@ -34,6 +42,8 @@ const STATUS_VARIANT: Record<LeadStatus, 'default' | 'info' | 'warning' | 'succe
 
 const SOURCE_LABEL: Record<LeadSource, string> = {
   website_tryit: 'Website (Try It)',
+  website_trial: 'Website (Trial)',
+  website_demo: 'Website (Demo)',
   conference: 'Conference',
   signup: 'Signup',
   forum: 'Forum',

@@ -4,8 +4,11 @@ CBAM (Carbon Border Adjustment Mechanism) API endpoints.
 Implements EU CBAM requirements for:
 - Installation management (non-EU production facilities)
 - Import tracking and embedded emissions calculation
-- Quarterly transitional reports (2024-2025)
-- Annual declarations with certificate requirements (2026+)
+- Quarterly transitional reports (2024-2025) — read-only history; the
+  transitional period ended 31 Dec 2025
+- Annual declarations with certificate requirements (2026+), due 30 Sep
+  of the following year (Omnibus, Reg. (EU) 2025/2083)
+- Public 50 t screening + EU ETS price reference
 """
 
 from datetime import date, datetime
@@ -13,14 +16,16 @@ from decimal import Decimal
 from typing import Annotated, Optional, List
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, func
 
 from app.api.auth import get_current_user
+from app.config import settings
 from app.database import get_session
 from app.models.core import User
+from app.rate_limit import limiter
 from app.models.cbam import (
     CBAMInstallation,
     CBAMInstallationStatus,
@@ -28,15 +33,22 @@ from app.models.cbam import (
     CBAMQuarterlyReport,
     CBAMReportStatus,
     CBAMAnnualDeclaration,
+    CBAMDefaultValue,
     EUETSPrice,
     CBAMSector,
     CBAMCalculationMethod,
 )
+from app.models.core import UserRole
 from app.services.cbam_calculator import (
     CBAMCalculator,
-    aggregate_quarterly_report,
     aggregate_annual_declaration,
 )
+from app.services.cbam_screening import (
+    DEFAULT_VALUE_MARKUP_2026,
+    SECTOR_DEFAULT_INTENSITY,
+    screen_imports,
+)
+from app.services import ets_price as ets_price_service
 from app.data.cbam_data import CBAM_PRODUCTS, get_sector_for_cn_code
 
 router = APIRouter()
@@ -91,19 +103,27 @@ class CBAMInstallationResponse(BaseModel):
 
 # Import Schemas
 class CBAMImportCreate(BaseModel):
-    """Create CBAM import request."""
+    """Create CBAM import request.
 
-    installation_id: str
-    cn_code: str = Field(..., min_length=8, max_length=20)
+    Installation is optional; when omitted, `origin_country` (ISO alpha-2)
+    is required to determine the country of production.
+    """
+
+    installation_id: Optional[str] = None
+    cn_code: str = Field(..., min_length=4, max_length=20)
     product_description: Optional[str] = None
     import_date: date
     mass_tonnes: Decimal = Field(..., gt=0)
+    origin_country: Optional[str] = Field(default=None, min_length=2, max_length=2)
     customs_procedure: Optional[str] = None
     customs_declaration_number: Optional[str] = None
     actual_direct_see: Optional[Decimal] = None
     actual_indirect_see: Optional[Decimal] = None
     electricity_consumption_mwh: Optional[Decimal] = None
     foreign_carbon_price_eur: Optional[Decimal] = None
+    # Note: the model stores the carbon price in EUR only
+    # (carbon_price_paid_eur); a currency column does not exist yet, so the
+    # currency hint is accepted but not persisted.
     foreign_carbon_price_currency: Optional[str] = None
 
 
@@ -130,7 +150,9 @@ class CBAMImportResponse(BaseModel):
     sector: str
     product_description: Optional[str]
     import_date: date
+    origin_country: Optional[str]
     mass_tonnes: Decimal
+    mass_kg: Decimal
     calculation_method: str
     direct_see: Decimal
     indirect_see: Decimal
@@ -200,9 +222,56 @@ class EmissionCalculationRequest(BaseModel):
     foreign_carbon_price_eur: Optional[Decimal] = None
 
 
+# Screening (public exemption checker)
+class CBAMScreenItem(BaseModel):
+    """One annual import line for the public screening checker."""
+
+    cn_code_or_sector: str = Field(..., min_length=1, max_length=50)
+    mass_kg: Decimal = Field(..., gt=0)
+    origin_country: Optional[str] = Field(default=None, max_length=100)
+
+
+class CBAMScreenRequest(BaseModel):
+    """Public screening payload."""
+
+    items: List[CBAMScreenItem] = Field(..., min_length=1, max_length=100)
+    ets_price_eur: Optional[Decimal] = Field(default=None, gt=0)
+
+
+# ETS price schemas
+class ETSPriceUpsert(BaseModel):
+    """Manual EU ETS price entry (admin)."""
+
+    price_date: date
+    price_eur: Decimal = Field(..., gt=0)
+    source: str = Field(default="manual admin entry", max_length=100)
+    source_url: Optional[str] = Field(default=None, max_length=500)
+
+
+class ETSPriceResponse(BaseModel):
+    """Latest EU ETS price with provenance."""
+
+    price_eur: Decimal
+    price_date: Optional[date]
+    source: str
+    is_fallback: bool
+    assumption: Optional[str] = None
+
+
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
+
+def _json_safe(value):
+    """Recursively convert Decimals (and sets) for JSON column storage."""
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(v) for v in value]
+    return value
 
 
 def installation_to_response(inst: CBAMInstallation) -> CBAMInstallationResponse:
@@ -242,7 +311,9 @@ def import_to_response(imp: CBAMImport) -> CBAMImportResponse:
         sector=imp.sector.value if imp.sector else "unknown",
         product_description=imp.product_description,
         import_date=imp.import_date,
+        origin_country=imp.origin_country,
         mass_tonnes=imp.net_mass_tonnes,
+        mass_kg=imp.net_mass_kg,
         calculation_method=(
             imp.calculation_method.value if imp.calculation_method else "default"
         ),
@@ -253,7 +324,9 @@ def import_to_response(imp: CBAMImport) -> CBAMImportResponse:
         direct_emissions_tco2e=direct_emissions,
         indirect_emissions_tco2e=indirect_emissions,
         total_emissions_tco2e=total_emissions,
-        foreign_carbon_price_eur=imp.foreign_carbon_price_eur,
+        # Model field is carbon_price_paid_eur; the API keeps the
+        # foreign_carbon_price_eur name for backwards compatibility.
+        foreign_carbon_price_eur=imp.carbon_price_paid_eur,
         created_at=imp.created_at,
     )
 
@@ -278,16 +351,16 @@ async def list_installations(
     if country_code:
         query = query.where(CBAMInstallation.country_code == country_code.upper())
 
+    # Model stores a single sector enum (the API response exposes it as a
+    # one-element list for backwards compatibility).
+    if sector:
+        try:
+            query = query.where(CBAMInstallation.sector == CBAMSector(sector.lower()))
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Unknown sector: {sector}")
+
     result = await session.execute(query.order_by(CBAMInstallation.name))
     installations = result.scalars().all()
-
-    # Filter by sector if specified (sectors is a JSON array)
-    if sector:
-        installations = [
-            inst
-            for inst in installations
-            if sector.lower() in [s.lower() for s in (inst.sectors or [])]
-        ]
 
     return [installation_to_response(inst) for inst in installations]
 
@@ -477,23 +550,37 @@ async def create_import(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """Create a new CBAM import record with automatic emissions calculation."""
-    # Verify installation exists and belongs to organization
-    result = await session.execute(
-        select(CBAMInstallation).where(
-            CBAMInstallation.id == UUID(data.installation_id),
-            CBAMInstallation.organization_id == current_user.organization_id,
+    # Installation is optional; when provided it must belong to the org and
+    # its country is used as the origin country.
+    installation = None
+    if data.installation_id:
+        result = await session.execute(
+            select(CBAMInstallation).where(
+                CBAMInstallation.id == UUID(data.installation_id),
+                CBAMInstallation.organization_id == current_user.organization_id,
+            )
         )
-    )
-    installation = result.scalar_one_or_none()
+        installation = result.scalar_one_or_none()
 
-    if not installation:
-        raise HTTPException(status_code=404, detail="Installation not found")
+        if not installation:
+            raise HTTPException(status_code=404, detail="Installation not found")
+
+    origin_country = (
+        installation.country_code
+        if installation
+        else (data.origin_country or "").upper()
+    )
+    if not origin_country:
+        raise HTTPException(
+            status_code=422,
+            detail="origin_country is required when no installation is linked",
+        )
 
     # Calculate embedded emissions
     calculation = calculator.calculate_embedded_emissions(
         cn_code=data.cn_code,
         mass_tonnes=data.mass_tonnes,
-        country_code=installation.country_code,
+        country_code=origin_country,
         actual_direct_see=data.actual_direct_see,
         actual_indirect_see=data.actual_indirect_see,
         electricity_consumption_mwh=data.electricity_consumption_mwh,
@@ -516,12 +603,12 @@ async def create_import(
     cbam_import = CBAMImport(
         id=uuid4(),
         organization_id=current_user.organization_id,
-        installation_id=installation.id,
+        installation_id=installation.id if installation else None,
         cn_code=data.cn_code,
         sector=sector,
         product_description=data.product_description or f"Product {data.cn_code}",
         import_date=data.import_date,
-        origin_country=installation.country_code,
+        origin_country=origin_country,
         net_mass_kg=mass_kg,
         net_mass_tonnes=mass_tonnes,
         calculation_method=(
@@ -529,13 +616,19 @@ async def create_import(
             if data.actual_direct_see
             else CBAMCalculationMethod.DEFAULT_VALUE
         ),
+        default_value_used=data.actual_direct_see is None,
         direct_emissions_tco2e=direct_emissions,
         indirect_emissions_tco2e=indirect_emissions,
         total_embedded_emissions_tco2e=total_emissions,
         specific_embedded_emissions=specific_emissions,
         net_emissions_tco2e=total_emissions,  # No deductions applied yet
         customs_procedure=data.customs_procedure,
-        foreign_carbon_price_eur=data.foreign_carbon_price_eur,
+        customs_entry_number=data.customs_declaration_number,
+        # Model field is carbon_price_paid_eur (the request keeps the old
+        # foreign_carbon_price_eur name); currency is not persisted — no
+        # column exists yet.
+        carbon_price_paid_eur=data.foreign_carbon_price_eur,
+        created_by=current_user.id,
     )
 
     session.add(cbam_import)
@@ -624,6 +717,202 @@ async def calculate_emissions_preview(
 
 
 # ============================================================================
+# Public Screening Endpoint (50 t exemption checker)
+# ============================================================================
+
+
+@router.post("/screen")
+@limiter.limit(settings.rate_limit_default)
+async def screen_cbam_exposure(
+    request: Request,
+    payload: CBAMScreenRequest,
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+):
+    """
+    PUBLIC CBAM screening (no auth, rate-limited).
+
+    Checks a basket of annual import lines against the Omnibus 50 t de
+    minimis threshold and estimates 2026 embedded emissions and certificate
+    cost. Every simplification is returned in `assumptions`.
+    """
+    extra_assumptions: list[str] = []
+
+    if payload.ets_price_eur is not None:
+        ets_price = payload.ets_price_eur
+    else:
+        result = await session.execute(
+            select(EUETSPrice).order_by(EUETSPrice.price_date.desc()).limit(1)
+        )
+        latest = result.scalars().first()
+        if latest:
+            ets_price = latest.price_eur
+            extra_assumptions.append(
+                f"ETS price of €{latest.price_eur}/tCO2e taken from "
+                f"{latest.price_date.isoformat()} ({latest.source})."
+            )
+        else:
+            ets_price = ets_price_service.FALLBACK_ETS_PRICE_EUR
+            extra_assumptions.append(ets_price_service.FALLBACK_ASSUMPTION)
+
+    # Load active default values (per CN x origin country) so screening
+    # prefers DB values over the sector representative constants. The pure
+    # function receives them as plain dicts.
+    dv_result = await session.execute(
+        select(CBAMDefaultValue).where(CBAMDefaultValue.is_active == True)  # noqa: E712
+    )
+    default_values = [
+        {
+            "cn_code": dv.cn_code,
+            "country_code": dv.country_code,
+            "total_see": dv.total_see,
+            "source": dv.source,
+        }
+        for dv in dv_result.scalars().all()
+    ]
+
+    return screen_imports(
+        [item.model_dump() for item in payload.items],
+        ets_price,
+        extra_assumptions=extra_assumptions,
+        default_values=default_values or None,
+    )
+
+
+@router.get("/screen-defaults")
+async def get_screen_defaults(
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Reference values used for certificate-cost estimates.
+
+    Returns the current ETS price (latest DB row, or the €75 fallback), the
+    2026 default-value markup and the representative sector intensities so
+    clients can compute per-import estimated certificate costs.
+    """
+    latest = await ets_price_service.get_latest_price(session)
+    if latest:
+        price = latest.price_eur
+        price_date = latest.price_date.isoformat()
+        source = latest.source
+        is_fallback = False
+    else:
+        price = ets_price_service.FALLBACK_ETS_PRICE_EUR
+        price_date = None
+        source = "fallback"
+        is_fallback = True
+
+    return {
+        "ets_price_eur": float(price),
+        "ets_price_date": price_date,
+        "ets_price_source": source,
+        "ets_price_is_fallback": is_fallback,
+        "default_value_markup_pct": float(DEFAULT_VALUE_MARKUP_2026 * 100),
+        "sector_default_intensities": {
+            sector: float(value) for sector, value in SECTOR_DEFAULT_INTENSITY.items()
+        },
+        "assumptions": ([ets_price_service.FALLBACK_ASSUMPTION] if is_fallback else []),
+    }
+
+
+# ============================================================================
+# EU ETS Price Endpoints
+# ============================================================================
+
+
+@router.get("/ets-price/latest", response_model=ETSPriceResponse)
+async def get_latest_ets_price(
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Latest EU ETS price (public).
+
+    Returns the newest stored price, or the €75/tCO2e fallback with an
+    explicit assumption string when no price has been stored yet.
+    """
+    latest = await ets_price_service.get_latest_price(session)
+    if latest:
+        return ETSPriceResponse(
+            price_eur=latest.price_eur,
+            price_date=latest.price_date,
+            source=latest.source,
+            is_fallback=False,
+        )
+    return ETSPriceResponse(
+        price_eur=ets_price_service.FALLBACK_ETS_PRICE_EUR,
+        price_date=None,
+        source="fallback",
+        is_fallback=True,
+        assumption=ets_price_service.FALLBACK_ASSUMPTION,
+    )
+
+
+@router.post("/ets-price/refresh")
+async def refresh_ets_price(
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Trigger the EU ETS price fetch job (admin/super_admin only).
+
+    Currently no reliable free public EUA price endpoint exists (see
+    app/services/ets_price.py), so this reports that manual entry via
+    PUT /api/cbam/ets-price is the supported path until a feed is wired.
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(
+            status_code=403, detail="Admin role required to refresh the ETS price"
+        )
+
+    row = await ets_price_service.fetch_latest(session)
+    if row is None:
+        return {
+            "updated": False,
+            "detail": (
+                "No live public ETS price source is configured. Enter the "
+                "weekly price manually via PUT /api/cbam/ets-price."
+            ),
+        }
+    return {
+        "updated": True,
+        "price_eur": float(row.price_eur),
+        "price_date": row.price_date.isoformat(),
+        "source": row.source,
+    }
+
+
+@router.put("/ets-price", response_model=ETSPriceResponse)
+async def upsert_ets_price(
+    data: ETSPriceUpsert,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Manually record the EU ETS price for a date (admin/super_admin only).
+
+    This is the supported admin path while no automated feed exists;
+    upserts on price_date.
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(
+            status_code=403, detail="Admin role required to set the ETS price"
+        )
+
+    row = await ets_price_service.upsert_price(
+        session,
+        price_date=data.price_date,
+        price_eur=data.price_eur,
+        source=data.source,
+        source_url=data.source_url,
+    )
+    return ETSPriceResponse(
+        price_eur=row.price_eur,
+        price_date=row.price_date,
+        source=row.source,
+        is_fallback=False,
+    )
+
+
+# ============================================================================
 # CN Code Search Endpoint
 # ============================================================================
 
@@ -678,7 +967,7 @@ async def list_quarterly_reports(
     session: Annotated[AsyncSession, Depends(get_session)],
     year: Optional[int] = None,
 ):
-    """List all quarterly CBAM reports for the organization."""
+    """List quarterly CBAM reports (read-only transitional-period history)."""
     query = select(CBAMQuarterlyReport).where(
         CBAMQuarterlyReport.organization_id == current_user.organization_id
     )
@@ -713,171 +1002,42 @@ async def list_quarterly_reports(
     ]
 
 
-@router.post(
-    "/reports/quarterly/{year}/{quarter}", response_model=CBAMQuarterlyReportResponse
+_QUARTERLY_GONE_DETAIL = (
+    "CBAM quarterly reports belonged to the transitional period, which "
+    "ended 31 December 2025. The definitive regime (from 1 January 2026) "
+    "uses annual declarations instead — see /api/cbam/reports/annual. "
+    "Existing quarterly reports remain available read-only."
 )
+
+
+@router.post("/reports/quarterly/{year}/{quarter}", status_code=410)
 async def generate_quarterly_report(
     year: int,
     quarter: int,
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """
-    Generate or regenerate a quarterly CBAM report.
+    Retired: quarterly report generation (transitional period only).
 
-    Aggregates all imports for the specified quarter.
+    The transitional period ended 31 Dec 2025; quarterly reports can no
+    longer be created or regenerated. GET endpoints remain for history.
     """
-    if quarter < 1 or quarter > 4:
-        raise HTTPException(status_code=400, detail="Quarter must be 1-4")
-
-    # Check if report already exists
-    result = await session.execute(
-        select(CBAMQuarterlyReport).where(
-            CBAMQuarterlyReport.organization_id == current_user.organization_id,
-            CBAMQuarterlyReport.reporting_year == year,
-            CBAMQuarterlyReport.reporting_quarter == quarter,
-        )
-    )
-    existing_report = result.scalar_one_or_none()
-
-    if existing_report and existing_report.status == CBAMReportStatus.SUBMITTED:
-        raise HTTPException(
-            status_code=400, detail="Cannot regenerate a submitted report"
-        )
-
-    # Get imports for this quarter
-    month_start = (quarter - 1) * 3 + 1
-    month_end = quarter * 3
-
-    imports_result = await session.execute(
-        select(CBAMImport).where(
-            CBAMImport.organization_id == current_user.organization_id,
-            func.extract("year", CBAMImport.import_date) == year,
-            func.extract("month", CBAMImport.import_date).between(
-                month_start, month_end
-            ),
-        )
-    )
-    imports = imports_result.scalars().all()
-
-    # Convert to calculation format
-    import_data = []
-    for imp in imports:
-        import_data.append(
-            {
-                "summary": {
-                    "cn_code": imp.cn_code,
-                    "sector": imp.sector.value if imp.sector else "unknown",
-                    "mass_tonnes": imp.net_mass_tonnes,
-                    "country_code": "XX",  # Would come from installation
-                },
-                "embedded_emissions": {
-                    "direct_emissions_tco2e": imp.direct_emissions_tco2e
-                    or Decimal("0"),
-                    "indirect_emissions_tco2e": imp.indirect_emissions_tco2e
-                    or Decimal("0"),
-                    "total_emissions_tco2e": imp.total_embedded_emissions_tco2e
-                    or Decimal("0"),
-                },
-            }
-        )
-
-    # Aggregate the report
-    aggregated = aggregate_quarterly_report(import_data, quarter, year)
-
-    # Calculate report period dates
-    from calendar import monthrange
-
-    period_start = date(year, month_start, 1)
-    last_month_day = monthrange(year, month_end)[1]
-    period_end = date(year, month_end, last_month_day)
-    # Submission deadline is end of month following quarter
-    deadline_month = month_end + 1
-    deadline_year = year if deadline_month <= 12 else year + 1
-    deadline_month = deadline_month if deadline_month <= 12 else 1
-    deadline_day = monthrange(deadline_year, deadline_month)[1]
-    submission_deadline = date(deadline_year, deadline_month, deadline_day)
-
-    if existing_report:
-        # Update existing report
-        existing_report.total_imports_count = len(imports)
-        existing_report.total_mass_tonnes = aggregated["totals"]["mass_tonnes"]
-        existing_report.total_embedded_emissions_tco2e = aggregated["totals"][
-            "total_emissions_tco2e"
-        ]
-        existing_report.by_sector = aggregated["by_sector"]
-        existing_report.updated_at = datetime.utcnow()
-        report = existing_report
-    else:
-        # Create new report
-        report = CBAMQuarterlyReport(
-            id=uuid4(),
-            organization_id=current_user.organization_id,
-            reporting_year=year,
-            reporting_quarter=quarter,
-            period_start=period_start,
-            period_end=period_end,
-            submission_deadline=submission_deadline,
-            status=CBAMReportStatus.DRAFT,
-            total_imports_count=len(imports),
-            total_mass_tonnes=aggregated["totals"]["mass_tonnes"],
-            total_embedded_emissions_tco2e=aggregated["totals"][
-                "total_emissions_tco2e"
-            ],
-            by_sector=aggregated["by_sector"],
-        )
-        session.add(report)
-
-    await session.commit()
-    await session.refresh(report)
-
-    return CBAMQuarterlyReportResponse(
-        id=str(report.id),
-        organization_id=str(report.organization_id),
-        year=report.reporting_year,
-        quarter=report.reporting_quarter,
-        status=report.status.value if report.status else "draft",
-        total_imports=report.total_imports_count or 0,
-        total_mass_tonnes=report.total_mass_tonnes or Decimal("0"),
-        total_emissions_tco2e=report.total_embedded_emissions_tco2e or Decimal("0"),
-        by_sector=report.by_sector or {},
-        by_cn_code={},  # Not stored in model
-        submitted_at=report.submitted_at,
-        created_at=report.created_at,
-    )
+    raise HTTPException(status_code=410, detail=_QUARTERLY_GONE_DETAIL)
 
 
-@router.post("/reports/quarterly/{year}/{quarter}/submit")
+@router.post("/reports/quarterly/{year}/{quarter}/submit", status_code=410)
 async def submit_quarterly_report(
     year: int,
     quarter: int,
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Mark a quarterly report as submitted."""
-    result = await session.execute(
-        select(CBAMQuarterlyReport).where(
-            CBAMQuarterlyReport.organization_id == current_user.organization_id,
-            CBAMQuarterlyReport.reporting_year == year,
-            CBAMQuarterlyReport.reporting_quarter == quarter,
-        )
-    )
-    report = result.scalar_one_or_none()
+    """
+    Retired: quarterly report submission (transitional period only).
 
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found")
-
-    if report.status == CBAMReportStatus.SUBMITTED:
-        raise HTTPException(status_code=400, detail="Report already submitted")
-
-    report.status = CBAMReportStatus.SUBMITTED
-    report.submitted_at = datetime.utcnow()
-    report.submitted_by = current_user.id
-    report.updated_at = datetime.utcnow()
-
-    await session.commit()
-
-    return {"message": f"Q{quarter} {year} report submitted successfully"}
+    The transitional period ended 31 Dec 2025; quarterly reports can no
+    longer be submitted. GET endpoints remain for history.
+    """
+    raise HTTPException(status_code=410, detail=_QUARTERLY_GONE_DETAIL)
 
 
 # ============================================================================
@@ -894,29 +1054,39 @@ async def list_annual_declarations(
     result = await session.execute(
         select(CBAMAnnualDeclaration)
         .where(CBAMAnnualDeclaration.organization_id == current_user.organization_id)
-        .order_by(CBAMAnnualDeclaration.year.desc())
+        .order_by(CBAMAnnualDeclaration.reporting_year.desc())
     )
     declarations = result.scalars().all()
 
-    return [
-        CBAMAnnualDeclarationResponse(
-            id=str(d.id),
-            organization_id=str(d.organization_id),
-            year=d.year,
-            status=d.status.value if d.status else "draft",
-            total_imports=d.total_imports or 0,
-            total_mass_tonnes=d.total_mass_tonnes or Decimal("0"),
-            gross_emissions_tco2e=d.gross_emissions_tco2e or Decimal("0"),
-            deductions_tco2e=d.deductions_tco2e or Decimal("0"),
-            net_emissions_tco2e=d.net_emissions_tco2e or Decimal("0"),
-            certificates_required=d.certificates_required or Decimal("0"),
-            estimated_cost_eur=d.estimated_cost_eur or Decimal("0"),
-            by_sector=d.by_sector or {},
-            submitted_at=d.submitted_at,
-            created_at=d.created_at,
-        )
-        for d in declarations
-    ]
+    return [declaration_to_response(d) for d in declarations]
+
+
+def declaration_to_response(
+    d: CBAMAnnualDeclaration,
+) -> CBAMAnnualDeclarationResponse:
+    """Map the CBAMAnnualDeclaration model to the API response.
+
+    The API keeps its historical field names (year, gross_emissions_tco2e,
+    deductions_tco2e, estimated_cost_eur); the model stores these as
+    reporting_year, total_embedded_emissions_tco2e,
+    carbon_price_deductions_tco2e and total_certificate_cost_eur.
+    """
+    return CBAMAnnualDeclarationResponse(
+        id=str(d.id),
+        organization_id=str(d.organization_id),
+        year=d.reporting_year,
+        status=d.status.value if d.status else "draft",
+        total_imports=d.total_imports_count or 0,
+        total_mass_tonnes=d.total_mass_tonnes or Decimal("0"),
+        gross_emissions_tco2e=d.total_embedded_emissions_tco2e or Decimal("0"),
+        deductions_tco2e=d.carbon_price_deductions_tco2e or Decimal("0"),
+        net_emissions_tco2e=d.net_emissions_tco2e or Decimal("0"),
+        certificates_required=Decimal(d.certificates_required or 0),
+        estimated_cost_eur=d.total_certificate_cost_eur or Decimal("0"),
+        by_sector=d.by_sector or {},
+        submitted_at=d.submitted_at,
+        created_at=d.created_at,
+    )
 
 
 @router.post("/reports/annual/{year}", response_model=CBAMAnnualDeclarationResponse)
@@ -928,7 +1098,9 @@ async def generate_annual_declaration(
     """
     Generate or regenerate an annual CBAM declaration.
 
-    Only applicable from 2026 (definitive phase). Calculates certificate requirements.
+    Only applicable from 2026 (definitive phase). Calculates certificate
+    requirements. Deadline: 30 September of the following year (Omnibus,
+    Reg. (EU) 2025/2083 — moved from 31 May); first: 30 Sep 2027 for 2026.
     """
     if year < 2026:
         raise HTTPException(
@@ -940,7 +1112,7 @@ async def generate_annual_declaration(
     result = await session.execute(
         select(CBAMAnnualDeclaration).where(
             CBAMAnnualDeclaration.organization_id == current_user.organization_id,
-            CBAMAnnualDeclaration.year == year,
+            CBAMAnnualDeclaration.reporting_year == year,
         )
     )
     existing = result.scalar_one_or_none()
@@ -966,16 +1138,30 @@ async def generate_annual_declaration(
     ets_prices = ets_result.scalars().all()
     ets_price_data = [{"price_eur": p.price_eur} for p in ets_prices]
 
-    # Calculate full CBAM for each import
+    # Calculate full CBAM for each import. The model stores per-import
+    # emissions totals, not SEE — derive SEE from stored emissions / mass so
+    # the aggregation reuses the values recorded at import time.
     import_calculations = []
     for imp in imports:
+        mass = imp.net_mass_tonnes or Decimal("0")
+        direct_see = (
+            (imp.direct_emissions_tco2e or Decimal("0")) / mass
+            if mass > 0
+            else Decimal("0")
+        )
+        indirect_see = (
+            (imp.indirect_emissions_tco2e or Decimal("0")) / mass
+            if mass > 0
+            else Decimal("0")
+        )
         calc = calculator.calculate_import_full(
             cn_code=imp.cn_code,
             mass_tonnes=imp.net_mass_tonnes,
-            country_code="XX",  # Would come from installation
-            actual_direct_see=imp.direct_see,
-            actual_indirect_see=imp.indirect_see,
-            foreign_carbon_price_eur=imp.foreign_carbon_price_eur,
+            country_code=imp.origin_country or "XX",
+            actual_direct_see=direct_see,
+            actual_indirect_see=indirect_see,
+            # Model field is carbon_price_paid_eur
+            foreign_carbon_price_eur=imp.carbon_price_paid_eur,
             is_definitive_phase=True,
         )
         import_calculations.append(calc)
@@ -983,55 +1169,52 @@ async def generate_annual_declaration(
     # Aggregate annual declaration
     aggregated = aggregate_annual_declaration(import_calculations, year, ets_price_data)
 
+    totals = aggregated["totals"]
+    total_mass = sum(
+        (imp.net_mass_tonnes or Decimal("0") for imp in imports), Decimal("0")
+    )
+    # 1 certificate = 1 tCO2e (integer count on the model)
+    certificates_required = int(totals["certificates_required"].quantize(Decimal("1")))
+
     if existing:
-        # Update existing
-        existing.total_imports = len(imports)
-        existing.total_mass_tonnes = sum(imp.net_mass_tonnes for imp in imports)
-        existing.gross_emissions_tco2e = aggregated["totals"]["gross_emissions_tco2e"]
-        existing.deductions_tco2e = aggregated["totals"]["deductions_tco2e"]
-        existing.net_emissions_tco2e = aggregated["totals"]["net_emissions_tco2e"]
-        existing.certificates_required = aggregated["totals"]["certificates_required"]
-        existing.estimated_cost_eur = aggregated["totals"]["estimated_total_cost_eur"]
-        existing.by_sector = aggregated["by_sector"]
+        # Update existing (model field names, see declaration_to_response)
+        existing.total_imports_count = len(imports)
+        existing.total_mass_tonnes = total_mass
+        existing.total_embedded_emissions_tco2e = totals["gross_emissions_tco2e"]
+        existing.carbon_price_deductions_tco2e = totals["deductions_tco2e"]
+        existing.net_emissions_tco2e = totals["net_emissions_tco2e"]
+        existing.certificates_required = certificates_required
+        existing.total_certificate_cost_eur = totals["estimated_total_cost_eur"]
+        existing.average_certificate_price_eur = aggregated["average_ets_price_eur"]
+        existing.by_sector = _json_safe(aggregated["by_sector"])
         existing.updated_at = datetime.utcnow()
         declaration = existing
     else:
-        # Create new
+        # Create new. Deadline: 30 September of the following year (Omnibus).
         declaration = CBAMAnnualDeclaration(
             id=uuid4(),
             organization_id=current_user.organization_id,
-            year=year,
+            reporting_year=year,
+            period_start=date(year, 1, 1),
+            period_end=date(year, 12, 31),
+            submission_deadline=date(year + 1, 9, 30),
             status=CBAMReportStatus.DRAFT,
-            total_imports=len(imports),
-            total_mass_tonnes=sum(imp.net_mass_tonnes for imp in imports),
-            gross_emissions_tco2e=aggregated["totals"]["gross_emissions_tco2e"],
-            deductions_tco2e=aggregated["totals"]["deductions_tco2e"],
-            net_emissions_tco2e=aggregated["totals"]["net_emissions_tco2e"],
-            certificates_required=aggregated["totals"]["certificates_required"],
-            estimated_cost_eur=aggregated["totals"]["estimated_total_cost_eur"],
-            by_sector=aggregated["by_sector"],
+            total_imports_count=len(imports),
+            total_mass_tonnes=total_mass,
+            total_embedded_emissions_tco2e=totals["gross_emissions_tco2e"],
+            carbon_price_deductions_tco2e=totals["deductions_tco2e"],
+            net_emissions_tco2e=totals["net_emissions_tco2e"],
+            certificates_required=certificates_required,
+            total_certificate_cost_eur=totals["estimated_total_cost_eur"],
+            average_certificate_price_eur=aggregated["average_ets_price_eur"],
+            by_sector=_json_safe(aggregated["by_sector"]),
         )
         session.add(declaration)
 
     await session.commit()
     await session.refresh(declaration)
 
-    return CBAMAnnualDeclarationResponse(
-        id=str(declaration.id),
-        organization_id=str(declaration.organization_id),
-        year=declaration.year,
-        status=declaration.status.value if declaration.status else "draft",
-        total_imports=declaration.total_imports or 0,
-        total_mass_tonnes=declaration.total_mass_tonnes or Decimal("0"),
-        gross_emissions_tco2e=declaration.gross_emissions_tco2e or Decimal("0"),
-        deductions_tco2e=declaration.deductions_tco2e or Decimal("0"),
-        net_emissions_tco2e=declaration.net_emissions_tco2e or Decimal("0"),
-        certificates_required=declaration.certificates_required or Decimal("0"),
-        estimated_cost_eur=declaration.estimated_cost_eur or Decimal("0"),
-        by_sector=declaration.by_sector or {},
-        submitted_at=declaration.submitted_at,
-        created_at=declaration.created_at,
-    )
+    return declaration_to_response(declaration)
 
 
 # ============================================================================
@@ -1143,135 +1326,25 @@ async def get_cbam_dashboard(
 # ============================================================================
 
 
-@router.get("/reports/quarterly/{year}/{quarter}/export/xml")
+_REGISTRY_XML_ON_HOLD_DETAIL = (
+    "CBAM Registry XML export is on hold: the previous XML output was "
+    "speculative and has not been validated against the real CBAM Registry "
+    "declaration schema. It will be re-enabled once the official schema is "
+    "validated. Use the CSV or EU-format (JSON) exports in the meantime."
+)
+
+
+@router.get("/reports/quarterly/{year}/{quarter}/export/xml", status_code=501)
 async def export_quarterly_report_xml(
     year: int,
     quarter: int,
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """
-    Export quarterly CBAM report as XML for EU Registry submission.
-
-    Returns XML formatted according to EU CBAM Registry requirements.
+    ON HOLD: Registry XML export awaits validation against the real CBAM
+    Registry schema. Returns 501 Not Implemented.
     """
-    from fastapi.responses import Response
-    from app.services.cbam_export import CBAMXMLExporter
-    from app.models.core import Organization
-
-    # Get the report
-    result = await session.execute(
-        select(CBAMQuarterlyReport).where(
-            CBAMQuarterlyReport.organization_id == current_user.organization_id,
-            CBAMQuarterlyReport.reporting_year == year,
-            CBAMQuarterlyReport.reporting_quarter == quarter,
-        )
-    )
-    report = result.scalar_one_or_none()
-
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found")
-
-    # Get imports for this quarter
-    month_start = (quarter - 1) * 3 + 1
-    month_end = quarter * 3
-
-    imports_result = await session.execute(
-        select(CBAMImport).where(
-            CBAMImport.organization_id == current_user.organization_id,
-            func.extract("year", CBAMImport.import_date) == year,
-            func.extract("month", CBAMImport.import_date).between(
-                month_start, month_end
-            ),
-        )
-    )
-    imports = imports_result.scalars().all()
-
-    # Get installations
-    inst_result = await session.execute(
-        select(CBAMInstallation).where(
-            CBAMInstallation.organization_id == current_user.organization_id,
-        )
-    )
-    installations = inst_result.scalars().all()
-
-    # Get organization info
-    org_result = await session.execute(
-        select(Organization).where(Organization.id == current_user.organization_id)
-    )
-    org = org_result.scalar_one_or_none()
-
-    # Convert to dicts for export
-    report_data = {
-        "year": report.year,
-        "quarter": report.quarter,
-        "status": report.status.value if report.status else "draft",
-        "total_imports": report.total_imports,
-        "total_mass_tonnes": report.total_mass_tonnes,
-        "total_emissions_tco2e": report.total_embedded_emissions_tco2e,
-        "by_sector": report.by_sector,
-        "by_cn_code": report.by_cn_code,
-    }
-
-    import_data = [
-        {
-            "id": str(imp.id),
-            "cn_code": imp.cn_code,
-            "product_description": imp.product_description,
-            "mass_tonnes": imp.net_mass_tonnes,
-            "direct_see": imp.direct_see,
-            "indirect_see": imp.indirect_see,
-            "total_see": imp.total_see,
-            "direct_emissions_tco2e": imp.direct_emissions_tco2e,
-            "indirect_emissions_tco2e": imp.indirect_emissions_tco2e,
-            "total_emissions_tco2e": imp.total_embedded_emissions_tco2e,
-            "calculation_method": (
-                imp.calculation_method.value if imp.calculation_method else "default"
-            ),
-            "installation_id": str(imp.installation_id),
-            "foreign_carbon_price_eur": imp.foreign_carbon_price_eur,
-            "foreign_carbon_price_currency": imp.foreign_carbon_price_currency,
-        }
-        for imp in imports
-    ]
-
-    installation_data = [
-        {
-            "id": str(inst.id),
-            "name": inst.name,
-            "country_code": inst.country_code,
-            "address": inst.address,
-            "verification_status": (
-                inst.verification_status.value
-                if inst.verification_status
-                else "pending"
-            ),
-        }
-        for inst in installations
-    ]
-
-    declarant_data = {
-        "name": org.name if org else "",
-        "eori": "",  # Would come from organization settings
-        "address": "",
-        "country": org.country_code if org else "",
-    }
-
-    # Generate XML
-    exporter = CBAMXMLExporter()
-    xml_content = exporter.generate_quarterly_xml(
-        report=report_data,
-        imports=import_data,
-        installations=installation_data,
-        declarant=declarant_data,
-    )
-
-    filename = f"cbam_quarterly_report_{year}_Q{quarter}.xml"
-    return Response(
-        content=xml_content,
-        media_type="application/xml",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
+    raise HTTPException(status_code=501, detail=_REGISTRY_XML_ON_HOLD_DETAIL)
 
 
 @router.get("/reports/quarterly/{year}/{quarter}/export/csv")
@@ -1304,6 +1377,14 @@ async def export_quarterly_report_csv(
     )
     imports = imports_result.scalars().all()
 
+    # SEE per tonne is derived from stored emissions / mass (the model
+    # stores emissions totals and specific_embedded_emissions, not a
+    # direct/indirect SEE split).
+    def _see(emissions, mass):
+        if mass and mass > 0:
+            return (emissions or Decimal("0")) / mass
+        return Decimal("0")
+
     import_data = [
         {
             "id": str(imp.id),
@@ -1312,17 +1393,19 @@ async def export_quarterly_report_csv(
             "product_description": imp.product_description,
             "import_date": str(imp.import_date),
             "mass_tonnes": imp.net_mass_tonnes,
-            "direct_see": imp.direct_see,
-            "indirect_see": imp.indirect_see,
-            "total_see": imp.total_see,
+            "direct_see": _see(imp.direct_emissions_tco2e, imp.net_mass_tonnes),
+            "indirect_see": _see(imp.indirect_emissions_tco2e, imp.net_mass_tonnes),
+            "total_see": imp.specific_embedded_emissions
+            or _see(imp.total_embedded_emissions_tco2e, imp.net_mass_tonnes),
             "direct_emissions_tco2e": imp.direct_emissions_tco2e,
             "indirect_emissions_tco2e": imp.indirect_emissions_tco2e,
             "total_emissions_tco2e": imp.total_embedded_emissions_tco2e,
             "calculation_method": (
                 imp.calculation_method.value if imp.calculation_method else "default"
             ),
-            "foreign_carbon_price_eur": imp.foreign_carbon_price_eur,
-            "installation_id": str(imp.installation_id),
+            # Model field is carbon_price_paid_eur
+            "foreign_carbon_price_eur": imp.carbon_price_paid_eur,
+            "installation_id": str(imp.installation_id) if imp.installation_id else "",
         }
         for imp in imports
     ]
@@ -1395,16 +1478,18 @@ async def export_quarterly_report_eu_format(
     )
     org = org_result.scalar_one_or_none()
 
-    # Convert to dicts
+    # Convert to dicts (model fields: reporting_year/reporting_quarter/
+    # total_imports_count; a by_cn_code breakdown is not stored on the
+    # model, so it is exported empty).
     report_data = {
-        "year": report.year,
-        "quarter": report.quarter,
+        "year": report.reporting_year,
+        "quarter": report.reporting_quarter,
         "status": report.status.value if report.status else "draft",
-        "total_imports": report.total_imports,
+        "total_imports": report.total_imports_count or 0,
         "total_mass_tonnes": report.total_mass_tonnes,
         "total_emissions_tco2e": report.total_embedded_emissions_tco2e,
-        "by_sector": report.by_sector,
-        "by_cn_code": report.by_cn_code,
+        "by_sector": report.by_sector or {},
+        "by_cn_code": {},  # Not stored on the model
         "submitted_at": (
             report.submitted_at.isoformat() if report.submitted_at else None
         ),
@@ -1426,7 +1511,8 @@ async def export_quarterly_report_eu_format(
             "id": str(inst.id),
             "name": inst.name,
             "country_code": inst.country_code,
-            "sectors": inst.sectors or [],
+            # Model stores a single sector enum; exported as a list
+            "sectors": [inst.sector.value] if inst.sector else [],
             "verification_status": (
                 inst.verification_status.value
                 if inst.verification_status
@@ -1452,101 +1538,13 @@ async def export_quarterly_report_eu_format(
     return formatted_report
 
 
-@router.get("/reports/annual/{year}/export/xml")
+@router.get("/reports/annual/{year}/export/xml", status_code=501)
 async def export_annual_declaration_xml(
     year: int,
     current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """
-    Export annual CBAM declaration as XML for EU Registry submission.
+    ON HOLD: annual declaration Registry XML export awaits validation
+    against the real CBAM Registry declaration schema. Returns 501.
     """
-    from fastapi.responses import Response
-    from app.services.cbam_export import CBAMXMLExporter
-    from app.models.core import Organization
-
-    # Get the declaration
-    result = await session.execute(
-        select(CBAMAnnualDeclaration).where(
-            CBAMAnnualDeclaration.organization_id == current_user.organization_id,
-            CBAMAnnualDeclaration.year == year,
-        )
-    )
-    declaration = result.scalar_one_or_none()
-
-    if not declaration:
-        raise HTTPException(status_code=404, detail="Declaration not found")
-
-    # Get imports for this year
-    imports_result = await session.execute(
-        select(CBAMImport).where(
-            CBAMImport.organization_id == current_user.organization_id,
-            func.extract("year", CBAMImport.import_date) == year,
-        )
-    )
-    imports = imports_result.scalars().all()
-
-    # Get installations
-    inst_result = await session.execute(
-        select(CBAMInstallation).where(
-            CBAMInstallation.organization_id == current_user.organization_id,
-        )
-    )
-    installations = inst_result.scalars().all()
-
-    # Get organization info
-    org_result = await session.execute(
-        select(Organization).where(Organization.id == current_user.organization_id)
-    )
-    org = org_result.scalar_one_or_none()
-
-    # Convert to dicts
-    declaration_data = {
-        "year": declaration.year,
-        "gross_emissions_tco2e": declaration.gross_emissions_tco2e,
-        "deductions_tco2e": declaration.deductions_tco2e,
-        "net_emissions_tco2e": declaration.net_emissions_tco2e,
-        "certificates_required": declaration.certificates_required,
-        "estimated_cost_eur": declaration.estimated_cost_eur,
-        "by_sector": declaration.by_sector,
-    }
-
-    import_data = [
-        {
-            "id": str(imp.id),
-            "cn_code": imp.cn_code,
-            "mass_tonnes": imp.net_mass_tonnes,
-            "total_emissions_tco2e": imp.total_embedded_emissions_tco2e,
-        }
-        for imp in imports
-    ]
-
-    installation_data = [
-        {
-            "id": str(inst.id),
-            "name": inst.name,
-            "country_code": inst.country_code,
-        }
-        for inst in installations
-    ]
-
-    declarant_data = {
-        "name": org.name if org else "",
-        "eori": "",
-        "auth_number": "",
-    }
-
-    exporter = CBAMXMLExporter()
-    xml_content = exporter.generate_annual_xml(
-        declaration=declaration_data,
-        imports=import_data,
-        installations=installation_data,
-        declarant=declarant_data,
-    )
-
-    filename = f"cbam_annual_declaration_{year}.xml"
-    return Response(
-        content=xml_content,
-        media_type="application/xml",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
+    raise HTTPException(status_code=501, detail=_REGISTRY_XML_ON_HOLD_DETAIL)

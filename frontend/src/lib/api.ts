@@ -1991,6 +1991,19 @@ class ApiClient {
     });
   }
 
+  // CBAM public screening (50 t exemption checker — no auth required)
+  async cbamScreen(data: CBAMScreenRequest): Promise<CBAMScreenResult> {
+    return this.fetch<CBAMScreenResult>('/cbam/screen', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // CBAM screening reference values (ETS price, markup, sector intensities)
+  async getCBAMScreenDefaults(): Promise<CBAMScreenDefaults> {
+    return this.fetch<CBAMScreenDefaults>('/cbam/screen-defaults');
+  }
+
   // CBAM CN Code Search
   async searchCBAMCNCodes(
     query: string,
@@ -2400,7 +2413,45 @@ import type {
   CBAMEmissionCalculationResult,
   CBAMDashboard,
   CBAMQuarterlyReportEUFormat,
+  CBAMScreenDefaults,
 } from './types';
+
+// CBAM Public Screening Types (POST /cbam/screen)
+export interface CBAMScreenItemInput {
+  cn_code_or_sector: string;
+  mass_kg: number;
+  origin_country?: string;
+}
+
+export interface CBAMScreenRequest {
+  items: CBAMScreenItemInput[];
+  ets_price_eur?: number;
+}
+
+export interface CBAMScreenItemResult {
+  cn_code_or_sector: string;
+  sector: string | null;
+  sector_label: string | null;
+  origin_country: string | null;
+  mass_kg: number;
+  covered: boolean;
+  counts_toward_threshold: boolean;
+  estimated_emissions_tco2e: number;
+  estimated_certificate_cost_eur: number;
+}
+
+export interface CBAMScreenResult {
+  threshold_kg: number;
+  in_threshold_mass_kg: number;
+  headroom_kg: number;
+  exempt: boolean;
+  ets_price_eur: number;
+  default_value_markup_pct: number;
+  total_estimated_emissions_tco2e: number;
+  total_estimated_certificate_cost_eur: number;
+  items: CBAMScreenItemResult[];
+  assumptions: string[];
+}
 
 // Smart Import Types
 export interface SmartImportPreview {
@@ -3021,7 +3072,14 @@ export interface IngestionSessionDetail extends IngestionSession {
 // Leads (lightweight CRM) types
 // ============================================================================
 
-export type LeadSource = 'website_tryit' | 'conference' | 'signup' | 'forum' | 'manual';
+export type LeadSource =
+  | 'website_tryit'
+  | 'website_trial'
+  | 'website_demo'
+  | 'conference'
+  | 'signup'
+  | 'forum'
+  | 'manual';
 export type LeadStatus = 'new' | 'contacted' | 'trial' | 'customer' | 'lost';
 
 export interface Lead {
