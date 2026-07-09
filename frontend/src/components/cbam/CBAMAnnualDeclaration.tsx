@@ -34,10 +34,12 @@ function declarationYears(): number[] {
   return years;
 }
 
-const fmtT = (value: number) =>
-  value.toLocaleString('en-GB', { maximumFractionDigits: 1 });
-const fmtEur = (value: number) =>
-  value.toLocaleString('en-GB', { maximumFractionDigits: 0 });
+// API decimals arrive as strings — String.toLocaleString ignores the options,
+// so coerce first or "275.0000000000" renders verbatim.
+const fmtT = (value: number | string) =>
+  Number(value).toLocaleString('en-GB', { maximumFractionDigits: 1 });
+const fmtEur = (value: number | string) =>
+  Number(value).toLocaleString('en-GB', { maximumFractionDigits: 0 });
 
 export function CBAMAnnualDeclaration() {
   const [selectedYear, setSelectedYear] = useState(FIRST_DECLARATION_YEAR);

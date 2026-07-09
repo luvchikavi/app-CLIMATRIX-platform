@@ -798,7 +798,7 @@ async def screen_cbam_exposure(
         if latest:
             ets_price = latest.price_eur
             extra_assumptions.append(
-                f"ETS price of €{latest.price_eur}/tCO2e taken from "
+                f"ETS price of €{float(latest.price_eur):,.2f}/tCO2e taken from "
                 f"{latest.price_date.isoformat()} ({latest.source})."
             )
         else:
@@ -1175,7 +1175,7 @@ async def _latest_ets_price(session: AsyncSession) -> tuple[Decimal, str]:
     if latest:
         return latest.price_eur, (
             f"Certificate cost uses the latest stored EU ETS price of "
-            f"€{latest.price_eur}/tCO2e ({latest.price_date.isoformat()}, "
+            f"€{float(latest.price_eur):,.2f}/tCO2e ({latest.price_date.isoformat()}, "
             f"{latest.source}); 2026 certificates will be priced on "
             "quarterly EU ETS auction averages."
         )
@@ -1343,7 +1343,7 @@ async def get_annual_declaration(
     ets_price = declaration.average_certificate_price_eur
     if ets_price:
         ets_assumption = (
-            f"Certificate cost uses the EU ETS price of €{ets_price}/tCO2e "
+            f"Certificate cost uses the EU ETS price of €{float(ets_price):,.2f}/tCO2e "
             "recorded when this draft was generated."
         )
     else:

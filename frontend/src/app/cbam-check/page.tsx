@@ -30,6 +30,31 @@ const SECTOR_OPTIONS = [
   { value: 'electricity', label: 'Electricity' },
 ];
 
+// Common CN codes per sector — suggested defaults so the visitor doesn't need
+// to know the nomenclature (any code still overrides the sector pick).
+const CN_SUGGESTIONS: Record<string, { code: string; label: string }[]> = {
+  cement: [
+    { code: '2523 29', label: 'Portland cement' },
+    { code: '2523 10', label: 'Cement clinker' },
+  ],
+  iron_steel: [
+    { code: '7208', label: 'Hot-rolled flat steel' },
+    { code: '7210', label: 'Coated flat steel' },
+    { code: '7308', label: 'Steel structures' },
+  ],
+  aluminium: [
+    { code: '7601', label: 'Unwrought aluminium' },
+    { code: '7604', label: 'Aluminium bars & profiles' },
+  ],
+  fertiliser: [
+    { code: '3102 10', label: 'Urea' },
+    { code: '2814', label: 'Ammonia' },
+    { code: '3105', label: 'NPK fertilisers' },
+  ],
+  hydrogen: [{ code: '2804 10', label: 'Hydrogen' }],
+  electricity: [{ code: '2716 00', label: 'Electrical energy' }],
+};
+
 interface Line {
   sector: string;
   cnCode: string;
@@ -182,9 +207,21 @@ export default function CBAMCheckPage() {
                       <input
                         value={line.cnCode}
                         onChange={(e) => setLine(i, { cnCode: e.target.value })}
-                        placeholder="CN code (overrides)"
-                        className="w-36 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm text-white placeholder:text-slate-600"
+                        list={`cn-suggestions-${line.sector}`}
+                        placeholder={
+                          CN_SUGGESTIONS[line.sector]?.[0]
+                            ? `e.g. ${CN_SUGGESTIONS[line.sector][0].code} (${CN_SUGGESTIONS[line.sector][0].label})`
+                            : 'CN code (optional)'
+                        }
+                        className="w-56 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm text-white placeholder:text-slate-600"
                       />
+                      <datalist id={`cn-suggestions-${line.sector}`}>
+                        {(CN_SUGGESTIONS[line.sector] ?? []).map((s) => (
+                          <option key={s.code} value={s.code}>
+                            {s.label}
+                          </option>
+                        ))}
+                      </datalist>
                     </div>
                   </td>
                   <td className="px-4 py-2">
