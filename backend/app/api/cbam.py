@@ -13,14 +13,16 @@ from decimal import Decimal
 from typing import Annotated, Optional, List
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, func
 
 from app.api.auth import get_current_user
+from app.config import settings
 from app.database import get_session
 from app.models.core import User
+from app.rate_limit import limiter
 from app.models.cbam import (
     CBAMInstallation,
     CBAMInstallationStatus,
@@ -37,6 +39,7 @@ from app.services.cbam_calculator import (
     aggregate_quarterly_report,
     aggregate_annual_declaration,
 )
+from app.services.cbam_screening import screen_imports
 from app.data.cbam_data import CBAM_PRODUCTS, get_sector_for_cn_code
 
 router = APIRouter()
@@ -198,6 +201,22 @@ class EmissionCalculationRequest(BaseModel):
     actual_indirect_see: Optional[Decimal] = None
     electricity_consumption_mwh: Optional[Decimal] = None
     foreign_carbon_price_eur: Optional[Decimal] = None
+
+
+# Screening (public exemption checker)
+class CBAMScreenItem(BaseModel):
+    """One annual import line for the public screening checker."""
+
+    cn_code_or_sector: str = Field(..., min_length=1, max_length=50)
+    mass_kg: Decimal = Field(..., gt=0)
+    origin_country: Optional[str] = Field(default=None, max_length=100)
+
+
+class CBAMScreenRequest(BaseModel):
+    """Public screening payload."""
+
+    items: List[CBAMScreenItem] = Field(..., min_length=1, max_length=100)
+    ets_price_eur: Optional[Decimal] = Field(default=None, gt=0)
 
 
 # ============================================================================
@@ -621,6 +640,54 @@ async def calculate_emissions_preview(
     )
 
     return calculation
+
+
+# ============================================================================
+# Public Screening Endpoint (50 t exemption checker)
+# ============================================================================
+
+
+@router.post("/screen")
+@limiter.limit(settings.rate_limit_default)
+async def screen_cbam_exposure(
+    request: Request,
+    payload: CBAMScreenRequest,
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+):
+    """
+    PUBLIC CBAM screening (no auth, rate-limited).
+
+    Checks a basket of annual import lines against the Omnibus 50 t de
+    minimis threshold and estimates 2026 embedded emissions and certificate
+    cost. Every simplification is returned in `assumptions`.
+    """
+    extra_assumptions: list[str] = []
+
+    if payload.ets_price_eur is not None:
+        ets_price = payload.ets_price_eur
+    else:
+        result = await session.execute(
+            select(EUETSPrice).order_by(EUETSPrice.price_date.desc()).limit(1)
+        )
+        latest = result.scalars().first()
+        if latest:
+            ets_price = latest.price_eur
+            extra_assumptions.append(
+                f"ETS price of €{latest.price_eur}/tCO2e taken from "
+                f"{latest.price_date.isoformat()} ({latest.source})."
+            )
+        else:
+            ets_price = Decimal("75.0")
+            extra_assumptions.append(
+                "ETS price of €75/tCO2e is a placeholder pending the "
+                "automated EU ETS price feed."
+            )
+
+    return screen_imports(
+        [item.model_dump() for item in payload.items],
+        ets_price,
+        extra_assumptions=extra_assumptions,
+    )
 
 
 # ============================================================================

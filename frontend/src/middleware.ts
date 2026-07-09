@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const PUBLIC_PATHS = new Set([
   '/',
   '/try',
+  '/cbam-check',
   '/pricing',
   '/terms',
   '/privacy',

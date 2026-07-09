@@ -52,7 +52,7 @@ export const MODULE_REGISTRY: ModuleDef[] = [
     icon: Scale,
     status: 'beta',
     blurb: 'EU Carbon Border Adjustment Mechanism — embedded emissions & reporting.',
-    features: ['Embedded emissions', 'CN-code classification', 'Quarterly reports', 'EU ETS pricing'],
+    features: ['50t exemption checker', 'Embedded emissions', 'CN-code classification', 'Quarterly reports', 'EU ETS pricing'],
   },
   {
     id: 'pcaf',
