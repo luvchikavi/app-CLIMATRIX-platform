@@ -502,5 +502,175 @@ def seed_scope3_reference(
     asyncio.run(run())
 
 
+@app.command()
+def load_cbam_defaults(
+    file_path: str = typer.Argument(
+        ..., help="Path to the Commission default-values file (.xlsx or .csv)"
+    ),
+    source: str = typer.Option(
+        "EU Commission definitive-period default values (13 Feb 2026)",
+        "--source",
+        help="Source label stored on each row",
+    ),
+    valid_from: str = typer.Option(
+        "2026-01-01", "--valid-from", help="Validity start date (YYYY-MM-DD)"
+    ),
+    replace: bool = typer.Option(
+        False,
+        "--replace",
+        help="Deactivate existing rows with the same source before loading",
+    ),
+):
+    """Load CBAM default emission values (per CN code x origin country).
+
+    Ingests the EU Commission default-values file format (Excel published
+    13 Feb 2026) or a CSV with equivalent columns into cbam_default_values.
+
+    Example:
+        python -m app.cli.seed load-cbam-defaults cbam_defaults_2026.xlsx
+    """
+    from datetime import date as date_cls
+    from uuid import uuid4 as _uuid4
+
+    from app.models.cbam import CBAMDefaultValue, CBAMSector
+    from app.services.cbam_defaults_loader import parse_default_values_file
+
+    rows = parse_default_values_file(file_path)
+    valid_from_date = date_cls.fromisoformat(valid_from)
+
+    async def run():
+        engine = create_async_engine(settings.async_database_url)
+        async_session = async_sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
+
+        async with async_session() as session:
+            if replace:
+                from sqlalchemy import update
+
+                await session.execute(
+                    update(CBAMDefaultValue)
+                    .where(CBAMDefaultValue.source == source)
+                    .values(is_active=False)
+                )
+
+            skipped = 0
+            loaded = 0
+            for row in rows:
+                if row["sector"] is None:
+                    skipped += 1
+                    continue
+                session.add(
+                    CBAMDefaultValue(
+                        id=_uuid4(),
+                        cn_code=row["cn_code"],
+                        sector=CBAMSector(row["sector"]),
+                        product_description=row["product_description"][:500],
+                        country_code=row["country_code"],
+                        dataset_year=row["dataset_year"],
+                        dataset_version=row["dataset_version"],
+                        direct_see=row["direct_see"],
+                        indirect_see=row["indirect_see"],
+                        total_see=row["total_see"],
+                        source=source,
+                        valid_from=valid_from_date,
+                        is_active=True,
+                    )
+                )
+                loaded += 1
+            await session.commit()
+
+            typer.echo(f"Loaded {loaded} default values from {file_path}")
+            if skipped:
+                typer.echo(f"Skipped {skipped} rows with CN codes outside CBAM Annex I")
+
+        await engine.dispose()
+
+    asyncio.run(run())
+
+
+@app.command()
+def seed_cbam_defaults(
+    force: bool = typer.Option(
+        False, "--force", help="Re-seed even if representative rows exist"
+    ),
+):
+    """Seed representative per-sector CBAM default values (source=representative_v0).
+
+    Mirrors the sector intensities in app/services/cbam_screening.py. The
+    alembic migration b6c7d8e9f0a1 seeds these on deploy; this command is
+    for fresh/dev databases and re-seeding.
+    """
+    from datetime import date as date_cls
+    from uuid import uuid4 as _uuid4
+
+    from app.models.cbam import CBAMDefaultValue, CBAMSector
+    from app.services.cbam_screening import (
+        _CN_PREFIX_SECTORS,
+        SECTOR_DEFAULT_INTENSITY,
+        SECTOR_LABELS,
+    )
+
+    async def run():
+        engine = create_async_engine(settings.async_database_url)
+        async_session = async_sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
+
+        async with async_session() as session:
+            result = await session.execute(
+                select(CBAMDefaultValue)
+                .where(CBAMDefaultValue.source == "representative_v0")
+                .limit(1)
+            )
+            if result.scalar_one_or_none() and not force:
+                typer.echo(
+                    "Representative CBAM defaults already seeded. "
+                    "Use --force to re-seed."
+                )
+                raise typer.Exit(code=0)
+
+            if force:
+                from sqlalchemy import delete
+
+                await session.execute(
+                    delete(CBAMDefaultValue).where(
+                        CBAMDefaultValue.source == "representative_v0"
+                    )
+                )
+
+            count = 0
+            for cn_prefix, sector in _CN_PREFIX_SECTORS:
+                see = SECTOR_DEFAULT_INTENSITY[sector]
+                unit_note = " (tCO2e/MWh)" if sector == "electricity" else ""
+                session.add(
+                    CBAMDefaultValue(
+                        id=_uuid4(),
+                        cn_code=cn_prefix,
+                        sector=CBAMSector(sector),
+                        product_description=(
+                            f"{SECTOR_LABELS[sector]} (representative){unit_note}"
+                        ),
+                        country_code=None,
+                        dataset_year=2026,
+                        dataset_version="representative_v0",
+                        direct_see=see,
+                        indirect_see=None,
+                        total_see=see,
+                        source="representative_v0",
+                        source_reference="app/services/cbam_screening.py",
+                        valid_from=date_cls(2026, 1, 1),
+                        is_active=True,
+                    )
+                )
+                count += 1
+            await session.commit()
+            typer.echo(f"Seeded {count} representative CBAM default values.")
+
+        await engine.dispose()
+
+    asyncio.run(run())
+
+
 if __name__ == "__main__":
     app()

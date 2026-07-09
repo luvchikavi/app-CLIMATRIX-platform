@@ -25,7 +25,7 @@ type CBAMView = 'dashboard' | 'installations' | 'imports' | 'reports' | 'calcula
 const NAV_ITEMS: { id: CBAMView; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'installations', label: 'Installations', icon: Factory },
-  { id: 'imports', label: 'Imports', icon: Package },
+  { id: 'imports', label: 'Imports register', icon: Package },
   { id: 'reports', label: 'Reports', icon: FileText },
   { id: 'calculator', label: 'Calculator', icon: Calculator },
 ];

@@ -1999,6 +1999,11 @@ class ApiClient {
     });
   }
 
+  // CBAM screening reference values (ETS price, markup, sector intensities)
+  async getCBAMScreenDefaults(): Promise<CBAMScreenDefaults> {
+    return this.fetch<CBAMScreenDefaults>('/cbam/screen-defaults');
+  }
+
   // CBAM CN Code Search
   async searchCBAMCNCodes(
     query: string,
@@ -2408,6 +2413,7 @@ import type {
   CBAMEmissionCalculationResult,
   CBAMDashboard,
   CBAMQuarterlyReportEUFormat,
+  CBAMScreenDefaults,
 } from './types';
 
 // CBAM Public Screening Types (POST /cbam/screen)

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -17,8 +17,13 @@ import {
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui';
 import { api } from '@/lib/api';
-import type { CBAMImport, CBAMImportCreate, CBAMInstallation, CBAMCNCode } from '@/lib/types';
-import { Plus, Package, Trash2, Search, X, Calculator } from 'lucide-react';
+import type {
+  CBAMImport,
+  CBAMInstallation,
+  CBAMCNCode,
+  CBAMScreenDefaults,
+} from '@/lib/types';
+import { Plus, Package, Trash2 } from 'lucide-react';
 
 const CALCULATION_METHOD_LABELS: Record<string, string> = {
   actual: 'Actual Data',
@@ -26,20 +31,62 @@ const CALCULATION_METHOD_LABELS: Record<string, string> = {
   fallback: 'Fallback',
 };
 
+const eur = new Intl.NumberFormat('en-IE', {
+  style: 'currency',
+  currency: 'EUR',
+  maximumFractionDigits: 0,
+});
+
+interface ImportFormState {
+  installation_id: string;
+  cn_code: string;
+  product_description: string;
+  import_date: string;
+  mass_kg: number;
+  origin_country: string;
+  actual_direct_see?: number;
+  actual_indirect_see?: number;
+  foreign_carbon_price_eur?: number;
+}
+
+const emptyForm = (): ImportFormState => ({
+  installation_id: '',
+  cn_code: '',
+  product_description: '',
+  import_date: new Date().toISOString().split('T')[0],
+  mass_kg: 0,
+  origin_country: '',
+});
+
+/**
+ * Estimated certificate cost for one import row.
+ *
+ * emissions x ETS price; the default-value markup (10% in 2026) applies
+ * only when the row is calculated from default values, mirroring the
+ * screening service.
+ */
+function estimateCost(imp: CBAMImport, defaults: CBAMScreenDefaults | null): number | null {
+  if (!defaults) return null;
+  const markup =
+    imp.calculation_method === 'actual' ? 1 : 1 + defaults.default_value_markup_pct / 100;
+  return imp.total_emissions_tco2e * markup * defaults.ets_price_eur;
+}
+
 export function CBAMImports() {
   const [imports, setImports] = useState<CBAMImport[]>([]);
   const [installations, setInstallations] = useState<CBAMInstallation[]>([]);
+  const [screenDefaults, setScreenDefaults] = useState<CBAMScreenDefaults | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState<CBAMImportCreate>({
-    installation_id: '',
-    cn_code: '',
-    product_description: '',
-    import_date: new Date().toISOString().split('T')[0],
-    mass_tonnes: 0,
-  });
+  const [formData, setFormData] = useState<ImportFormState>(emptyForm());
   const [saving, setSaving] = useState(false);
-  const [confirmState, setConfirmState] = useState<{open: boolean; onConfirm: () => void; title: string; message: string}>({open: false, onConfirm: () => {}, title: '', message: ''});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    onConfirm: () => void;
+    title: string;
+    message: string;
+  }>({ open: false, onConfirm: () => {}, title: '', message: '' });
 
   // CN Code search
   const [cnSearchQuery, setCnSearchQuery] = useState('');
@@ -51,11 +98,7 @@ export function CBAMImports() {
   const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear());
   const [filterQuarter, setFilterQuarter] = useState<number | ''>('');
 
-  useEffect(() => {
-    loadData();
-  }, [filterYear, filterQuarter]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [importsData, installationsData] = await Promise.all([
@@ -72,7 +115,19 @@ export function CBAMImports() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterYear, filterQuarter]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    // Reference values for the estimated certificate cost column
+    api
+      .getCBAMScreenDefaults()
+      .then(setScreenDefaults)
+      .catch((err) => console.error('Failed to load screening defaults:', err));
+  }, []);
 
   const searchCNCodes = async (query: string) => {
     if (query.length < 2) {
@@ -104,15 +159,34 @@ export function CBAMImports() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.installation_id || !formData.cn_code || !formData.mass_tonnes) return;
+    setFormError(null);
+    if (!formData.cn_code || !formData.mass_kg) return;
+    if (!formData.installation_id && formData.origin_country.trim().length !== 2) {
+      setFormError('Enter a 2-letter origin country code (or pick an installation).');
+      return;
+    }
 
     try {
       setSaving(true);
-      await api.createCBAMImport(formData);
+      await api.createCBAMImport({
+        installation_id: formData.installation_id || undefined,
+        cn_code: formData.cn_code,
+        product_description: formData.product_description || undefined,
+        import_date: formData.import_date,
+        // API takes tonnes; the register records mass in kg
+        mass_tonnes: formData.mass_kg / 1000,
+        origin_country: formData.installation_id
+          ? undefined
+          : formData.origin_country.trim().toUpperCase(),
+        actual_direct_see: formData.actual_direct_see,
+        actual_indirect_see: formData.actual_indirect_see,
+        foreign_carbon_price_eur: formData.foreign_carbon_price_eur,
+      });
       await loadData();
       resetForm();
     } catch (err) {
       console.error('Failed to create import:', err);
+      setFormError(err instanceof Error ? err.message : 'Failed to create import');
     } finally {
       setSaving(false);
     }
@@ -122,7 +196,7 @@ export function CBAMImports() {
     setConfirmState({
       open: true,
       onConfirm: async () => {
-        setConfirmState(s => ({...s, open: false}));
+        setConfirmState((s) => ({ ...s, open: false }));
         try {
           await api.deleteCBAMImport(id);
           await loadData();
@@ -137,33 +211,34 @@ export function CBAMImports() {
 
   const resetForm = () => {
     setShowForm(false);
-    setFormData({
-      installation_id: '',
-      cn_code: '',
-      product_description: '',
-      import_date: new Date().toISOString().split('T')[0],
-      mass_tonnes: 0,
-    });
+    setFormError(null);
+    setFormData(emptyForm());
     setCnSearchQuery('');
     setCnSearchResults([]);
   };
 
   const totalEmissions = imports.reduce((sum, imp) => sum + imp.total_emissions_tco2e, 0);
-  const totalMass = imports.reduce((sum, imp) => sum + imp.mass_tonnes, 0);
+  const totalMassKg = imports.reduce((sum, imp) => sum + imp.mass_kg, 0);
+  const totalCost = screenDefaults
+    ? imports.reduce((sum, imp) => sum + (estimateCost(imp, screenDefaults) ?? 0), 0)
+    : null;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-foreground">CBAM Imports</h2>
-          <p className="text-foreground-muted">Track imported goods and their embedded emissions</p>
+          <h2 className="text-xl font-bold text-foreground">Imports register</h2>
+          <p className="text-foreground-muted">
+            Log every import of CBAM goods — CN code, mass, origin — and track the estimated
+            certificate cost
+          </p>
         </div>
         <Button onClick={() => setShowForm(true)} leftIcon={<Plus className="w-4 h-4" />}>
           Add Import
         </Button>
       </div>
 
-      {/* Filters */}
+      {/* Filters + totals */}
       <Card padding="sm">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
@@ -201,13 +276,27 @@ export function CBAMImports() {
               <strong>{imports.length}</strong> imports
             </span>
             <span>
-              <strong>{totalMass.toFixed(1)}</strong> tonnes
+              <strong>{(totalMassKg / 1000).toFixed(1)}</strong> t
             </span>
             <span>
               <strong>{totalEmissions.toFixed(1)}</strong> tCO2e
             </span>
+            {totalCost !== null && (
+              <span>
+                est. <strong>{eur.format(totalCost)}</strong>
+              </span>
+            )}
           </div>
         </div>
+        {screenDefaults && (
+          <p className="mt-2 text-xs text-foreground-muted">
+            Certificate cost estimated at €{screenDefaults.ets_price_eur.toFixed(2)}/tCO2e (
+            {screenDefaults.ets_price_is_fallback
+              ? 'placeholder ETS price'
+              : `ETS price of ${screenDefaults.ets_price_date}`}
+            ), +{screenDefaults.default_value_markup_pct}% markup on default values.
+          </p>
+        )}
       </Card>
 
       {/* Add Form */}
@@ -219,26 +308,13 @@ export function CBAMImports() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Select
-                  label="Installation *"
-                  value={formData.installation_id}
-                  onChange={(e) => setFormData({ ...formData, installation_id: e.target.value })}
-                  required
-                >
-                  <option value="">Select installation...</option>
-                  {installations.map((inst) => (
-                    <option key={inst.id} value={inst.id}>
-                      {inst.name} ({inst.country_code})
-                    </option>
-                  ))}
-                </Select>
-
                 <div className="relative">
                   <Input
                     label="CN Code *"
                     value={cnSearchQuery}
                     onChange={(e) => {
                       setCnSearchQuery(e.target.value);
+                      setFormData({ ...formData, cn_code: e.target.value });
                       searchCNCodes(e.target.value);
                     }}
                     onFocus={() => cnSearchResults.length > 0 && setShowCNDropdown(true)}
@@ -275,8 +351,22 @@ export function CBAMImports() {
                 <Input
                   label="Product Description"
                   value={formData.product_description}
-                  onChange={(e) => setFormData({ ...formData, product_description: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, product_description: e.target.value })
+                  }
                   placeholder="Optional description"
+                />
+
+                <Input
+                  label="Mass (kg) *"
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={formData.mass_kg || ''}
+                  onChange={(e) =>
+                    setFormData({ ...formData, mass_kg: parseFloat(e.target.value) || 0 })
+                  }
+                  required
                 />
 
                 <Input
@@ -287,14 +377,37 @@ export function CBAMImports() {
                   required
                 />
 
+                <Select
+                  label="Installation (optional)"
+                  value={formData.installation_id}
+                  onChange={(e) => setFormData({ ...formData, installation_id: e.target.value })}
+                >
+                  <option value="">No installation — enter origin country</option>
+                  {installations.map((inst) => (
+                    <option key={inst.id} value={inst.id}>
+                      {inst.name} ({inst.country_code})
+                    </option>
+                  ))}
+                </Select>
+
                 <Input
-                  label="Mass (tonnes) *"
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  value={formData.mass_tonnes || ''}
-                  onChange={(e) => setFormData({ ...formData, mass_tonnes: parseFloat(e.target.value) || 0 })}
-                  required
+                  label={formData.installation_id ? 'Origin Country (from installation)' : 'Origin Country *'}
+                  value={
+                    formData.installation_id
+                      ? installations.find((i) => i.id === formData.installation_id)
+                          ?.country_code || ''
+                      : formData.origin_country
+                  }
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      origin_country: e.target.value.toUpperCase().slice(0, 2),
+                    })
+                  }
+                  placeholder="ISO code, e.g. TR"
+                  maxLength={2}
+                  disabled={!!formData.installation_id}
+                  required={!formData.installation_id}
                 />
 
                 <Input
@@ -303,33 +416,30 @@ export function CBAMImports() {
                   step="0.001"
                   value={formData.actual_direct_see || ''}
                   onChange={(e) =>
-                    setFormData({ ...formData, actual_direct_see: parseFloat(e.target.value) || undefined })
+                    setFormData({
+                      ...formData,
+                      actual_direct_see: parseFloat(e.target.value) || undefined,
+                    })
                   }
                   placeholder="tCO2e/tonne"
                 />
 
                 <Input
-                  label="Actual Indirect SEE (optional)"
-                  type="number"
-                  step="0.001"
-                  value={formData.actual_indirect_see || ''}
-                  onChange={(e) =>
-                    setFormData({ ...formData, actual_indirect_see: parseFloat(e.target.value) || undefined })
-                  }
-                  placeholder="tCO2e/tonne"
-                />
-
-                <Input
-                  label="Foreign Carbon Price (EUR)"
+                  label="Carbon Price Paid (EUR, optional)"
                   type="number"
                   step="0.01"
                   value={formData.foreign_carbon_price_eur || ''}
                   onChange={(e) =>
-                    setFormData({ ...formData, foreign_carbon_price_eur: parseFloat(e.target.value) || undefined })
+                    setFormData({
+                      ...formData,
+                      foreign_carbon_price_eur: parseFloat(e.target.value) || undefined,
+                    })
                   }
                   placeholder="Price paid in origin country"
                 />
               </div>
+
+              {formError && <p className="text-sm text-error">{formError}</p>}
 
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="ghost" onClick={resetForm}>
@@ -352,26 +462,27 @@ export function CBAMImports() {
               <TableHead>Date</TableHead>
               <TableHead>CN Code</TableHead>
               <TableHead>Sector</TableHead>
-              <TableHead>Mass</TableHead>
-              <TableHead>SEE</TableHead>
+              <TableHead>Origin</TableHead>
+              <TableHead>Mass (kg)</TableHead>
               <TableHead>Emissions</TableHead>
               <TableHead>Method</TableHead>
+              <TableHead>Est. certificate cost</TableHead>
               <TableHead className="w-16">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
+                <TableCell colSpan={9} className="text-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
                 </TableCell>
               </TableRow>
             ) : imports.length === 0 ? (
               <TableEmpty
-                colSpan={8}
+                colSpan={9}
                 icon={<Package className="w-12 h-12" />}
                 title="No imports yet"
-                description="Record your first CBAM import to start tracking embedded emissions"
+                description="Record your first CBAM import to start tracking embedded emissions and certificate cost"
                 action={
                   <Button size="sm" onClick={() => setShowForm(true)}>
                     Add Import
@@ -379,61 +490,85 @@ export function CBAMImports() {
                 }
               />
             ) : (
-              imports.map((imp) => (
-                <TableRow key={imp.id}>
-                  <TableCell>{new Date(imp.import_date).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-mono text-sm">{imp.cn_code}</p>
-                      {imp.product_description && (
-                        <p className="text-xs text-foreground-muted truncate max-w-40">
-                          {imp.product_description}
-                        </p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" size="sm">
-                      {imp.sector.replace('_', ' ')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{imp.mass_tonnes.toFixed(3)} t</TableCell>
-                  <TableCell>
-                    <div className="text-xs">
-                      <p>D: {imp.direct_see.toFixed(3)}</p>
-                      <p>I: {imp.indirect_see.toFixed(3)}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{imp.total_emissions_tco2e.toFixed(3)} tCO2e</p>
-                      <p className="text-xs text-foreground-muted">
-                        D: {imp.direct_emissions_tco2e.toFixed(3)} / I: {imp.indirect_emissions_tco2e.toFixed(3)}
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={imp.calculation_method === 'actual' ? 'success' : 'secondary'}
-                      size="sm"
-                    >
-                      {CALCULATION_METHOD_LABELS[imp.calculation_method]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(imp.id)}>
-                      <Trash2 className="w-4 h-4 text-error" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
+              <>
+                {imports.map((imp) => {
+                  const cost = estimateCost(imp, screenDefaults);
+                  return (
+                    <TableRow key={imp.id}>
+                      <TableCell>{new Date(imp.import_date).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-mono text-sm">{imp.cn_code}</p>
+                          {imp.product_description && (
+                            <p className="text-xs text-foreground-muted truncate max-w-40">
+                              {imp.product_description}
+                            </p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" size="sm">
+                          {imp.sector.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{imp.origin_country || '—'}</TableCell>
+                      <TableCell>{imp.mass_kg.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{imp.total_emissions_tco2e.toFixed(3)} tCO2e</p>
+                          <p className="text-xs text-foreground-muted">
+                            D: {imp.direct_emissions_tco2e.toFixed(3)} / I:{' '}
+                            {imp.indirect_emissions_tco2e.toFixed(3)}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={imp.calculation_method === 'actual' ? 'success' : 'secondary'}
+                          size="sm"
+                        >
+                          {CALCULATION_METHOD_LABELS[imp.calculation_method]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {cost !== null ? (
+                          <span className="font-medium">{eur.format(cost)}</span>
+                        ) : (
+                          <span className="text-foreground-muted">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(imp.id)}>
+                          <Trash2 className="w-4 h-4 text-error" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {totalCost !== null && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="font-semibold">
+                      Total
+                    </TableCell>
+                    <TableCell className="font-semibold">
+                      {totalMassKg.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="font-semibold">
+                      {totalEmissions.toFixed(3)} tCO2e
+                    </TableCell>
+                    <TableCell />
+                    <TableCell className="font-semibold">{eur.format(totalCost)}</TableCell>
+                    <TableCell />
+                  </TableRow>
+                )}
+              </>
             )}
           </TableBody>
         </Table>
       </Card>
       <ConfirmDialog
         isOpen={confirmState.open}
-        onClose={() => setConfirmState(s => ({...s, open: false}))}
+        onClose={() => setConfirmState((s) => ({ ...s, open: false }))}
         onConfirm={confirmState.onConfirm}
         title={confirmState.title}
         message={confirmState.message}

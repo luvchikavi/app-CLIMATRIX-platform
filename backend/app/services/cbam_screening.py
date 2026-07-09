@@ -110,6 +110,65 @@ def _to_decimal(value: Union[Decimal, float, int, str]) -> Decimal:
     return value if isinstance(value, Decimal) else Decimal(str(value))
 
 
+def resolve_default_intensity(
+    cn_code_or_sector: str,
+    origin_country: Optional[str],
+    sector: Optional[str],
+    default_values: Optional[list[dict]] = None,
+) -> tuple[Optional[Decimal], str]:
+    """
+    Resolve the default emission intensity (tCO2e/t; tCO2e/MWh for
+    electricity) for one import line.
+
+    Preference order:
+    1. DB default value matching the longest CN-code prefix AND the origin
+       country (Commission definitive defaults are per CN x country).
+    2. DB default value matching the longest CN-code prefix with no country
+       (country-independent fallback row).
+    3. Hardcoded sector representative value (`SECTOR_DEFAULT_INTENSITY`).
+
+    `default_values` rows are plain dicts so the function stays pure and
+    testable: {"cn_code": str, "country_code": str | None,
+    "total_see": Decimal-like, "source": str}.
+
+    Returns (intensity, source_label); intensity is None when the line
+    cannot be resolved at all.
+    """
+    digits = "".join(ch for ch in (cn_code_or_sector or "") if ch.isdigit())
+    country = (origin_country or "").strip().upper()
+    country = country if len(country) == 2 else ""
+
+    best_with_country: Optional[tuple[int, dict]] = None
+    best_any_country: Optional[tuple[int, dict]] = None
+
+    if digits and default_values:
+        for row in default_values:
+            row_cn = "".join(ch for ch in str(row.get("cn_code") or "") if ch.isdigit())
+            if not row_cn or not digits.startswith(row_cn):
+                continue
+            row_country = (row.get("country_code") or "").strip().upper()
+            if row_country:
+                if country and row_country == country:
+                    if best_with_country is None or len(row_cn) > best_with_country[0]:
+                        best_with_country = (len(row_cn), row)
+            else:
+                if best_any_country is None or len(row_cn) > best_any_country[0]:
+                    best_any_country = (len(row_cn), row)
+
+    match = best_with_country or best_any_country
+    if match:
+        row = match[1]
+        return (
+            _to_decimal(row["total_see"]),
+            str(row.get("source") or "database default value"),
+        )
+
+    if sector:
+        return SECTOR_DEFAULT_INTENSITY[sector], "representative_v0"
+
+    return None, "unresolved"
+
+
 def _round(value: Decimal, places: str) -> float:
     return float(value.quantize(Decimal(places), rounding=ROUND_HALF_UP))
 
@@ -118,6 +177,7 @@ def screen_imports(
     items: list[dict],
     ets_price_eur: Union[Decimal, float],
     extra_assumptions: Optional[list[str]] = None,
+    default_values: Optional[list[dict]] = None,
 ) -> dict:
     """
     Screen a basket of annual import lines against the CBAM definitive regime.
@@ -125,6 +185,11 @@ def screen_imports(
     Each item: {"cn_code_or_sector": str, "mass_kg": number,
     "origin_country": str | None}. For electricity lines the quantity is
     interpreted as kWh (electricity has no meaningful net mass).
+
+    `default_values` (optional) is a list of DB default-value rows (see
+    `resolve_default_intensity`); when provided, per-CN x origin-country
+    values are preferred over the sector representative constants. The
+    function stays pure — callers load the rows and pass them in.
 
     Returns the screening verdict with per-line estimates and an explicit
     list of every simplifying assumption made.
@@ -151,6 +216,7 @@ def screen_imports(
     has_always_in_scope = False
     has_electricity = False
     has_unknown = False
+    intensity_sources_used: set[str] = set()
 
     for item, sector, mass_kg in resolved:
         counts_toward_threshold = sector in DE_MINIMIS_SECTORS
@@ -169,10 +235,17 @@ def screen_imports(
 
         emissions = Decimal("0")
         cost = Decimal("0")
+        intensity_source: Optional[str] = None
         if sector:
             if sector == "electricity":
                 has_electricity = True
-            intensity = SECTOR_DEFAULT_INTENSITY[sector]
+            intensity, intensity_source = resolve_default_intensity(
+                item.get("cn_code_or_sector") or "",
+                item.get("origin_country"),
+                sector,
+                default_values,
+            )
+            intensity_sources_used.add(intensity_source)
             # mass_kg / 1000 = tonnes (or, for electricity, kWh / 1000 = MWh).
             emissions = (
                 (mass_kg / Decimal("1000"))
@@ -193,6 +266,7 @@ def screen_imports(
                 "mass_kg": float(mass_kg),
                 "covered": covered,
                 "counts_toward_threshold": counts_toward_threshold,
+                "intensity_source": intensity_source,
                 "estimated_emissions_tco2e": _round(emissions, "0.001"),
                 "estimated_certificate_cost_eur": _round(cost, "0.01"),
             }
@@ -201,14 +275,27 @@ def screen_imports(
     # Exempt = under the 50 t threshold AND no goods that are always in scope.
     exempt = not over_threshold and not has_always_in_scope
 
+    non_representative = intensity_sources_used - {"representative_v0", "unresolved"}
+    if non_representative:
+        assumptions.append(
+            "Embedded emissions use default values from the reference "
+            f"database (sources: {', '.join(sorted(non_representative))}"
+            + (
+                "; representative sector fallbacks used for some lines"
+                if "representative_v0" in intensity_sources_used
+                else ""
+            )
+            + "), resolved per CN code and origin country where available."
+        )
+    else:
+        assumptions.append(
+            "Embedded emissions use conservative sector-level "
+            "representative default intensities (source: representative_v0; "
+            "load the Commission 13-Feb-2026 default values via "
+            "`load-cbam-defaults` for per-CN x country precision)."
+        )
     assumptions.extend(
         [
-            (
-                "Embedded emissions use conservative sector-level "
-                "representative default intensities (source: representative "
-                "default, Commission 13-Feb-2026 values to be loaded in "
-                "Phase 1b); origin country does not yet affect the estimate."
-            ),
             (
                 "The 2026 default-value markup of 10% is applied to every "
                 "estimate (rises to 20% in 2027 and 30% from 2028)."
