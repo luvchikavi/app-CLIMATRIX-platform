@@ -922,6 +922,72 @@ export interface CBAMImportCreate {
   foreign_carbon_price_currency?: string;
 }
 
+// =============================================================================
+// CBAM SUPPLIER PORTAL (Phase 3)
+// =============================================================================
+
+// One per-CN-code SEE row submitted by the supplier
+export interface CBAMSupplierEmissionRow {
+  id: string;
+  cn_code: string;
+  direct_see_tco2e_per_t: number;
+  indirect_see_tco2e_per_t: number | null;
+  production_period_start: string;
+  production_period_end: string;
+  verifier_name: string | null;
+  verified: boolean;
+}
+
+export type CBAMDataRequestStatus = 'pending' | 'submitted' | 'expired';
+
+// Supplier data request (importer side, org-scoped)
+export interface CBAMDataRequest {
+  id: string;
+  organization_id: string;
+  installation_id: string;
+  installation_name: string;
+  installation_country: string;
+  supplier_email: string;
+  token: string;
+  status: CBAMDataRequestStatus;
+  message: string | null;
+  created_at: string;
+  submitted_at: string | null;
+  expires_at: string;
+  supplier_portal_url: string;
+  rows: CBAMSupplierEmissionRow[];
+}
+
+export interface CBAMDataRequestCreate {
+  installation_id: string;
+  supplier_email: string;
+  message?: string;
+}
+
+// Public request context shown on the magic-link form (no auth)
+export interface CBAMSupplierRequestContext {
+  importer_org_name: string;
+  installation_name: string;
+  installation_country: string;
+  status: string;
+  message: string | null;
+  created_at: string;
+  submitted_at: string | null;
+  expires_at: string;
+  rows: CBAMSupplierEmissionRow[];
+}
+
+// Public submission row (POST /api/cbam/supplier-data/{token})
+export interface CBAMSupplierEmissionRowInput {
+  cn_code: string;
+  direct_see_tco2e_per_t: number;
+  indirect_see_tco2e_per_t?: number | null;
+  production_period_start: string;
+  production_period_end: string;
+  verifier_name?: string | null;
+  verified: boolean;
+}
+
 // Reference values for client-side certificate-cost estimates
 // (GET /api/cbam/screen-defaults)
 export interface CBAMScreenDefaults {

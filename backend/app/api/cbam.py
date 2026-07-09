@@ -11,20 +11,21 @@ Implements EU CBAM requirements for:
 - Public 50 t screening + EU ETS price reference
 """
 
-from datetime import date, datetime
+import secrets
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Optional, List
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, func
 
 from app.api.auth import get_current_user
 from app.config import settings
 from app.database import get_session
-from app.models.core import User
+from app.models.core import Organization, User
 from app.rate_limit import limiter
 from app.models.cbam import (
     CBAMInstallation,
@@ -33,12 +34,15 @@ from app.models.cbam import (
     CBAMQuarterlyReport,
     CBAMReportStatus,
     CBAMAnnualDeclaration,
+    CBAMDataRequest,
+    CBAMSupplierEmission,
     CBAMDefaultValue,
     EUETSPrice,
     CBAMSector,
     CBAMCalculationMethod,
 )
 from app.models.core import UserRole
+from app.services.email import email_service
 from app.services.cbam_calculator import CBAMCalculator
 from app.services.cbam_declaration import build_annual_declaration_draft
 from app.services.cbam_screening import (
@@ -209,7 +213,7 @@ class CBAMDeclarationLineResponse(BaseModel):
     product_description: Optional[str]
     origin_country: Optional[str]
     mass_tonnes: Decimal
-    intensity_source: str  # "actual" | "default"
+    intensity_source: str  # "actual" | "actual (supplier)" | "default"
     intensity_source_detail: str
     see_tco2e_per_tonne: Decimal
     markup_pct: Decimal
@@ -225,6 +229,8 @@ class CBAMDataQualitySummary(BaseModel):
 
     total_lines: int
     actual_lines: int
+    # Of the actual lines, how many come from supplier-portal submissions
+    supplier_lines: int = 0
     default_lines: int
     default_share_pct: float
     lines_without_db_default: int
@@ -307,6 +313,79 @@ class ETSPriceResponse(BaseModel):
     source: str
     is_fallback: bool
     assumption: Optional[str] = None
+
+
+# Supplier portal (Phase 3) schemas
+class CBAMDataRequestCreate(BaseModel):
+    """Create a supplier data request (magic-link email)."""
+
+    installation_id: str
+    supplier_email: EmailStr
+    message: Optional[str] = Field(default=None, max_length=2000)
+
+
+class CBAMSupplierEmissionRowInput(BaseModel):
+    """One per-CN-code SEE row submitted by the supplier."""
+
+    cn_code: str = Field(..., min_length=4, max_length=10)
+    direct_see_tco2e_per_t: Decimal = Field(..., ge=0)
+    indirect_see_tco2e_per_t: Optional[Decimal] = Field(default=None, ge=0)
+    production_period_start: date
+    production_period_end: date
+    verifier_name: Optional[str] = Field(default=None, max_length=255)
+    verified: bool = False
+
+
+class CBAMSupplierSubmission(BaseModel):
+    """Public submission payload (replaces any previously submitted rows)."""
+
+    rows: List[CBAMSupplierEmissionRowInput] = Field(..., min_length=1, max_length=100)
+
+
+class CBAMSupplierEmissionRowResponse(BaseModel):
+    """A stored supplier emission row."""
+
+    id: str
+    cn_code: str
+    direct_see_tco2e_per_t: Decimal
+    indirect_see_tco2e_per_t: Optional[Decimal]
+    production_period_start: date
+    production_period_end: date
+    verifier_name: Optional[str]
+    verified: bool
+
+
+class CBAMDataRequestResponse(BaseModel):
+    """Supplier data request (importer side, org-scoped)."""
+
+    id: str
+    organization_id: str
+    installation_id: str
+    installation_name: str
+    installation_country: str
+    supplier_email: str
+    token: str
+    status: str  # pending | submitted | expired
+    message: Optional[str]
+    created_at: datetime
+    submitted_at: Optional[datetime]
+    expires_at: datetime
+    supplier_portal_url: str
+    rows: List[CBAMSupplierEmissionRowResponse]
+
+
+class CBAMSupplierRequestContext(BaseModel):
+    """Public request context shown to the supplier (no auth)."""
+
+    importer_org_name: str
+    installation_name: str
+    installation_country: str
+    status: str
+    message: Optional[str]
+    created_at: datetime
+    submitted_at: Optional[datetime]
+    expires_at: datetime
+    rows: List[CBAMSupplierEmissionRowResponse]
 
 
 # ============================================================================
@@ -549,6 +628,342 @@ async def delete_installation(
     await session.commit()
 
     return {"message": "Installation deleted successfully"}
+
+
+# ============================================================================
+# Supplier Data Requests (Phase 3 — supplier portal)
+# ============================================================================
+
+
+def _supplier_portal_url(token: str) -> str:
+    """Public magic-link URL the supplier opens (no account needed)."""
+    # Other transactional emails build links from settings.frontend_url
+    # (e.g. password reset / invitations) — same base here.
+    return f"{settings.frontend_url}/supplier-data/{token}"
+
+
+def _supplier_rows_to_response(
+    rows: list[CBAMSupplierEmission],
+) -> list[CBAMSupplierEmissionRowResponse]:
+    return [
+        CBAMSupplierEmissionRowResponse(
+            id=str(r.id),
+            cn_code=r.cn_code,
+            direct_see_tco2e_per_t=r.direct_see_tco2e_per_t,
+            indirect_see_tco2e_per_t=r.indirect_see_tco2e_per_t,
+            production_period_start=r.production_period_start,
+            production_period_end=r.production_period_end,
+            verifier_name=r.verifier_name,
+            verified=r.verified,
+        )
+        for r in rows
+    ]
+
+
+def _effective_request_status(req: CBAMDataRequest) -> str:
+    """Pending requests past their expiry read as expired (lazy expiry)."""
+    if req.status == "pending" and req.expires_at < datetime.utcnow():
+        return "expired"
+    return req.status
+
+
+async def _load_request_rows(
+    session: AsyncSession, request_id: UUID
+) -> list[CBAMSupplierEmission]:
+    result = await session.execute(
+        select(CBAMSupplierEmission)
+        .where(CBAMSupplierEmission.request_id == request_id)
+        .order_by(CBAMSupplierEmission.cn_code)
+    )
+    return list(result.scalars().all())
+
+
+async def _data_request_to_response(
+    session: AsyncSession, req: CBAMDataRequest, installation: CBAMInstallation
+) -> CBAMDataRequestResponse:
+    rows = await _load_request_rows(session, req.id)
+    return CBAMDataRequestResponse(
+        id=str(req.id),
+        organization_id=str(req.organization_id),
+        installation_id=str(req.installation_id),
+        installation_name=installation.name,
+        installation_country=installation.country_code,
+        supplier_email=req.supplier_email,
+        token=req.token,
+        status=_effective_request_status(req),
+        message=req.message,
+        created_at=req.created_at,
+        submitted_at=req.submitted_at,
+        expires_at=req.expires_at,
+        supplier_portal_url=_supplier_portal_url(req.token),
+        rows=_supplier_rows_to_response(rows),
+    )
+
+
+async def _get_org_data_request(
+    session: AsyncSession, request_id: UUID, organization_id: UUID
+) -> tuple[CBAMDataRequest, CBAMInstallation]:
+    result = await session.execute(
+        select(CBAMDataRequest, CBAMInstallation)
+        .join(CBAMInstallation, CBAMInstallation.id == CBAMDataRequest.installation_id)
+        .where(
+            CBAMDataRequest.id == request_id,
+            CBAMDataRequest.organization_id == organization_id,
+        )
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Data request not found")
+    return row[0], row[1]
+
+
+@router.post("/data-requests", response_model=CBAMDataRequestResponse)
+async def create_data_request(
+    data: CBAMDataRequestCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Request actual embedded-emissions data from a supplier.
+
+    Creates a tokenized magic-link request for one installation and emails
+    the supplier a public form URL ({frontend}/supplier-data/{token}, valid
+    60 days, no account needed).
+    """
+    result = await session.execute(
+        select(CBAMInstallation).where(
+            CBAMInstallation.id == UUID(data.installation_id),
+            CBAMInstallation.organization_id == current_user.organization_id,
+        )
+    )
+    installation = result.scalar_one_or_none()
+    if not installation:
+        raise HTTPException(status_code=404, detail="Installation not found")
+
+    org_result = await session.execute(
+        select(Organization).where(Organization.id == current_user.organization_id)
+    )
+    org = org_result.scalar_one_or_none()
+    org_name = org.name if org else "An EU importer"
+
+    req = CBAMDataRequest(
+        id=uuid4(),
+        organization_id=current_user.organization_id,
+        installation_id=installation.id,
+        supplier_email=data.supplier_email.lower(),
+        token=secrets.token_urlsafe(32),
+        status="pending",
+        requested_by=current_user.id,
+        message=data.message,
+        expires_at=datetime.utcnow() + timedelta(days=60),
+    )
+    session.add(req)
+    await session.commit()
+    await session.refresh(req)
+
+    email_service.send_cbam_data_request_email(
+        to_email=req.supplier_email,
+        importer_org_name=org_name,
+        installation_name=installation.name,
+        portal_url=_supplier_portal_url(req.token),
+        message=req.message,
+    )
+
+    return await _data_request_to_response(session, req, installation)
+
+
+@router.get("/data-requests", response_model=List[CBAMDataRequestResponse])
+async def list_data_requests(
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    status: Optional[str] = None,
+    installation_id: Optional[UUID] = None,
+):
+    """List the organization's supplier data requests (newest first)."""
+    query = (
+        select(CBAMDataRequest, CBAMInstallation)
+        .join(CBAMInstallation, CBAMInstallation.id == CBAMDataRequest.installation_id)
+        .where(CBAMDataRequest.organization_id == current_user.organization_id)
+    )
+    if installation_id:
+        query = query.where(CBAMDataRequest.installation_id == installation_id)
+
+    result = await session.execute(query.order_by(CBAMDataRequest.created_at.desc()))
+    pairs = result.all()
+
+    responses = [
+        await _data_request_to_response(session, req, inst) for req, inst in pairs
+    ]
+    if status:
+        responses = [r for r in responses if r.status == status.strip().lower()]
+    return responses
+
+
+@router.post(
+    "/data-requests/{request_id}/remind", response_model=CBAMDataRequestResponse
+)
+async def remind_data_request(
+    request_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Re-send the data-request email to the supplier (pending requests only)."""
+    req, installation = await _get_org_data_request(
+        session, request_id, current_user.organization_id
+    )
+
+    effective = _effective_request_status(req)
+    if effective != "pending":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot remind a {effective} request — only pending ones",
+        )
+
+    org_result = await session.execute(
+        select(Organization).where(Organization.id == current_user.organization_id)
+    )
+    org = org_result.scalar_one_or_none()
+
+    email_service.send_cbam_data_request_email(
+        to_email=req.supplier_email,
+        importer_org_name=org.name if org else "An EU importer",
+        installation_name=installation.name,
+        portal_url=_supplier_portal_url(req.token),
+        message=req.message,
+        is_reminder=True,
+    )
+
+    return await _data_request_to_response(session, req, installation)
+
+
+async def _get_public_request(
+    session: AsyncSession, token: str
+) -> tuple[CBAMDataRequest, CBAMInstallation, Organization]:
+    """Resolve a magic-link token; 404 unknown, 410 expired (lazily marked)."""
+    result = await session.execute(
+        select(CBAMDataRequest, CBAMInstallation, Organization)
+        .join(CBAMInstallation, CBAMInstallation.id == CBAMDataRequest.installation_id)
+        .join(Organization, Organization.id == CBAMDataRequest.organization_id)
+        .where(CBAMDataRequest.token == token)
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Unknown or revoked link")
+
+    req, installation, org = row[0], row[1], row[2]
+    if _effective_request_status(req) == "expired":
+        if req.status != "expired":
+            req.status = "expired"
+            await session.commit()
+        raise HTTPException(
+            status_code=410,
+            detail=(
+                "This data request has expired. Ask the importer to send "
+                "a new request."
+            ),
+        )
+    return req, installation, org
+
+
+@router.get("/supplier-data/{token}", response_model=CBAMSupplierRequestContext)
+@limiter.limit(settings.rate_limit_default)
+async def get_supplier_data_request(
+    request: Request,
+    token: str,
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+):
+    """
+    PUBLIC: context for the supplier magic-link form (no auth, rate-limited).
+
+    Shows who is asking (importer org), which installation the data is for,
+    the request status and any rows already submitted (for revision).
+    """
+    req, installation, org = await _get_public_request(session, token)
+    rows = await _load_request_rows(session, req.id)
+
+    return CBAMSupplierRequestContext(
+        importer_org_name=org.name,
+        installation_name=installation.name,
+        installation_country=installation.country_code,
+        status=req.status,
+        message=req.message,
+        created_at=req.created_at,
+        submitted_at=req.submitted_at,
+        expires_at=req.expires_at,
+        rows=_supplier_rows_to_response(rows),
+    )
+
+
+@router.post("/supplier-data/{token}", response_model=CBAMSupplierRequestContext)
+@limiter.limit(settings.rate_limit_default)
+async def submit_supplier_data(
+    request: Request,
+    token: str,
+    payload: CBAMSupplierSubmission,
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+):
+    """
+    PUBLIC: submit per-CN-code actual emissions rows (no auth, rate-limited).
+
+    Idempotent: re-submission replaces the previously submitted rows while
+    the request is not expired. Marks the request `submitted`.
+    """
+    req, installation, org = await _get_public_request(session, token)
+
+    for row in payload.rows:
+        if row.production_period_end < row.production_period_start:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Row for CN {row.cn_code}: production period end is "
+                    "before its start"
+                ),
+            )
+        if not any(ch.isdigit() for ch in row.cn_code):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Row CN code '{row.cn_code}' must contain digits",
+            )
+
+    # Replace previously submitted rows wholesale (idempotent re-submission).
+    existing = await _load_request_rows(session, req.id)
+    for old in existing:
+        await session.delete(old)
+
+    for row in payload.rows:
+        session.add(
+            CBAMSupplierEmission(
+                id=uuid4(),
+                request_id=req.id,
+                organization_id=req.organization_id,
+                installation_id=req.installation_id,
+                cn_code=row.cn_code.strip(),
+                direct_see_tco2e_per_t=row.direct_see_tco2e_per_t,
+                indirect_see_tco2e_per_t=row.indirect_see_tco2e_per_t,
+                production_period_start=row.production_period_start,
+                production_period_end=row.production_period_end,
+                verifier_name=row.verifier_name,
+                verified=row.verified,
+            )
+        )
+
+    req.status = "submitted"
+    req.submitted_at = datetime.utcnow()
+    await session.commit()
+    await session.refresh(req)
+
+    rows = await _load_request_rows(session, req.id)
+    return CBAMSupplierRequestContext(
+        importer_org_name=org.name,
+        installation_name=installation.name,
+        installation_country=installation.country_code,
+        status=req.status,
+        message=req.message,
+        created_at=req.created_at,
+        submitted_at=req.submitted_at,
+        expires_at=req.expires_at,
+        rows=_supplier_rows_to_response(rows),
+    )
 
 
 # ============================================================================
@@ -1142,8 +1557,8 @@ def declaration_to_response(
 
 async def _load_declaration_inputs(
     session: AsyncSession, organization_id: UUID, year: int
-) -> tuple[list[CBAMImport], list[dict]]:
-    """Load the year's imports and the active default-value rows."""
+) -> tuple[list[CBAMImport], list[dict], list[dict]]:
+    """Load the year's imports, active default values and supplier actuals."""
     imports_result = await session.execute(
         select(CBAMImport)
         .where(
@@ -1166,7 +1581,30 @@ async def _load_declaration_inputs(
         }
         for dv in dv_result.scalars().all()
     ]
-    return imports, default_values
+
+    # Supplier-portal actuals (submitted magic-link rows) — preferred over
+    # defaults when matching an import's installation + CN prefix. Rows only
+    # exist after submission, so no status filter is needed.
+    se_result = await session.execute(
+        select(CBAMSupplierEmission, CBAMInstallation.name)
+        .join(
+            CBAMInstallation,
+            CBAMInstallation.id == CBAMSupplierEmission.installation_id,
+        )
+        .where(CBAMSupplierEmission.organization_id == organization_id)
+    )
+    supplier_emissions = [
+        {
+            "installation_id": str(se.installation_id),
+            "installation_name": name,
+            "cn_code": se.cn_code,
+            "direct_see": se.direct_see_tco2e_per_t,
+            "indirect_see": se.indirect_see_tco2e_per_t,
+            "verified": se.verified,
+        }
+        for se, name in se_result.all()
+    ]
+    return imports, default_values, supplier_emissions
 
 
 async def _latest_ets_price(session: AsyncSession) -> tuple[Decimal, str]:
@@ -1255,7 +1693,7 @@ async def generate_annual_declaration(
             status_code=400, detail="Cannot regenerate a submitted declaration"
         )
 
-    imports, default_values = await _load_declaration_inputs(
+    imports, default_values, supplier_emissions = await _load_declaration_inputs(
         session, current_user.organization_id, year
     )
     ets_price, ets_assumption = await _latest_ets_price(session)
@@ -1266,6 +1704,7 @@ async def generate_annual_declaration(
         ets_price_eur=ets_price,
         default_values=default_values or None,
         extra_assumptions=[ets_assumption],
+        supplier_emissions=supplier_emissions or None,
     )
     totals = draft["totals"]
 
@@ -1337,7 +1776,7 @@ async def get_annual_declaration(
             ),
         )
 
-    imports, default_values = await _load_declaration_inputs(
+    imports, default_values, supplier_emissions = await _load_declaration_inputs(
         session, current_user.organization_id, year
     )
     ets_price = declaration.average_certificate_price_eur
@@ -1355,6 +1794,7 @@ async def get_annual_declaration(
         ets_price_eur=ets_price,
         default_values=default_values or None,
         extra_assumptions=[ets_assumption],
+        supplier_emissions=supplier_emissions or None,
     )
 
     return _declaration_detail_response(
@@ -1444,7 +1884,7 @@ async def export_annual_declaration_csv(
             ),
         )
 
-    imports, default_values = await _load_declaration_inputs(
+    imports, default_values, supplier_emissions = await _load_declaration_inputs(
         session, current_user.organization_id, year
     )
     ets_price = declaration.average_certificate_price_eur
@@ -1456,6 +1896,7 @@ async def export_annual_declaration_csv(
         year,
         ets_price_eur=ets_price,
         default_values=default_values or None,
+        supplier_emissions=supplier_emissions or None,
     )
 
     exporter = CBAMCSVExporter()

@@ -10,6 +10,7 @@ import {
   CBAMReports,
   CBAMCalculator,
   CBAMAnnualDeclaration,
+  CBAMSuppliers,
 } from '@/components/cbam';
 import {
   LayoutDashboard,
@@ -20,12 +21,14 @@ import {
   Calculator,
   Scale,
   ExternalLink,
+  Mail,
 } from 'lucide-react';
 
 type CBAMView =
   | 'dashboard'
   | 'installations'
   | 'imports'
+  | 'suppliers'
   | 'declaration'
   | 'reports'
   | 'calculator';
@@ -34,6 +37,7 @@ const NAV_ITEMS: { id: CBAMView; label: string; icon: typeof LayoutDashboard }[]
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'installations', label: 'Installations', icon: Factory },
   { id: 'imports', label: 'Imports register', icon: Package },
+  { id: 'suppliers', label: 'Suppliers', icon: Mail },
   { id: 'declaration', label: 'Annual declaration', icon: FileCheck },
   { id: 'reports', label: 'Quarterly history', icon: FileText },
   { id: 'calculator', label: 'Calculator', icon: Calculator },
@@ -50,6 +54,8 @@ export default function CBAMModulePage() {
         return <CBAMInstallations />;
       case 'imports':
         return <CBAMImports />;
+      case 'suppliers':
+        return <CBAMSuppliers />;
       case 'declaration':
         return <CBAMAnnualDeclaration />;
       case 'reports':

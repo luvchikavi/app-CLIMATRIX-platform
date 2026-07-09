@@ -2004,6 +2004,53 @@ class ApiClient {
     return this.fetch<CBAMScreenDefaults>('/cbam/screen-defaults');
   }
 
+  // CBAM supplier portal (Phase 3) — importer side
+  async getCBAMDataRequests(filters?: {
+    status?: string;
+    installation_id?: string;
+  }): Promise<CBAMDataRequest[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.installation_id) params.append('installation_id', filters.installation_id);
+    const query = params.toString() ? `?${params}` : '';
+    return this.fetch<CBAMDataRequest[]>(`/cbam/data-requests${query}`);
+  }
+
+  async createCBAMDataRequest(data: CBAMDataRequestCreate): Promise<CBAMDataRequest> {
+    return this.fetch<CBAMDataRequest>('/cbam/data-requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async remindCBAMDataRequest(requestId: string): Promise<CBAMDataRequest> {
+    return this.fetch<CBAMDataRequest>(`/cbam/data-requests/${requestId}/remind`, {
+      method: 'POST',
+    });
+  }
+
+  // CBAM supplier portal — PUBLIC magic-link endpoints (no auth). These use
+  // raw fetch and throw PublicApiError so the page can tell 404 from 410.
+  async getCBAMSupplierRequest(token: string): Promise<CBAMSupplierRequestContext> {
+    return publicJsonFetch<CBAMSupplierRequestContext>(
+      `${API_BASE}/cbam/supplier-data/${encodeURIComponent(token)}`
+    );
+  }
+
+  async submitCBAMSupplierData(
+    token: string,
+    rows: CBAMSupplierEmissionRowInput[]
+  ): Promise<CBAMSupplierRequestContext> {
+    return publicJsonFetch<CBAMSupplierRequestContext>(
+      `${API_BASE}/cbam/supplier-data/${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows }),
+      }
+    );
+  }
+
   // CBAM CN Code Search
   async searchCBAMCNCodes(
     query: string,
@@ -2454,7 +2501,34 @@ import type {
   CBAMDashboard,
   CBAMQuarterlyReportEUFormat,
   CBAMScreenDefaults,
+  CBAMDataRequest,
+  CBAMDataRequestCreate,
+  CBAMSupplierRequestContext,
+  CBAMSupplierEmissionRowInput,
 } from './types';
+
+// Error for public (no-auth) endpoints that keeps the HTTP status so pages
+// can distinguish 404 (unknown link) from 410 (expired link).
+export class PublicApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'PublicApiError';
+    this.status = status;
+  }
+}
+
+async function publicJsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, init);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    const message =
+      typeof error.detail === 'string' ? error.detail : `Request failed (${response.status})`;
+    throw new PublicApiError(response.status, message);
+  }
+  return response.json();
+}
 
 // CBAM Public Screening Types (POST /cbam/screen)
 export interface CBAMScreenItemInput {

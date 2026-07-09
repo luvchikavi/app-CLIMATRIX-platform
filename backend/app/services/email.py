@@ -295,6 +295,102 @@ class EmailService:
 
         return self.send_email(to_email, subject, html_content, text_content)
 
+    def send_cbam_data_request_email(
+        self,
+        to_email: str,
+        importer_org_name: str,
+        installation_name: str,
+        portal_url: str,
+        message: Optional[str] = None,
+        is_reminder: bool = False,
+    ) -> bool:
+        """
+        Send (or re-send) a CBAM embedded-emissions data request to a
+        non-EU supplier / installation operator.
+
+        The link is a public magic-link form — the supplier needs no
+        CLIMATRIX account.
+        """
+        prefix = "Reminder: " if is_reminder else ""
+        subject = (
+            f"{prefix}{importer_org_name} requests CBAM embedded-emissions "
+            f"data for {installation_name}"
+        )
+
+        message_html = (
+            f"<p style='padding: 12px; background: #eef2f7; border-radius: 6px;'>"
+            f"Message from {importer_org_name}: {message}</p>"
+            if message
+            else ""
+        )
+        message_text = (
+            f"\nMessage from {importer_org_name}: {message}\n" if message else ""
+        )
+
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: #10b981; color: white; padding: 20px; text-align: center; }}
+                .content {{ padding: 20px; background: #f9fafb; }}
+                .button {{ display: inline-block; background: #10b981; color: white; padding: 12px 24px;
+                          text-decoration: none; border-radius: 6px; margin: 20px 0; }}
+                .footer {{ padding: 20px; text-align: center; color: #666; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>CLIMATRIX</h1>
+                </div>
+                <div class="content">
+                    <h2>CBAM emissions data request</h2>
+                    <p>Hello,</p>
+                    <p><strong>{importer_org_name}</strong>, an EU importer of goods produced at
+                       <strong>{installation_name}</strong>, requests the actual embedded-emissions
+                       data (specific embedded emissions per CN code) for that installation under
+                       the EU Carbon Border Adjustment Mechanism (Regulation (EU) 2023/956).</p>
+                    <p>Providing actual installation data lets the importer replace penalised
+                       default values in their CBAM declaration.</p>
+                    {message_html}
+                    <p style="text-align: center;">
+                        <a href="{portal_url}" class="button">Provide emissions data</a>
+                    </p>
+                    <p>No account is needed — the secure link above opens a short form.
+                       The link expires 60 days after the request was created.</p>
+                    <p>Best regards,<br>The CLIMATRIX Team on behalf of {importer_org_name}</p>
+                </div>
+                <div class="footer">
+                    <p>This is an automated message from CLIMATRIX. Please do not reply to this email.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        text_content = f"""
+        CBAM emissions data request
+
+        Hello,
+
+        {importer_org_name}, an EU importer of goods produced at {installation_name},
+        requests the actual embedded-emissions data (specific embedded emissions per
+        CN code) for that installation under the EU Carbon Border Adjustment
+        Mechanism (Regulation (EU) 2023/956).
+        {message_text}
+        Provide the data here (no account needed): {portal_url}
+
+        The link expires 60 days after the request was created.
+
+        Best regards,
+        The CLIMATRIX Team on behalf of {importer_org_name}
+        """
+
+        return self.send_email(to_email, subject, html_content, text_content)
+
 
 # Singleton instance
 email_service = EmailService()

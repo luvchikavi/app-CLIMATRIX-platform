@@ -9,7 +9,7 @@ Phases:
 - Definitive (2026+): Annual declarations with certificate purchase
 """
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 from enum import Enum
 from typing import Optional, List, TYPE_CHECKING
@@ -402,6 +402,76 @@ class CBAMAnnualDeclaration(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default=None)
     submitted_by: Optional[UUID] = Field(default=None, foreign_key="users.id")
+
+
+# ============================================================================
+# CBAM SUPPLIER DATA REQUESTS (Phase 3 — supplier portal)
+# ============================================================================
+
+
+def _data_request_default_expiry() -> datetime:
+    """Supplier data requests expire 60 days after creation by default."""
+    return datetime.utcnow() + timedelta(days=60)
+
+
+class CBAMDataRequest(SQLModel, table=True):
+    """
+    A tokenized request for actual embedded-emissions data, sent by an EU
+    importer to the operator of a non-EU installation.
+
+    The supplier opens a public magic link ({frontend}/supplier-data/{token},
+    no account needed) and submits per-CN-code specific embedded emissions
+    (SEE). Submitted rows live in CBAMSupplierEmission and are preferred
+    over Commission default values when building the annual declaration.
+
+    `status` is a plain varchar (pending / submitted / expired) — no native
+    PG enum, per the existing prod rule.
+    """
+
+    __tablename__ = "cbam_data_requests"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+    installation_id: UUID = Field(foreign_key="cbam_installations.id", index=True)
+
+    supplier_email: str = Field(max_length=255)
+    token: str = Field(max_length=64, unique=True, index=True)
+    status: str = Field(default="pending", max_length=20)  # pending/submitted/expired
+
+    requested_by: Optional[UUID] = Field(default=None, foreign_key="users.id")
+    message: Optional[str] = Field(default=None, max_length=2000)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    submitted_at: Optional[datetime] = Field(default=None)
+    expires_at: datetime = Field(default_factory=_data_request_default_expiry)
+
+
+class CBAMSupplierEmission(SQLModel, table=True):
+    """
+    One per-CN-code actual-emissions row submitted by a supplier via a
+    CBAMDataRequest magic link.
+
+    Kept as a separate table (not JSON on the request) so the annual
+    declaration builder can match rows by installation + CN-code prefix.
+    Re-submission replaces the request's rows wholesale.
+    """
+
+    __tablename__ = "cbam_supplier_emissions"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    request_id: UUID = Field(foreign_key="cbam_data_requests.id", index=True)
+    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+    installation_id: UUID = Field(foreign_key="cbam_installations.id", index=True)
+
+    cn_code: str = Field(max_length=10, index=True)
+    direct_see_tco2e_per_t: Decimal = Field()
+    indirect_see_tco2e_per_t: Optional[Decimal] = Field(default=None)
+    production_period_start: date = Field()
+    production_period_end: date = Field()
+    verifier_name: Optional[str] = Field(default=None, max_length=255)
+    verified: bool = Field(default=False)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 # ============================================================================
