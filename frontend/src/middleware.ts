@@ -28,9 +28,12 @@ const PUBLIC_PATHS = new Set([
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public routes, static assets, and API calls
+  // Allow public routes, static assets, and API calls.
+  // /supplier-data/{token} is the public CBAM supplier magic-link form —
+  // suppliers have no account, so it must never redirect to login.
   if (
     PUBLIC_PATHS.has(pathname) ||
+    pathname.startsWith('/supplier-data/') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
     pathname.includes('.')

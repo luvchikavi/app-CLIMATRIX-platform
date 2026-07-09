@@ -3,11 +3,14 @@ CBAM annual declaration draft builder (definitive regime, 2026+).
 
 Builds a complete declaration draft from the imports register:
 
-- Per-line embedded emissions: lines with actual installation data keep the
-  values recorded on the import; default-value lines are re-resolved against
-  the Commission default values stored in the DB (per CN code x origin
-  country) and carry the Omnibus year markup (10% 2026, 20% 2027, 30% from
-  2028 — Reg. (EU) 2025/2083).
+- Per-line embedded emissions: supplier-submitted actual data (Phase 3
+  supplier portal) is preferred first — when a submitted supplier emission
+  row matches the import's installation and CN-code prefix, its SEE is used
+  with NO markup (intensity_source='actual (supplier)'). Otherwise lines
+  with actual installation data keep the values recorded on the import;
+  default-value lines are re-resolved against the Commission default values
+  stored in the DB (per CN code x origin country) and carry the Omnibus
+  year markup (10% 2026, 20% 2027, 30% from 2028 — Reg. (EU) 2025/2083).
 - Carbon-price-paid deductions summed from the import lines (the
   `carbon_price_paid_eur` field, EUR/tCO2e), capped at the CBAM cost.
 - Certificates to surrender: 1 certificate = 1 tCO2e, rounded up to a whole
@@ -74,6 +77,46 @@ def _new_sector_bucket() -> dict:
     }
 
 
+def _match_supplier_emission(
+    imp: CBAMImport, supplier_emissions: Optional[list[dict]]
+) -> Optional[dict]:
+    """
+    Find the best supplier-submitted emission row for an import line.
+
+    A row matches when it belongs to the import's installation and its CN
+    code is a digit-prefix of the import's CN code (Commission CN codes nest
+    by prefix). The longest matching prefix wins; verified rows win ties.
+
+    Rows are plain dicts so the module stays pure:
+    {"installation_id": str, "cn_code": str, "direct_see": Decimal-like,
+     "indirect_see": Decimal-like | None, "installation_name": str,
+     "verified": bool}.
+    """
+    if not supplier_emissions or not imp.installation_id:
+        return None
+
+    imp_digits = "".join(ch for ch in (imp.cn_code or "") if ch.isdigit())
+    if not imp_digits:
+        return None
+
+    best: Optional[tuple[int, int, dict]] = None  # (prefix_len, verified, row)
+    for row in supplier_emissions:
+        if str(row.get("installation_id")) != str(imp.installation_id):
+            continue
+        row_digits = "".join(ch for ch in str(row.get("cn_code") or "") if ch.isdigit())
+        if not row_digits or not imp_digits.startswith(row_digits):
+            continue
+        key = (len(row_digits), 1 if row.get("verified") else 0)
+        if best is None or key > (best[0], best[1]):
+            best = (key[0], key[1], row)
+
+    return best[2] if best else None
+
+
+def _to_decimal(value) -> Decimal:
+    return value if isinstance(value, Decimal) else Decimal(str(value))
+
+
 def _new_cn_bucket() -> dict:
     return {
         "import_count": 0,
@@ -91,6 +134,7 @@ def build_annual_declaration_draft(
     ets_price_eur: Decimal,
     default_values: Optional[list[dict]] = None,
     extra_assumptions: Optional[list[str]] = None,
+    supplier_emissions: Optional[list[dict]] = None,
 ) -> dict:
     """
     Build the annual declaration draft package for one org-year.
@@ -98,6 +142,11 @@ def build_annual_declaration_draft(
     `default_values` rows are plain dicts (see
     `cbam_screening.resolve_default_intensity`): {"cn_code", "country_code",
     "total_see", "source"}.
+
+    `supplier_emissions` rows are the submitted supplier-portal actuals (see
+    `_match_supplier_emission`); when one matches an import's installation +
+    CN prefix it is preferred over both the import-time values and the DB
+    defaults, with no markup.
 
     Returns totals, per-sector and per-CN breakdowns, per-line detail with
     intensity provenance, a data-quality summary and the assumptions list.
@@ -117,15 +166,39 @@ def build_annual_declaration_draft(
 
     actual_lines = 0
     default_lines = 0
+    supplier_lines = 0
     lines_without_db_default = 0
 
     for imp in imports:
         mass = imp.net_mass_tonnes or Decimal("0")
         method = _enum_value(imp.calculation_method) or "default"
         sector = _enum_value(imp.sector) or "unknown"
-        is_actual = method == "actual"
 
-        if is_actual:
+        supplier_row = _match_supplier_emission(imp, supplier_emissions)
+        is_actual = method == "actual" or supplier_row is not None
+
+        if supplier_row is not None:
+            # Supplier-submitted actuals win over both import-time values
+            # and DB defaults — and carry NO default-value markup.
+            actual_lines += 1
+            supplier_lines += 1
+            direct = _to_decimal(supplier_row.get("direct_see") or 0)
+            indirect = _to_decimal(supplier_row.get("indirect_see") or 0)
+            see = direct + indirect
+            emissions = see * mass
+            line_markup = Decimal("0")
+            installation_name = (
+                supplier_row.get("installation_name") or "unnamed installation"
+            )
+            verified_note = (
+                "verified" if supplier_row.get("verified") else "not verified"
+            )
+            source_detail = (
+                "actual (supplier): supplier-submitted data for installation "
+                f"'{installation_name}' (CN {supplier_row.get('cn_code')}, "
+                f"{verified_note})"
+            )
+        elif is_actual:
             actual_lines += 1
             emissions = imp.total_embedded_emissions_tco2e or Decimal("0")
             see = (emissions / mass) if mass > 0 else Decimal("0")
@@ -173,7 +246,11 @@ def build_annual_declaration_draft(
                 "product_description": imp.product_description,
                 "origin_country": imp.origin_country,
                 "mass_tonnes": _q3(mass),
-                "intensity_source": "actual" if is_actual else "default",
+                "intensity_source": (
+                    "actual (supplier)"
+                    if supplier_row is not None
+                    else ("actual" if is_actual else "default")
+                ),
                 "intensity_source_detail": source_detail,
                 "see_tco2e_per_tonne": _q3(see),
                 "markup_pct": _q2(line_markup * 100),
@@ -240,6 +317,15 @@ def build_annual_declaration_draft(
         "(Omnibus, Reg. (EU) 2025/2083: 10% in 2026, 20% in 2027, 30% from "
         "2028); lines with actual installation data carry no markup."
     )
+    if supplier_lines:
+        assumptions.append(
+            f"{supplier_lines} line(s) use actual embedded-emissions data "
+            "submitted by the installation operator via the supplier portal "
+            "(matched on installation + CN-code prefix); these lines carry "
+            "no default-value markup and take precedence over import-time "
+            "values and Commission defaults. Verification status is shown "
+            "per line."
+        )
     if lines_without_db_default:
         assumptions.append(
             f"{lines_without_db_default} default-value line(s) have no "
@@ -281,6 +367,7 @@ def build_annual_declaration_draft(
         "data_quality": {
             "total_lines": total_lines,
             "actual_lines": actual_lines,
+            "supplier_lines": supplier_lines,
             "default_lines": default_lines,
             "default_share_pct": default_share_pct,
             "lines_without_db_default": lines_without_db_default,
