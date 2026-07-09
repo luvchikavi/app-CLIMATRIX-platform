@@ -836,8 +836,14 @@ export const CBAM_CALCULATION_METHOD_LABELS: Record<CBAMCalculationMethod, strin
   fallback: "Fallback Values",
 };
 
-// Report status
-export type CBAMReportStatus = "draft" | "review" | "submitted" | "accepted" | "rejected";
+// Report status ("ready" applies to annual declarations only)
+export type CBAMReportStatus =
+  | "draft"
+  | "ready"
+  | "review"
+  | "submitted"
+  | "accepted"
+  | "rejected";
 
 // Installation verification status
 export type CBAMInstallationStatus = "pending" | "verified" | "rejected" | "expired";
@@ -984,6 +990,64 @@ export interface CBAMAnnualSectorSummary {
   net_emissions_tco2e: number;
   certificates_required: number;
   estimated_cost_eur: number;
+  // Phase 2 fields (present on declarations generated from 2026 onwards)
+  import_count?: number;
+  mass_tonnes?: number;
+  deductions_tco2e?: number;
+  default_lines?: number;
+  actual_lines?: number;
+}
+
+// Per-CN-code aggregation on the annual declaration draft
+export interface CBAMAnnualCNCodeSummary {
+  import_count: number;
+  mass_tonnes: number;
+  gross_emissions_tco2e: number;
+  net_emissions_tco2e: number;
+  estimated_cost_eur: number;
+  countries: string[];
+}
+
+// One import line of the annual declaration draft
+export interface CBAMDeclarationLine {
+  import_id: string;
+  import_date: string;
+  cn_code: string;
+  sector: string;
+  product_description?: string | null;
+  origin_country?: string | null;
+  mass_tonnes: number;
+  intensity_source: "actual" | "default";
+  intensity_source_detail: string;
+  see_tco2e_per_tonne: number;
+  markup_pct: number;
+  emissions_tco2e: number;
+  deduction_tco2e: number;
+  deduction_eur: number;
+  net_emissions_tco2e: number;
+  estimated_cost_eur: number;
+}
+
+// How much of the declaration rests on default vs actual values
+export interface CBAMDeclarationDataQuality {
+  total_lines: number;
+  actual_lines: number;
+  default_lines: number;
+  default_share_pct: number;
+  lines_without_db_default: number;
+}
+
+// Full annual declaration draft package (GET/POST /cbam/reports/annual/{year})
+export interface CBAMAnnualDeclarationDetail extends CBAMAnnualDeclaration {
+  submission_deadline: string;
+  deductions_eur: number;
+  ets_price_eur: number;
+  default_value_markup_pct: number;
+  by_cn_code: Record<string, CBAMAnnualCNCodeSummary>;
+  lines: CBAMDeclarationLine[];
+  data_quality: CBAMDeclarationDataQuality;
+  assumptions: string[];
+  stale: boolean;
 }
 
 // CN Code search result

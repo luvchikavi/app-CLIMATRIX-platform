@@ -47,9 +47,15 @@ class CBAMCalculationMethod(str, Enum):
 
 
 class CBAMReportStatus(str, Enum):
-    """Status of CBAM quarterly/annual reports."""
+    """Status of CBAM quarterly/annual reports.
+
+    Annual declarations (definitive regime) move draft -> ready; submission
+    stays manual/on-hold until the CBAM Registry schema is validated.
+    Stored as varchar (no native PG enum), so adding members is safe.
+    """
 
     DRAFT = "draft"
+    READY = "ready"
     SUBMITTED = "submitted"
     ACCEPTED = "accepted"
     REJECTED = "rejected"

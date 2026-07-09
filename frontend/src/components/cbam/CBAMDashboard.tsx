@@ -14,12 +14,13 @@ import {
   TrendingUp,
   Globe,
   AlertCircle,
-  CheckCircle,
   Clock,
 } from 'lucide-react';
 
 interface CBAMDashboardProps {
-  onNavigate: (view: 'installations' | 'imports' | 'reports' | 'calculator') => void;
+  onNavigate: (
+    view: 'installations' | 'imports' | 'declaration' | 'reports' | 'calculator'
+  ) => void;
 }
 
 export function CBAMDashboard({ onNavigate }: CBAMDashboardProps) {
@@ -64,14 +65,6 @@ export function CBAMDashboard({ onNavigate }: CBAMDashboardProps) {
       </Card>
     );
   }
-
-  const getQuarterStatus = (quarter: number) => {
-    const report = dashboard?.quarterly_reports.find((r) => r.quarter === quarter);
-    if (!report) return { status: 'not_started', icon: Clock, color: 'text-foreground-muted' };
-    if (report.status === 'submitted') return { status: 'submitted', icon: CheckCircle, color: 'text-success' };
-    if (report.status === 'draft') return { status: 'draft', icon: FileText, color: 'text-warning' };
-    return { status: report.status, icon: Clock, color: 'text-foreground-muted' };
-  };
 
   return (
     <div className="space-y-6">
@@ -163,40 +156,35 @@ export function CBAMDashboard({ onNavigate }: CBAMDashboardProps) {
           </CardContent>
         </Card>
 
-        {/* Quarterly Reports Status */}
+        {/* Annual declaration (definitive regime) */}
         <Card>
           <CardHeader>
-            <CardTitle>Quarterly Reports</CardTitle>
+            <CardTitle>Annual declaration</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {[1, 2, 3, 4].map((quarter) => {
-                const { status, icon: Icon, color } = getQuarterStatus(quarter);
-                const report = dashboard?.quarterly_reports.find((r) => r.quarter === quarter);
-
-                return (
-                  <div
-                    key={quarter}
-                    className="flex items-center justify-between p-3 bg-background-muted rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon className={`w-5 h-5 ${color}`} />
-                      <div>
-                        <p className="font-medium">Q{quarter} {dashboard?.year}</p>
-                        <p className="text-xs text-foreground-muted capitalize">{status.replace('_', ' ')}</p>
-                      </div>
-                    </div>
-                    {report && (
-                      <span className="text-sm text-foreground-muted">
-                        {report.total_emissions_tco2e.toFixed(1)} tCO2e
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="space-y-3 text-sm">
+              <div className="flex items-start gap-3 p-3 bg-background-muted rounded-lg">
+                <FileText className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                <p className="text-foreground-muted">
+                  The definitive regime files one annual declaration per year — the {' '}
+                  <span className="font-medium text-foreground">2026 declaration is due
+                  30 September 2027</span>{' '}
+                  with certificate surrender.
+                </p>
+              </div>
+              <div className="flex items-start gap-3 p-3 bg-background-muted rounded-lg">
+                <Clock className="w-5 h-5 text-foreground-muted shrink-0 mt-0.5" />
+                <p className="text-foreground-muted">
+                  Transitional quarterly reporting ended 31 Dec 2025; historical reports stay
+                  available read-only.
+                </p>
+              </div>
             </div>
-            <Button variant="outline" className="w-full mt-4" onClick={() => onNavigate('reports')}>
-              Manage Reports
+            <Button className="w-full mt-4" onClick={() => onNavigate('declaration')}>
+              Open annual declaration
+            </Button>
+            <Button variant="outline" className="w-full mt-2" onClick={() => onNavigate('reports')}>
+              View quarterly history
             </Button>
           </CardContent>
         </Card>

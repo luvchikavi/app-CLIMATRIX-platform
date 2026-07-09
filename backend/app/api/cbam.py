@@ -39,10 +39,8 @@ from app.models.cbam import (
     CBAMCalculationMethod,
 )
 from app.models.core import UserRole
-from app.services.cbam_calculator import (
-    CBAMCalculator,
-    aggregate_annual_declaration,
-)
+from app.services.cbam_calculator import CBAMCalculator
+from app.services.cbam_declaration import build_annual_declaration_draft
 from app.services.cbam_screening import (
     DEFAULT_VALUE_MARKUP_2026,
     SECTOR_DEFAULT_INTENSITY,
@@ -199,6 +197,59 @@ class CBAMAnnualDeclarationResponse(BaseModel):
     by_sector: dict
     submitted_at: Optional[datetime]
     created_at: datetime
+
+
+class CBAMDeclarationLineResponse(BaseModel):
+    """One import line of the annual declaration draft."""
+
+    import_id: str
+    import_date: date
+    cn_code: str
+    sector: str
+    product_description: Optional[str]
+    origin_country: Optional[str]
+    mass_tonnes: Decimal
+    intensity_source: str  # "actual" | "default"
+    intensity_source_detail: str
+    see_tco2e_per_tonne: Decimal
+    markup_pct: Decimal
+    emissions_tco2e: Decimal
+    deduction_tco2e: Decimal
+    deduction_eur: Decimal
+    net_emissions_tco2e: Decimal
+    estimated_cost_eur: Decimal
+
+
+class CBAMDataQualitySummary(BaseModel):
+    """How much of the declaration rests on default vs actual values."""
+
+    total_lines: int
+    actual_lines: int
+    default_lines: int
+    default_share_pct: float
+    lines_without_db_default: int
+
+
+class CBAMAnnualDeclarationDetailResponse(CBAMAnnualDeclarationResponse):
+    """Full annual declaration draft package for the review screen."""
+
+    submission_deadline: date
+    deductions_eur: Decimal
+    ets_price_eur: Decimal
+    default_value_markup_pct: Decimal
+    by_cn_code: dict
+    lines: List[CBAMDeclarationLineResponse]
+    data_quality: CBAMDataQualitySummary
+    assumptions: List[str]
+    # True when the imports register changed after the draft was generated
+    # (regenerate to refresh the stored totals).
+    stale: bool = False
+
+
+class CBAMDeclarationStatusUpdate(BaseModel):
+    """Move an annual declaration between draft and ready."""
+
+    status: str = Field(..., min_length=1, max_length=20)
 
 
 # CN Code Search
@@ -747,7 +798,7 @@ async def screen_cbam_exposure(
         if latest:
             ets_price = latest.price_eur
             extra_assumptions.append(
-                f"ETS price of €{latest.price_eur}/tCO2e taken from "
+                f"ETS price of €{float(latest.price_eur):,.2f}/tCO2e taken from "
                 f"{latest.price_date.isoformat()} ({latest.source})."
             )
         else:
@@ -1089,18 +1140,101 @@ def declaration_to_response(
     )
 
 
-@router.post("/reports/annual/{year}", response_model=CBAMAnnualDeclarationResponse)
+async def _load_declaration_inputs(
+    session: AsyncSession, organization_id: UUID, year: int
+) -> tuple[list[CBAMImport], list[dict]]:
+    """Load the year's imports and the active default-value rows."""
+    imports_result = await session.execute(
+        select(CBAMImport)
+        .where(
+            CBAMImport.organization_id == organization_id,
+            func.extract("year", CBAMImport.import_date) == year,
+        )
+        .order_by(CBAMImport.import_date)
+    )
+    imports = list(imports_result.scalars().all())
+
+    dv_result = await session.execute(
+        select(CBAMDefaultValue).where(CBAMDefaultValue.is_active == True)  # noqa: E712
+    )
+    default_values = [
+        {
+            "cn_code": dv.cn_code,
+            "country_code": dv.country_code,
+            "total_see": dv.total_see,
+            "source": dv.source,
+        }
+        for dv in dv_result.scalars().all()
+    ]
+    return imports, default_values
+
+
+async def _latest_ets_price(session: AsyncSession) -> tuple[Decimal, str]:
+    """Latest stored EU ETS price (or the explicit fallback) + provenance."""
+    latest = await ets_price_service.get_latest_price(session)
+    if latest:
+        return latest.price_eur, (
+            f"Certificate cost uses the latest stored EU ETS price of "
+            f"€{float(latest.price_eur):,.2f}/tCO2e ({latest.price_date.isoformat()}, "
+            f"{latest.source}); 2026 certificates will be priced on "
+            "quarterly EU ETS auction averages."
+        )
+    return (
+        ets_price_service.FALLBACK_ETS_PRICE_EUR,
+        ets_price_service.FALLBACK_ASSUMPTION,
+    )
+
+
+def _declaration_detail_response(
+    declaration: CBAMAnnualDeclaration, draft: dict, stale: bool
+) -> CBAMAnnualDeclarationDetailResponse:
+    """Stored declaration summary + computed draft package."""
+    base = declaration_to_response(declaration)
+    return CBAMAnnualDeclarationDetailResponse(
+        **base.model_dump(),
+        submission_deadline=declaration.submission_deadline,
+        deductions_eur=declaration.carbon_price_deductions_eur or Decimal("0"),
+        ets_price_eur=draft["ets_price_eur"],
+        default_value_markup_pct=draft["markup_pct"],
+        by_cn_code=_json_safe(draft["by_cn_code"]),
+        lines=[CBAMDeclarationLineResponse(**line) for line in draft["lines"]],
+        data_quality=CBAMDataQualitySummary(**draft["data_quality"]),
+        assumptions=draft["assumptions"],
+        stale=stale,
+    )
+
+
+def _declaration_is_stale(
+    declaration: CBAMAnnualDeclaration, draft_totals: dict
+) -> bool:
+    """True when the imports register diverged from the stored draft."""
+    stored_gross = declaration.total_embedded_emissions_tco2e or Decimal("0")
+    return draft_totals["import_count"] != (declaration.total_imports_count or 0) or (
+        draft_totals["gross_emissions_tco2e"] - stored_gross
+    ).copy_abs() > Decimal("0.005")
+
+
+@router.post(
+    "/reports/annual/{year}", response_model=CBAMAnnualDeclarationDetailResponse
+)
 async def generate_annual_declaration(
     year: int,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """
-    Generate or regenerate an annual CBAM declaration.
+    Generate — or regenerate — the annual CBAM declaration draft for a year.
 
-    Only applicable from 2026 (definitive phase). Calculates certificate
-    requirements. Deadline: 30 September of the following year (Omnibus,
-    Reg. (EU) 2025/2083 — moved from 31 May); first: 30 Sep 2027 for 2026.
+    Idempotent per org + year: regenerating replaces the existing draft
+    (and moves a `ready` declaration back to `draft`, since its contents
+    changed). Submitted declarations cannot be regenerated.
+
+    The draft aggregates the imports register: default-value lines are
+    re-resolved against the Commission default values in the DB with the
+    Omnibus year markup (10% in 2026), actual-data lines keep their recorded
+    values, carbon prices paid abroad are deducted per line, and the
+    certificate cost uses the latest stored EU ETS price. Deadline: 30
+    September of the following year (first: 30 Sep 2027 for 2026).
     """
     if year < 2026:
         raise HTTPException(
@@ -1108,7 +1242,6 @@ async def generate_annual_declaration(
             detail="Annual declarations are only required from 2026 (definitive phase)",
         )
 
-    # Check if declaration already exists
     result = await session.execute(
         select(CBAMAnnualDeclaration).where(
             CBAMAnnualDeclaration.organization_id == current_user.organization_id,
@@ -1122,75 +1255,24 @@ async def generate_annual_declaration(
             status_code=400, detail="Cannot regenerate a submitted declaration"
         )
 
-    # Get all imports for the year
-    imports_result = await session.execute(
-        select(CBAMImport).where(
-            CBAMImport.organization_id == current_user.organization_id,
-            func.extract("year", CBAMImport.import_date) == year,
-        )
+    imports, default_values = await _load_declaration_inputs(
+        session, current_user.organization_id, year
     )
-    imports = imports_result.scalars().all()
+    ets_price, ets_assumption = await _latest_ets_price(session)
 
-    # Get EU ETS prices for the year (if available)
-    ets_result = await session.execute(
-        select(EUETSPrice).where(func.extract("year", EUETSPrice.price_date) == year)
+    draft = build_annual_declaration_draft(
+        imports,
+        year,
+        ets_price_eur=ets_price,
+        default_values=default_values or None,
+        extra_assumptions=[ets_assumption],
     )
-    ets_prices = ets_result.scalars().all()
-    ets_price_data = [{"price_eur": p.price_eur} for p in ets_prices]
-
-    # Calculate full CBAM for each import. The model stores per-import
-    # emissions totals, not SEE — derive SEE from stored emissions / mass so
-    # the aggregation reuses the values recorded at import time.
-    import_calculations = []
-    for imp in imports:
-        mass = imp.net_mass_tonnes or Decimal("0")
-        direct_see = (
-            (imp.direct_emissions_tco2e or Decimal("0")) / mass
-            if mass > 0
-            else Decimal("0")
-        )
-        indirect_see = (
-            (imp.indirect_emissions_tco2e or Decimal("0")) / mass
-            if mass > 0
-            else Decimal("0")
-        )
-        calc = calculator.calculate_import_full(
-            cn_code=imp.cn_code,
-            mass_tonnes=imp.net_mass_tonnes,
-            country_code=imp.origin_country or "XX",
-            actual_direct_see=direct_see,
-            actual_indirect_see=indirect_see,
-            # Model field is carbon_price_paid_eur
-            foreign_carbon_price_eur=imp.carbon_price_paid_eur,
-            is_definitive_phase=True,
-        )
-        import_calculations.append(calc)
-
-    # Aggregate annual declaration
-    aggregated = aggregate_annual_declaration(import_calculations, year, ets_price_data)
-
-    totals = aggregated["totals"]
-    total_mass = sum(
-        (imp.net_mass_tonnes or Decimal("0") for imp in imports), Decimal("0")
-    )
-    # 1 certificate = 1 tCO2e (integer count on the model)
-    certificates_required = int(totals["certificates_required"].quantize(Decimal("1")))
+    totals = draft["totals"]
 
     if existing:
-        # Update existing (model field names, see declaration_to_response)
-        existing.total_imports_count = len(imports)
-        existing.total_mass_tonnes = total_mass
-        existing.total_embedded_emissions_tco2e = totals["gross_emissions_tco2e"]
-        existing.carbon_price_deductions_tco2e = totals["deductions_tco2e"]
-        existing.net_emissions_tco2e = totals["net_emissions_tco2e"]
-        existing.certificates_required = certificates_required
-        existing.total_certificate_cost_eur = totals["estimated_total_cost_eur"]
-        existing.average_certificate_price_eur = aggregated["average_ets_price_eur"]
-        existing.by_sector = _json_safe(aggregated["by_sector"])
-        existing.updated_at = datetime.utcnow()
         declaration = existing
     else:
-        # Create new. Deadline: 30 September of the following year (Omnibus).
+        # Deadline: 30 September of the following year (Omnibus).
         declaration = CBAMAnnualDeclaration(
             id=uuid4(),
             organization_id=current_user.organization_id,
@@ -1198,23 +1280,195 @@ async def generate_annual_declaration(
             period_start=date(year, 1, 1),
             period_end=date(year, 12, 31),
             submission_deadline=date(year + 1, 9, 30),
-            status=CBAMReportStatus.DRAFT,
-            total_imports_count=len(imports),
-            total_mass_tonnes=total_mass,
-            total_embedded_emissions_tco2e=totals["gross_emissions_tco2e"],
-            carbon_price_deductions_tco2e=totals["deductions_tco2e"],
-            net_emissions_tco2e=totals["net_emissions_tco2e"],
-            certificates_required=certificates_required,
-            total_certificate_cost_eur=totals["estimated_total_cost_eur"],
-            average_certificate_price_eur=aggregated["average_ets_price_eur"],
-            by_sector=_json_safe(aggregated["by_sector"]),
+            net_emissions_tco2e=Decimal("0"),
         )
         session.add(declaration)
+
+    declaration.status = CBAMReportStatus.DRAFT
+    declaration.total_imports_count = totals["import_count"]
+    declaration.total_mass_tonnes = totals["mass_tonnes"]
+    declaration.total_embedded_emissions_tco2e = totals["gross_emissions_tco2e"]
+    declaration.carbon_price_deductions_tco2e = totals["deductions_tco2e"]
+    declaration.carbon_price_deductions_eur = totals["deductions_eur"]
+    declaration.net_emissions_tco2e = totals["net_emissions_tco2e"]
+    declaration.certificates_required = totals["certificates_required"]
+    declaration.total_certificate_cost_eur = totals["estimated_cost_eur"]
+    declaration.average_certificate_price_eur = draft["ets_price_eur"]
+    declaration.by_sector = _json_safe(draft["by_sector"])
+    declaration.updated_at = datetime.utcnow()
 
     await session.commit()
     await session.refresh(declaration)
 
+    return _declaration_detail_response(declaration, draft, stale=False)
+
+
+@router.get(
+    "/reports/annual/{year}", response_model=CBAMAnnualDeclarationDetailResponse
+)
+async def get_annual_declaration(
+    year: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Full annual declaration draft package for the review screen.
+
+    Returns the stored declaration summary plus the per-line drill list
+    (with intensity provenance), per-CN breakdown, data-quality summary and
+    assumptions, recomputed from the imports register with the ETS price the
+    draft was generated at. `stale: true` means the imports register changed
+    since generation — regenerate to refresh the stored totals.
+    """
+    result = await session.execute(
+        select(CBAMAnnualDeclaration).where(
+            CBAMAnnualDeclaration.organization_id == current_user.organization_id,
+            CBAMAnnualDeclaration.reporting_year == year,
+        )
+    )
+    declaration = result.scalar_one_or_none()
+
+    if not declaration:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No annual declaration generated for {year} yet — "
+                f"POST /api/cbam/reports/annual/{year} to generate the draft."
+            ),
+        )
+
+    imports, default_values = await _load_declaration_inputs(
+        session, current_user.organization_id, year
+    )
+    ets_price = declaration.average_certificate_price_eur
+    if ets_price:
+        ets_assumption = (
+            f"Certificate cost uses the EU ETS price of €{float(ets_price):,.2f}/tCO2e "
+            "recorded when this draft was generated."
+        )
+    else:
+        ets_price, ets_assumption = await _latest_ets_price(session)
+
+    draft = build_annual_declaration_draft(
+        imports,
+        year,
+        ets_price_eur=ets_price,
+        default_values=default_values or None,
+        extra_assumptions=[ets_assumption],
+    )
+
+    return _declaration_detail_response(
+        declaration, draft, stale=_declaration_is_stale(declaration, draft["totals"])
+    )
+
+
+@router.patch(
+    "/reports/annual/{year}/status", response_model=CBAMAnnualDeclarationResponse
+)
+async def update_annual_declaration_status(
+    year: int,
+    data: CBAMDeclarationStatusUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Move an annual declaration between `draft` and `ready`.
+
+    `submitted` is rejected: submission stays manual/on-hold until the
+    export is validated against the real CBAM Registry schema.
+    """
+    new_status = data.status.strip().lower()
+    if new_status == CBAMReportStatus.SUBMITTED.value:
+        raise HTTPException(status_code=400, detail=_REGISTRY_XML_ON_HOLD_DETAIL)
+    if new_status not in (CBAMReportStatus.DRAFT.value, CBAMReportStatus.READY.value):
+        raise HTTPException(
+            status_code=422,
+            detail="Annual declaration status must be 'draft' or 'ready'",
+        )
+
+    result = await session.execute(
+        select(CBAMAnnualDeclaration).where(
+            CBAMAnnualDeclaration.organization_id == current_user.organization_id,
+            CBAMAnnualDeclaration.reporting_year == year,
+        )
+    )
+    declaration = result.scalar_one_or_none()
+
+    if not declaration:
+        raise HTTPException(
+            status_code=404, detail=f"No annual declaration generated for {year} yet"
+        )
+    if declaration.status == CBAMReportStatus.SUBMITTED:
+        raise HTTPException(
+            status_code=400, detail="Cannot change a submitted declaration"
+        )
+
+    declaration.status = CBAMReportStatus(new_status)
+    declaration.updated_at = datetime.utcnow()
+    await session.commit()
+    await session.refresh(declaration)
+
     return declaration_to_response(declaration)
+
+
+@router.get("/reports/annual/{year}/export/csv")
+async def export_annual_declaration_csv(
+    year: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Export the annual declaration draft pack as CSV.
+
+    One row per import line with intensity provenance (default vs actual),
+    the year markup, deductions and net emissions, plus a TOTAL row with the
+    certificates to surrender.
+    """
+    from fastapi.responses import Response
+    from app.services.cbam_export import CBAMCSVExporter
+
+    result = await session.execute(
+        select(CBAMAnnualDeclaration).where(
+            CBAMAnnualDeclaration.organization_id == current_user.organization_id,
+            CBAMAnnualDeclaration.reporting_year == year,
+        )
+    )
+    declaration = result.scalar_one_or_none()
+
+    if not declaration:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No annual declaration generated for {year} yet — "
+                "generate the draft first."
+            ),
+        )
+
+    imports, default_values = await _load_declaration_inputs(
+        session, current_user.organization_id, year
+    )
+    ets_price = declaration.average_certificate_price_eur
+    if not ets_price:
+        ets_price, _ = await _latest_ets_price(session)
+
+    draft = build_annual_declaration_draft(
+        imports,
+        year,
+        ets_price_eur=ets_price,
+        default_values=default_values or None,
+    )
+
+    exporter = CBAMCSVExporter()
+    csv_content = exporter.generate_annual_declaration_csv(
+        year, draft["lines"], draft["totals"]
+    )
+
+    filename = f"cbam_annual_declaration_{year}.csv"
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 # ============================================================================

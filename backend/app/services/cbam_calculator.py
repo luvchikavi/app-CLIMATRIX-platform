@@ -104,7 +104,8 @@ class CBAMCalculator:
                 )
             indirect_see = (electricity_consumption_mwh * grid_factor) / mass_tonnes
         elif defaults and use_default_values:
-            indirect_see = defaults["indirect_see"]
+            # Some CN codes have no indirect default (None) — treat as zero.
+            indirect_see = defaults.get("indirect_see") or Decimal("0")
             result["warnings"].append(
                 f"Using EU default indirect SEE: {indirect_see} tCO2e/t"
             )
