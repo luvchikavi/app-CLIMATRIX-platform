@@ -2082,10 +2082,48 @@ class ApiClient {
     return this.fetch<CBAMAnnualDeclaration[]>('/cbam/reports/annual');
   }
 
-  async generateCBAMAnnualDeclaration(year: number): Promise<CBAMAnnualDeclaration> {
-    return this.fetch<CBAMAnnualDeclaration>(`/cbam/reports/annual/${year}`, {
+  // Generate or regenerate the annual declaration draft (idempotent per
+  // org + year: regenerating replaces the existing draft).
+  async generateCBAMAnnualDeclaration(
+    year: number
+  ): Promise<CBAMAnnualDeclarationDetail> {
+    return this.fetch<CBAMAnnualDeclarationDetail>(`/cbam/reports/annual/${year}`, {
       method: 'POST',
     });
+  }
+
+  // Full declaration draft package (lines, per-CN breakdown, data quality,
+  // assumptions). 404s until a draft has been generated for the year.
+  async getCBAMAnnualDeclarationDetail(
+    year: number
+  ): Promise<CBAMAnnualDeclarationDetail> {
+    return this.fetch<CBAMAnnualDeclarationDetail>(`/cbam/reports/annual/${year}`);
+  }
+
+  // Move a declaration between 'draft' and 'ready' (submission stays on
+  // hold until the CBAM Registry schema is validated).
+  async updateCBAMAnnualDeclarationStatus(
+    year: number,
+    status: Extract<CBAMReportStatus, 'draft' | 'ready'>
+  ): Promise<CBAMAnnualDeclaration> {
+    return this.fetch<CBAMAnnualDeclaration>(`/cbam/reports/annual/${year}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async exportCBAMAnnualDeclarationCSV(year: number): Promise<Blob> {
+    const token = this.getToken();
+    const response = await fetch(
+      `${API_BASE}/cbam/reports/annual/${year}/export/csv`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }
+    );
+    if (!response.ok) {
+      throw new Error('Failed to export annual declaration CSV');
+    }
+    return response.blob();
   }
 
   async exportCBAMAnnualDeclarationXML(year: number): Promise<Blob> {
@@ -2408,6 +2446,8 @@ import type {
   CBAMImportCreate,
   CBAMQuarterlyReport,
   CBAMAnnualDeclaration,
+  CBAMAnnualDeclarationDetail,
+  CBAMReportStatus,
   CBAMCNCode,
   CBAMEmissionCalculationRequest,
   CBAMEmissionCalculationResult,

@@ -1,23 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
-import { Badge } from '@/components/ui/Badge';
-import { ConfirmDialog, toast } from '@/components/ui';
+import { toast } from '@/components/ui';
 import { api } from '@/lib/api';
-import type { CBAMQuarterlyReport, CBAMAnnualDeclaration } from '@/lib/types';
+import type { CBAMQuarterlyReport } from '@/lib/types';
 import {
   FileText,
-  Download,
-  Send,
-  RefreshCw,
   CheckCircle,
   Clock,
   AlertCircle,
   FileSpreadsheet,
-  FileCode,
+  Info,
 } from 'lucide-react';
 
 const STATUS_CONFIG: Record<string, { color: string; icon: typeof CheckCircle }> = {
@@ -28,91 +24,38 @@ const STATUS_CONFIG: Record<string, { color: string; icon: typeof CheckCircle }>
   rejected: { color: 'bg-red-100 text-red-700', icon: AlertCircle },
 };
 
+// Transitional reporting years (the quarterly regime ended 31 Dec 2025).
+const TRANSITIONAL_YEARS = [2025, 2024];
+
 export function CBAMReports() {
   const [quarterlyReports, setQuarterlyReports] = useState<CBAMQuarterlyReport[]>([]);
-  const [annualDeclarations, setAnnualDeclarations] = useState<CBAMAnnualDeclaration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [generating, setGenerating] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState(TRANSITIONAL_YEARS[0]);
   const [exporting, setExporting] = useState<string | null>(null);
-  const [confirmState, setConfirmState] = useState<{open: boolean; onConfirm: () => void; title: string; message: string}>({open: false, onConfirm: () => {}, title: '', message: ''});
 
-  const currentYear = new Date().getFullYear();
-  const isDefinitivePhase = currentYear >= 2026;
-
-  useEffect(() => {
-    loadReports();
-  }, [selectedYear]);
-
-  const loadReports = async () => {
+  const loadReports = useCallback(async (year: number) => {
     try {
       setLoading(true);
-      const [quarterly, annual] = await Promise.all([
-        api.getCBAMQuarterlyReports(selectedYear),
-        isDefinitivePhase ? api.getCBAMAnnualDeclarations() : Promise.resolve([]),
-      ]);
-      setQuarterlyReports(quarterly);
-      setAnnualDeclarations(annual);
+      setQuarterlyReports(await api.getCBAMQuarterlyReports(year));
     } catch (err) {
       console.error('Failed to load reports:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const generateQuarterlyReport = async (quarter: number) => {
+  useEffect(() => {
+    loadReports(selectedYear);
+  }, [selectedYear, loadReports]);
+
+  const exportReportCSV = async (quarter: number) => {
     try {
-      setGenerating(`Q${quarter}`);
-      await api.generateCBAMQuarterlyReport(selectedYear, quarter);
-      await loadReports();
-    } catch (err) {
-      console.error('Failed to generate report:', err);
-    } finally {
-      setGenerating(null);
-    }
-  };
-
-  const submitQuarterlyReport = (quarter: number) => {
-    setConfirmState({
-      open: true,
-      onConfirm: async () => {
-        setConfirmState(s => ({...s, open: false}));
-        try {
-          setSubmitting(`Q${quarter}`);
-          await api.submitCBAMQuarterlyReport(selectedYear, quarter);
-          await loadReports();
-        } catch (err) {
-          console.error('Failed to submit report:', err);
-        } finally {
-          setSubmitting(null);
-        }
-      },
-      title: 'Submit Report',
-      message: `Are you sure you want to submit the Q${quarter} ${selectedYear} report?`,
-    });
-  };
-
-  const exportReport = async (quarter: number, format: 'xml' | 'csv') => {
-    try {
-      setExporting(`Q${quarter}-${format}`);
-
-      let blob: Blob;
-      let filename: string;
-
-      if (format === 'xml') {
-        blob = await api.exportCBAMQuarterlyReportXML(selectedYear, quarter);
-        filename = `cbam_quarterly_report_${selectedYear}_Q${quarter}.xml`;
-      } else {
-        blob = await api.exportCBAMQuarterlyReportCSV(selectedYear, quarter);
-        filename = `cbam_imports_${selectedYear}_Q${quarter}.csv`;
-      }
-
-      // Download the file
+      setExporting(`Q${quarter}`);
+      const blob = await api.exportCBAMQuarterlyReportCSV(selectedYear, quarter);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = filename;
+      a.download = `cbam_imports_${selectedYear}_Q${quarter}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -131,15 +74,24 @@ export function CBAMReports() {
 
   return (
     <div className="space-y-6">
+      {/* Transitional period ended — read-only history */}
+      <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 flex items-start gap-3 text-sm">
+        <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+        <span className="text-foreground-muted">
+          Transitional reporting ended 31 Dec 2025 — historical reports remain available; the
+          definitive regime uses the annual declaration.
+        </span>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-foreground">CBAM Reports</h2>
+          <h2 className="text-xl font-bold text-foreground">Quarterly reports (history)</h2>
           <p className="text-foreground-muted">
-            {isDefinitivePhase ? 'Annual declarations and quarterly reports' : 'Quarterly transitional reports'}
+            Read-only transitional-period reports, Q1 2024 – Q4 2025
           </p>
         </div>
         <Select value={String(selectedYear)} onChange={(e) => setSelectedYear(Number(e.target.value))}>
-          {[2024, 2025, 2026].map((year) => (
+          {TRANSITIONAL_YEARS.map((year) => (
             <option key={year} value={year}>
               {year}
             </option>
@@ -147,16 +99,15 @@ export function CBAMReports() {
         </Select>
       </div>
 
-      {/* Quarterly Reports */}
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Quarterly Reports - {selectedYear}</h3>
+      {loading ? (
+        <div className="flex items-center justify-center h-40">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((quarter) => {
             const report = getQuarterReport(quarter);
             const statusConfig = report ? STATUS_CONFIG[report.status] : STATUS_CONFIG.draft;
-            const StatusIcon = statusConfig.icon;
-            const isGenerating = generating === `Q${quarter}`;
-            const isSubmitting = submitting === `Q${quarter}`;
 
             return (
               <Card key={quarter}>
@@ -188,60 +139,19 @@ export function CBAMReports() {
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => generateQuarterlyReport(quarter)}
-                          isLoading={isGenerating}
-                          leftIcon={<RefreshCw className="w-3 h-3" />}
-                        >
-                          Refresh
-                        </Button>
-
-                        {report.status === 'draft' && (
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={() => submitQuarterlyReport(quarter)}
-                            isLoading={isSubmitting}
-                            leftIcon={<Send className="w-3 h-3" />}
-                          >
-                            Submit
-                          </Button>
-                        )}
-
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => exportReport(quarter, 'xml')}
-                          isLoading={exporting === `Q${quarter}-xml`}
-                          leftIcon={<FileCode className="w-3 h-3" />}
-                        >
-                          XML
-                        </Button>
-
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => exportReport(quarter, 'csv')}
-                          isLoading={exporting === `Q${quarter}-csv`}
-                          leftIcon={<FileSpreadsheet className="w-3 h-3" />}
-                        >
-                          CSV
-                        </Button>
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => exportReportCSV(quarter)}
+                        isLoading={exporting === `Q${quarter}`}
+                        leftIcon={<FileSpreadsheet className="w-3 h-3" />}
+                      >
+                        CSV
+                      </Button>
                     </div>
                   ) : (
-                    <div className="text-center py-4">
-                      <p className="text-foreground-muted mb-3">No report generated</p>
-                      <Button
-                        size="sm"
-                        onClick={() => generateQuarterlyReport(quarter)}
-                        isLoading={isGenerating}
-                      >
-                        Generate Report
-                      </Button>
+                    <div className="text-center py-4 text-foreground-muted text-sm">
+                      No report for this quarter
                     </div>
                   )}
                 </CardContent>
@@ -249,7 +159,7 @@ export function CBAMReports() {
             );
           })}
         </div>
-      </div>
+      )}
 
       {/* Sector Breakdown for existing reports */}
       {quarterlyReports.length > 0 && (
@@ -307,53 +217,6 @@ export function CBAMReports() {
           </CardContent>
         </Card>
       )}
-
-      {/* Annual Declarations (2026+) */}
-      {isDefinitivePhase && (
-        <div>
-          <h3 className="text-lg font-semibold mb-4">Annual Declarations</h3>
-          {annualDeclarations.length > 0 ? (
-            <div className="space-y-4">
-              {annualDeclarations.map((declaration) => (
-                <Card key={declaration.id}>
-                  <CardContent className="py-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold">{declaration.year} Annual Declaration</h4>
-                        <p className="text-sm text-foreground-muted">
-                          {declaration.total_imports} imports | {declaration.certificates_required.toFixed(0)} certificates required
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xl font-bold">{declaration.net_emissions_tco2e.toFixed(1)} tCO2e</p>
-                        <p className="text-sm text-foreground-muted">
-                          Est. cost: {declaration.estimated_cost_eur.toFixed(0)}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="py-8 text-center text-foreground-muted">
-                <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>No annual declarations yet</p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
-      <ConfirmDialog
-        isOpen={confirmState.open}
-        onClose={() => setConfirmState(s => ({...s, open: false}))}
-        onConfirm={confirmState.onConfirm}
-        title={confirmState.title}
-        message={confirmState.message}
-        variant="warning"
-        confirmLabel="Submit"
-      />
     </div>
   );
 }

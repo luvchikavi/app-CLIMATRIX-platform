@@ -325,6 +325,85 @@ class CBAMCSVExporter:
 
         return output.getvalue()
 
+    def generate_annual_declaration_csv(
+        self, year: int, lines: List[dict], totals: dict
+    ) -> str:
+        """
+        Generate the annual declaration draft pack as CSV.
+
+        `lines` and `totals` come from
+        `cbam_declaration.build_annual_declaration_draft`. One row per
+        import line (with intensity provenance and markup) plus a TOTAL row.
+        """
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        writer.writerow(
+            [
+                "Declaration Year",
+                "Import ID",
+                "Import Date",
+                "CN Code",
+                "Description",
+                "Sector",
+                "Origin Country",
+                "Mass (tonnes)",
+                "Intensity Source",
+                "Intensity Source Detail",
+                "SEE (tCO2e/t)",
+                "Default Markup (%)",
+                "Embedded Emissions (tCO2e)",
+                "Carbon Price Deduction (tCO2e)",
+                "Net Emissions (tCO2e)",
+                "Estimated Certificate Cost (EUR)",
+            ]
+        )
+
+        for line in lines:
+            writer.writerow(
+                [
+                    year,
+                    line.get("import_id", ""),
+                    line.get("import_date", ""),
+                    line.get("cn_code", ""),
+                    line.get("product_description", ""),
+                    line.get("sector", ""),
+                    line.get("origin_country", ""),
+                    format_decimal(line.get("mass_tonnes")),
+                    line.get("intensity_source", ""),
+                    line.get("intensity_source_detail", ""),
+                    format_decimal(line.get("see_tco2e_per_tonne")),
+                    format_decimal(line.get("markup_pct"), 2),
+                    format_decimal(line.get("emissions_tco2e")),
+                    format_decimal(line.get("deduction_tco2e")),
+                    format_decimal(line.get("net_emissions_tco2e")),
+                    format_decimal(line.get("estimated_cost_eur"), 2),
+                ]
+            )
+
+        writer.writerow(
+            [
+                year,
+                "TOTAL",
+                "",
+                "",
+                "",
+                "",
+                "",
+                format_decimal(totals.get("mass_tonnes")),
+                "",
+                f"certificates to surrender: {totals.get('certificates_required', 0)}",
+                "",
+                "",
+                format_decimal(totals.get("gross_emissions_tco2e")),
+                format_decimal(totals.get("deductions_tco2e")),
+                format_decimal(totals.get("net_emissions_tco2e")),
+                format_decimal(totals.get("estimated_cost_eur"), 2),
+            ]
+        )
+
+        return output.getvalue()
+
     def generate_quarterly_summary_csv(self, report: dict) -> str:
         """
         Generate CSV summary of quarterly report.
