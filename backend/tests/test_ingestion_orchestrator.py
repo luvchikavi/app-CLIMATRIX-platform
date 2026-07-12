@@ -225,7 +225,152 @@ async def test_full_ingestion_flow(
     )
     assert len(committed_rows) == 2
     assert all(r.committed_activity_id is not None for r in committed_rows)
+    # Provenance drift guard: the staged audit trail must describe the factor
+    # that was ACTUALLY committed, not the one shown at review time.
+    for r in committed_rows:
+        emission = (
+            (
+                await test_session.execute(
+                    select(Emission).where(
+                        Emission.activity_id == r.committed_activity_id
+                    )
+                )
+            )
+            .scalars()
+            .one()
+        )
+        assert r.provenance["factor_year"] == emission.factor_year
+        assert r.provenance["factor_region"] == emission.factor_region
+        assert r.provenance["method"] == emission.resolution_strategy
     # the bad-unit row is left un-committed with an explanatory error for the review grid
     petrol = await test_session.get(StagedRow, unknown.id)
     assert petrol.committed_activity_id is None
     assert petrol.commit_error is not None
+
+
+async def test_year_threading_and_assumed_year_reason(
+    test_session,
+    test_org,
+    test_user,
+    test_period,
+    seed_emission_factors,
+    ingestion,
+    monkeypatch,
+):
+    """The real reporting-period year must reach grounding; a missing year falls
+    back to the CURRENT year (never a hardcoded vintage) and says so on the row."""
+    from datetime import datetime as dt
+
+    mapped = [
+        MappedRow(
+            0,
+            "electricity_kwh",
+            2,
+            "2",
+            45600,
+            "kWh",
+            "Office electricity",
+            0.95,
+            None,
+            {},
+        ),
+    ]
+    monkeypatch.setattr(orchestrator, "map_table_fast", _fake_map(mapped))
+    monkeypatch.setattr(orchestrator, "map_table", _fake_map(mapped))
+
+    seen_years = []
+    real_ground = orchestrator.ground_row
+
+    async def spy_ground(session, key, unit, *, region="Global", year=2024):
+        seen_years.append(year)
+        return await real_ground(session, key, unit, region=region, year=year)
+
+    monkeypatch.setattr(orchestrator, "ground_row", spy_ground)
+
+    # 1) With an explicit period year (2025) — grounding must receive it.
+    await orchestrator.run_analysis(
+        test_session, ingestion, _CSV, "footprint.csv", year=2025
+    )
+    await test_session.commit()
+    assert seen_years and all(y == 2025 for y in seen_years)
+
+    row = (
+        (
+            await test_session.execute(
+                select(StagedRow).where(StagedRow.session_id == ingestion.id)
+            )
+        )
+        .scalars()
+        .first()
+    )
+    assert not any("assumed factor year" in r for r in (row.reasons or []))
+
+    # 2) No year at all (ingest without a period) — current year + audit reason.
+    seen_years.clear()
+    await orchestrator.reground_row(test_session, row, region="Global", year=None)
+    this_year = dt.utcnow().year
+    assert seen_years == [this_year]
+    assert any(f"assumed factor year {this_year}" in r for r in row.reasons)
+
+    # 3) Re-grounding WITH a year again keeps the audit trail clean.
+    await orchestrator.reground_row(test_session, row, region="Global", year=2025)
+    assert not any("assumed factor year" in r for r in (row.reasons or []))
+
+
+async def test_skipped_sheets_surface_in_summary(
+    test_session,
+    test_org,
+    test_user,
+    test_period,
+    seed_emission_factors,
+    monkeypatch,
+):
+    """Sheets skipped as empty/metadata must be listed in the session summary —
+    nothing an upload contains may vanish silently."""
+    import io
+
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Data"
+    ws.append(["Activity", "Quantity", "Unit", "Site"])
+    ws.append(["Office electricity", 45600, "kWh", "HQ"])
+    ws.append(["Diesel", 720, "liters", "HQ"])
+    ws.append(["Natural gas", 900, "kWh", "Plant"])
+    wb.create_sheet("Instructions")  # empty — skipped, but must be reported
+    buf = io.BytesIO()
+    wb.save(buf)
+    content = buf.getvalue()
+
+    mapped = [
+        MappedRow(
+            0,
+            "electricity_kwh",
+            2,
+            "2",
+            45600,
+            "kWh",
+            "Office electricity",
+            0.95,
+            None,
+            {},
+        ),
+    ]
+    monkeypatch.setattr(orchestrator, "map_table_fast", _fake_map(mapped))
+    monkeypatch.setattr(orchestrator, "map_table", _fake_map(mapped))
+
+    s = IngestionSession(
+        organization_id=test_org.id,
+        created_by=test_user.id,
+        reporting_period_id=test_period.id,
+        filename="book.xlsx",
+        file_size_bytes=len(content),
+    )
+    test_session.add(s)
+    await test_session.commit()
+
+    await orchestrator.run_analysis(test_session, s, content, "book.xlsx", year=2025)
+    await test_session.commit()
+
+    assert s.summary.get("skipped_sheets") == ["Instructions"]

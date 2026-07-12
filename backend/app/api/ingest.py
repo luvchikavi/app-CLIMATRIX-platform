@@ -194,6 +194,22 @@ async def _get_owned_session(
     return obj
 
 
+async def _period_year(
+    session: AsyncSession, ingestion: IngestionSession
+) -> Optional[int]:
+    """The factor-vintage year for this session — its reporting period's year.
+
+    Returns None when the session has no (dated) period; the orchestrator then
+    falls back to the current year and records the assumption on affected rows.
+    """
+    if ingestion.reporting_period_id is None:
+        return None
+    period = await session.get(ReportingPeriod, ingestion.reporting_period_id)
+    if period is not None and period.start_date:
+        return period.start_date.year
+    return None
+
+
 # ---------------------------------------------------------------------------
 # request bodies
 # ---------------------------------------------------------------------------
@@ -247,9 +263,11 @@ async def upload_and_analyze(
     content_hash = hashlib.sha256(content).hexdigest()
 
     # Resolve region/year context from the org + (optional) reporting period.
+    # No period -> year stays None; the orchestrator falls back to the current
+    # year and marks the assumption (never a silently-hardcoded vintage).
     org = await session.get(Organization, current_user.organization_id)
     region = (org.default_region if org else None) or "Global"
-    year = 2024
+    year: Optional[int] = None
     if reporting_period_id:
         period = await session.get(ReportingPeriod, reporting_period_id)
         if period is None or period.organization_id != current_user.organization_id:
@@ -339,8 +357,11 @@ async def answer_questions(
     ingestion = await _get_owned_session(session_id, session, current_user)
     org = await session.get(Organization, current_user.organization_id)
     region = (org.default_region if org else None) or "Global"
+    year = await _period_year(session, ingestion)
     answers = {a.question_id: a.answer for a in body.answers}
-    await orchestrator.apply_answers(session, ingestion, answers, region=region)
+    await orchestrator.apply_answers(
+        session, ingestion, answers, region=region, year=year
+    )
     await session.commit()
     return await _detail(session, ingestion)
 
@@ -377,7 +398,8 @@ async def patch_row(
     if data_edited:
         org = await session.get(Organization, current_user.organization_id)
         region = (org.default_region if org else None) or "Global"
-        await orchestrator.reground_row(session, row, region=region)
+        year = await _period_year(session, ingestion)
+        await orchestrator.reground_row(session, row, region=region, year=year)
 
     # An explicit status change (Keep/Drop) always wins over the re-grounded status.
     if body.status is not None:
