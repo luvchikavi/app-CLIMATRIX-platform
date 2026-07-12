@@ -2029,6 +2029,32 @@ class ApiClient {
     });
   }
 
+  // CBAM certificate ledger (definitive regime)
+  async getCBAMCertificates(): Promise<CBAMCertificateEntry[]> {
+    return this.fetch<CBAMCertificateEntry[]>('/cbam/certificates');
+  }
+
+  async createCBAMCertificateEntry(
+    data: CBAMCertificateEntryCreate
+  ): Promise<CBAMCertificateEntry> {
+    return this.fetch<CBAMCertificateEntry>('/cbam/certificates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCBAMCertificateEntry(entryId: string): Promise<void> {
+    await this.fetch(`/cbam/certificates/${entryId}`, { method: 'DELETE' });
+  }
+
+  async getCBAMCertificateSummary(
+    year: number
+  ): Promise<CBAMCertificateSummary> {
+    return this.fetch<CBAMCertificateSummary>(
+      `/cbam/certificates/summary/${year}`
+    );
+  }
+
   // CBAM supplier portal — PUBLIC magic-link endpoints (no auth). These use
   // raw fetch and throw PublicApiError so the page can tell 404 from 410.
   async getCBAMSupplierRequest(token: string): Promise<CBAMSupplierRequestContext> {
@@ -2505,6 +2531,9 @@ import type {
   CBAMDataRequestCreate,
   CBAMSupplierRequestContext,
   CBAMSupplierEmissionRowInput,
+  CBAMCertificateEntry,
+  CBAMCertificateEntryCreate,
+  CBAMCertificateSummary,
 } from './types';
 
 // Error for public (no-auth) endpoints that keeps the HTTP status so pages

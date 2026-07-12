@@ -5,3 +5,4 @@ export { CBAMReports } from './CBAMReports';
 export { CBAMAnnualDeclaration } from './CBAMAnnualDeclaration';
 export { CBAMCalculator } from './CBAMCalculator';
 export { CBAMSuppliers } from './CBAMSuppliers';
+export { CBAMCertificates } from './CBAMCertificates';
