@@ -6,6 +6,7 @@ then re-read the full rows. PDF / image / email go through the LLM vision path,
 which is built together with the mapper (raises NotImplementedError until then).
 The tabular path is deterministic — testable without an API key.
 """
+
 from __future__ import annotations
 
 import io
@@ -13,7 +14,17 @@ from dataclasses import dataclass, field
 
 from app.services.ai.file_analyzer import FileAnalyzer, FileType
 
-_LLM_FORMATS = (".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".eml", ".txt", ".msg")
+_LLM_FORMATS = (
+    ".pdf",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".eml",
+    ".txt",
+    ".msg",
+)
 
 
 @dataclass
@@ -57,7 +68,9 @@ def load(content: bytes, filename: str) -> list[RawTable]:
     for sheet in analysis.sheets:
         if sheet.is_empty or sheet.is_metadata_only:
             continue
-        rows = _read_full_rows(content, analysis.file_type, sheet.sheet_name, sheet.header_row)
+        rows = _read_full_rows(
+            content, analysis.file_type, sheet.sheet_name, sheet.header_row
+        )
         tables.append(
             RawTable(
                 source=filename,
@@ -72,13 +85,17 @@ def load(content: bytes, filename: str) -> list[RawTable]:
     return tables
 
 
-def _read_full_rows(content: bytes, file_type, sheet_name: str, header_row: int) -> list[dict]:
+def _read_full_rows(
+    content: bytes, file_type, sheet_name: str, header_row: int
+) -> list[dict]:
     import pandas as pd
 
     if file_type == FileType.CSV:
         df = pd.read_csv(io.BytesIO(content), header=header_row)
     else:
-        df = pd.read_excel(io.BytesIO(content), sheet_name=sheet_name, header=header_row)
+        df = pd.read_excel(
+            io.BytesIO(content), sheet_name=sheet_name, header=header_row
+        )
     # NaN -> None so downstream JSON/LLM sees explicit nulls, not floats
     df = df.astype(object).where(df.notna(), None)
     return df.to_dict(orient="records")

@@ -347,7 +347,11 @@ async def test_punch_list_verdicts_and_actions(
         "/api/hub/profile",
         json={
             "entries": [
-                {"category_code": "1.1", "relevance": "relevant", "data_owner": "Facilities"},
+                {
+                    "category_code": "1.1",
+                    "relevance": "relevant",
+                    "data_owner": "Facilities",
+                },
                 {"category_code": "1.2", "relevance": "relevant"},
                 {
                     "category_code": "2.3",

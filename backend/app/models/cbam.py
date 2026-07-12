@@ -475,6 +475,51 @@ class CBAMSupplierEmission(SQLModel, table=True):
 
 
 # ============================================================================
+# CBAM CERTIFICATE LEDGER (Definitive Phase — purchases / surrenders)
+# ============================================================================
+
+
+class CBAMCertificateEntry(SQLModel, table=True):
+    """
+    One movement on the organization's CBAM certificate account.
+
+    Definitive-regime certificate ledger: purchases on the central platform
+    (sales open 1 Feb 2027, covering 2026 imports retroactively), surrenders
+    with the annual declaration (due 30 September), and repurchases (excess
+    certificates the Commission buys back on request — requests due by
+    31 October). The ledger is the source of truth for the 50% quarterly
+    holding check; `entry_type` is a plain varchar
+    (purchase / surrender / repurchase) — no native PG enum, per the
+    existing prod rule.
+    """
+
+    __tablename__ = "cbam_certificate_entries"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+
+    entry_date: date = Field(index=True)
+    entry_type: str = Field(max_length=20)  # purchase / surrender / repurchase
+    quantity: int = Field(gt=0)  # certificates, 1 certificate = 1 tCO2e
+
+    # Unit price actually paid/received (EUR per certificate); total is
+    # stored so the ledger keeps the historical amount even if price
+    # conventions change.
+    unit_price_eur: Optional[Decimal] = Field(default=None)
+    total_eur: Optional[Decimal] = Field(default=None)
+
+    # For surrenders: the declaration year the certificates were
+    # surrendered against (e.g. 2026 for the 30 Sep 2027 declaration).
+    declaration_year: Optional[int] = Field(default=None, index=True)
+
+    note: Optional[str] = Field(default=None, max_length=500)
+
+    # Audit
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: Optional[UUID] = Field(default=None, foreign_key="users.id")
+
+
+# ============================================================================
 # CBAM DEFAULT VALUES (Reference Data)
 # ============================================================================
 

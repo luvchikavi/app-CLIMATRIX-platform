@@ -71,7 +71,10 @@ PLAN_PRICING = {
     SubscriptionPlan.FREE: {"monthly": 0, "annual": 0},
     SubscriptionPlan.STARTER: {"monthly": 99, "annual": 1010},
     SubscriptionPlan.PROFESSIONAL: {"monthly": 349, "annual": 3560},
-    SubscriptionPlan.ENTERPRISE: {"monthly": None, "annual": None},  # custom / Book a Demo
+    SubscriptionPlan.ENTERPRISE: {
+        "monthly": None,
+        "annual": None,
+    },  # custom / Book a Demo
 }
 
 

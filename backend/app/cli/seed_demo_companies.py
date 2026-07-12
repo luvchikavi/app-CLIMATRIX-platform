@@ -12,6 +12,7 @@ never fails as a whole. Re-running skips companies that already exist.
 
 Run:  PYTHONPATH=. python -m app.cli.seed_demo_companies
 """
+
 import asyncio
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -55,14 +56,42 @@ COMPANIES = [
             ("electricity_il", 45600, "kWh", 2, "2", "Office electricity"),
             ("electricity_il", 31200, "kWh", 2, "2", "Cloud/colo allocation"),
             ("car_petrol_km", 12000, "km", 1, "1.2", "Company car"),
-            ("flight_short_economy", 60000, "km", 3, "3.6", "Business travel — short-haul"),
-            ("flight_long_economy", 18000, "km", 3, "3.6", "Business travel — long-haul"),
+            (
+                "flight_short_economy",
+                60000,
+                "km",
+                3,
+                "3.6",
+                "Business travel — short-haul",
+            ),
+            (
+                "flight_long_economy",
+                18000,
+                "km",
+                3,
+                "3.6",
+                "Business travel — long-haul",
+            ),
             ("hotel_night", 96, "nights", 3, "3.6", "Business travel — hotels"),
             ("commute_car_petrol", 8400, "km", 3, "3.7", "Employee commuting — car"),
             ("commute_bus", 10800, "km", 3, "3.7", "Employee commuting — bus"),
-            ("electronics_purchased_kg", 400, "kg", 3, "3.1", "Purchased laptops/equipment"),
+            (
+                "electronics_purchased_kg",
+                400,
+                "kg",
+                3,
+                "3.1",
+                "Purchased laptops/equipment",
+            ),
             ("paper_virgin_purchased_kg", 200, "kg", 3, "3.1", "Purchased paper"),
-            ("waste_cardboard_recycled", 1440, "kg", 3, "3.5", "Office waste — recycled"),
+            (
+                "waste_cardboard_recycled",
+                1440,
+                "kg",
+                3,
+                "3.5",
+                "Office waste — recycled",
+            ),
         ],
     },
     {
@@ -83,12 +112,40 @@ COMPANIES = [
             ("coal_kg", 3000000, "kg", 1, "1.1", "Coal — Karmiel"),
             ("car_diesel_km", 200000, "km", 1, "1.2", "Yard fleet"),
             ("electricity_il", 28800000, "kWh", 2, "2", "Arc/rolling grid electricity"),
-            ("steel_purchased_kg", 10800000, "kg", 3, "3.1", "Scrap/semi-finished inputs"),
-            ("aluminum_primary_purchased_kg", 360000, "kg", 3, "3.1", "Purchased aluminium"),
-            ("road_freight_hgv", 2000000, "tonne-km", 3, "3.4", "Upstream road freight"),
+            (
+                "steel_purchased_kg",
+                10800000,
+                "kg",
+                3,
+                "3.1",
+                "Scrap/semi-finished inputs",
+            ),
+            (
+                "aluminum_primary_purchased_kg",
+                360000,
+                "kg",
+                3,
+                "3.1",
+                "Purchased aluminium",
+            ),
+            (
+                "road_freight_hgv",
+                2000000,
+                "tonne-km",
+                3,
+                "3.4",
+                "Upstream road freight",
+            ),
             ("rail_freight", 800000, "tonne-km", 3, "3.4", "Upstream rail freight"),
             ("flight_long_business", 50000, "km", 3, "3.6", "Business travel"),
-            ("waste_steel_cans_recycled", 100000, "kg", 3, "3.5", "Operational waste — recycled"),
+            (
+                "waste_steel_cans_recycled",
+                100000,
+                "kg",
+                3,
+                "3.5",
+                "Operational waste — recycled",
+            ),
         ],
     },
     {
@@ -103,15 +160,36 @@ COMPANIES = [
         "activities": [
             ("electricity_il", 114000, "kWh", 2, "2", "Tel Aviv office electricity"),
             ("electricity_uk", 38400, "kWh", 2, "2", "London desk electricity"),
-            ("flight_long_business", 400000, "km", 3, "3.6", "Business travel — long-haul"),
-            ("flight_short_business", 120000, "km", 3, "3.6", "Business travel — short-haul"),
+            (
+                "flight_long_business",
+                400000,
+                "km",
+                3,
+                "3.6",
+                "Business travel — long-haul",
+            ),
+            (
+                "flight_short_business",
+                120000,
+                "km",
+                3,
+                "3.6",
+                "Business travel — short-haul",
+            ),
             ("hotel_night", 2160, "nights", 3, "3.6", "Business travel — hotels"),
             ("rail_international_km", 96000, "km", 3, "3.6", "Business travel — rail"),
             ("commute_car_petrol", 150000, "km", 3, "3.7", "Employee commuting — car"),
             ("commute_rail", 60000, "km", 3, "3.7", "Employee commuting — rail"),
             ("electronics_purchased_kg", 600, "kg", 3, "3.1", "Purchased equipment"),
             ("paper_virgin_purchased_kg", 800, "kg", 3, "3.1", "Purchased paper"),
-            ("waste_cardboard_recycled", 1200, "kg", 3, "3.5", "Office waste — recycled"),
+            (
+                "waste_cardboard_recycled",
+                1200,
+                "kg",
+                3,
+                "3.5",
+                "Office waste — recycled",
+            ),
         ],
     },
 ]
@@ -241,7 +319,9 @@ async def seed_company(session: AsyncSession, spec: dict) -> None:
         ok += 1
 
     await session.commit()
-    print(f"  + {spec['name']}: {ok} activities seeded, {skipped} skipped  ({spec['email']} / {PASSWORD})")
+    print(
+        f"  + {spec['name']}: {ok} activities seeded, {skipped} skipped  ({spec['email']} / {PASSWORD})"
+    )
 
 
 async def run():

@@ -34,6 +34,7 @@ from app.models.cbam import (
     CBAMQuarterlyReport,
     CBAMReportStatus,
     CBAMAnnualDeclaration,
+    CBAMCertificateEntry,
     CBAMDataRequest,
     CBAMSupplierEmission,
     CBAMDefaultValue,
@@ -50,6 +51,7 @@ from app.services.cbam_screening import (
     SECTOR_DEFAULT_INTENSITY,
     screen_imports,
 )
+from app.services import cbam_certificates as certificates_service
 from app.services import ets_price as ets_price_service
 from app.data.cbam_data import CBAM_PRODUCTS, get_sector_for_cn_code
 
@@ -313,6 +315,73 @@ class ETSPriceResponse(BaseModel):
     source: str
     is_fallback: bool
     assumption: Optional[str] = None
+
+
+# Certificate ledger schemas
+class CBAMCertificateEntryCreate(BaseModel):
+    """One certificate account movement (purchase/surrender/repurchase)."""
+
+    entry_date: date
+    entry_type: str = Field(..., max_length=20)
+    quantity: int = Field(..., gt=0)
+    unit_price_eur: Optional[Decimal] = Field(default=None, ge=0)
+    declaration_year: Optional[int] = Field(default=None, ge=2026)
+    note: Optional[str] = Field(default=None, max_length=500)
+
+
+class CBAMCertificateEntryResponse(BaseModel):
+    """Certificate ledger row."""
+
+    id: str
+    entry_date: date
+    entry_type: str
+    quantity: int
+    unit_price_eur: Optional[Decimal]
+    total_eur: Optional[Decimal]
+    declaration_year: Optional[int]
+    note: Optional[str]
+    created_at: datetime
+
+
+class CBAMHoldingQuarterResponse(BaseModel):
+    """One quarter of the 50% holding schedule."""
+
+    quarter: int
+    quarter_end: date
+    cumulative_emissions_tco2e: Decimal
+    required_certificates: int
+    held_certificates: int
+    shortfall: int
+    estimated_topup_cost_eur: Decimal
+    status: str  # met / shortfall / upcoming / not_applicable
+
+
+class CBAMCertificateMilestoneResponse(BaseModel):
+    """Key certificate compliance date."""
+
+    date: date
+    label: str
+    passed: bool
+
+
+class CBAMCertificateSummaryResponse(BaseModel):
+    """Certificate account summary + holding schedule for one year."""
+
+    year: int
+    balance: int
+    purchased: int
+    surrendered: int
+    repurchased: int
+    total_spent_eur: Decimal
+    total_repurchased_eur: Decimal
+    weighted_avg_purchase_price_eur: Optional[Decimal]
+    certificates_required: Optional[int]
+    declaration_status: Optional[str]
+    ets_price_eur: Decimal
+    holding_rule_applies: bool
+    holding_schedule: List[CBAMHoldingQuarterResponse]
+    milestones: List[CBAMCertificateMilestoneResponse]
+    assumptions: List[str]
 
 
 # Supplier portal (Phase 3) schemas
@@ -1376,6 +1445,235 @@ async def upsert_ets_price(
         source=row.source,
         is_fallback=False,
     )
+
+
+# ============================================================================
+# Certificate Ledger Endpoints (Definitive Phase)
+# ============================================================================
+
+
+def _certificate_entry_to_response(
+    entry: CBAMCertificateEntry,
+) -> CBAMCertificateEntryResponse:
+    return CBAMCertificateEntryResponse(
+        id=str(entry.id),
+        entry_date=entry.entry_date,
+        entry_type=entry.entry_type,
+        quantity=entry.quantity,
+        unit_price_eur=entry.unit_price_eur,
+        total_eur=entry.total_eur,
+        declaration_year=entry.declaration_year,
+        note=entry.note,
+        created_at=entry.created_at,
+    )
+
+
+async def _load_certificate_entries(
+    session: AsyncSession, organization_id: UUID
+) -> list[CBAMCertificateEntry]:
+    result = await session.execute(
+        select(CBAMCertificateEntry)
+        .where(CBAMCertificateEntry.organization_id == organization_id)
+        .order_by(
+            CBAMCertificateEntry.entry_date.desc(),
+            CBAMCertificateEntry.created_at.desc(),
+        )
+    )
+    return list(result.scalars().all())
+
+
+@router.get("/certificates", response_model=List[CBAMCertificateEntryResponse])
+async def list_certificate_entries(
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """The org's certificate ledger, newest first."""
+    entries = await _load_certificate_entries(session, current_user.organization_id)
+    return [_certificate_entry_to_response(e) for e in entries]
+
+
+@router.post("/certificates", response_model=CBAMCertificateEntryResponse)
+async def create_certificate_entry(
+    data: CBAMCertificateEntryCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Record a certificate account movement.
+
+    `entry_type`: purchase / surrender / repurchase. The ledger must never
+    go negative in date order — you cannot surrender or return more
+    certificates than you hold on that date (422).
+    """
+    entry_type = data.entry_type.strip().lower()
+    if entry_type not in certificates_service.ENTRY_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "entry_type must be one of: "
+                + ", ".join(certificates_service.ENTRY_TYPES)
+            ),
+        )
+
+    entry = CBAMCertificateEntry(
+        id=uuid4(),
+        organization_id=current_user.organization_id,
+        entry_date=data.entry_date,
+        entry_type=entry_type,
+        quantity=data.quantity,
+        unit_price_eur=data.unit_price_eur,
+        total_eur=certificates_service.entry_total_eur(
+            data.quantity, data.unit_price_eur
+        ),
+        declaration_year=data.declaration_year,
+        note=data.note,
+        created_by=current_user.id,
+    )
+
+    existing = await _load_certificate_entries(session, current_user.organization_id)
+    violation = certificates_service.running_balance_violation([*existing, entry])
+    if violation:
+        raise HTTPException(status_code=422, detail=violation)
+
+    session.add(entry)
+    await session.commit()
+    await session.refresh(entry)
+    return _certificate_entry_to_response(entry)
+
+
+@router.delete("/certificates/{entry_id}")
+async def delete_certificate_entry(
+    entry_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Remove a mis-entered ledger row.
+
+    Rejected (422) when removing the row would make the remaining ledger
+    go negative at any date (e.g. deleting the purchase a later surrender
+    depends on).
+    """
+    result = await session.execute(
+        select(CBAMCertificateEntry).where(
+            CBAMCertificateEntry.id == entry_id,
+            CBAMCertificateEntry.organization_id == current_user.organization_id,
+        )
+    )
+    entry = result.scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Ledger entry not found")
+
+    remaining = [
+        e
+        for e in await _load_certificate_entries(session, current_user.organization_id)
+        if e.id != entry.id
+    ]
+    violation = certificates_service.running_balance_violation(remaining)
+    if violation:
+        raise HTTPException(status_code=422, detail=violation)
+
+    await session.delete(entry)
+    await session.commit()
+    return {"deleted": True}
+
+
+@router.get(
+    "/certificates/summary/{year}",
+    response_model=CBAMCertificateSummaryResponse,
+)
+async def get_certificate_summary(
+    year: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Certificate account summary + the 50% quarterly holding schedule.
+
+    Holdings come from the ledger; the holding requirement cumulates the
+    year's imports as computed for the annual declaration (markup and
+    supplier actuals honoured). For 2026 the quarterly rule is marked not
+    applicable — certificates only go on sale 1 Feb 2027 — but the
+    milestones and the declaration's certificate requirement are shown.
+    """
+    if year < 2026:
+        raise HTTPException(
+            status_code=400,
+            detail="The certificate regime starts with 2026 imports",
+        )
+
+    entries = await _load_certificate_entries(session, current_user.organization_id)
+    summary = certificates_service.ledger_summary(entries)
+
+    imports, default_values, supplier_emissions = await _load_declaration_inputs(
+        session, current_user.organization_id, year
+    )
+    ets_price, ets_assumption = await _latest_ets_price(session)
+    draft = build_annual_declaration_draft(
+        imports,
+        year,
+        ets_price_eur=ets_price,
+        default_values=default_values or None,
+        supplier_emissions=supplier_emissions or None,
+    )
+    line_emissions = [
+        (line["import_date"], line["emissions_tco2e"]) for line in draft["lines"]
+    ]
+
+    today = date.today()
+    schedule = certificates_service.quarterly_holding_schedule(
+        year, line_emissions, entries, ets_price, today
+    )
+
+    declaration_result = await session.execute(
+        select(CBAMAnnualDeclaration).where(
+            CBAMAnnualDeclaration.organization_id == current_user.organization_id,
+            CBAMAnnualDeclaration.reporting_year == year,
+        )
+    )
+    declaration = declaration_result.scalar_one_or_none()
+
+    assumptions = [
+        certificates_service.HOLDING_BASIS_ASSUMPTION,
+        ets_assumption,
+    ]
+    if not schedule["applies"]:
+        assumptions.append(
+            "The 50% quarterly holding requirement applies from 2027; "
+            "certificates covering 2026 imports go on sale 1 Feb 2027 and "
+            "are surrendered with the 30 Sep 2027 declaration."
+        )
+
+    return CBAMCertificateSummaryResponse(
+        year=year,
+        balance=summary["balance"],
+        purchased=summary["purchased"],
+        surrendered=summary["surrendered"],
+        repurchased=summary["repurchased"],
+        total_spent_eur=summary["total_spent_eur"],
+        total_repurchased_eur=summary["total_repurchased_eur"],
+        weighted_avg_purchase_price_eur=summary["weighted_avg_purchase_price_eur"],
+        certificates_required=(
+            declaration.certificates_required if declaration else None
+        ),
+        declaration_status=(
+            _enum_value_str(declaration.status) if declaration else None
+        ),
+        ets_price_eur=ets_price,
+        holding_rule_applies=schedule["applies"],
+        holding_schedule=[
+            CBAMHoldingQuarterResponse(**q) for q in schedule["quarters"]
+        ],
+        milestones=[
+            CBAMCertificateMilestoneResponse(**m)
+            for m in certificates_service.milestones(year, today)
+        ],
+        assumptions=assumptions,
+    )
+
+
+def _enum_value_str(value) -> str:
+    return getattr(value, "value", value)
 
 
 # ============================================================================

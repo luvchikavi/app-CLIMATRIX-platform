@@ -1000,6 +1000,74 @@ export interface CBAMScreenDefaults {
   assumptions: string[];
 }
 
+// =============================================================================
+// CBAM CERTIFICATE LEDGER (definitive regime)
+// =============================================================================
+
+export type CBAMCertificateEntryType = 'purchase' | 'surrender' | 'repurchase';
+
+export interface CBAMCertificateEntry {
+  id: string;
+  entry_date: string;
+  entry_type: CBAMCertificateEntryType;
+  quantity: number;
+  unit_price_eur: number | null;
+  total_eur: number | null;
+  declaration_year: number | null;
+  note: string | null;
+  created_at: string;
+}
+
+export interface CBAMCertificateEntryCreate {
+  entry_date: string;
+  entry_type: CBAMCertificateEntryType;
+  quantity: number;
+  unit_price_eur?: number | null;
+  declaration_year?: number | null;
+  note?: string | null;
+}
+
+export type CBAMHoldingQuarterStatus =
+  | 'met'
+  | 'shortfall'
+  | 'upcoming'
+  | 'not_applicable';
+
+export interface CBAMHoldingQuarter {
+  quarter: number;
+  quarter_end: string;
+  cumulative_emissions_tco2e: number;
+  required_certificates: number;
+  held_certificates: number;
+  shortfall: number;
+  estimated_topup_cost_eur: number;
+  status: CBAMHoldingQuarterStatus;
+}
+
+export interface CBAMCertificateMilestone {
+  date: string;
+  label: string;
+  passed: boolean;
+}
+
+export interface CBAMCertificateSummary {
+  year: number;
+  balance: number;
+  purchased: number;
+  surrendered: number;
+  repurchased: number;
+  total_spent_eur: number;
+  total_repurchased_eur: number;
+  weighted_avg_purchase_price_eur: number | null;
+  certificates_required: number | null;
+  declaration_status: string | null;
+  ets_price_eur: number;
+  holding_rule_applies: boolean;
+  holding_schedule: CBAMHoldingQuarter[];
+  milestones: CBAMCertificateMilestone[];
+  assumptions: string[];
+}
+
 // CBAM Quarterly Report (transitional period 2024-2025)
 export interface CBAMQuarterlyReport {
   id: string;

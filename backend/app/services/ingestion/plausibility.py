@@ -90,16 +90,25 @@ def check_batch(
         if r.quantity is None:
             continue
         if r.quantity < 0:
-            flag(r, "Plausibility: quantity is negative — a credit/refund line? "
-                    "Confirm before it subtracts from the inventory.")
+            flag(
+                r,
+                "Plausibility: quantity is negative — a credit/refund line? "
+                "Confirm before it subtracts from the inventory.",
+            )
         elif r.quantity == 0:
-            flag(r, "Plausibility: quantity is zero — this line adds nothing; "
-                    "delete it or fill the real amount.")
+            flag(
+                r,
+                "Plausibility: quantity is zero — this line adds nothing; "
+                "delete it or fill the real amount.",
+            )
         else:
             ceiling = _MAGNITUDE_CEILINGS.get(_unit_family(r.unit))
             if ceiling and r.quantity > ceiling[0]:
-                flag(r, f"Plausibility: {ceiling[1]} — check for a unit slip "
-                        f"(value {r.quantity:,.0f} {r.unit}).")
+                flag(
+                    r,
+                    f"Plausibility: {ceiling[1]} — check for a unit slip "
+                    f"(value {r.quantity:,.0f} {r.unit}).",
+                )
 
     # 3: batch outliers within each activity group
     for key, group in groups.items():
@@ -111,9 +120,12 @@ def check_batch(
             continue
         for r in group:
             if r.quantity and r.quantity > med * _OUTLIER_FACTOR:
-                flag(r, f"Plausibility: {r.quantity:,.0f} {r.unit or ''} is "
-                        f">{_OUTLIER_FACTOR:.0f}× the median of its {len(positives)} "
-                        f"sibling rows ({med:,.0f}) — outlier or unit slip?")
+                flag(
+                    r,
+                    f"Plausibility: {r.quantity:,.0f} {r.unit or ''} is "
+                    f">{_OUTLIER_FACTOR:.0f}× the median of its {len(positives)} "
+                    f"sibling rows ({med:,.0f}) — outlier or unit slip?",
+                )
 
     # 4: drift vs the prior period
     for key, prior in (prior_totals or {}).items():
@@ -127,9 +139,12 @@ def check_batch(
         if ratio > _DRIFT_FACTOR or ratio < 1 / _DRIFT_FACTOR:
             direction = "higher" if ratio > 1 else "lower"
             for r in group:
-                flag(r, f"Consistency: this upload totals {total:,.0f} for this "
-                        f"activity vs {prior:,.0f} committed last period — "
-                        f"{max(ratio, 1 / ratio):.0f}× {direction}. Real change, "
-                        "or double-counting/missing data?")
+                flag(
+                    r,
+                    f"Consistency: this upload totals {total:,.0f} for this "
+                    f"activity vs {prior:,.0f} committed last period — "
+                    f"{max(ratio, 1 / ratio):.0f}× {direction}. Real change, "
+                    "or double-counting/missing data?",
+                )
 
     return flagged

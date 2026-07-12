@@ -1,4 +1,5 @@
 """Tests for the file loader (CSV path — deterministic, no API key)."""
+
 import pytest
 
 from app.services.ingestion.loader import load, is_tabular, RawTable
