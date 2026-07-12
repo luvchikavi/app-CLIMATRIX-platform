@@ -524,7 +524,12 @@ async def import_activities(
                     scope=validated.scope,
                     category_code=validated.category_code,
                     region=org_region,
-                    year=2024,
+                    # The period's own year — never a hardcoded factor vintage.
+                    year=(
+                        period.start_date.year
+                        if period.start_date
+                        else datetime.utcnow().year
+                    ),
                 )
             )
 

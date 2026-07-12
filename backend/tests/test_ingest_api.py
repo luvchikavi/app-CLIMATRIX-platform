@@ -267,6 +267,57 @@ async def test_patch_edit_regrounds_row(
     assert body["activity_key"] == "electricity_kwh"
 
 
+async def test_endpoints_thread_period_year(
+    client, auth_headers, test_period, seed_emission_factors, monkeypatch
+):
+    """The answers + row-edit endpoints must pass the session's reporting-period
+    year (2025 in fixtures) down to re-grounding — not a hardcoded vintage."""
+    monkeypatch.setattr(orchestrator, "map_table_fast", _fake_map_table)
+    monkeypatch.setattr(orchestrator, "map_table", _fake_map_table)
+
+    up = await client.post(
+        "/api/ingest",
+        headers=auth_headers,
+        files={"file": ("footprint.csv", _CSV, "text/csv")},
+        data={"reporting_period_id": str(test_period.id)},
+    )
+    body = up.json()
+    sid = body["id"]
+
+    seen = {}
+    real_apply = orchestrator.apply_answers
+    real_reground = orchestrator.reground_row
+
+    async def spy_apply(session, ingestion, answers, *, region="Global", year=None):
+        seen["answers_year"] = year
+        return await real_apply(session, ingestion, answers, region=region, year=year)
+
+    async def spy_reground(session, row, *, region="Global", year=None):
+        seen["reground_year"] = year
+        return await real_reground(session, row, region=region, year=year)
+
+    monkeypatch.setattr(orchestrator, "apply_answers", spy_apply)
+    monkeypatch.setattr(orchestrator, "reground_row", spy_reground)
+
+    qid = body["questions"][0]["id"]
+    resp = await client.post(
+        f"/api/ingest/{sid}/answers",
+        headers=auth_headers,
+        json={"answers": [{"question_id": qid, "answer": "petrol_liters"}]},
+    )
+    assert resp.status_code == 200, resp.text
+
+    row_id = body["rows"][0]["id"]
+    resp = await client.patch(
+        f"/api/ingest/{sid}/rows/{row_id}",
+        headers=auth_headers,
+        json={"quantity": 123},
+    )
+    assert resp.status_code == 200, resp.text
+
+    assert seen == {"answers_year": 2025, "reground_year": 2025}
+
+
 async def test_get_and_list(client, auth_headers, seed_emission_factors, monkeypatch):
     monkeypatch.setattr(orchestrator, "map_table_fast", _fake_map_table)
     monkeypatch.setattr(orchestrator, "map_table", _fake_map_table)

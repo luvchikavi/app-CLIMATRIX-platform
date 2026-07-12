@@ -52,7 +52,7 @@ from app.services.ingestion.grounding import (
 )
 from app.services.ingestion.context import build_parsing_context
 from app.services.ingestion.plausibility import check_batch
-from app.services.ingestion.loader import load
+from app.services.ingestion.loader import load_with_skipped
 from app.services.ingestion.mapper import map_table
 from app.services.ingestion.fast_mapper import map_table_fast
 from app.services.ingestion.rule_engine import check_row
@@ -128,6 +128,26 @@ def _provenance(grounding: GroundingVerdict, unit: str | None) -> dict:
     }
 
 
+def _resolve_year(year: int | None) -> tuple[int, bool]:
+    """Factor vintage to ground against.
+
+    When the caller has no reporting period (ingest without a period selected)
+    we fall back to the CURRENT year — never a hardcoded past vintage — and
+    report the assumption so affected rows can carry an audit-trail reason.
+    Returns ``(year, was_assumed)``.
+    """
+    if year is not None:
+        return year, False
+    return datetime.utcnow().year, True
+
+
+def _year_assumed_reason(year: int) -> str:
+    return (
+        f"No reporting period selected — assumed factor year {year} "
+        f"(current year). Select a period to pin the factor vintage."
+    )
+
+
 def _no_key_verdict(reason: str) -> GroundingVerdict:
     """Grounding verdict for a row the mapper could not confidently map to a key."""
     return GroundingVerdict(
@@ -150,7 +170,7 @@ async def run_analysis(
     *,
     client=None,
     region: str = "Global",
-    year: int = 2024,
+    year: int | None = None,
 ) -> IngestionSession:
     """Parse an upload into staged rows + clarifying questions.
 
@@ -158,6 +178,7 @@ async def run_analysis(
     unexpected failure the session is marked FAILED with a client-safe message
     rather than left half-done.
     """
+    year, year_assumed = _resolve_year(year)
     ingestion.status = IngestionStatus.ANALYZING
     ingestion.updated_at = datetime.utcnow()
     await session.flush()
@@ -177,11 +198,12 @@ async def run_analysis(
         template_results = await asyncio.to_thread(map_template, content, filename)
 
     parse_mode = "template" if template_results is not None else "ai"
+    skipped_sheets: list[str] = []
     if template_results is not None:
         mapped_results = [(tbl, rows, 0, 0, None) for tbl, rows in template_results]
     else:
         try:
-            tables = load(content, filename)
+            tables, skipped_sheets = load_with_skipped(content, filename)
         except NotImplementedError as exc:
             ingestion.status = IngestionStatus.FAILED
             ingestion.error_message = str(exc)
@@ -263,6 +285,11 @@ async def run_analysis(
                 violations = []
 
             verdict = score_row(grounding, violations, llm_self_score=m.llm_confidence)
+
+            # Grounded against an assumed (current-year) factor vintage because no
+            # reporting period was selected — say so on the row's audit trail.
+            if year_assumed and m.activity_key:
+                verdict.reasons.append(_year_assumed_reason(year))
 
             # Prompt-injection in the row text: never trust it silently.
             row_text = (
@@ -384,6 +411,9 @@ async def run_analysis(
         "mode": parse_mode,
         "plausibility_flags": plausibility_flags,
     }
+    # Sheets skipped as empty/metadata-only — surfaced so nothing vanishes silently.
+    if skipped_sheets:
+        summary["skipped_sheets"] = skipped_sheets
     if parse_mode == "template":
         summary["notice"] = (
             "Recognised the CLIMATRIX template — mapped deterministically, no AI "
@@ -418,7 +448,7 @@ async def apply_answers(
     answers: dict[UUID, str],
     *,
     region: str = "Global",
-    year: int = 2024,
+    year: int | None = None,
 ) -> IngestionSession:
     """Apply client answers to open questions and re-score the affected rows.
 
@@ -427,6 +457,7 @@ async def apply_answers(
     the answer is recorded and, once a row has no open questions left, it moves
     from 'blocked' to 'needs review' so a human still confirms it.
     """
+    year, year_assumed = _resolve_year(year)
     cat = await catalog_mod.build_from_db(session)
     touched_rows: set[UUID] = set()
 
@@ -454,7 +485,9 @@ async def apply_answers(
         row = await session.get(StagedRow, rid)
         if row is None:
             continue
-        await _reground_row(session, row, cat, region=region, year=year)
+        await _reground_row(
+            session, row, cat, region=region, year=year, year_assumed=year_assumed
+        )
 
     # Recompute open-question count and overall status.
     open_qs = (
@@ -500,7 +533,7 @@ async def commit_session(
         raise ValueError("Reporting period or organization not found.")
 
     region = org.default_region or "Global"
-    year = period.start_date.year if period.start_date else 2024
+    year = period.start_date.year if period.start_date else datetime.utcnow().year
     activity_date: date = period.start_date or date(year, 1, 1)
 
     ingestion.status = IngestionStatus.COMMITTING
@@ -611,6 +644,20 @@ async def commit_session(
                 market_co2e_kg=calc.market_co2e_kg,
             )
         )
+        # Keep the staged audit trail honest: the pipeline may resolve a different
+        # factor at commit time (period year/region) than the one shown at review.
+        # The provenance dict must describe what was actually committed.
+        prov = dict(row.provenance or {})
+        prov["factor_source"] = calc.factor_source or prov.get("factor_source")
+        prov["factor_year"] = calc.factor_year
+        prov["factor_region"] = calc.factor_region or prov.get("factor_region")
+        prov["factor_name"] = calc.factor_display_name or prov.get("factor_name")
+        prov["method"] = calc.resolution_strategy
+        prov["method_label"] = _METHOD_LABEL.get(
+            calc.resolution_strategy, calc.resolution_strategy
+        )
+        row.provenance = prov
+
         row.committed_activity_id = activity.id
         row.status = RowStatus.COMMITTED
         row.commit_error = None
@@ -802,7 +849,11 @@ def _apply_answer_to_row(row: StagedRow, field: str | None, answer: str, cat) ->
 
 
 async def reground_row(
-    session: AsyncSession, row: StagedRow, *, region: str = "Global", year: int = 2024
+    session: AsyncSession,
+    row: StagedRow,
+    *,
+    region: str = "Global",
+    year: int | None = None,
 ) -> StagedRow:
     """Public: re-ground + re-score a single staged row after a manual edit.
 
@@ -810,13 +861,22 @@ async def reground_row(
     confidence band or status — the review grid would then lie about how sure we
     are. This recomputes everything from the edited values (building the catalog
     fresh so a newly-chosen activity_key resolves correctly)."""
+    year, year_assumed = _resolve_year(year)
     cat = await catalog_mod.build_from_db(session)
-    await _reground_row(session, row, cat, region=region, year=year)
+    await _reground_row(
+        session, row, cat, region=region, year=year, year_assumed=year_assumed
+    )
     return row
 
 
 async def _reground_row(
-    session: AsyncSession, row: StagedRow, cat, *, region: str, year: int
+    session: AsyncSession,
+    row: StagedRow,
+    cat,
+    *,
+    region: str,
+    year: int,
+    year_assumed: bool = False,
 ) -> None:
     if row.activity_key:
         # Scope/category are authoritative from the catalog entry for this key —
@@ -836,6 +896,8 @@ async def _reground_row(
         violations = []
 
     verdict = score_row(grounding, violations, llm_self_score=max(row.confidence, 0.6))
+    if year_assumed and row.activity_key:
+        verdict.reasons.append(_year_assumed_reason(year))
     row.confidence = verdict.confidence
     row.band = verdict.band
     row.pcaf_data_quality = verdict.pcaf_data_quality

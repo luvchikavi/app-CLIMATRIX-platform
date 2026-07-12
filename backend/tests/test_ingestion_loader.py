@@ -1,8 +1,10 @@
 """Tests for the file loader (CSV path — deterministic, no API key)."""
 
+import io
+
 import pytest
 
-from app.services.ingestion.loader import load, is_tabular, RawTable
+from app.services.ingestion.loader import load, load_with_skipped, is_tabular, RawTable
 
 
 def test_is_tabular():
@@ -39,3 +41,33 @@ def test_csv_blank_cells_become_none():
     csv = "Activity,Quantity,Unit\nElectricity,,kWh\n".encode()
     t = load(csv, "x.csv")[0]
     assert t.rows[0]["Quantity"] is None
+
+
+def _two_sheet_xlsx() -> bytes:
+    """Workbook with one real data sheet and one empty 'Instructions' sheet."""
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Data"
+    ws.append(["Activity", "Quantity", "Unit", "Site"])
+    ws.append(["Electricity", 100, "kWh", "HQ"])
+    ws.append(["Diesel", 50, "liters", "HQ"])
+    ws.append(["Natural gas", 900, "kWh", "Plant"])
+    wb.create_sheet("Instructions")  # empty — must be skipped, but visibly so
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_xlsx_skipped_sheets_are_reported():
+    tables, skipped = load_with_skipped(_two_sheet_xlsx(), "book.xlsx")
+    assert [t.sheet for t in tables] == ["Data"]
+    assert skipped == ["Instructions"]
+
+
+def test_load_contract_unchanged():
+    # load() keeps its original list-of-RawTable contract for existing callers.
+    tables = load(_two_sheet_xlsx(), "book.xlsx")
+    assert isinstance(tables, list)
+    assert [t.sheet for t in tables] == ["Data"]

@@ -672,5 +672,128 @@ def seed_cbam_defaults(
     asyncio.run(run())
 
 
+def _cli_flag(parsed, flag_name: str) -> bool:
+    """Resolve a boolean CLI flag defensively.
+
+    The installed typer/click combination mangles bool options (a passed flag
+    arrives as None; an unset False default arrives as the string 'False'), so
+    a truthiness check on the parsed value silently inverts intent. Trust a
+    real bool when one arrives; otherwise fall back to the actual argv.
+    """
+    import sys
+
+    if isinstance(parsed, bool):
+        return parsed
+    return flag_name in sys.argv[1:]
+
+
+@app.command()
+def purge_cbam_transitional(
+    dry_run: bool = typer.Option(
+        True, "--dry-run", help="Preview only — print counts, delete nothing (default)."
+    ),
+    execute: bool = typer.Option(False, "--execute", help="Actually delete the rows."),
+):
+    """Purge transitional-phase CBAM demo data (approved decision).
+
+    Deletes CBAMQuarterlyReport rows and CBAMImport rows with
+    import_date < 2026-01-01 — ONLY for the demo organizations created by
+    seed_demo_companies.py (matched by org name or seeded admin email).
+    """
+    from datetime import date as date_cls
+
+    from sqlalchemy import delete, func, or_
+
+    from app.cli.seed_demo_companies import COMPANIES
+    from app.models.cbam import CBAMImport, CBAMQuarterlyReport
+
+    # --execute wins; anything else (including explicit --dry-run) is a dry-run.
+    dry_run = not _cli_flag(execute, "--execute")
+    cutoff = date_cls(2026, 1, 1)
+    demo_names = {c["name"] for c in COMPANIES}
+    demo_emails = {c["email"].lower() for c in COMPANIES}
+
+    async def run():
+        engine = create_async_engine(settings.async_database_url)
+        async_session = async_sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
+
+        async with async_session() as session:
+            # Demo org ids: named like the seeded demo companies, or holding a
+            # seeded demo admin user. Never touches any other organization.
+            org_rows = (
+                await session.execute(
+                    select(Organization.id, Organization.name)
+                    .join(User, User.organization_id == Organization.id, isouter=True)
+                    .where(
+                        or_(
+                            Organization.name.in_(demo_names),
+                            func.lower(User.email).in_(demo_emails),
+                        )
+                    )
+                    .distinct()
+                )
+            ).all()
+            org_ids = [row[0] for row in org_rows]
+
+            if not org_ids:
+                typer.echo("No demo organizations found — nothing to purge.")
+                await engine.dispose()
+                return
+
+            typer.echo("Demo organizations in scope:")
+            for oid, name in org_rows:
+                typer.echo(f"  - {name} ({oid})")
+
+            reports = (
+                await session.execute(
+                    select(func.count())
+                    .select_from(CBAMQuarterlyReport)
+                    .where(CBAMQuarterlyReport.organization_id.in_(org_ids))
+                )
+            ).scalar_one()
+            imports = (
+                await session.execute(
+                    select(func.count())
+                    .select_from(CBAMImport)
+                    .where(
+                        CBAMImport.organization_id.in_(org_ids),
+                        CBAMImport.import_date < cutoff,
+                    )
+                )
+            ).scalar_one()
+
+            typer.echo(
+                f"\nTransitional CBAM data (quarterly reports + imports "
+                f"dated before {cutoff.isoformat()}):"
+            )
+            typer.echo(f"  CBAMQuarterlyReport rows: {reports}")
+            typer.echo(f"  CBAMImport rows:          {imports}")
+
+            if dry_run:
+                typer.echo("\nDry-run — nothing deleted. Re-run with --execute.")
+                await engine.dispose()
+                return
+
+            await session.execute(
+                delete(CBAMQuarterlyReport).where(
+                    CBAMQuarterlyReport.organization_id.in_(org_ids)
+                )
+            )
+            await session.execute(
+                delete(CBAMImport).where(
+                    CBAMImport.organization_id.in_(org_ids),
+                    CBAMImport.import_date < cutoff,
+                )
+            )
+            await session.commit()
+            typer.echo(f"\nDeleted {reports} quarterly reports and {imports} imports.")
+
+        await engine.dispose()
+
+    asyncio.run(run())
+
+
 if __name__ == "__main__":
     app()

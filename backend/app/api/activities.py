@@ -38,6 +38,17 @@ from app.services.calculation.normalizer import UnitConversionError
 router = APIRouter()
 
 
+def _factor_year(period: ReportingPeriod | None) -> int:
+    """Factor vintage for calculations — the reporting period's year.
+
+    Falls back to the current year (never a hardcoded past vintage) when the
+    period is missing or has no start date.
+    """
+    if period is not None and period.start_date:
+        return period.start_date.year
+    return datetime.utcnow().year
+
+
 # ============================================================================
 # Schemas (HTTP layer only)
 # ============================================================================
@@ -319,7 +330,7 @@ async def create_activity(
                 scope=data.scope,
                 category_code=data.category_code,
                 region=org_region,  # Use organization's configured region
-                year=2024,
+                year=_factor_year(period),
                 supplier_ef=data.supplier_ef,  # For Supplier-Specific method
             )
         )
@@ -522,6 +533,9 @@ async def update_activity(
     org = org_result.scalar_one_or_none()
     org_region = org.default_region if org and org.default_region else "Global"
 
+    # Recalculate with the activity's own reporting-period year, not a hardcoded one.
+    period = await session.get(ReportingPeriod, activity.reporting_period_id)
+
     pipeline = CalculationPipeline(session)
 
     try:
@@ -533,7 +547,7 @@ async def update_activity(
                 scope=activity.scope,
                 category_code=activity.category_code,
                 region=org_region,
-                year=2024,
+                year=_factor_year(period),
                 supplier_ef=(
                     activity.supplier_ef if hasattr(activity, "supplier_ef") else None
                 ),
@@ -735,7 +749,7 @@ async def recalculate_period_emissions(
                     scope=activity.scope,
                     category_code=activity.category_code,
                     region=org_region,  # Use organization's configured region
-                    year=2024,
+                    year=_factor_year(period),
                     supplier_ef=(
                         activity.supplier_ef
                         if hasattr(activity, "supplier_ef")

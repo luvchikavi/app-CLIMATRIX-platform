@@ -454,6 +454,17 @@ function IngestContent() {
           </div>
         )}
 
+        {/* Sheets skipped as non-data — nothing vanishes silently */}
+        {session?.summary?.skipped_sheets && session.summary.skipped_sheets.length > 0 && (
+          <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
+            <FileSpreadsheet className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              Skipped as non-data: {session.summary.skipped_sheets.join(', ')} — tell us if one of
+              these holds data.
+            </span>
+          </div>
+        )}
+
         {/* Questions */}
         {session && openQuestions.length > 0 && !isCommitted && (
           <Card>

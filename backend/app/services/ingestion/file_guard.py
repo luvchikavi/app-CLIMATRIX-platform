@@ -70,7 +70,20 @@ _INJECTION_PATTERNS = [
     ),
     re.compile(r"</?(system|assistant|user)>", re.I),
     re.compile(r"\[/?INST\]", re.I),
+    re.compile(r"\boverride (all |your |all your )?(rules|instructions)\b", re.I),
+    re.compile(r"\bact as (the )?(system|admin)\b", re.I),
+    re.compile(r"\bdo anything now\b", re.I),
+    re.compile(r"\bDAN\b"),  # case-sensitive on purpose — "Dan" is a name
+    re.compile(r"```\s*(system|assistant|user)\b", re.I),  # markdown-fenced role block
+    # Long base64-looking blob — data smuggling / encoded payloads are suspicious
+    # in what should be tabular business data. Flagged, never blocked.
+    re.compile(r"[A-Za-z0-9+/=]{80,}"),
 ]
+
+# Zero-width / invisible characters used to split trigger words past naive scanners
+# (e.g. "ig<ZWSP>nore previous instructions"). Stripped before pattern matching.
+# U+200B ZWSP, U+200C ZWNJ, U+200D ZWJ, U+FEFF BOM/ZWNBSP.
+_ZERO_WIDTH = dict.fromkeys(map(ord, "\u200b\u200c\u200d\ufeff"))
 
 DEFAULT_MAX_BYTES = 50 * 1024 * 1024  # keep in step with settings.max_upload_size_mb
 
@@ -206,9 +219,15 @@ def sanitise_cell(value):
 
 
 def scan_text_for_injection(text: str) -> int:
-    """Count prompt-injection signals in a blob of text (0 = clean)."""
+    """Count prompt-injection signals in a blob of text (0 = clean).
+
+    Zero-width characters are stripped first so invisible-character splitting
+    can't sneak a trigger phrase past the patterns. Hits FLAG a row for manual
+    review — they never block the upload.
+    """
     if not text:
         return 0
+    text = text.translate(_ZERO_WIDTH)
     return sum(1 for pat in _INJECTION_PATTERNS if pat.search(text))
 
 

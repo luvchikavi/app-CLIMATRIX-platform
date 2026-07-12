@@ -3199,6 +3199,7 @@ export interface IngestionSession {
     duplicate_warning?: string;
     duplicate_of?: string;
     notice?: string;
+    skipped_sheets?: string[];
   } | null;
   error_message: string | null;
   reporting_period_id: string | null;

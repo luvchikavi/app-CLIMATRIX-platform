@@ -57,6 +57,16 @@ def load(content: bytes, filename: str) -> list[RawTable]:
     Raises NotImplementedError for formats that need the LLM/vision path
     (PDF/image/email) — those are handled by the mapper once wired.
     """
+    tables, _skipped = load_with_skipped(content, filename)
+    return tables
+
+
+def load_with_skipped(
+    content: bytes, filename: str
+) -> tuple[list[RawTable], list[str]]:
+    """Like :func:`load`, but also return the names of sheets that were skipped
+    as empty/metadata-only — so callers can tell the client which sheets were
+    silently left out instead of making them vanish without a trace."""
     if not is_tabular(filename):
         raise NotImplementedError(
             f"{filename}: PDF/image/email extraction uses the LLM vision path "
@@ -65,8 +75,11 @@ def load(content: bytes, filename: str) -> list[RawTable]:
 
     analysis = FileAnalyzer().analyze(content, filename)
     tables: list[RawTable] = []
+    skipped_sheets: list[str] = []
     for sheet in analysis.sheets:
         if sheet.is_empty or sheet.is_metadata_only:
+            if sheet.sheet_name:
+                skipped_sheets.append(sheet.sheet_name)
             continue
         rows = _read_full_rows(
             content, analysis.file_type, sheet.sheet_name, sheet.header_row
@@ -82,7 +95,7 @@ def load(content: bytes, filename: str) -> list[RawTable]:
                 warnings=list(analysis.warnings),
             )
         )
-    return tables
+    return tables, skipped_sheets
 
 
 def _read_full_rows(

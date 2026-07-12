@@ -685,7 +685,7 @@ async def analyze_ingestion_session(
     file_path: str,
     filename: str,
     region: str = "Global",
-    year: int = 2024,
+    year: int | None = None,
 ) -> dict:
     """Parse an uploaded Smart Import file in the background.
 

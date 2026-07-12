@@ -16,7 +16,6 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision: str = "a1b2c3d4e5f6"
@@ -37,9 +36,11 @@ def upgrade() -> None:
     op.add_column(
         "reporting_periods", sa.Column("submitted_at", sa.DateTime(), nullable=True)
     )
+    # sa.Uuid, matching every other migration in the chain — sqlmodel's GUID type
+    # was removed from sqlmodel.sql.sqltypes and broke fresh-DB replays.
     op.add_column(
         "reporting_periods",
-        sa.Column("submitted_by_id", sqlmodel.sql.sqltypes.GUID(), nullable=True),
+        sa.Column("submitted_by_id", sa.Uuid(), nullable=True),
     )
     op.add_column(
         "reporting_periods", sa.Column("verified_at", sa.DateTime(), nullable=True)
@@ -52,21 +53,24 @@ def upgrade() -> None:
         sa.Column("verification_statement", sa.Text(), nullable=True),
     )
 
-    # Add foreign key for submitted_by_id
-    op.create_foreign_key(
-        "fk_reporting_periods_submitted_by",
-        "reporting_periods",
-        "users",
-        ["submitted_by_id"],
-        ["id"],
-    )
+    # Add foreign key for submitted_by_id. Batch mode so a fresh-DB replay works
+    # on SQLite too (no ALTER-constraint support); on PostgreSQL this emits the
+    # same plain ALTER TABLE it always did.
+    with op.batch_alter_table("reporting_periods") as batch_op:
+        batch_op.create_foreign_key(
+            "fk_reporting_periods_submitted_by",
+            "users",
+            ["submitted_by_id"],
+            ["id"],
+        )
 
 
 def downgrade() -> None:
-    # Remove foreign key first
-    op.drop_constraint(
-        "fk_reporting_periods_submitted_by", "reporting_periods", type_="foreignkey"
-    )
+    # Remove foreign key first (batch mode — see upgrade)
+    with op.batch_alter_table("reporting_periods") as batch_op:
+        batch_op.drop_constraint(
+            "fk_reporting_periods_submitted_by", type_="foreignkey"
+        )
 
     # Remove columns
     op.drop_column("reporting_periods", "verification_statement")
