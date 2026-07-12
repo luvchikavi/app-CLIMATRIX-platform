@@ -1,4 +1,5 @@
 """Tests for deterministic per-row confidence scoring (no DB, no LLM)."""
+
 from app.services.ingestion.grounding import GroundingVerdict
 from app.services.ingestion.confidence import score_row
 

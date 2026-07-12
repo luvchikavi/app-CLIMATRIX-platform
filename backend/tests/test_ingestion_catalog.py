@@ -2,6 +2,7 @@
 
 Pure in-memory (no DB) so it's fast and CI-safe.
 """
+
 from app.services.ingestion.catalog import (
     FactorCatalog,
     entry_from_record,

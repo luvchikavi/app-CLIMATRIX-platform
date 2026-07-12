@@ -1,4 +1,5 @@
 """Unit tests for the compliance rule engine (no DB, no LLM)."""
+
 from app.services.ingestion.catalog import FactorCatalog, entry_from_record
 from app.services.ingestion.rule_engine import (
     check_row,

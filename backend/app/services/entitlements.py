@@ -3,6 +3,7 @@
 Single place that decides what an org can do, so API endpoints just call a check and
 return HTTP 402 (with a machine-readable code) when a limit is hit.
 """
+
 from datetime import datetime
 from typing import Annotated
 
@@ -39,9 +40,15 @@ def resolve_entitlement(org: Organization | None) -> dict:
 
     status = org.subscription_status or None
     now = datetime.utcnow()
-    trialing = status == "trialing" and org.trial_ends_at is not None and org.trial_ends_at > now
+    trialing = (
+        status == "trialing"
+        and org.trial_ends_at is not None
+        and org.trial_ends_at > now
+    )
     trial_expired = (
-        status == "trialing" and org.trial_ends_at is not None and org.trial_ends_at <= now
+        status == "trialing"
+        and org.trial_ends_at is not None
+        and org.trial_ends_at <= now
     )
     has_active_paid = status == "active"
 
