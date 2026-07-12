@@ -234,3 +234,17 @@ async def seed_emission_factors(test_session: AsyncSession):
 
     await test_session.commit()
     return factors
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _dispose_global_engine():
+    """The app's module-level engine (app.database.engine) is created at import
+    time; when any code path touches it during the suite, its aiosqlite
+    connection thread is non-daemon and wedges the interpreter at exit (all
+    tests pass, pytest never returns). Dispose it explicitly at session end."""
+    yield
+    import asyncio
+
+    from app.database import engine as global_engine
+
+    asyncio.run(global_engine.dispose())
