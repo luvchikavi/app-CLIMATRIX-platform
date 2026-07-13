@@ -149,7 +149,7 @@ function BillingPageContent() {
   const handleUpgrade = (plan: SubscriptionPlan) => {
     if (plan === 'enterprise') {
       // eslint-disable-next-line react-hooks/immutability -- intentional navigation side effect inside an event handler
-      window.location.href = 'mailto:sales@climatrix.io?subject=Enterprise Plan Inquiry';
+      window.location.href = 'mailto:sales@climatrix.co?subject=Enterprise Plan Inquiry';
       return;
     }
     createCheckout.mutate(plan);

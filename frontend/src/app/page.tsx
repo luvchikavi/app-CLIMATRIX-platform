@@ -616,7 +616,7 @@ function LandingPageContent() {
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
               <a
-                href="mailto:contact@climatrix.io"
+                href="mailto:contact@climatrix.co"
                 className="px-8 py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-semibold text-lg hover:bg-white/10 transition-all backdrop-blur-sm flex items-center gap-2"
               >
                 <Mail className="w-5 h-5" />
@@ -641,7 +641,7 @@ function LandingPageContent() {
               <a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a>
               <a href="/terms" className="hover:text-white transition-colors">Terms of Service</a>
               <a href="/security" className="hover:text-white transition-colors">Security</a>
-              <a href="mailto:contact@climatrix.io" className="hover:text-white transition-colors">Contact</a>
+              <a href="mailto:contact@climatrix.co" className="hover:text-white transition-colors">Contact</a>
             </div>
             <p className="text-sm text-gray-600">
               2026 CLIMATRIX. All rights reserved.

@@ -20,11 +20,11 @@ export const metadata: Metadata = {
   creator: "CLIMATRIX",
   publisher: "CLIMATRIX",
   applicationName: "CLIMATRIX",
-  metadataBase: new URL("https://climatrix.io"),
+  metadataBase: new URL("https://app.climatrix.co"),
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://climatrix.io",
+    url: "https://app.climatrix.co",
     title: "CLIMATRIX - GHG Emissions Platform",
     description: "Professional carbon accounting and GHG emissions management platform",
     siteName: "CLIMATRIX",

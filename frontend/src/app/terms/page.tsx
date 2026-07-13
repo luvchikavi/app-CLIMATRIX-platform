@@ -138,8 +138,8 @@ export default function TermsOfServicePage() {
               If you have any questions about these Terms, please contact us at:
             </p>
             <p className="text-foreground mt-2">
-              <a href="mailto:legal@climatrix.io" className="text-primary hover:underline">
-                legal@climatrix.io
+              <a href="mailto:legal@climatrix.co" className="text-primary hover:underline">
+                legal@climatrix.co
               </a>
             </p>
           </section>
