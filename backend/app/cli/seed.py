@@ -101,6 +101,8 @@ def seed(
         False, "--force", help="Force re-seed even if data exists"
     ),
 ):
+    check_only = _cli_flag(check_only, "--check-only")
+    force = _cli_flag(force, "--force")
     """Seed emission factors and reference data."""
 
     async def run():
@@ -282,6 +284,7 @@ def seed_fuel_prices(
         False, "--force", help="Force re-seed even if data exists"
     ),
 ):
+    force = _cli_flag(force, "--force")
     """Seed fuel prices only (for existing databases)."""
 
     async def run():
@@ -328,6 +331,7 @@ def seed_scope3_reference(
         False, "--force", help="Force re-seed even if data exists"
     ),
 ):
+    force = _cli_flag(force, "--force")
     """Seed Scope 3 reference data tables."""
     from datetime import date
     from decimal import Decimal
@@ -521,6 +525,7 @@ def load_cbam_defaults(
         help="Deactivate existing rows with the same source before loading",
     ),
 ):
+    replace = _cli_flag(replace, "--replace")
     """Load CBAM default emission values (per CN code x origin country).
 
     Ingests the EU Commission default-values file format (Excel published
@@ -595,6 +600,7 @@ def seed_cbam_defaults(
         False, "--force", help="Re-seed even if representative rows exist"
     ),
 ):
+    force = _cli_flag(force, "--force")
     """Seed representative per-sector CBAM default values (source=representative_v0).
 
     Mirrors the sector intensities in app/services/cbam_screening.py. The
