@@ -72,7 +72,7 @@ app = FastAPI(
 )
 
 # CORS Middleware - Uses CORS_ORIGINS_STR from environment
-# In production: set to specific domains (e.g., "https://climatrix.io,https://app.climatrix.io")
+# In production: set to specific domains (e.g., "https://climatrix.co,https://app.climatrix.co")
 # In development: defaults to "*" for convenience
 _origins = settings.cors_origins
 _use_wildcard = _origins == ["*"]

@@ -1026,7 +1026,7 @@ def main():
     print(f"Target:       40% reduction by 2030 → {target_emissions:,.0f} tCO2e")
     print("Scenario:     10 initiatives, 97% target achievement")
     print(f"{'='*60}")
-    print("\nClient URL: https://climatrix.io")
+    print("\nClient URL: https://app.climatrix.co")
     print("Email: demo@nice.com")
     print("Password: NiceDemo2025!")
 

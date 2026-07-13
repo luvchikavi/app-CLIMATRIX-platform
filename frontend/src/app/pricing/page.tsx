@@ -215,7 +215,7 @@ export default function PricingPage() {
                       onClick={() => {
                         if (plan.id === 'enterprise') {
                           window.location.href =
-                            'mailto:sales@climatrix.io?subject=CLIMATRIX%20Enterprise%20Demo';
+                            'mailto:sales@climatrix.co?subject=CLIMATRIX%20Enterprise%20Demo';
                         } else {
                           window.location.href = `/?register=true&plan=${plan.id}`;
                         }

@@ -45,7 +45,7 @@ PASSWORD = "DemoClimatrix2026"
 COMPANIES = [
     {
         "name": "Aeris Labs",
-        "email": "aeris@climetrix.io",
+        "email": "aeris@climatrix.co",
         "admin": "Dana Cohen",
         "country": "IL",
         "industry_code": "J62",
@@ -96,7 +96,7 @@ COMPANIES = [
     },
     {
         "name": "Galil Steel Ltd.",
-        "email": "galil@climetrix.io",
+        "email": "galil@climatrix.co",
         "admin": "Yossi Levi",
         "country": "IL",
         "industry_code": "C24.1",
@@ -150,7 +150,7 @@ COMPANIES = [
     },
     {
         "name": "Meridian Advisory",
-        "email": "meridian@climetrix.io",
+        "email": "meridian@climatrix.co",
         "admin": "Tamar Barak",
         "country": "IL",
         "industry_code": "M70.22",

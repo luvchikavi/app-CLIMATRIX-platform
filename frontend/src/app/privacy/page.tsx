@@ -149,8 +149,8 @@ export default function PrivacyPolicyPage() {
             </ul>
             <p className="text-foreground-muted mt-4">
               To exercise these rights, contact us at{' '}
-              <a href="mailto:privacy@climatrix.io" className="text-primary hover:underline">
-                privacy@climatrix.io
+              <a href="mailto:privacy@climatrix.co" className="text-primary hover:underline">
+                privacy@climatrix.co
               </a>
             </p>
           </section>
@@ -204,8 +204,8 @@ export default function PrivacyPolicyPage() {
               <p className="text-foreground font-medium">CLIMATRIX Privacy Team</p>
               <p className="text-foreground-muted mt-1">
                 Email:{' '}
-                <a href="mailto:privacy@climatrix.io" className="text-primary hover:underline">
-                  privacy@climatrix.io
+                <a href="mailto:privacy@climatrix.co" className="text-primary hover:underline">
+                  privacy@climatrix.co
                 </a>
               </p>
             </div>

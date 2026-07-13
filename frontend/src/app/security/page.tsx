@@ -319,17 +319,17 @@ export default function SecurityPage() {
                 </p>
                 <div className="flex flex-wrap gap-4">
                   <a
-                    href="mailto:security@climatrix.io"
+                    href="mailto:security@climatrix.co"
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium text-sm hover:bg-emerald-500/20 transition-colors"
                   >
                     <FileCheck className="w-4 h-4" />
-                    security@climatrix.io
+                    security@climatrix.co
                   </a>
                   <a
-                    href="mailto:contact@climatrix.io"
+                    href="mailto:contact@climatrix.co"
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-border text-foreground-muted font-medium text-sm hover:bg-white/10 transition-colors"
                   >
-                    General: contact@climatrix.io
+                    General: contact@climatrix.co
                   </a>
                 </div>
               </div>

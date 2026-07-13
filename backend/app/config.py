@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
 
     # CORS - In production set to specific domains via CORS_ORIGINS_STR
-    # e.g. "https://climatrix.io,https://app.climatrix.io"
+    # e.g. "https://climatrix.co,https://app.climatrix.co"
     cors_origins_str: str = "*"
     cors_allow_vercel_previews: bool = True  # Allow *.vercel.app preview deploys
 
@@ -106,7 +106,7 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_password: str = ""
-    smtp_from_email: str = "noreply@climatrix.io"
+    smtp_from_email: str = "noreply@climatrix.co"
     smtp_from_name: str = "CLIMATRIX"
     smtp_use_tls: bool = True
 
