@@ -10,7 +10,11 @@ service (source='representative_v0') so the DB path works before the
 official Commission file is loaded via
 `python -m app.cli.seed load-cbam-defaults <file>`.
 
-Plain String columns (no native PG enums), per existing prod rule.
+The new columns are plain String (no native PG enums), per the rule for
+migration-created columns. The pre-existing `sector` column, however, IS
+the native PG enum `cbamsector` in production (the table there predates
+the migration chain and was created from model metadata), while chain-built
+databases have VARCHAR(20) — the seed below handles both.
 
 Revision ID: b6c7d8e9f0a1
 Revises: a5b6c7d8e9f0
@@ -76,11 +80,35 @@ def upgrade() -> None:
 
     # Seed representative sector-level values (idempotent enough: this
     # migration only runs once; the CLI seeder skips existing rows).
+    #
+    # `sector` storage differs by environment: chain-built databases have
+    # VARCHAR(20), but production's column is the native PG enum
+    # `cbamsector` whose labels are the CBAMSector member NAMES
+    # ('CEMENT', ...). The ORM's sa.Enum writes and reads those names on
+    # both storages, so the seed always inserts names; the ad-hoc column
+    # type below only controls the bind cast the driver emits.
+    bind = op.get_bind()
+    sector_type: sa.types.TypeEngine = sa.String()
+    if bind.dialect.name == "postgresql":
+        udt = bind.execute(
+            sa.text(
+                "SELECT udt_name FROM information_schema.columns "
+                "WHERE table_name = 'cbam_default_values' "
+                "AND column_name = 'sector'"
+            )
+        ).scalar()
+        if udt == "cbamsector":
+            sector_type = postgresql.ENUM(name="cbamsector", create_type=False)
+            # The model's CBAMSector gained OTHER after production's type
+            # was created; add the label so ORM writes of CBAMSector.OTHER
+            # can't fail. Safe inside this transaction on PG 12+ because
+            # the new label is not used before commit.
+            op.execute(sa.text("ALTER TYPE cbamsector ADD VALUE IF NOT EXISTS 'OTHER'"))
     table = sa.table(
         "cbam_default_values",
         sa.column("id", postgresql.UUID(as_uuid=True)),
         sa.column("cn_code", sa.String),
-        sa.column("sector", sa.String),
+        sa.column("sector", sector_type),
         sa.column("product_description", sa.String),
         sa.column("country_code", sa.String),
         sa.column("dataset_year", sa.Integer),
@@ -99,7 +127,8 @@ def upgrade() -> None:
             {
                 "id": uuid.uuid4(),
                 "cn_code": cn,
-                "sector": sector,
+                # Member NAME (e.g. 'IRON_STEEL') — what sa.Enum stores.
+                "sector": sector.upper(),
                 "product_description": desc,
                 "country_code": None,
                 "dataset_year": 2026,
