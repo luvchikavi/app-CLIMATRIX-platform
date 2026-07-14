@@ -28,6 +28,7 @@ import {
   toast,
 } from '@/components/ui';
 import { ScopePieChart } from '@/components/dashboard/ScopePieChart';
+import { JourneyMap } from '@/components/dashboard/JourneyMap';
 import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
 import { ScopeDrillDown } from '@/components/dashboard/ScopeDrillDown';
 import { SiteBreakdownChart } from '@/components/dashboard/SiteBreakdownChart';
@@ -349,6 +350,11 @@ function DashboardContent() {
               app alive with the sample dataset — dashboard, report, scenarios.
               Self-hides while sample data is loaded. */}
           {totalEmissions === 0 && filteredActivities.length === 0 && <SampleDataHero />}
+
+          {/* Journey map: where you are in Measure → Plan → Report and the
+              one next action for each — the dashboard is the map, not a
+              wall of boxes. */}
+          <JourneyMap periodId={globalPeriodId} />
 
           {/* Total Emissions KPI */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">

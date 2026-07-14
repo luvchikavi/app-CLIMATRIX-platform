@@ -5,7 +5,6 @@
  * No pricing / "locked" tier for the pilot: every module is Active, Beta, or Coming Soon.
  */
 import {
-  Leaf,
   Target,
   Scale,
   Coins,
@@ -27,15 +26,6 @@ export interface ModuleDef {
 }
 
 export const MODULE_REGISTRY: ModuleDef[] = [
-  {
-    id: 'ghg',
-    name: 'GHG Inventory',
-    href: '/modules/ghg',
-    icon: Leaf,
-    status: 'active',
-    blurb: 'Scope 1, 2 & 3 emissions accounting — the foundation for every other module.',
-    features: ['Scope 1 Direct', 'Scope 2 Energy', 'Scope 3 Value Chain', 'Auto WTT', 'Multi-region factors'],
-  },
   {
     id: 'decarbonization',
     name: 'Decarbonization',
@@ -100,8 +90,9 @@ export function getModule(id: string): ModuleDef | undefined {
 }
 
 /**
- * "Find the right service": rank modules for an org, GHG always first (it is the
- * prerequisite dataset), then a light heuristic on industry / region.
+ * "Find the right service": rank modules for an org with a light heuristic
+ * on industry / region. (GHG inventory itself is core, not a module —
+ * it lives in Data Hub / Reports.)
  */
 export function recommendedModules(org?: {
   industry_code?: string | null;
@@ -110,7 +101,7 @@ export function recommendedModules(org?: {
   const industry = (org?.industry_code || '').toLowerCase();
   const region = (org?.default_region || '').toLowerCase();
   const score = (m: ModuleDef): number => {
-    if (m.id === 'ghg') return 100; // always #1 — the foundation
+    if (m.id === 'decarbonization') return 90; // the natural next step after measuring
     if (m.id === 'cbam' && (industry.includes('manufactur') || industry.includes('steel') || industry.includes('cement') || region === 'eu' || region === 'il')) return 80;
     if (m.id === 'pcaf' && (industry.includes('financ') || industry.includes('bank') || industry.includes('insur'))) return 70;
     if ((m.id === 'lca' || m.id === 'epd') && industry.includes('manufactur')) return 60;

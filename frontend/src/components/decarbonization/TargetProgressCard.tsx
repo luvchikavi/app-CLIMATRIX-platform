@@ -1,6 +1,6 @@
 'use client';
 
-import { DecarbonizationTarget } from '@/lib/api';
+import { DecarbonizationTarget, TargetProgress } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import {
@@ -14,7 +14,8 @@ import {
 
 interface TargetProgressCardProps {
   target?: DecarbonizationTarget;
-  currentEmissions?: number;
+  /** Server-computed progress (GET /decarbonization/targets/{id}/progress). */
+  progress?: TargetProgress;
   onSetTarget?: () => void;
 }
 
@@ -27,7 +28,7 @@ const frameworkLabels: Record<string, string> = {
 
 export function TargetProgressCard({
   target,
-  currentEmissions,
+  progress,
   onSetTarget,
 }: TargetProgressCardProps) {
   if (!target) {
@@ -57,21 +58,11 @@ export function TargetProgressCard({
     );
   }
 
-  // Calculate progress
-  const requiredReduction = Number(target.base_year_emissions_tco2e) - Number(target.target_emissions_tco2e);
-  const actualReduction = currentEmissions !== undefined
-    ? Number(target.base_year_emissions_tco2e) - currentEmissions
-    : 0;
-  const progressPercent = requiredReduction > 0
-    ? Math.min((actualReduction / requiredReduction) * 100, 100)
-    : 0;
-
-  // Calculate trajectory
-  const yearsTotal = target.target_year - target.base_year;
-  const yearsElapsed = new Date().getFullYear() - target.base_year;
-  const expectedProgressPercent = yearsTotal > 0 ? (yearsElapsed / yearsTotal) * 100 : 0;
-
-  const onTrack = progressPercent >= expectedProgressPercent * 0.9; // Within 10% of expected
+  // Progress is computed server-side (same math as checkpoints) — never here.
+  const progressPercent = Number(progress?.progress_percent ?? 0);
+  const expectedProgressPercent = Number(progress?.expected_progress_percent ?? 0);
+  const onTrack = progress?.on_track ?? false;
+  const currentEmissions = progress ? Number(progress.actual_emissions_tco2e) : undefined;
 
   return (
     <Card>
@@ -121,16 +112,20 @@ export function TargetProgressCard({
             <div className="flex items-center justify-between mt-2 text-xs text-foreground-muted">
               <span>0%</span>
               <span className="text-center">
-                {onTrack ? (
-                  <span className="flex items-center gap-1 text-success">
-                    <CheckCircle2 className="w-3 h-3" />
-                    On Track
-                  </span>
+                {progress ? (
+                  onTrack ? (
+                    <span className="flex items-center gap-1 text-success">
+                      <CheckCircle2 className="w-3 h-3" />
+                      On Track
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-warning">
+                      <AlertTriangle className="w-3 h-3" />
+                      Behind Schedule
+                    </span>
+                  )
                 ) : (
-                  <span className="flex items-center gap-1 text-warning">
-                    <AlertTriangle className="w-3 h-3" />
-                    Behind Schedule
-                  </span>
+                  <span>—</span>
                 )}
               </span>
               <span>100%</span>

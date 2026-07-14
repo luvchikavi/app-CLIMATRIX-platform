@@ -186,6 +186,19 @@ class CheckpointResponse(BaseModel):
     created_at: str
 
 
+class TargetProgressResponse(BaseModel):
+    target_id: str
+    period_id: str
+    checkpoint_year: int
+    actual_emissions_tco2e: Decimal
+    planned_emissions_tco2e: Decimal
+    variance_tco2e: Decimal
+    variance_percent: Decimal
+    on_track: bool
+    progress_percent: Decimal
+    expected_progress_percent: Decimal
+
+
 # ============================================================================
 # EMISSION PROFILE ENDPOINTS
 # ============================================================================
@@ -280,6 +293,42 @@ async def list_targets(
         )
         for t in targets
     ]
+
+
+@router.get("/targets/{target_id}/progress", response_model=TargetProgressResponse)
+async def get_target_progress(
+    target_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    period_id: UUID = Query(..., description="Reporting period to compare"),
+):
+    """
+    Live progress of a target against its trajectory for the given period.
+    The single source of truth for progress — the UI renders this, it does
+    not recompute it.
+    """
+    try:
+        progress = await ProgressTrackingService.compute_progress(
+            session=session,
+            organization_id=current_user.organization_id,
+            target_id=target_id,
+            period_id=period_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return TargetProgressResponse(
+        target_id=str(progress["target_id"]),
+        period_id=str(progress["period_id"]),
+        checkpoint_year=progress["checkpoint_year"],
+        actual_emissions_tco2e=progress["actual_emissions_tco2e"],
+        planned_emissions_tco2e=progress["planned_emissions_tco2e"],
+        variance_tco2e=progress["variance_tco2e"],
+        variance_percent=progress["variance_percent"],
+        on_track=progress["on_track"],
+        progress_percent=progress["progress_percent"],
+        expected_progress_percent=progress["expected_progress_percent"],
+    )
 
 
 @router.post("/targets", response_model=TargetResponse)

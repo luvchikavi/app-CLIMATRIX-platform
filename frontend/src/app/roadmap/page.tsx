@@ -49,7 +49,7 @@ const ROADMAP: RoadmapItem[] = [
         icon: Leaf,
         color: 'bg-primary',
         status: 'completed',
-        href: '/modules/ghg',
+        href: '/reports',
       },
       {
         name: 'Multi-Region Emission Factors',

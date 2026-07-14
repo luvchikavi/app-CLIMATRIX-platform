@@ -109,6 +109,14 @@ function DecarbonizationPageContent() {
     enabled: isAuthenticated,
   });
 
+  // Server-computed progress vs target — the single source of truth
+  const activeTargetId = targets?.find(t => t.is_active)?.id;
+  const { data: targetProgress } = useQuery({
+    queryKey: ['target-progress', activeTargetId, selectedPeriodId],
+    queryFn: () => api.getTargetProgress(activeTargetId!, selectedPeriodId!),
+    enabled: !!activeTargetId && !!selectedPeriodId,
+  });
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
     setMounted(true);
@@ -253,7 +261,7 @@ function DecarbonizationPageContent() {
           {/* Target Progress */}
           <TargetProgressCard
             target={activeTarget}
-            currentEmissions={profile?.total_co2e_tonnes}
+            progress={targetProgress}
             onSetTarget={() => setShowTargetModal(true)}
           />
 

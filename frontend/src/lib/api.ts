@@ -2438,6 +2438,12 @@ class ApiClient {
     return this.fetch<TrajectoryResponse>(`/decarbonization/targets/${targetId}/trajectory`);
   }
 
+  async getTargetProgress(targetId: string, periodId: string): Promise<TargetProgress> {
+    return this.fetch<TargetProgress>(
+      `/decarbonization/targets/${targetId}/progress?period_id=${periodId}`
+    );
+  }
+
   async deleteDecarbonizationTarget(targetId: string): Promise<{ message: string }> {
     return this.fetch<{ message: string }>(`/decarbonization/targets/${targetId}`, {
       method: 'DELETE',
@@ -3039,6 +3045,19 @@ export interface DecarbonizationTarget {
   is_public: boolean;
   is_active: boolean;
   created_at: string;
+}
+
+export interface TargetProgress {
+  target_id: string;
+  period_id: string;
+  checkpoint_year: number;
+  actual_emissions_tco2e: number;
+  planned_emissions_tco2e: number;
+  variance_tco2e: number;
+  variance_percent: number;
+  on_track: boolean;
+  progress_percent: number;
+  expected_progress_percent: number;
 }
 
 export interface TargetCreateRequest {
