@@ -89,7 +89,29 @@ UNIT_ALIASES = {
     "passenger-km": "passenger_km",
     "tkm": "tonne_km",
     "tonne-km": "tonne_km",
+    # Hebrew units as they appear in real Israeli client files. The gershayim
+    # (") in abbreviations like קוט"ש would otherwise reach Pint's tokenizer
+    # and crash the parse.
+    'קוט"ש': "kilowatt_hour",
+    "קוטש": "kilowatt_hour",
+    'מגה-וואט"ש': "megawatt_hour",
+    'מ"ק': "cubic_meter",
+    "מק": "cubic_meter",
+    "קוב": "cubic_meter",
+    "ליטר": "liter",
+    "ליטרים": "liter",
+    'ק"ג': "kilogram",
+    "קילוגרם": "kilogram",
+    "טון": "tonne",
+    "טונות": "tonne",
+    'ק"מ': "kilometer",
+    "שקל": "ILS",
+    'ש"ח': "ILS",
 }
+
+# Case-insensitive fallback for alias lookup. Exact matches win first so the
+# case-sensitive entries above (e.g. "L" vs "l") keep their meaning.
+_UNIT_ALIASES_FOLDED = {k.casefold(): v for k, v in UNIT_ALIASES.items()}
 
 # Currency conversion rates to USD (2024 annual averages)
 # Source: ECB, OECD, Bank of Israel
@@ -129,7 +151,10 @@ class UnitNormalizer:
 
     def _resolve_alias(self, unit: str) -> str:
         """Resolve unit aliases to Pint-compatible names."""
-        return UNIT_ALIASES.get(unit, unit)
+        unit = unit.strip()
+        if unit in UNIT_ALIASES:
+            return UNIT_ALIASES[unit]
+        return _UNIT_ALIASES_FOLDED.get(unit.casefold(), unit)
 
     def normalize(
         self, quantity: Decimal, input_unit: str, target_unit: str
@@ -233,6 +258,17 @@ class UnitNormalizer:
             raise UnitConversionError(
                 f"Unknown unit: {e}. "
                 f"Please use standard units like kg, liters, kWh, km."
+            )
+        except Exception as e:
+            # Pint parses unit strings with Python's tokenizer, so free-text
+            # units from client files (e.g. Hebrew abbreviations containing a
+            # quote, like קוט"ש) can raise TokenError, DefinitionSyntaxError,
+            # or other parse-time errors. Those must surface as the pipeline's
+            # readable failure signal, never as an unhandled 500.
+            raise UnitConversionError(
+                f"Could not read unit '{input_unit}' (target '{target_unit}'): "
+                f"{type(e).__name__}. Please use standard units like kg, "
+                f"liters, kWh, km."
             )
 
 

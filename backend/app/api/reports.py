@@ -998,7 +998,7 @@ async def get_ghg_inventory_report(
                 "total_co2e_kg": Decimal(0),
                 "emission_factor": factor.co2e_factor if factor else None,
                 "factor_source": factor.source if factor else "Supplier-Provided",
-                "factor_unit": factor.factor_unit if factor else None,
+                "factor_unit": (factor.factor_unit if factor else None) or "",
                 "quality_sum": Decimal(0),
                 # Source documentation metadata (Phase 9B) - use first emission's values
                 "factor_year": (
@@ -1045,7 +1045,7 @@ async def get_ghg_inventory_report(
                 "total_co2e_kg": Decimal(0),
                 "emission_factor": None,
                 "factor_source": "Derived (WTT)",
-                "factor_unit": None,
+                "factor_unit": "",
                 "quality_sum": Decimal(0),
                 "factor_year": None,
                 "factor_region": None,
@@ -1078,7 +1078,7 @@ async def get_ghg_inventory_report(
                         else 0.0
                     ),
                     factor_source=data["factor_source"],
-                    factor_unit=data["factor_unit"],
+                    factor_unit=data["factor_unit"] or "",
                     avg_data_quality=round(avg_quality, 1),
                     # Source documentation metadata (Phase 9B)
                     factor_year=data.get("factor_year"),
