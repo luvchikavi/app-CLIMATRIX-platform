@@ -27,6 +27,7 @@ import {
 } from '@/components/ui';
 import { ScopePieChart } from '@/components/dashboard/ScopePieChart';
 import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
+import { FootprintBand } from '@/components/dashboard/FootprintBand';
 import {
   GHGInventoryReport,
   DataQualityReport,
@@ -36,25 +37,14 @@ import {
 } from '@/components/reports';
 import { api } from '@/lib/api';
 import { cn, formatCO2e, categoryNames, downloadFile } from '@/lib/utils';
-import type {
-  GHGInventoryReport as GHGInventoryReportType,
-  DataQualitySummary,
-  AuditPackage,
-  CDPExport,
-  ESRSE1Export,
-  PeriodStatus,
-  AssuranceLevel,
-  StatusHistory,
-} from '@/lib/api';
+import type { PeriodStatus, AssuranceLevel } from '@/lib/api';
 import {
   FileText,
   PieChart,
   BarChart3,
   List,
   Loader2,
-  Calendar,
   Building2,
-  Leaf,
   FileSpreadsheet,
   File,
   ClipboardList,
@@ -83,7 +73,7 @@ function ReportsPageContent() {
   const activePeriod = periods?.find(p => p.id === activePeriodId);
 
   const { data: summary, isLoading: summaryLoading } = useReportSummary(activePeriodId);
-  const { data: activities, isLoading: activitiesLoading } = useActivities(activePeriodId);
+  const { data: activities } = useActivities(activePeriodId);
   const { data: sites } = useSites();
 
   // Phase 1 specific queries - only fetch when on relevant tabs
@@ -347,55 +337,47 @@ function ReportsPageContent() {
           {/* Summary Tab */}
           {activeTab === 'summary' && summary && (
             <div className="space-y-6">
-              {/* KPI Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Card padding="lg">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-foreground-muted uppercase tracking-wide">
-                        Total Emissions
-                      </p>
-                      <p className="text-3xl font-bold text-foreground mt-2">
-                        {formatCO2e(summary.total_co2e_kg)}
-                      </p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-primary-light">
-                      <Leaf className="w-5 h-5 text-primary" />
-                    </div>
-                  </div>
-                </Card>
-                <Card padding="lg" className="border-l-4 border-l-scope1">
-                  <p className="text-sm font-medium text-foreground-muted">Scope 1</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">
-                    {formatCO2e(summary.scope_1_co2e_kg)}
-                  </p>
-                  <p className="text-xs text-foreground-muted mt-1">Direct emissions</p>
-                </Card>
-                <Card padding="lg" className="border-l-4 border-l-scope2">
-                  <p className="text-sm font-medium text-foreground-muted">Scope 2 (Location-based)</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">
-                    {formatCO2e(summary.scope_2_location_based_co2e_kg)}
-                  </p>
-                  <p className="text-xs text-foreground-muted mt-1">Grid average</p>
-                </Card>
-                <Card padding="lg" className="border-l-4 border-l-scope2 opacity-90">
-                  <p className="text-sm font-medium text-foreground-muted">Scope 2 (Market-based)</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">
-                    {summary.scope_2_market_based_co2e_kg != null
-                      ? formatCO2e(summary.scope_2_market_based_co2e_kg)
-                      : 'N/A'}
-                  </p>
-                  <p className="text-xs text-foreground-muted mt-1">Residual mix</p>
-                </Card>
-                <Card padding="lg" className="border-l-4 border-l-scope3">
-                  <p className="text-sm font-medium text-foreground-muted">Scope 3</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">
-                    {/* Backend now includes WTT (3.3) inside scope_3_co2e_kg — don't re-add it */}
-                    {formatCO2e(summary.scope_3_co2e_kg)}
-                  </p>
-                  <p className="text-xs text-foreground-muted mt-1">Value chain (incl. WTT)</p>
-                </Card>
-              </div>
+              {/* One footprint band instead of five KPI cards; the band also
+                  carries period + activity count. WTT (3.3) is already inside
+                  scope_3_co2e_kg — don't re-add it. */}
+              <FootprintBand
+                total={summary.total_co2e_kg}
+                periodName={summary.period_name}
+                activityCount={activities?.length || 0}
+                scopes={[
+                  {
+                    scope: 1,
+                    label: 'Scope 1 · Direct',
+                    value: summary.scope_1_co2e_kg,
+                    percentage:
+                      summary.total_co2e_kg > 0
+                        ? (summary.scope_1_co2e_kg / summary.total_co2e_kg) * 100
+                        : 0,
+                    activityCount: activitiesByScope?.[1]?.length ?? 0,
+                  },
+                  {
+                    scope: 2,
+                    label: 'Scope 2 · Location-based',
+                    value: summary.scope_2_location_based_co2e_kg,
+                    percentage:
+                      summary.total_co2e_kg > 0
+                        ? (summary.scope_2_co2e_kg / summary.total_co2e_kg) * 100
+                        : 0,
+                    activityCount: activitiesByScope?.[2]?.length ?? 0,
+                  },
+                  {
+                    scope: 3,
+                    label: 'Scope 3 · Value chain (incl. WTT)',
+                    value: summary.scope_3_co2e_kg,
+                    percentage:
+                      summary.total_co2e_kg > 0
+                        ? (summary.scope_3_co2e_kg / summary.total_co2e_kg) * 100
+                        : 0,
+                    activityCount: activitiesByScope?.[3]?.length ?? 0,
+                  },
+                ]}
+                marketBased={summary.scope_2_market_based_co2e_kg}
+              />
 
               {/* Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -424,19 +406,6 @@ function ReportsPageContent() {
                 </Card>
               </div>
 
-              {/* Report Period Info */}
-              <Card padding="sm" className="bg-background-muted">
-                <div className="flex items-center gap-4 text-sm text-foreground-muted">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    <span>Period: {summary.period_name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <List className="w-4 h-4" />
-                    <span>{activities?.length || 0} activities</span>
-                  </div>
-                </div>
-              </Card>
             </div>
           )}
 

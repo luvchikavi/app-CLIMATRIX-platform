@@ -36,8 +36,9 @@ const FRAMEWORK_LABELS: Record<string, string> = {
 
 const STEP_TITLES = ['Baseline', 'Set target', 'Choose measures', 'Your plan'];
 
-const fmtT = (n: number) =>
-  n.toLocaleString(undefined, { maximumFractionDigits: 1 });
+// API Decimal fields arrive as strings — always coerce before formatting.
+const fmtT = (n: number | string) =>
+  Number(n).toLocaleString(undefined, { maximumFractionDigits: 1 });
 
 const fmtMoney = (n: number) =>
   n >= 1_000_000
@@ -194,7 +195,7 @@ function DecarbonizationPageContent() {
 
   const topSources = (profile?.top_sources ?? [])
     .slice(0, 3)
-    .map((s) => `${s.display_name} ${s.percentage_of_total.toFixed(0)}%`)
+    .map((s) => `${s.display_name} ${Number(s.percentage_of_total).toFixed(0)}%`)
     .join(' · ');
 
   return (
