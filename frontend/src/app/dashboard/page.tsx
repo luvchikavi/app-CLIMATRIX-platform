@@ -14,6 +14,7 @@ import {
   CardTitle,
   CardContent,
   Button,
+  Badge,
   ScopeBadge,
   KPICard,
   ScopeKPI,
@@ -31,6 +32,7 @@ import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
 import { ScopeDrillDown } from '@/components/dashboard/ScopeDrillDown';
 import { SiteBreakdownChart } from '@/components/dashboard/SiteBreakdownChart';
 import { SiteSelector } from '@/components/SiteSelector';
+import { LoadSampleDataButton } from '@/components/LoadSampleDataButton';
 import { cn, formatCO2e } from '@/lib/utils';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import {
@@ -333,6 +335,9 @@ function DashboardContent() {
               onClick: () => router.push('/settings?tab=periods'),
             }}
           />
+          <div className="flex flex-col items-center pb-8 -mt-8">
+            <LoadSampleDataButton caption="Or explore Climatrix with a realistic sample dataset — removable in one click." />
+          </div>
         </Card>
       )}
 
@@ -514,6 +519,11 @@ function DashboardContent() {
                           <ScopeBadge scope={item.activity.scope as 1 | 2 | 3} />
                         </TableCell>
                         <TableCell className="font-medium text-foreground max-w-xs truncate">
+                          {item.activity.is_demo && (
+                            <Badge variant="warning" size="sm" className="mr-1.5">
+                              Demo
+                            </Badge>
+                          )}
                           {item.activity.description}
                         </TableCell>
                         <TableCell className="text-foreground-muted font-mono text-xs">
@@ -541,15 +551,20 @@ function DashboardContent() {
                   </TableBody>
                 </Table>
               ) : (
-                <EmptyState
-                  variant="minimal"
-                  title="No activities yet"
-                  description="Add your first activity to start tracking emissions"
-                  action={{
-                    label: 'Add Activity',
-                    onClick: () => router.push('/activities?add=1'),
-                  }}
-                />
+                <>
+                  <EmptyState
+                    variant="minimal"
+                    title="No activities yet"
+                    description="Add your first activity to start tracking emissions"
+                    action={{
+                      label: 'Add Activity',
+                      onClick: () => router.push('/activities?add=1'),
+                    }}
+                  />
+                  <div className="flex flex-col items-center pb-4">
+                    <LoadSampleDataButton caption="Or explore Climatrix with a realistic sample dataset — removable in one click." />
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>

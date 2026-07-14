@@ -18,6 +18,7 @@ import { usePeriods, useSites } from '@/hooks/useEmissions';
 import { useHubOverview, useSaveHubProfile } from '@/hooks/useHub';
 import { usePeriodStore } from '@/stores/period';
 import { CategoryDrawer } from '@/components/hub/CategoryDrawer';
+import { LoadSampleDataButton } from '@/components/LoadSampleDataButton';
 import { api, HubCategory, HubRelevance } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
@@ -380,6 +381,7 @@ export default function HubPage() {
                 ))}
               </select>
             )}
+            <LoadSampleDataButton variant="outline" />
             <Link href="/activities?add=1">
               <Button variant="outline">
                 <PlusCircle className="mr-2 h-4 w-4" />
