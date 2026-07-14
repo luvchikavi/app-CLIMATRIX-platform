@@ -69,6 +69,8 @@ class ReportingPeriodResponse(BaseModel):
     verified_at: Optional[datetime] = None
     verified_by: Optional[str] = None
     verification_statement: Optional[str] = None
+    # Period was created by "Load sample data" (UI shows a DEMO badge)
+    is_demo: bool = False
 
 
 class StatusTransitionRequest(BaseModel):
@@ -108,6 +110,7 @@ def period_to_response(period: ReportingPeriod) -> ReportingPeriodResponse:
         verified_at=period.verified_at,
         verified_by=period.verified_by,
         verification_statement=period.verification_statement,
+        is_demo=period.is_demo,
     )
 
 

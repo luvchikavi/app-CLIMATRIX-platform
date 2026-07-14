@@ -380,6 +380,10 @@ class Activity(ActivityBase, table=True):
         default=None
     )  # kg CO2e/unit (supplier emission factor)
 
+    # Sample-data flag: row was seeded by "Load sample data" and is removed
+    # wholesale by DELETE /sample-data
+    is_demo: bool = Field(default=False)
+
     # Audit
     created_by: Optional[UUID] = Field(default=None, foreign_key="users.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
