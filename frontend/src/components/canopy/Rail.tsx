@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -29,16 +29,22 @@ export interface RailNavItem {
   badge?: string;
   /** renders faint with a "Soon" chip and doesn't navigate */
   disabled?: boolean;
+  /** hairline above this item — separates nav sections */
+  separatorBefore?: boolean;
 }
 
 export interface RailNavGroup {
   label: string;
   items: RailNavItem[];
+  /** hairline above this group — separates nav sections */
+  separatorBefore?: boolean;
 }
 
 export interface RailProps {
   steps: RailJourneyStep[];
   nav: (RailNavItem | RailNavGroup)[];
+  /** renders a quiet "Sign out" at the very bottom of the rail */
+  onSignOut?: () => void;
   className?: string;
 }
 
@@ -138,6 +144,57 @@ function NavLink({ item, onNavigate }: { item: RailNavItem; onNavigate?: () => v
   );
 }
 
+/** A collapsible sub-tab group: closed by default, opens on click; stays open
+ *  while one of its children is the active page. */
+function NavGroup({
+  group,
+  onNavigate,
+}: {
+  group: RailNavGroup;
+  onNavigate?: () => void;
+}) {
+  const hasActive = group.items.some((sub) => sub.active);
+  const [open, setOpen] = useState(hasActive);
+
+  // Navigating into a child (e.g. via a deep link) reveals the group.
+  useEffect(() => {
+    if (hasActive) setOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasActive]);
+
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          'flex w-full cursor-pointer items-center justify-between text-left hover:text-cy-rail-ink',
+          hasActive ? 'font-semibold text-cy-rail-ink' : 'text-cy-rail-muted'
+        )}
+      >
+        {group.label}
+        <span
+          aria-hidden="true"
+          className={cn(
+            'text-[10px] text-cy-rail-faint transition-transform',
+            open && 'rotate-90'
+          )}
+        >
+          ▸
+        </span>
+      </button>
+      {open && (
+        <div className="mt-2 flex flex-col gap-2 border-l border-cy-rail-divider pl-3">
+          {group.items.map((sub) => (
+            <NavLink key={sub.label} item={sub} onNavigate={onNavigate} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NavList({
   nav,
   onNavigate,
@@ -149,20 +206,18 @@ function NavList({
 }) {
   return (
     <nav className={cn('flex flex-col gap-3 text-[12.5px]', className)}>
-      {nav.map((item) =>
-        isGroup(item) ? (
-          <div key={item.label}>
-            <p className="text-cy-rail-faint">{item.label} ▸</p>
-            <div className="mt-2 flex flex-col gap-2 pl-3">
-              {item.items.map((sub) => (
-                <NavLink key={sub.label} item={sub} onNavigate={onNavigate} />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <NavLink key={item.label} item={item} onNavigate={onNavigate} />
-        )
-      )}
+      {nav.map((item) => (
+        <Fragment key={item.label}>
+          {item.separatorBefore && (
+            <span aria-hidden="true" className="my-0.5 h-px bg-cy-rail-divider" />
+          )}
+          {isGroup(item) ? (
+            <NavGroup group={item} onNavigate={onNavigate} />
+          ) : (
+            <NavLink item={item} onNavigate={onNavigate} />
+          )}
+        </Fragment>
+      ))}
     </nav>
   );
 }
@@ -175,7 +230,7 @@ export function Logo({ className }: { className?: string }) {
   );
 }
 
-export function Rail({ steps, nav, className }: RailProps) {
+export function Rail({ steps, nav, onSignOut, className }: RailProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
 
@@ -207,6 +262,15 @@ export function Rail({ steps, nav, className }: RailProps) {
           nav={nav}
           className="mt-auto border-t border-cy-rail-divider px-1 pt-[18px] pb-0.5"
         />
+        {onSignOut && (
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="mx-1 mt-3 cursor-pointer text-left text-[12px] text-cy-rail-faint hover:text-cy-rail-ink"
+          >
+            Sign out
+          </button>
+        )}
       </aside>
 
       {/* Mobile: slim top journey strip + disclosure nav */}
@@ -242,11 +306,18 @@ export function Rail({ steps, nav, className }: RailProps) {
           </button>
         </div>
         {menuOpen && (
-          <NavList
-            nav={nav}
-            onNavigate={() => setMenuOpen(false)}
-            className="border-t border-cy-rail-divider px-5 py-4"
-          />
+          <div className="border-t border-cy-rail-divider px-5 py-4">
+            <NavList nav={nav} onNavigate={() => setMenuOpen(false)} />
+            {onSignOut && (
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="mt-4 cursor-pointer text-left text-[12px] text-cy-rail-faint hover:text-cy-rail-ink"
+              >
+                Sign out
+              </button>
+            )}
+          </div>
         )}
       </div>
     </>

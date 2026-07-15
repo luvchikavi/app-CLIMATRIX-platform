@@ -98,6 +98,9 @@ function LoginPageContent() {
       size: 'large',
       text: 'continue_with',
       shape: 'pill',
+      // Always English — without this the button follows the browser locale
+      // (Hebrew on Avi's machine) and breaks the login page's language.
+      locale: 'en',
       width: Math.min(container.offsetWidth || 380, 400),
     });
   }, [googleReady, googleLogin, router]);

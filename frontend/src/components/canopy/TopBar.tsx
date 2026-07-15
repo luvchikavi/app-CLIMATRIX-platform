@@ -147,7 +147,7 @@ export function TopBar({ className }: { className?: string }) {
                 logout();
                 router.push('/');
               }}
-              className="mt-1 block w-full px-4 py-2 text-left text-[13px] font-semibold text-cy-error hover:bg-cy-row"
+              className="mt-1 block w-full px-4 py-2 text-left text-[13px] font-semibold text-error hover:bg-cy-row"
             >
               Sign out
             </button>

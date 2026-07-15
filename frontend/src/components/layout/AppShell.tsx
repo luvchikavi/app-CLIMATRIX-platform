@@ -23,7 +23,7 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, isLoading, organization, user } = useAuthStore();
+  const { isAuthenticated, isLoading, organization, user, logout } = useAuthStore();
   const { steps } = useJourney();
 
   // Wait one tick for the persisted auth store to rehydrate — redirecting on the
@@ -88,8 +88,10 @@ export function AppShell({ children }: AppShellProps) {
       { label: 'Data hub', href: '/hub', active: isActive('/hub') || isActive('/ingest') || isActive('/import') },
       { label: 'Plan', href: '/decarbonization', active: isActive('/decarbonization') },
       { label: 'Reports', href: '/reports', active: isActive('/reports') },
-      { label: 'Tools', items: tools },
-      { label: 'Settings', href: '/settings', active: isActive('/settings') },
+      // Secondary sections sit behind hairlines: the collapsible Tools group,
+      // then Settings on its own.
+      { label: 'Tools', items: tools, separatorBefore: true },
+      { label: 'Settings', href: '/settings', active: isActive('/settings'), separatorBefore: true },
     ];
   }, [pathname, user?.role]);
 
@@ -112,7 +114,17 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <>
-      <Shell rail={{ steps, nav }} topbar={<TopBar />}>
+      <Shell
+        rail={{
+          steps,
+          nav,
+          onSignOut: () => {
+            logout();
+            router.push('/');
+          },
+        }}
+        topbar={<TopBar />}
+      >
         {/* Quiet notice cluster — one-line rows, spacing owned here */}
         <div className="mb-4 empty:mb-0 flex flex-col gap-0.5">
           <TrialBanner />

@@ -68,7 +68,10 @@ export function useJourney(): JourneyState {
   const achievement = activeScenario ? Number(activeScenario.target_achievement_percent) : 0;
 
   const measureDone = relevant > 0 && gaps === 0 && openQuestions === 0;
-  const planDone = !!activeTarget && !!activeScenario && achievement >= 100;
+  // The journey is sequential: Plan can't show its ✓ while Measure is still
+  // open (sample data ships a target + scenario, which used to tick Plan
+  // out of order — the "✓ always on Plan" bug).
+  const planDone = measureDone && !!activeTarget && !!activeScenario && achievement >= 100;
   const reportReady = hasData && gaps === 0 && openQuestions === 0;
   const blockers = gaps + openQuestions;
 
