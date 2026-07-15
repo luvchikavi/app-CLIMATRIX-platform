@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense, useRef } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueries } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
@@ -16,8 +16,6 @@ import {
   Button,
   Badge,
   ScopeBadge,
-  KPICard,
-  ScopeKPI,
   Table,
   TableHeader,
   TableBody,
@@ -25,25 +23,23 @@ import {
   TableHead,
   TableCell,
   EmptyState,
-  toast,
 } from '@/components/ui';
 import { ScopePieChart } from '@/components/dashboard/ScopePieChart';
+import { JourneyMap } from '@/components/dashboard/JourneyMap';
+import { FootprintBand } from '@/components/dashboard/FootprintBand';
 import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
 import { ScopeDrillDown } from '@/components/dashboard/ScopeDrillDown';
 import { SiteBreakdownChart } from '@/components/dashboard/SiteBreakdownChart';
 import { SiteSelector } from '@/components/SiteSelector';
 import { LoadSampleDataButton } from '@/components/LoadSampleDataButton';
 import { SampleDataHero } from '@/components/SampleDataHero';
-import { cn, formatCO2e } from '@/lib/utils';
+import { formatCO2e } from '@/lib/utils';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import {
   RefreshCw,
   Loader2,
   Upload,
   X,
-  Activity,
-  TrendingDown,
-  Leaf,
   BarChart3,
   PieChart,
   List,
@@ -57,7 +53,7 @@ import { api, CategorySummary } from '@/lib/api';
 
 function DashboardContent() {
   const router = useRouter();
-  const { isAuthenticated, organization, user } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   const { selectedPeriodId } = usePeriodStore();
   const { selectedSiteId } = useSiteStore();
 
@@ -350,68 +346,43 @@ function DashboardContent() {
               Self-hides while sample data is loaded. */}
           {totalEmissions === 0 && filteredActivities.length === 0 && <SampleDataHero />}
 
-          {/* Total Emissions KPI */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-            <Card padding="lg" className="lg:col-span-1">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-foreground-muted uppercase tracking-wide">
-                    Total Emissions
-                  </p>
-                  <p className="text-4xl font-bold text-foreground mt-2 tracking-tight">
-                    {formatCO2e(displayTotals.total)}
-                  </p>
-                  <p className="text-sm text-foreground-muted mt-1">
-                    {summary.period_name}
-                  </p>
-                </div>
-                <div className="p-3 rounded-xl bg-primary-light">
-                  <Leaf className="w-6 h-6 text-primary" />
-                </div>
-              </div>
+          {/* Journey map: where you are in Measure → Plan → Report and the
+              one next action for each — the dashboard is the map, not a
+              wall of boxes. */}
+          <JourneyMap periodId={globalPeriodId} />
 
-              {/* Activity count */}
-              <div className="mt-4 pt-4 border-t border-border-muted">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-foreground-muted">Total Activities</span>
-                  <span className="font-semibold text-foreground">
-                    {filteredActivities.length}
-                  </span>
-                </div>
-              </div>
-            </Card>
-
-            {/* Scope KPIs */}
-            <ScopeKPI
-              scope={1}
-              value={displayTotals.scope1}
-              percentage={scope1Pct}
-              activityCount={scope1Activities}
-              onClick={() => scope1Activities > 0 && setDrillDownScope(1)}
-            />
-            <ScopeKPI
-              scope={2}
-              label="Scope 2 - Location-based"
-              value={displayTotals.scope2LocationBased}
-              percentage={scope2Pct}
-              activityCount={scope2Activities}
-              onClick={() => scope2Activities > 0 && setDrillDownScope(2)}
-            />
-            <ScopeKPI
-              scope={2}
-              label="Scope 2 - Market-based"
-              value={displayTotals.scope2MarketBased ?? 0}
-              activityCount={displayTotals.scope2MarketBased != null ? scope2Activities : undefined}
-              onClick={() => scope2Activities > 0 && setDrillDownScope(2)}
-            />
-            <ScopeKPI
-              scope={3}
-              value={displayTotals.scope3}
-              percentage={scope3Pct}
-              activityCount={scope3Activities}
-              onClick={() => scope3Activities > 0 && setDrillDownScope(3)}
-            />
-          </div>
+          {/* Footprint band: the five KPI cards collapsed into one strip —
+              nothing shown twice, no box taller than its content. */}
+          <FootprintBand
+            total={displayTotals.total}
+            periodName={summary.period_name}
+            activityCount={filteredActivities.length}
+            scopes={[
+              {
+                scope: 1,
+                label: 'Scope 1 · Direct',
+                value: displayTotals.scope1,
+                percentage: scope1Pct,
+                activityCount: scope1Activities,
+              },
+              {
+                scope: 2,
+                label: 'Scope 2 · Location-based',
+                value: displayTotals.scope2LocationBased,
+                percentage: scope2Pct,
+                activityCount: scope2Activities,
+              },
+              {
+                scope: 3,
+                label: 'Scope 3 · Value chain',
+                value: displayTotals.scope3,
+                percentage: scope3Pct,
+                activityCount: scope3Activities,
+              },
+            ]}
+            marketBased={displayTotals.scope2MarketBased}
+            onScopeClick={(scope) => setDrillDownScope(scope)}
+          />
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

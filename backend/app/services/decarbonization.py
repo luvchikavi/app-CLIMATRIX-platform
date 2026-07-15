@@ -690,18 +690,25 @@ class ScenarioService:
 
 
 class ProgressTrackingService:
-    """Service for tracking progress against targets."""
+    """Service for tracking progress against targets.
+
+    compute_progress is THE single progress-vs-target calculation — the API
+    serves it live and create_checkpoint persists it. The frontend must not
+    re-derive progress on its own.
+    """
 
     @staticmethod
-    async def create_checkpoint(
+    async def compute_progress(
         session: AsyncSession,
         organization_id: UUID,
         target_id: UUID,
         period_id: UUID,
-    ) -> EmissionCheckpoint:
+    ) -> dict:
         """
-        Create an emission checkpoint for progress tracking.
-        Compares actual emissions to planned trajectory.
+        Compare a period's actual emissions to the target's linear trajectory.
+
+        Returns a dict with actual/planned emissions, variance, on_track,
+        and progress percentages. Does not persist anything.
         """
         # Get actual emissions for the period
         profile = await EmissionProfileService.analyze_period(
@@ -709,9 +716,11 @@ class ProgressTrackingService:
         )
         actual_emissions = profile.total_co2e_tonnes
 
-        # Get target and trajectory
+        # Get target (scoped to the org) and trajectory
         target_result = await session.execute(
-            select(DecarbonizationTarget).where(DecarbonizationTarget.id == target_id)
+            select(DecarbonizationTarget)
+            .where(DecarbonizationTarget.id == target_id)
+            .where(DecarbonizationTarget.organization_id == organization_id)
         )
         target = target_result.scalar_one_or_none()
         if not target:
@@ -746,6 +755,66 @@ class ProgressTrackingService:
         # Determine if on track (within 5% of plan)
         on_track = abs(variance_pct) <= Decimal("5") or variance < Decimal("0")
 
+        # Share of the required reduction achieved so far
+        required_reduction = (
+            target.base_year_emissions_tco2e - target.target_emissions_tco2e
+        )
+        achieved_reduction = target.base_year_emissions_tco2e - actual_emissions
+        progress_pct = (
+            min(
+                max(
+                    achieved_reduction / required_reduction * Decimal("100"),
+                    Decimal("0"),
+                ),
+                Decimal("100"),
+            )
+            if required_reduction > 0
+            else Decimal("0")
+        )
+
+        # Share of the target window elapsed at this period
+        years_total = target.target_year - target.base_year
+        years_elapsed = checkpoint_year - target.base_year
+        expected_progress_pct = (
+            min(
+                max(
+                    Decimal(years_elapsed) / Decimal(years_total) * Decimal("100"),
+                    Decimal("0"),
+                ),
+                Decimal("100"),
+            )
+            if years_total > 0
+            else Decimal("100")
+        )
+
+        return {
+            "target_id": target_id,
+            "period_id": period_id,
+            "checkpoint_year": checkpoint_year,
+            "actual_emissions_tco2e": actual_emissions,
+            "planned_emissions_tco2e": planned_emissions,
+            "variance_tco2e": round(variance, 1),
+            "variance_percent": round(variance_pct, 1),
+            "on_track": on_track,
+            "progress_percent": round(progress_pct, 1),
+            "expected_progress_percent": round(expected_progress_pct, 1),
+        }
+
+    @staticmethod
+    async def create_checkpoint(
+        session: AsyncSession,
+        organization_id: UUID,
+        target_id: UUID,
+        period_id: UUID,
+    ) -> EmissionCheckpoint:
+        """
+        Create an emission checkpoint for progress tracking.
+        Persists the result of compute_progress for the period.
+        """
+        progress = await ProgressTrackingService.compute_progress(
+            session, organization_id, target_id, period_id
+        )
+
         # Get active scenario for context
         scenario_result = await session.execute(
             select(Scenario)
@@ -760,12 +829,12 @@ class ProgressTrackingService:
             target_id=target_id,
             scenario_id=active_scenario.id if active_scenario else None,
             reporting_period_id=period_id,
-            checkpoint_year=checkpoint_year,
-            actual_emissions_tco2e=actual_emissions,
-            planned_emissions_tco2e=planned_emissions,
-            variance_tco2e=round(variance, 1),
-            variance_percent=round(variance_pct, 1),
-            on_track=on_track,
+            checkpoint_year=progress["checkpoint_year"],
+            actual_emissions_tco2e=progress["actual_emissions_tco2e"],
+            planned_emissions_tco2e=progress["planned_emissions_tco2e"],
+            variance_tco2e=progress["variance_tco2e"],
+            variance_percent=progress["variance_percent"],
+            on_track=progress["on_track"],
         )
 
         session.add(checkpoint)
