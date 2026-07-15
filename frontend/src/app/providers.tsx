@@ -46,7 +46,9 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider
       attribute="class"
-      defaultTheme="dark"
+      // Canopy's primary presentation is the light sage canvas (the approved
+      // mockups' default); dark stays one toggle away in the top bar.
+      defaultTheme="light"
       enableSystem={false}
       disableTransitionOnChange
       storageKey="climatrix-theme"
