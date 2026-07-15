@@ -1,6 +1,5 @@
 import { HTMLAttributes, forwardRef } from 'react';
 import { cn } from '@/lib/utils';
-import { colors } from '@/lib/design-tokens';
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info';
@@ -9,26 +8,27 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 
 export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
   ({ className, variant = 'default', size = 'md', ...props }, ref) => {
+    // Canopy chip: quiet row tint by default, soft accent for anything "good".
     const variants = {
-      default: 'bg-background-muted text-foreground-muted',
-      primary: 'bg-primary-light text-primary',
-      secondary: 'bg-secondary-light text-secondary',
-      success: 'bg-success-50 text-success',
-      warning: 'bg-warning-50 text-warning',
+      default: 'bg-cy-row text-cy-muted',
+      primary: 'bg-cy-accent-soft text-cy-accent',
+      secondary: 'bg-cy-accent-soft text-cy-accent',
+      success: 'bg-cy-accent-soft text-cy-accent',
+      warning: 'bg-cy-warn-soft text-cy-warn',
       error: 'bg-error-50 text-error',
       info: 'bg-info-50 text-info',
     };
 
     const sizes = {
-      sm: 'px-1.5 py-0.5 text-[10px]',
-      md: 'px-2 py-0.5 text-xs',
+      sm: 'px-2 py-[2.5px] text-[10px]',
+      md: 'px-2.5 py-[3px] text-[11px]',
     };
 
     return (
       <span
         ref={ref}
         className={cn(
-          'inline-flex items-center font-semibold rounded-full uppercase tracking-wide',
+          'inline-flex items-center font-semibold rounded-full tracking-[0.03em]',
           variants[variant],
           sizes[size],
           className
@@ -57,15 +57,15 @@ export const ScopeBadge = forwardRef<HTMLSpanElement, ScopeBadgeProps>(
     };
 
     const sizes = {
-      sm: 'px-1.5 py-0.5 text-[10px]',
-      md: 'px-2 py-0.5 text-xs',
+      sm: 'px-2 py-[2.5px] text-[10px]',
+      md: 'px-2.5 py-[3px] text-[11px]',
     };
 
     return (
       <span
         ref={ref}
         className={cn(
-          'inline-flex items-center font-semibold rounded-full uppercase tracking-wide',
+          'inline-flex items-center font-semibold rounded-full tracking-[0.03em]',
           scopeColors[scope],
           sizes[size],
           className
@@ -150,13 +150,13 @@ export interface PeriodStatusBadgeProps extends HTMLAttributes<HTMLSpanElement> 
 
 export const PeriodStatusBadge = forwardRef<HTMLSpanElement, PeriodStatusBadgeProps>(
   ({ className, status, size = 'md', ...props }, ref) => {
-    const statusConfig: Record<PeriodStatusType, { variant: BadgeProps['variant']; label: string; icon?: string }> = {
-      draft: { variant: 'default', label: 'Draft', icon: '📝' },
-      review: { variant: 'info', label: 'In Review', icon: '👀' },
-      submitted: { variant: 'warning', label: 'Submitted', icon: '📤' },
-      audit: { variant: 'secondary', label: 'Under Audit', icon: '🔍' },
-      verified: { variant: 'success', label: 'Verified', icon: '✓' },
-      locked: { variant: 'primary', label: 'Locked', icon: '🔒' },
+    const statusConfig: Record<PeriodStatusType, { variant: BadgeProps['variant']; label: string }> = {
+      draft: { variant: 'warning', label: 'Draft' },
+      review: { variant: 'info', label: 'In review' },
+      submitted: { variant: 'warning', label: 'Submitted' },
+      audit: { variant: 'secondary', label: 'Under audit' },
+      verified: { variant: 'success', label: 'Verified' },
+      locked: { variant: 'default', label: 'Locked' },
     };
 
     const config = statusConfig[status] || statusConfig.draft;
@@ -169,7 +169,6 @@ export const PeriodStatusBadge = forwardRef<HTMLSpanElement, PeriodStatusBadgePr
         className={className}
         {...props}
       >
-        <span className="mr-1">{config.icon}</span>
         {config.label}
       </Badge>
     );

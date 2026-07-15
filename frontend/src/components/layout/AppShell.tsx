@@ -113,8 +113,11 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <>
       <Shell rail={{ steps, nav }} topbar={<TopBar />}>
-        <TrialBanner />
-        <SampleDataBanner />
+        {/* Quiet notice cluster — one-line rows, spacing owned here */}
+        <div className="mb-4 empty:mb-0 flex flex-col gap-0.5">
+          <TrialBanner />
+          <SampleDataBanner />
+        </div>
         {children}
       </Shell>
 

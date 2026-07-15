@@ -29,10 +29,10 @@ export const EmptyState = forwardRef<HTMLDivElement, EmptyStateProps>(
     ref
   ) => {
     const defaultIcons = {
-      default: <Inbox className="w-12 h-12" />,
-      search: <Search className="w-12 h-12" />,
-      error: <AlertCircle className="w-12 h-12" />,
-      minimal: <FileX className="w-10 h-10" />,
+      default: <Inbox className="w-8 h-8" strokeWidth={1.5} />,
+      search: <Search className="w-8 h-8" strokeWidth={1.5} />,
+      error: <AlertCircle className="w-8 h-8" strokeWidth={1.5} />,
+      minimal: <FileX className="w-7 h-7" strokeWidth={1.5} />,
     };
 
     const sizes = {
@@ -52,19 +52,19 @@ export const EmptyState = forwardRef<HTMLDivElement, EmptyStateProps>(
         )}
         {...props}
       >
-        <div className="mb-4 text-foreground-muted">
+        <div className="mb-3 text-cy-faint">
           {icon || defaultIcons[variant]}
         </div>
 
         <h3 className={cn(
-          'font-semibold text-foreground',
-          variant === 'minimal' ? 'text-base' : 'text-lg'
+          'font-bold text-foreground tracking-[-0.01em]',
+          variant === 'minimal' ? 'text-[13.5px]' : 'text-[15px]'
         )}>
           {title}
         </h3>
 
         {description && (
-          <p className="mt-1 text-sm text-foreground-muted max-w-sm">
+          <p className="mt-1 text-[12.5px] text-foreground-muted max-w-sm">
             {description}
           </p>
         )}

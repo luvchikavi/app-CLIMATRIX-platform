@@ -81,36 +81,33 @@ export function ConfirmDialog({
 
   const variantConfig = {
     danger: {
-      icon: <AlertTriangle className="w-6 h-6" />,
+      icon: <AlertTriangle className="w-5 h-5" strokeWidth={1.75} />,
       iconBg: 'bg-[var(--color-error-50)]',
       iconColor: 'text-error',
       confirmButton: cn(
         'bg-error text-white',
         'hover:bg-[var(--color-error-600)]',
-        'active:bg-[var(--color-error-700)]',
-        'focus-visible:ring-error'
+        'focus-visible:outline-error'
       ),
     },
     warning: {
-      icon: <AlertTriangle className="w-6 h-6" />,
-      iconBg: 'bg-[var(--color-warning-50)]',
-      iconColor: 'text-warning',
+      icon: <AlertTriangle className="w-5 h-5" strokeWidth={1.75} />,
+      iconBg: 'bg-cy-warn-soft',
+      iconColor: 'text-cy-warn',
       confirmButton: cn(
-        'bg-primary text-white',
-        'hover:bg-primary-hover',
-        'active:bg-[var(--color-primary-700)]',
-        'focus-visible:ring-primary'
+        'bg-cy-accent text-white',
+        'hover:bg-[color-mix(in_srgb,var(--cy-accent)_88%,#000)]',
+        'focus-visible:outline-cy-accent'
       ),
     },
     default: {
-      icon: <HelpCircle className="w-6 h-6" />,
-      iconBg: 'bg-[var(--color-primary-50)]',
-      iconColor: 'text-primary',
+      icon: <HelpCircle className="w-5 h-5" strokeWidth={1.75} />,
+      iconBg: 'bg-cy-accent-soft',
+      iconColor: 'text-cy-accent',
       confirmButton: cn(
-        'bg-primary text-white',
-        'hover:bg-primary-hover',
-        'active:bg-[var(--color-primary-700)]',
-        'focus-visible:ring-primary'
+        'bg-cy-accent text-white',
+        'hover:bg-[color-mix(in_srgb,var(--cy-accent)_88%,#000)]',
+        'focus-visible:outline-cy-accent'
       ),
     },
   };
@@ -136,7 +133,7 @@ export function ConfirmDialog({
         ref={focusTrapRef}
         className={cn(
           'relative w-full max-w-md',
-          'bg-background-elevated border border-border rounded-xl shadow-xl',
+          'bg-background-elevated rounded-cy shadow-xl',
           'transform transition-all duration-200 ease-out',
           'animate-[fadeInScale_200ms_ease-out]'
         )}
@@ -179,7 +176,7 @@ export function ConfirmDialog({
           {/* Title */}
           <h2
             id="confirm-dialog-title"
-            className="text-lg font-semibold text-foreground text-center"
+            className="text-[16px] font-bold text-foreground text-center tracking-[-0.01em]"
           >
             {title}
           </h2>
@@ -187,7 +184,7 @@ export function ConfirmDialog({
           {/* Message */}
           <p
             id="confirm-dialog-message"
-            className="mt-2 text-sm text-foreground-muted text-center leading-relaxed"
+            className="mt-2 text-[12.5px] text-foreground-muted text-center leading-relaxed"
           >
             {message}
           </p>
@@ -200,12 +197,11 @@ export function ConfirmDialog({
             onClick={onClose}
             disabled={isLoading}
             className={cn(
-              'flex-1 px-4 py-2 text-sm font-medium rounded-lg',
-              'text-foreground bg-transparent border border-border',
-              'hover:bg-background-muted',
-              'active:bg-[var(--color-neutral-200)]',
-              'transition-all duration-150',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              'flex-1 px-4 py-2.5 text-[13px] font-semibold rounded-[10px]',
+              'text-cy-muted bg-cy-row',
+              'hover:text-cy-ink',
+              'transition-colors duration-150',
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cy-accent',
               'disabled:opacity-50 disabled:cursor-not-allowed'
             )}
           >
@@ -215,9 +211,9 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={isLoading}
             className={cn(
-              'flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg',
-              'transition-all duration-150',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+              'flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold rounded-[10px]',
+              'transition-colors duration-150',
+              'focus-visible:outline-2 focus-visible:outline-offset-2',
               'disabled:opacity-50 disabled:cursor-not-allowed',
               config.confirmButton
             )}

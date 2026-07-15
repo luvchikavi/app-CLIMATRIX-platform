@@ -16,20 +16,21 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       lg: 'p-8',
     };
 
+    // Canopy: every card is a Surface — radius 16, soft shadow, never a border.
     const variants = {
-      default: 'bg-background-elevated border border-border-muted shadow-card',
-      bordered: 'bg-background-elevated border border-border',
-      elevated: 'bg-background-elevated shadow-lg',
+      default: 'bg-background-elevated shadow-card',
+      bordered: 'bg-background-elevated shadow-card',
+      elevated: 'bg-background-elevated shadow-card',
     };
 
     return (
       <div
         ref={ref}
         className={cn(
-          'rounded-xl',
+          'rounded-cy',
           variants[variant],
           paddings[padding],
-          interactive && 'cursor-pointer hover:shadow-card-hover hover:border-primary/20 transition-all',
+          interactive && 'cursor-pointer hover:bg-cy-row/40 transition-colors',
           className
         )}
         {...props}
@@ -47,7 +48,7 @@ export const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('flex items-center justify-between pb-4 border-b border-border-muted', className)}
+      className={cn('flex items-center justify-between pb-3.5', className)}
       {...props}
     />
   )
@@ -64,7 +65,7 @@ export const CardTitle = forwardRef<HTMLHeadingElement, CardTitleProps>(
   ({ className, as: Tag = 'h3', ...props }, ref) => (
     <Tag
       ref={ref as React.Ref<HTMLHeadingElement>}
-      className={cn('text-lg font-semibold text-foreground', className)}
+      className={cn('text-[11px] font-bold tracking-[0.08em] uppercase text-cy-faint', className)}
       {...props}
     />
   )
@@ -79,7 +80,7 @@ export const CardDescription = forwardRef<HTMLParagraphElement, CardDescriptionP
   ({ className, ...props }, ref) => (
     <p
       ref={ref}
-      className={cn('text-sm text-foreground-muted', className)}
+      className={cn('text-[12.5px] text-foreground-muted', className)}
       {...props}
     />
   )
@@ -92,7 +93,7 @@ export type CardContentProps = HTMLAttributes<HTMLDivElement>;
 
 export const CardContent = forwardRef<HTMLDivElement, CardContentProps>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('pt-4', className)} {...props} />
+    <div ref={ref} className={cn('pt-0', className)} {...props} />
   )
 );
 
@@ -105,7 +106,7 @@ export const CardFooter = forwardRef<HTMLDivElement, CardFooterProps>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('flex items-center justify-end gap-3 pt-4 border-t border-border-muted', className)}
+      className={cn('flex items-center justify-end gap-3 pt-4', className)}
       {...props}
     />
   )

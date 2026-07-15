@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Sparkles, Lock } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui';
 
-/** Persistent trial countdown shown at the top of the app while a trial is active. */
+/** Quiet one-line trial notice — a dot and a sentence, never a box (Canopy). */
 export function TrialBanner() {
   const { data } = useQuery({
     queryKey: ['subscription'],
@@ -28,21 +28,18 @@ export function TrialBanner() {
   const urgent = days <= 3;
 
   return (
-    <div
-      className={cn(
-        'flex items-center justify-between gap-3 px-4 py-2 rounded-lg border text-sm mb-4',
-        urgent
-          ? 'bg-error/10 border-error/30 text-error'
-          : 'bg-primary/10 border-primary/20 text-foreground'
-      )}
-    >
-      <span className="flex items-center gap-2">
-        <Sparkles className="w-4 h-4 shrink-0" />
+    <div className="flex items-center gap-2 text-[12.5px] text-cy-muted">
+      <span
+        className={cn('w-[7px] h-[7px] rounded-full shrink-0', urgent ? 'bg-error' : 'bg-cy-warn')}
+        aria-hidden="true"
+      />
+      <span>
         {days > 0
-          ? `${days} day${days === 1 ? '' : 's'} left in your free trial`
+          ? `Trial · ${days} day${days === 1 ? '' : 's'} left — full results unlock on a plan`
           : 'Your free trial has ended'}
       </span>
-      <Link href="/pricing" className="font-semibold underline shrink-0">
+      <span className="text-cy-faint" aria-hidden="true">·</span>
+      <Link href="/pricing" className="font-bold text-cy-accent shrink-0">
         Upgrade
       </Link>
     </div>
@@ -69,13 +66,13 @@ export function UpgradePrompt() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={() => setMessage(null)} />
-      <div className="relative bg-background-elevated border border-border rounded-2xl shadow-xl max-w-md w-full p-6 text-center">
-        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-          <Lock className="w-6 h-6 text-primary" />
+      <div className="absolute inset-0 bg-black/40" onClick={() => setMessage(null)} />
+      <div className="relative bg-background-elevated rounded-cy shadow-xl max-w-md w-full p-6 text-center">
+        <div className="w-11 h-11 rounded-full bg-cy-accent-soft flex items-center justify-center mx-auto mb-4">
+          <Lock className="w-5 h-5 text-cy-accent" strokeWidth={1.75} />
         </div>
-        <h3 className="text-lg font-semibold text-foreground mb-2">Upgrade to continue</h3>
-        <p className="text-sm text-foreground-muted mb-6">{message}</p>
+        <h3 className="text-[16px] font-bold text-foreground mb-2 tracking-[-0.01em]">Upgrade to continue</h3>
+        <p className="text-[12.5px] text-foreground-muted mb-6">{message}</p>
         <div className="flex gap-3 justify-center">
           <Button variant="outline" onClick={() => setMessage(null)}>
             Not now

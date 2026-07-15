@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useSyncExternalStore } from 'react';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, XCircle, AlertTriangle, Info, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 // =============================================================================
 // Types
@@ -92,39 +92,12 @@ export const toast = {
 // Variant configuration
 // =============================================================================
 
-const variantConfig: Record<
-  ToastVariant,
-  {
-    icon: React.ReactNode;
-    borderColor: string;
-    iconColor: string;
-    bgAccent: string;
-  }
-> = {
-  success: {
-    icon: <CheckCircle2 className="w-5 h-5 shrink-0" />,
-    borderColor: 'border-l-[var(--color-success-500)]',
-    iconColor: 'text-success',
-    bgAccent: 'bg-[var(--color-success-50)]',
-  },
-  error: {
-    icon: <XCircle className="w-5 h-5 shrink-0" />,
-    borderColor: 'border-l-[var(--color-error-500)]',
-    iconColor: 'text-error',
-    bgAccent: 'bg-[var(--color-error-50)]',
-  },
-  warning: {
-    icon: <AlertTriangle className="w-5 h-5 shrink-0" />,
-    borderColor: 'border-l-[var(--color-warning-500)]',
-    iconColor: 'text-warning',
-    bgAccent: 'bg-[var(--color-warning-50)]',
-  },
-  info: {
-    icon: <Info className="w-5 h-5 shrink-0" />,
-    borderColor: 'border-l-[var(--color-info-500)]',
-    iconColor: 'text-info',
-    bgAccent: 'bg-[var(--color-info-50)]',
-  },
+// Canopy toast: a quiet surface with a small status dot — no borders, no icons.
+const variantConfig: Record<ToastVariant, { dot: string }> = {
+  success: { dot: 'bg-cy-accent' },
+  error: { dot: 'bg-error' },
+  warning: { dot: 'bg-cy-warn' },
+  info: { dot: 'bg-info' },
 };
 
 // =============================================================================
@@ -159,9 +132,8 @@ function ToastItem({ item, onDismiss }: { item: ToastItem; onDismiss: (id: strin
       role="alert"
       aria-live="polite"
       className={cn(
-        'flex items-start gap-3 w-full max-w-sm p-4',
-        'bg-background-elevated border border-border border-l-4 rounded-lg shadow-lg',
-        config.borderColor,
+        'flex items-center gap-2.5 w-full max-w-sm px-4 py-2.5',
+        'bg-background-elevated rounded-xl shadow-lg',
         'transition-all duration-200 ease-out',
         isExiting
           ? 'opacity-0 translate-x-4'
@@ -171,11 +143,11 @@ function ToastItem({ item, onDismiss }: { item: ToastItem; onDismiss: (id: strin
         animation: isExiting ? undefined : 'toastSlideIn 300ms ease-out',
       }}
     >
-      {/* Icon */}
-      <div className={config.iconColor}>{config.icon}</div>
+      {/* Status dot */}
+      <span className={cn('w-[7px] h-[7px] rounded-full shrink-0', config.dot)} aria-hidden="true" />
 
       {/* Message */}
-      <p className="flex-1 text-sm text-foreground leading-snug pt-px">
+      <p className="flex-1 text-[12.5px] text-foreground leading-snug">
         {item.message}
       </p>
 
@@ -183,15 +155,15 @@ function ToastItem({ item, onDismiss }: { item: ToastItem; onDismiss: (id: strin
       <button
         onClick={handleDismiss}
         className={cn(
-          'shrink-0 p-0.5 rounded',
+          'shrink-0 p-0.5 rounded-md',
           'text-foreground-muted hover:text-foreground',
-          'hover:bg-background-muted',
+          'hover:bg-cy-row',
           'transition-colors duration-150',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+          'focus-visible:outline-2 focus-visible:outline-cy-accent'
         )}
         aria-label="Dismiss notification"
       >
-        <X className="w-4 h-4" />
+        <X className="w-3.5 h-3.5" />
       </button>
     </div>
   );

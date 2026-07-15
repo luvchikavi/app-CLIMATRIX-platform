@@ -26,7 +26,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         {label && (
           <label
             htmlFor={selectId}
-            className="block text-sm font-medium text-foreground mb-1.5"
+            className="block text-[11px] font-bold tracking-[0.06em] uppercase text-cy-faint mb-1.5"
           >
             {label}
           </label>
@@ -36,14 +36,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             ref={ref}
             id={selectId}
             className={cn(
-              'w-full px-3 py-2 rounded-lg border bg-background-elevated',
-              'text-sm text-foreground appearance-none cursor-pointer',
+              'w-full px-3 py-2.5 rounded-[10px] border-0 bg-cy-row',
+              'text-[13px] font-semibold text-foreground appearance-none cursor-pointer',
               'transition-colors duration-150',
               'focus:outline-none focus:ring-2 focus:ring-offset-0',
-              'disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-background-muted',
-              error
-                ? 'border-error focus:border-error focus:ring-error/20'
-                : 'border-border hover:border-neutral-300 focus:border-primary focus:ring-primary/20',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+              error ? 'ring-2 ring-error/50 focus:ring-error' : 'focus:ring-cy-accent',
               'pr-10', // Space for chevron
               className
             )}
