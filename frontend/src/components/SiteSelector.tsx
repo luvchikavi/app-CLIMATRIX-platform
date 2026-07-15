@@ -2,7 +2,7 @@
 
 import { useSites } from '@/hooks/useEmissions';
 import { useSiteStore } from '@/stores/site';
-import { Building2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SiteSelectorProps {
@@ -16,22 +16,20 @@ export function SiteSelector({ className, compact = false }: SiteSelectorProps) 
 
   if (!sites || sites.length === 0) return null;
 
-  const selectedSite = sites.find((s) => s.id === selectedSiteId);
-
   return (
-    <div className={cn('flex items-center gap-2', className)}>
-      <Building2 className="w-4 h-4 text-foreground-muted flex-shrink-0" />
+    <div className={cn('flex items-center gap-1.5', className)}>
       <select
         value={selectedSiteId || ''}
         onChange={(e) => setSelectedSiteId(e.target.value || null)}
         className={cn(
-          'px-2 py-1.5 rounded-lg border border-border bg-background-elevated',
-          'text-sm text-foreground appearance-none cursor-pointer',
-          'hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+          'rounded-full border-0 px-3.5 py-1.5',
+          'cursor-pointer appearance-none text-[12.5px] font-semibold',
+          'focus:outline-none focus:ring-2 focus:ring-cy-accent',
+          selectedSiteId ? 'bg-cy-accent-soft text-cy-accent' : 'bg-transparent text-cy-muted hover:bg-cy-row',
           compact ? 'max-w-[180px]' : 'min-w-[200px]'
         )}
       >
-        <option value="">All Sites</option>
+        <option value="">All sites</option>
         {sites.map((site) => (
           <option key={site.id} value={site.id}>
             {site.name}
@@ -41,10 +39,10 @@ export function SiteSelector({ className, compact = false }: SiteSelectorProps) 
       {selectedSiteId && (
         <button
           onClick={() => setSelectedSiteId(null)}
-          className="p-1 rounded hover:bg-background-muted text-foreground-muted hover:text-foreground transition-colors"
+          className="rounded-md p-1 text-cy-muted transition-colors hover:bg-cy-row hover:text-foreground"
           title="Clear site filter"
         >
-          <X className="w-3.5 h-3.5" />
+          <X className="h-3.5 w-3.5" />
         </button>
       )}
     </div>

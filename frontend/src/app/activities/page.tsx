@@ -8,6 +8,7 @@ import { usePeriodStore } from '@/stores/period';
 import { useSiteStore } from '@/stores/site';
 import { usePeriods, useActivities, useDeleteActivity, useUpdateActivity, useSites } from '@/hooks/useEmissions';
 import { AppShell } from '@/components/layout';
+import { PageHead } from '@/components/canopy';
 import {
   Card,
   CardHeader,
@@ -26,10 +27,15 @@ import {
   ConfirmDialog,
   toast,
 } from '@/components/ui';
-import { Plus, Loader2, Trash2, Pencil, ArrowLeft, Filter, FileSpreadsheet, ChevronDown, Calendar, X, Building2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Loader2, Trash2, Pencil, ChevronDown, X } from 'lucide-react';
 import { SiteSelector } from '@/components/SiteSelector';
 import { AddActivityModal } from '@/components/wizard/AddActivityModal';
-import { api, ImportBatch, ActivityWithEmission } from '@/lib/api';
+import { api, ActivityWithEmission } from '@/lib/api';
+
+const fieldLabel = 'mb-1.5 block text-[11px] font-bold tracking-[0.06em] uppercase text-cy-faint';
+const fieldInput =
+  'w-full rounded-[10px] border-0 bg-cy-row px-3 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent';
 
 function ActivitiesContent() {
   const router = useRouter();
@@ -150,149 +156,110 @@ function ActivitiesContent() {
   return (
     <AppShell>
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push('/dashboard')}
-            leftIcon={<ArrowLeft className="w-4 h-4" />}
-          >
-            Back
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Activity Ledger</h1>
-            <p className="text-sm text-foreground-muted">
-              Every committed emission line — from uploads and manual entry alike
-            </p>
-            {/* The period is chosen once, in the top bar — pages only display it. */}
-            <p className="text-foreground-muted mt-1 flex items-center gap-1.5">
-              <Calendar className="w-4 h-4" />
-              {activePeriod?.name || 'Loading...'}
-            </p>
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <PageHead
+            title="Activities"
+            subtitle={`Every committed emission line — uploads and manual entry alike · ${activePeriod?.name || '…'}`}
+          />
         </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="primary"
-            onClick={() => setShowWizard(true)}
-            leftIcon={<Plus className="w-4 h-4" />}
-          >
-            Add Activity
-          </Button>
-        </div>
+        <Button variant="primary" onClick={() => setShowWizard(true)}>
+          + Add activity
+        </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
-        {/* Scope Filter */}
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-foreground-muted" />
-          <span className="text-sm text-foreground-muted mr-2">Scope:</span>
-          <Button
-            variant={selectedScope === null ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => setSelectedScope(null)}
-          >
-            All
-          </Button>
-          <Button
-            variant={selectedScope === 1 ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => setSelectedScope(1)}
-          >
-            1
-          </Button>
-          <Button
-            variant={selectedScope === 2 ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => setSelectedScope(2)}
-          >
-            2
-          </Button>
-          <Button
-            variant={selectedScope === 3 ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => setSelectedScope(3)}
-          >
-            3
-          </Button>
+      {/* Filters — quiet pills, per the locked template */}
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {([null, 1, 2, 3] as const).map((scope) => (
+            <button
+              key={scope ?? 'all'}
+              type="button"
+              onClick={() => setSelectedScope(scope)}
+              className={cn(
+                'cursor-pointer rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors',
+                selectedScope === scope
+                  ? 'bg-cy-accent-soft text-cy-accent'
+                  : 'text-cy-muted hover:bg-cy-row'
+              )}
+            >
+              {scope === null ? 'All' : `Scope ${scope}`}
+            </button>
+          ))}
         </div>
 
         {/* Site Filter */}
         <SiteSelector compact />
 
         {/* Batch/File Filter */}
-        <div className="flex items-center gap-2">
-          <FileSpreadsheet className="w-4 h-4 text-foreground-muted" />
-          <span className="text-sm text-foreground-muted mr-2">Import:</span>
-          <div className="relative">
-            <Button
-              variant={selectedBatch ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => setBatchDropdownOpen(!batchDropdownOpen)}
-              className="min-w-[180px] justify-between"
-            >
-              <span className="truncate max-w-[140px]">
-                {selectedBatchInfo?.file_name || 'All Imports'}
-              </span>
-              <ChevronDown className={`w-4 h-4 ml-2 transition-transform ${batchDropdownOpen ? 'rotate-180' : ''}`} />
-            </Button>
-
-            {batchDropdownOpen && (
-              <>
-                {/* Backdrop to close dropdown */}
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setBatchDropdownOpen(false)}
-                />
-
-                {/* Dropdown menu */}
-                <div className="absolute top-full left-0 mt-1 w-72 max-h-64 overflow-y-auto bg-card border border-border rounded-lg shadow-lg z-20">
-                  <button
-                    className={`w-full px-3 py-2 text-left text-sm hover:bg-background-muted flex items-center gap-2 ${
-                      selectedBatch === null ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'
-                    }`}
-                    onClick={() => {
-                      setSelectedBatch(null);
-                      setBatchDropdownOpen(false);
-                    }}
-                  >
-                    <FileSpreadsheet className="w-4 h-4" />
-                    All Imports
-                  </button>
-
-                  {importBatches && importBatches.length > 0 && (
-                    <div className="border-t border-border">
-                      {importBatches.map((batch) => (
-                        <button
-                          key={batch.id}
-                          className={`w-full px-3 py-2 text-left text-sm hover:bg-background-muted flex items-center justify-between gap-2 ${
-                            selectedBatch === batch.id ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'
-                          }`}
-                          onClick={() => {
-                            setSelectedBatch(batch.id);
-                            setBatchDropdownOpen(false);
-                          }}
-                        >
-                          <span className="truncate flex-1">{batch.file_name}</span>
-                          <span className="text-xs text-foreground-muted whitespace-nowrap">
-                            {batch.successful_rows} rows
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {(!importBatches || importBatches.length === 0) && (
-                    <div className="px-3 py-4 text-sm text-foreground-muted text-center">
-                      No imports yet
-                    </div>
-                  )}
-                </div>
-              </>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setBatchDropdownOpen(!batchDropdownOpen)}
+            className={cn(
+              'flex cursor-pointer items-center gap-2 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors',
+              selectedBatch ? 'bg-cy-accent-soft text-cy-accent' : 'text-cy-muted hover:bg-cy-row'
             )}
-          </div>
+          >
+            <span className="max-w-[160px] truncate">
+              {selectedBatchInfo?.file_name || 'All imports'}
+            </span>
+            <ChevronDown
+              className={`h-3.5 w-3.5 transition-transform ${batchDropdownOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {batchDropdownOpen && (
+            <>
+              {/* Backdrop to close dropdown */}
+              <div className="fixed inset-0 z-10" onClick={() => setBatchDropdownOpen(false)} />
+
+              {/* Dropdown menu */}
+              <div className="absolute top-full left-0 z-20 mt-1 max-h-64 w-72 overflow-y-auto rounded-xl bg-background-elevated py-1 shadow-lg">
+                <button
+                  className={cn(
+                    'flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] hover:bg-cy-row',
+                    selectedBatch === null ? 'font-bold text-cy-accent' : 'text-foreground'
+                  )}
+                  onClick={() => {
+                    setSelectedBatch(null);
+                    setBatchDropdownOpen(false);
+                  }}
+                >
+                  All imports
+                </button>
+
+                {importBatches && importBatches.length > 0 && (
+                  <div className="border-t border-cy-row">
+                    {importBatches.map((batch) => (
+                      <button
+                        key={batch.id}
+                        className={cn(
+                          'flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[12.5px] hover:bg-cy-row',
+                          selectedBatch === batch.id ? 'font-bold text-cy-accent' : 'text-foreground'
+                        )}
+                        onClick={() => {
+                          setSelectedBatch(batch.id);
+                          setBatchDropdownOpen(false);
+                        }}
+                      >
+                        <span className="flex-1 truncate">{batch.file_name}</span>
+                        <span className="whitespace-nowrap text-[11px] tabular-nums text-cy-muted">
+                          {batch.successful_rows} rows
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {(!importBatches || importBatches.length === 0) && (
+                  <div className="px-3 py-4 text-center text-[12.5px] text-cy-muted">
+                    No imports yet
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -309,12 +276,7 @@ function ActivitiesContent() {
         <Card>
           <CardHeader>
             <CardTitle>
-              Activities
-              {filteredActivities && (
-                <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-background-muted text-foreground-muted">
-                  {filteredActivities.length}
-                </span>
-              )}
+              Activities{filteredActivities ? ` · ${filteredActivities.length}` : ''}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -453,62 +415,59 @@ function ActivitiesContent() {
           style={{ zIndex: 'var(--z-modal)' }}
           onClick={(e) => { if (e.target === e.currentTarget) setEditingActivity(null); }}
         >
-          <div className="relative w-full max-w-lg bg-background-elevated border border-border rounded-xl shadow-xl">
+          <div className="relative w-full max-w-lg rounded-cy bg-background-elevated shadow-xl">
             {/* Header */}
             <div className="flex items-center justify-between px-6 pt-6 pb-2">
-              <h2 className="text-lg font-semibold text-foreground">Edit Activity</h2>
+              <h2 className="text-[16px] font-bold tracking-[-0.01em] text-foreground">Edit activity</h2>
               <button
                 onClick={() => setEditingActivity(null)}
-                className="p-1 rounded-lg text-foreground-muted hover:text-foreground hover:bg-background-muted transition-colors"
+                className="rounded-md p-1.5 text-cy-muted transition-colors hover:bg-cy-row hover:text-foreground"
+                aria-label="Close"
               >
-                <X className="w-5 h-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Form */}
-            <div className="px-6 py-4 space-y-4">
-              {/* Description */}
+            <div className="space-y-4 px-6 py-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+                <label className={fieldLabel}>Description</label>
                 <input
                   type="text"
                   value={editForm.description}
                   onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className={fieldInput}
                 />
               </div>
 
-              {/* Quantity */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Quantity</label>
+                <label className={fieldLabel}>Quantity</label>
                 <input
                   type="number"
                   value={editForm.quantity}
                   onChange={(e) => setEditForm(f => ({ ...f, quantity: parseFloat(e.target.value) || 0 }))}
-                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className={fieldInput}
                   min="0"
                   step="any"
                 />
               </div>
 
-              {/* Unit */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Unit</label>
+                <label className={fieldLabel}>Unit</label>
                 <input
                   type="text"
                   value={editForm.unit}
                   onChange={(e) => setEditForm(f => ({ ...f, unit: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className={fieldInput}
                 />
               </div>
 
-              {/* Data Quality Score */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Data Quality Score</label>
+                <label className={fieldLabel}>Data quality score</label>
                 <select
                   value={editForm.data_quality_score}
                   onChange={(e) => setEditForm(f => ({ ...f, data_quality_score: parseInt(e.target.value) }))}
-                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className={fieldInput}
                 >
                   <option value={1}>1 - Highest quality</option>
                   <option value={2}>2 - High quality</option>
@@ -520,9 +479,9 @@ function ActivitiesContent() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-3 px-6 pb-6 pt-2">
+            <div className="flex items-center justify-end gap-2 px-6 pb-6 pt-2">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => setEditingActivity(null)}
                 disabled={updateActivity.isPending}
@@ -534,9 +493,9 @@ function ActivitiesContent() {
                 size="sm"
                 onClick={handleEditSave}
                 disabled={updateActivity.isPending || !editForm.description.trim() || editForm.quantity <= 0}
-                leftIcon={updateActivity.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : undefined}
+                leftIcon={updateActivity.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
               >
-                {updateActivity.isPending ? 'Saving...' : 'Save Changes'}
+                {updateActivity.isPending ? 'Saving…' : 'Save changes'}
               </Button>
             </div>
           </div>

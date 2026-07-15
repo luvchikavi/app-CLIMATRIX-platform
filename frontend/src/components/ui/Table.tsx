@@ -23,7 +23,7 @@ export type TableHeaderProps = HTMLAttributes<HTMLTableSectionElement>;
 
 export const TableHeader = forwardRef<HTMLTableSectionElement, TableHeaderProps>(
   ({ className, ...props }, ref) => (
-    <thead ref={ref} className={cn('bg-background-muted', className)} {...props} />
+    <thead ref={ref} className={className} {...props} />
   )
 );
 
@@ -52,7 +52,7 @@ export const TableFooter = forwardRef<HTMLTableSectionElement, TableFooterProps>
     <tfoot
       ref={ref}
       className={cn(
-        'border-t border-border bg-background-muted font-medium',
+        'border-t border-cy-row font-semibold',
         className
       )}
       {...props}
@@ -72,8 +72,8 @@ export const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(
     <tr
       ref={ref}
       className={cn(
-        'border-b border-border-muted transition-colors',
-        'hover:bg-background-muted/50',
+        'border-b border-cy-row transition-colors',
+        'hover:bg-cy-row/40',
         clickable && 'cursor-pointer',
         className
       )}
@@ -95,7 +95,7 @@ export const TableHead = forwardRef<HTMLTableCellElement, TableHeadProps>(
     <th
       ref={ref}
       className={cn(
-        'h-12 px-4 text-left align-middle font-semibold text-foreground-muted',
+        'px-4 pb-2.5 pt-1 text-left align-middle text-[10.5px] font-bold uppercase tracking-[0.07em] text-cy-faint',
         '[&:has([role=checkbox])]:pr-0',
         sortable && 'cursor-pointer select-none hover:text-foreground',
         className
@@ -124,7 +124,7 @@ export const TableCell = forwardRef<HTMLTableCellElement, TableCellProps>(
     <td
       ref={ref}
       className={cn(
-        'p-4 align-middle [&:has([role=checkbox])]:pr-0',
+        'px-4 py-[9px] align-middle text-[13px] [&:has([role=checkbox])]:pr-0',
         className
       )}
       {...props}
@@ -166,9 +166,9 @@ export const TableEmpty = forwardRef<HTMLTableRowElement, TableEmptyProps>(
           {icon && (
             <div className="mb-4 text-foreground-muted">{icon}</div>
           )}
-          <h3 className="text-lg font-semibold text-foreground mb-1">{title}</h3>
+          <h3 className="text-[14px] font-bold text-foreground mb-1">{title}</h3>
           {description && (
-            <p className="text-sm text-foreground-muted mb-4 max-w-sm">{description}</p>
+            <p className="text-[12.5px] text-foreground-muted mb-4 max-w-sm">{description}</p>
           )}
           {action}
         </div>
