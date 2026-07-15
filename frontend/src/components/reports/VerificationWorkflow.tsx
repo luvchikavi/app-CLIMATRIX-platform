@@ -2,32 +2,15 @@
 
 import { useState } from 'react';
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  Button,
-  Badge,
-  PeriodStatusBadge,
-  Input,
-  Textarea,
-  Select,
-} from '@/components/ui';
-import { cn, formatDate } from '@/lib/utils';
-import {
-  Shield,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Lock,
-  Send,
-  RotateCcw,
-  FileSearch,
-  Award,
-  ChevronRight,
-  Loader2,
-  X,
-} from 'lucide-react';
+  Surface,
+  PanelLabel,
+  StepRow,
+  StepDoneText,
+  StepLockedText,
+} from '@/components/canopy';
+import { Button, Badge, PeriodStatusBadge, Input, Textarea, Select } from '@/components/ui';
+import { formatDate } from '@/lib/utils';
+import { Loader2, X } from 'lucide-react';
 import type { ReportingPeriod, StatusHistory, PeriodStatus, AssuranceLevel } from '@/lib/api';
 
 interface VerificationWorkflowProps {
@@ -38,6 +21,35 @@ interface VerificationWorkflowProps {
   onVerify: (data: { assurance_level: AssuranceLevel; verified_by: string; verification_statement: string }) => Promise<void>;
   onLock: () => Promise<void>;
 }
+
+const statusSteps: PeriodStatus[] = ['draft', 'review', 'submitted', 'audit', 'verified', 'locked'];
+
+const stepCopy: Record<PeriodStatus, { title: string; description: string }> = {
+  draft: {
+    title: 'Draft',
+    description: 'Everything is editable — submit when your numbers look right.',
+  },
+  review: {
+    title: 'Internal review',
+    description: 'A teammate double-checks the inventory before it leaves the building.',
+  },
+  submitted: {
+    title: 'Submitted for verification',
+    description: 'Handed to your verifier — ISO 14064-3 ready.',
+  },
+  audit: {
+    title: 'Under audit',
+    description: 'Your verifier is working through the evidence.',
+  },
+  verified: {
+    title: 'Verified',
+    description: 'The inventory carries an assurance statement.',
+  },
+  locked: {
+    title: 'Locked',
+    description: 'Frozen for the record — no further changes.',
+  },
+};
 
 export function VerificationWorkflow({
   period,
@@ -89,418 +101,212 @@ export function VerificationWorkflow({
     }
   };
 
-  const getStatusIcon = (status: PeriodStatus) => {
+  const currentStepIndex = statusSteps.indexOf(period.status);
+
+  /** The one action that belongs to a step row, if any. */
+  const actionFor = (status: PeriodStatus): React.ReactNode => {
+    if (status !== period.status || period.is_locked) return undefined;
+
     switch (status) {
       case 'draft':
-        return <Clock className="w-5 h-5" />;
+        return validTransitions.includes('review') ? (
+          <Button size="sm" onClick={() => handleTransition('review')} disabled={loading}>
+            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Submit for review
+          </Button>
+        ) : undefined;
       case 'review':
-        return <FileSearch className="w-5 h-5" />;
+        return validTransitions.includes('submitted') ? (
+          <Button size="sm" onClick={() => handleTransition('submitted')} disabled={loading}>
+            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Submit
+          </Button>
+        ) : undefined;
       case 'submitted':
-        return <Send className="w-5 h-5" />;
+        return isAdmin && validTransitions.includes('audit') ? (
+          <Button size="sm" onClick={() => handleTransition('audit')} disabled={loading}>
+            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Start audit
+          </Button>
+        ) : undefined;
       case 'audit':
-        return <Shield className="w-5 h-5" />;
+        return isAdmin && validTransitions.includes('verified') ? (
+          <Button size="sm" onClick={() => setShowVerifyModal(true)} disabled={loading}>
+            Mark verified
+          </Button>
+        ) : undefined;
       case 'verified':
-        return <Award className="w-5 h-5" />;
-      case 'locked':
-        return <Lock className="w-5 h-5" />;
+        return isAdmin && !period.is_locked ? (
+          <Button variant="secondary" size="sm" onClick={handleLock} disabled={loading}>
+            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Lock period
+          </Button>
+        ) : undefined;
       default:
-        return <Clock className="w-5 h-5" />;
+        return undefined;
     }
   };
 
-  const statusSteps: PeriodStatus[] = ['draft', 'review', 'submitted', 'audit', 'verified', 'locked'];
-  const currentStepIndex = statusSteps.indexOf(period.status);
-
   return (
-    <div className="space-y-6">
-      {/* Current Status Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-foreground-muted" />
-            Verification Status
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <PeriodStatusBadge status={period.status} />
-              {period.is_locked && (
-                <Badge variant="primary">
-                  <Lock className="w-3 h-3 mr-1" />
-                  Locked
-                </Badge>
+    <div className="space-y-4">
+      {/* The path to a verified inventory */}
+      <Surface padding="tight">
+        <div className="flex flex-wrap items-center gap-2 px-3.5 pb-1 pt-2">
+          <PeriodStatusBadge status={period.status} />
+          {period.assurance_level && (
+            <Badge variant="secondary" size="sm" className="capitalize">
+              {period.assurance_level} assurance
+            </Badge>
+          )}
+        </div>
+        {statusSteps.map((status, index) => {
+          const isComplete = index < currentStepIndex || (period.is_locked && status === 'locked');
+          const isCurrent = index === currentStepIndex && !isComplete;
+          const state = isComplete ? 'done' : isCurrent ? 'now' : 'locked';
+          const action =
+            actionFor(status) ??
+            (isComplete ? (
+              <StepDoneText />
+            ) : isCurrent ? undefined : (
+              <StepLockedText>Later</StepLockedText>
+            ));
+
+          const copy = stepCopy[status];
+          const description =
+            status === 'verified' && period.verified_by ? (
+              <>
+                Verified by {period.verified_by}
+                {period.verified_at && ` on ${formatDate(period.verified_at)}`}
+                {period.verification_statement && (
+                  <span className="mt-1 block italic">
+                    &quot;{period.verification_statement}&quot;
+                  </span>
+                )}
+              </>
+            ) : (
+              copy.description
+            );
+
+          return (
+            <StepRow
+              key={status}
+              num={index + 1}
+              title={copy.title}
+              description={description}
+              state={state}
+              action={action}
+            >
+              {/* quiet secondary action: only on review, back to draft */}
+              {status === 'review' && isCurrent && validTransitions.includes('draft') && (
+                <button
+                  type="button"
+                  onClick={() => handleTransition('draft')}
+                  disabled={loading}
+                  className="mt-1.5 cursor-pointer text-[12px] font-semibold text-cy-muted hover:text-cy-ink disabled:opacity-50"
+                >
+                  ← Return to draft for edits
+                </button>
               )}
-            </div>
-            {period.assurance_level && (
-              <Badge variant="secondary" className="capitalize">
-                {period.assurance_level} Assurance
-              </Badge>
+            </StepRow>
+          );
+        })}
+      </Surface>
+
+      {/* History */}
+      {statusHistory && (
+        <Surface>
+          <PanelLabel>History</PanelLabel>
+          <div className="space-y-2.5">
+            {statusHistory.timeline.created_at && (
+              <p className="flex items-baseline gap-2.5 text-[12.5px] text-cy-muted">
+                <span className="relative top-px h-2 w-2 shrink-0 rounded-full bg-cy-faint" aria-hidden="true" />
+                Period created · {formatDate(statusHistory.timeline.created_at)}
+              </p>
+            )}
+            {statusHistory.timeline.submitted_at && (
+              <p className="flex items-baseline gap-2.5 text-[12.5px] text-cy-muted">
+                <span className="relative top-px h-2 w-2 shrink-0 rounded-full bg-cy-warn" aria-hidden="true" />
+                Submitted · {formatDate(statusHistory.timeline.submitted_at)}
+              </p>
+            )}
+            {statusHistory.timeline.verified_at && (
+              <p className="flex items-baseline gap-2.5 text-[12.5px] text-cy-muted">
+                <span className="relative top-px h-2 w-2 shrink-0 rounded-full bg-cy-accent" aria-hidden="true" />
+                Verified · {formatDate(statusHistory.timeline.verified_at)}
+                {statusHistory.timeline.verified_by && ` by ${statusHistory.timeline.verified_by}`}
+                {statusHistory.verification.assurance_level && (
+                  <Badge variant="secondary" size="sm" className="capitalize">
+                    {statusHistory.verification.assurance_level}
+                  </Badge>
+                )}
+              </p>
             )}
           </div>
-
-          {/* Verification Info */}
-          {period.verified_by && (
-            <div className="mt-4 p-4 bg-success/10 rounded-lg border border-success/20">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-success mt-0.5" />
-                <div>
-                  <p className="font-medium text-foreground">Verified</p>
-                  <p className="text-sm text-foreground-muted">
-                    By {period.verified_by}
-                    {period.verified_at && ` on ${formatDate(period.verified_at)}`}
-                  </p>
-                  {period.verification_statement && (
-                    <p className="text-sm text-foreground-muted mt-2 italic">
-                      &quot;{period.verification_statement}&quot;
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Status Timeline */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Workflow Progress</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between relative">
-            {/* Progress Line */}
-            <div className="absolute top-5 left-0 right-0 h-1 bg-border -z-10" />
-            <div
-              className="absolute top-5 left-0 h-1 bg-primary -z-10 transition-all duration-500"
-              style={{ width: `${(currentStepIndex / (statusSteps.length - 1)) * 100}%` }}
-            />
-
-            {statusSteps.map((status, index) => {
-              const isComplete = index < currentStepIndex;
-              const isCurrent = index === currentStepIndex;
-              const isPending = index > currentStepIndex;
-
-              return (
-                <div key={status} className="flex flex-col items-center">
-                  <div
-                    className={cn(
-                      'w-10 h-10 rounded-full flex items-center justify-center transition-colors',
-                      isComplete && 'bg-primary text-white',
-                      isCurrent && 'bg-primary text-white ring-4 ring-primary/20',
-                      isPending && 'bg-background border-2 border-border text-foreground-muted'
-                    )}
-                  >
-                    {isComplete ? (
-                      <CheckCircle className="w-5 h-5" />
-                    ) : (
-                      getStatusIcon(status)
-                    )}
-                  </div>
-                  <p
-                    className={cn(
-                      'text-xs mt-2 capitalize',
-                      (isComplete || isCurrent) && 'text-foreground font-medium',
-                      isPending && 'text-foreground-muted'
-                    )}
-                  >
-                    {status}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Status Actions */}
-      {!period.is_locked && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Available Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {/* Draft -> Review */}
-              {period.status === 'draft' && validTransitions.includes('review') && (
-                <div className="flex items-center justify-between p-4 bg-background-muted rounded-lg">
-                  <div>
-                    <p className="font-medium text-foreground">Submit for Review</p>
-                    <p className="text-sm text-foreground-muted">
-                      Send this period for internal review before submission.
-                    </p>
-                  </div>
-                  <Button
-                    variant="primary"
-                    onClick={() => handleTransition('review')}
-                    disabled={loading}
-                    leftIcon={loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  >
-                    Submit for Review
-                  </Button>
-                </div>
-              )}
-
-              {/* Review -> Draft or Submitted */}
-              {period.status === 'review' && (
-                <>
-                  {validTransitions.includes('draft') && (
-                    <div className="flex items-center justify-between p-4 bg-background-muted rounded-lg">
-                      <div>
-                        <p className="font-medium text-foreground">Return to Draft</p>
-                        <p className="text-sm text-foreground-muted">
-                          Return this period to draft status for edits.
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        onClick={() => handleTransition('draft')}
-                        disabled={loading}
-                        leftIcon={<RotateCcw className="w-4 h-4" />}
-                      >
-                        Return to Draft
-                      </Button>
-                    </div>
-                  )}
-                  {validTransitions.includes('submitted') && (
-                    <div className="flex items-center justify-between p-4 bg-background-muted rounded-lg">
-                      <div>
-                        <p className="font-medium text-foreground">Submit for Verification</p>
-                        <p className="text-sm text-foreground-muted">
-                          Submit this period for third-party verification.
-                        </p>
-                      </div>
-                      <Button
-                        variant="primary"
-                        onClick={() => handleTransition('submitted')}
-                        disabled={loading}
-                        leftIcon={loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                      >
-                        Submit
-                      </Button>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Submitted -> Audit (Admin only) */}
-              {period.status === 'submitted' && validTransitions.includes('audit') && isAdmin && (
-                <div className="flex items-center justify-between p-4 bg-background-muted rounded-lg">
-                  <div>
-                    <p className="font-medium text-foreground">Start Audit</p>
-                    <p className="text-sm text-foreground-muted">
-                      Begin the third-party audit process. Admin only.
-                    </p>
-                  </div>
-                  <Button
-                    variant="primary"
-                    onClick={() => handleTransition('audit')}
-                    disabled={loading}
-                    leftIcon={loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSearch className="w-4 h-4" />}
-                  >
-                    Start Audit
-                  </Button>
-                </div>
-              )}
-
-              {/* Audit -> Verified (Admin only) */}
-              {period.status === 'audit' && validTransitions.includes('verified') && isAdmin && (
-                <div className="flex items-center justify-between p-4 bg-background-muted rounded-lg">
-                  <div>
-                    <p className="font-medium text-foreground">Mark as Verified</p>
-                    <p className="text-sm text-foreground-muted">
-                      Complete audit and mark this period as verified. Admin only.
-                    </p>
-                  </div>
-                  <Button
-                    variant="primary"
-                    onClick={() => setShowVerifyModal(true)}
-                    disabled={loading}
-                    leftIcon={<Award className="w-4 h-4" />}
-                  >
-                    Mark Verified
-                  </Button>
-                </div>
-              )}
-
-              {/* Verified -> Locked (Admin only) */}
-              {period.status === 'verified' && !period.is_locked && isAdmin && (
-                <div className="flex items-center justify-between p-4 bg-warning/10 rounded-lg border border-warning/20">
-                  <div>
-                    <p className="font-medium text-foreground flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-warning" />
-                      Lock Period
-                    </p>
-                    <p className="text-sm text-foreground-muted">
-                      Lock this period to prevent any further changes. This action cannot be undone.
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={handleLock}
-                    disabled={loading}
-                    leftIcon={loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-                  >
-                    Lock Period
-                  </Button>
-                </div>
-              )}
-
-              {/* No actions available */}
-              {validTransitions.length === 0 && !period.is_locked && (
-                <div className="text-center py-4">
-                  <p className="text-foreground-muted">
-                    No actions available for your role at this status.
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        </Surface>
       )}
 
-      {/* Locked Message */}
-      {period.is_locked && (
-        <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="py-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-primary/10">
-                <Lock className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <p className="font-semibold text-foreground">Period is Locked</p>
-                <p className="text-sm text-foreground-muted">
-                  This reporting period has been locked and cannot be modified.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Status History Timeline */}
-      {statusHistory && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Status History</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {statusHistory.timeline.created_at && (
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full bg-foreground-muted mt-2" />
-                  <div>
-                    <p className="font-medium text-foreground">Period Created</p>
-                    <p className="text-sm text-foreground-muted">
-                      {formatDate(statusHistory.timeline.created_at)}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {statusHistory.timeline.submitted_at && (
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full bg-warning mt-2" />
-                  <div>
-                    <p className="font-medium text-foreground">Submitted</p>
-                    <p className="text-sm text-foreground-muted">
-                      {formatDate(statusHistory.timeline.submitted_at)}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {statusHistory.timeline.verified_at && (
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full bg-success mt-2" />
-                  <div>
-                    <p className="font-medium text-foreground">Verified</p>
-                    <p className="text-sm text-foreground-muted">
-                      {formatDate(statusHistory.timeline.verified_at)}
-                      {statusHistory.timeline.verified_by && ` by ${statusHistory.timeline.verified_by}`}
-                    </p>
-                    {statusHistory.verification.assurance_level && (
-                      <Badge variant="secondary" size="sm" className="mt-1 capitalize">
-                        {statusHistory.verification.assurance_level} Assurance
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Verification Modal */}
+      {/* Verification modal */}
       {showVerifyModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-lg mx-4">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Mark Period as Verified</CardTitle>
-                <button
-                  onClick={() => setShowVerifyModal(false)}
-                  className="p-2 hover:bg-background-muted rounded-lg"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-cy bg-background-elevated p-6 shadow-xl">
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-cy-accent">
+                  Verification
+                </p>
+                <h3 className="text-[16px] font-bold tracking-[-0.01em] text-foreground">
+                  Mark this period as verified
+                </h3>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
-                    Assurance Level
-                  </label>
-                  <Select
-                    value={verifyForm.assurance_level}
-                    onChange={(e) =>
-                      setVerifyForm({ ...verifyForm, assurance_level: e.target.value as AssuranceLevel })
-                    }
-                    options={[
-                      { value: 'limited', label: 'Limited Assurance' },
-                      { value: 'reasonable', label: 'Reasonable Assurance' },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
-                    Verified By
-                  </label>
-                  <Input
-                    placeholder="Name of verifier or verification body"
-                    value={verifyForm.verified_by}
-                    onChange={(e) => setVerifyForm({ ...verifyForm, verified_by: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
-                    Verification Statement
-                  </label>
-                  <Textarea
-                    placeholder="Enter verification statement or notes..."
-                    value={verifyForm.verification_statement}
-                    onChange={(e) =>
-                      setVerifyForm({ ...verifyForm, verification_statement: e.target.value })
-                    }
-                    rows={4}
-                  />
-                </div>
-              </div>
-            </CardContent>
-            <div className="px-6 py-4 border-t border-border flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setShowVerifyModal(false)}>
+              <button
+                onClick={() => setShowVerifyModal(false)}
+                className="rounded-md p-1.5 text-cy-muted hover:bg-cy-row hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <Select
+                label="Assurance level"
+                value={verifyForm.assurance_level}
+                onChange={(e) =>
+                  setVerifyForm({ ...verifyForm, assurance_level: e.target.value as AssuranceLevel })
+                }
+                options={[
+                  { value: 'limited', label: 'Limited assurance' },
+                  { value: 'reasonable', label: 'Reasonable assurance' },
+                ]}
+              />
+              <Input
+                label="Verified by"
+                placeholder="Name of verifier or verification body"
+                value={verifyForm.verified_by}
+                onChange={(e) => setVerifyForm({ ...verifyForm, verified_by: e.target.value })}
+              />
+              <Textarea
+                label="Verification statement"
+                placeholder="Enter verification statement or notes…"
+                value={verifyForm.verification_statement}
+                onChange={(e) =>
+                  setVerifyForm({ ...verifyForm, verification_statement: e.target.value })
+                }
+                rows={4}
+              />
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setShowVerifyModal(false)}>
                 Cancel
               </Button>
               <Button
-                variant="primary"
                 onClick={handleVerify}
                 disabled={loading || !verifyForm.verified_by || !verifyForm.verification_statement}
-                leftIcon={loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
               >
-                Confirm Verification
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                Confirm verification
               </Button>
             </div>
-          </Card>
+          </div>
         </div>
       )}
     </div>

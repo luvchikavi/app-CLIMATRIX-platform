@@ -2,41 +2,87 @@
 
 import { useState } from 'react';
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Badge,
-  ScopeBadge,
-  DataQualityBadge,
-} from '@/components/ui';
-import { cn, formatCO2e, formatNumber, categoryNames } from '@/lib/utils';
-import {
-  Building2,
-  Globe,
-  Target,
-  TrendingDown,
-  TrendingUp,
-  FileCheck,
-  ChevronDown,
-  ChevronUp,
-  Info,
-  Leaf,
-  Factory,
-  Zap,
-  Truck,
-} from 'lucide-react';
+  Surface,
+  PanelLabel,
+  StatCells,
+  DataTable,
+  CellValue,
+  type CanopyColumn,
+  type StatCell,
+} from '@/components/canopy';
+import { Badge, DataQualityBadge } from '@/components/ui';
+import { cn, formatNumber, categoryNames } from '@/lib/utils';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { GHGInventoryReport as GHGInventoryReportType } from '@/lib/api';
 
 interface GHGInventoryReportProps {
   report: GHGInventoryReportType;
 }
+
+/** Quiet key–value row (the mock's `.kv`). */
+function Kv({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-3.5 py-1.5 text-[12.5px]">
+      <span className="min-w-[130px] shrink-0 text-cy-faint">{label}</span>
+      <span className="font-semibold text-cy-ink">{children}</span>
+    </div>
+  );
+}
+
+const scopeDots: Record<number, string> = {
+  1: 'bg-cy-scope1',
+  2: 'bg-cy-scope2',
+  3: 'bg-cy-scope3',
+};
+
+type ScopeSource = GHGInventoryReportType['scope_1']['sources'][number];
+
+const sourceColumns: CanopyColumn<ScopeSource>[] = [
+  {
+    key: 'source',
+    header: 'Emission source',
+    render: (source) => <span className="font-semibold">{source.display_name}</span>,
+  },
+  {
+    key: 'category',
+    header: 'Category',
+    render: (source) => (
+      <span className="text-cy-muted">
+        {categoryNames[source.category_code] || source.category_code}
+      </span>
+    ),
+  },
+  {
+    key: 'activities',
+    header: 'Activities',
+    align: 'right',
+    render: (source) => source.activity_count,
+  },
+  {
+    key: 'quantity',
+    header: 'Quantity',
+    align: 'right',
+    render: (source) => `${formatNumber(source.total_quantity, 1)} ${source.unit}`,
+  },
+  {
+    key: 'co2e',
+    header: 't CO₂e',
+    align: 'right',
+    render: (source) => <CellValue>{formatNumber(source.total_co2e_tonnes, 2)}</CellValue>,
+  },
+  {
+    key: 'dq',
+    header: 'Quality',
+    align: 'right',
+    render: (source) => (
+      <DataQualityBadge
+        score={Math.round(source.avg_data_quality) as 1 | 2 | 3 | 4 | 5}
+        size="sm"
+        showLabel={false}
+      />
+    ),
+  },
+];
 
 export function GHGInventoryReport({ report }: GHGInventoryReportProps) {
   const [expandedScopes, setExpandedScopes] = useState<Record<number, boolean>>({
@@ -49,414 +95,194 @@ export function GHGInventoryReport({ report }: GHGInventoryReportProps) {
     setExpandedScopes(prev => ({ ...prev, [scope]: !prev[scope] }));
   };
 
-  const getScopeIcon = (scope: number) => {
-    switch (scope) {
-      case 1:
-        return <Factory className="w-5 h-5" />;
-      case 2:
-        return <Zap className="w-5 h-5" />;
-      case 3:
-        return <Truck className="w-5 h-5" />;
-      default:
-        return <Leaf className="w-5 h-5" />;
-    }
-  };
+  const summary = report.executive_summary;
+
+  const totalsCells: StatCell[] = [
+    {
+      label: 'Total',
+      value: formatNumber(summary.total_emissions_tonnes, 1),
+      sub: 't CO₂e',
+    },
+    {
+      label: 'Scope 1',
+      value: formatNumber(summary.scope_1_tonnes, 1),
+      sub: `${summary.scope_1_percentage.toFixed(1)}%`,
+      scope: 1,
+    },
+    {
+      label: 'Scope 2',
+      value: formatNumber(summary.scope_2_tonnes, 1),
+      sub: `${summary.scope_2_percentage.toFixed(1)}%`,
+      scope: 2,
+    },
+    {
+      label: 'Scope 3',
+      value: formatNumber(summary.scope_3_tonnes, 1),
+      sub: `${summary.scope_3_percentage.toFixed(1)}%`,
+      scope: 3,
+    },
+  ];
+
+  const comparison = report.base_year_comparison;
 
   return (
-    <div className="space-y-6">
-      {/* Report Header */}
-      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-        <CardContent className="py-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-foreground">{report.report_title}</h2>
-              <p className="text-foreground-muted mt-1">
-                Reporting Period: {report.reporting_period}
-              </p>
-              <p className="text-sm text-foreground-muted mt-0.5">
-                Report Date: {new Date(report.report_date).toLocaleDateString()}
-              </p>
-            </div>
-            <Badge variant="primary">ISO 14064-1</Badge>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="space-y-4">
+      {/* Inventory header */}
+      <Surface>
+        <PanelLabel>Inventory</PanelLabel>
+        <Kv label="Organization">{report.organization.name}</Kv>
+        <Kv label="Period">
+          {report.reporting_period} ·{' '}
+          {new Date(report.boundaries.reporting_period_start).toLocaleDateString()} –{' '}
+          {new Date(report.boundaries.reporting_period_end).toLocaleDateString()}
+        </Kv>
+        <Kv label="Boundary">
+          {report.boundaries.consolidation_approach} · {report.boundaries.included_facilities}
+        </Kv>
+        {report.organization.industry && (
+          <Kv label="Industry">{report.organization.industry}</Kv>
+        )}
+        <Kv label="Standard">ISO 14064-1 · GHG Protocol</Kv>
+        <Kv label="Report date">{new Date(report.report_date).toLocaleDateString()}</Kv>
+      </Surface>
 
-      {/* Organization Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-foreground-muted" />
-            Organization Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div>
-              <p className="text-sm font-medium text-foreground-muted">Organization</p>
-              <p className="text-foreground font-semibold mt-1">{report.organization.name}</p>
-            </div>
-            {report.organization.country && (
-              <div>
-                <p className="text-sm font-medium text-foreground-muted">Country</p>
-                <p className="text-foreground font-semibold mt-1">{report.organization.country}</p>
-              </div>
-            )}
-            {report.organization.industry && (
-              <div>
-                <p className="text-sm font-medium text-foreground-muted">Industry</p>
-                <p className="text-foreground font-semibold mt-1">{report.organization.industry}</p>
-              </div>
-            )}
-            {report.organization.base_year && (
-              <div>
-                <p className="text-sm font-medium text-foreground-muted">Base Year</p>
-                <p className="text-foreground font-semibold mt-1">{report.organization.base_year}</p>
-              </div>
-            )}
-          </div>
+      {/* Totals */}
+      <Surface>
+        <PanelLabel>Totals</PanelLabel>
+        <StatCells cells={totalsCells} />
+        <p className="mt-3 text-[11.5px] text-cy-faint">
+          {summary.total_activities} activities · top sources:{' '}
+          {summary.top_emission_sources.slice(0, 3).join(' · ')}
+        </p>
+        <p className="mt-1.5 flex items-center gap-2 text-[12px] text-cy-muted">
+          <DataQualityBadge
+            score={Math.round(summary.data_quality_score) as 1 | 2 | 3 | 4 | 5}
+            size="sm"
+          />
+          Weighted data quality {summary.data_quality_score.toFixed(2)} —{' '}
+          {report.data_quality_interpretation}
+        </p>
+      </Surface>
 
-          <div className="mt-6 pt-6 border-t border-border">
-            <h4 className="text-sm font-semibold text-foreground mb-3">Reporting Boundary</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <p className="text-sm text-foreground-muted">Consolidation Approach</p>
-                <p className="text-foreground">{report.boundaries.consolidation_approach}</p>
-              </div>
-              <div>
-                <p className="text-sm text-foreground-muted">Included Facilities</p>
-                <p className="text-foreground">{report.boundaries.included_facilities}</p>
-              </div>
-              <div>
-                <p className="text-sm text-foreground-muted">Period</p>
-                <p className="text-foreground">
-                  {new Date(report.boundaries.reporting_period_start).toLocaleDateString()} -{' '}
-                  {new Date(report.boundaries.reporting_period_end).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Executive Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="w-5 h-5 text-foreground-muted" />
-            Executive Summary
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* Total Emissions */}
-          <div className="text-center mb-8">
-            <p className="text-sm font-medium text-foreground-muted uppercase tracking-wide">
-              Total GHG Emissions
-            </p>
-            <p className="text-4xl font-bold text-primary mt-2">
-              {formatNumber(report.executive_summary.total_emissions_tonnes, 1)} t CO2e
-            </p>
-            <p className="text-foreground-muted mt-1">
-              {report.executive_summary.total_activities} activities recorded
-            </p>
-          </div>
-
-          {/* Scope Breakdown */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div className="bg-scope1/10 rounded-lg p-4 text-center border border-scope1/20">
-              <p className="text-sm font-medium text-scope1">Scope 1 - Direct</p>
-              <p className="text-2xl font-bold text-foreground mt-1">
-                {formatNumber(report.executive_summary.scope_1_tonnes, 1)} t
-              </p>
-              <p className="text-sm text-foreground-muted">
-                {report.executive_summary.scope_1_percentage.toFixed(1)}%
-              </p>
-            </div>
-            <div className="bg-scope2/10 rounded-lg p-4 text-center border border-scope2/20">
-              <p className="text-sm font-medium text-scope2">Scope 2 - Indirect</p>
-              <p className="text-2xl font-bold text-foreground mt-1">
-                {formatNumber(report.executive_summary.scope_2_tonnes, 1)} t
-              </p>
-              <p className="text-sm text-foreground-muted">
-                {report.executive_summary.scope_2_percentage.toFixed(1)}%
-              </p>
-            </div>
-            <div className="bg-scope3/10 rounded-lg p-4 text-center border border-scope3/20">
-              <p className="text-sm font-medium text-scope3">Scope 3 - Value Chain</p>
-              <p className="text-2xl font-bold text-foreground mt-1">
-                {formatNumber(report.executive_summary.scope_3_tonnes, 1)} t
-              </p>
-              <p className="text-sm text-foreground-muted">
-                {report.executive_summary.scope_3_percentage.toFixed(1)}%
-              </p>
-            </div>
-          </div>
-
-          {/* Top Sources & Data Quality */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="text-sm font-semibold text-foreground mb-3">Top Emission Sources</h4>
-              <ul className="space-y-2">
-                {report.executive_summary.top_emission_sources.map((source, index) => (
-                  <li key={index} className="flex items-center gap-2 text-sm text-foreground-muted">
-                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-medium">
-                      {index + 1}
-                    </span>
-                    {source}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-foreground mb-3">Data Quality</h4>
-              <div className="flex items-center gap-3">
-                <DataQualityBadge
-                  score={Math.round(report.executive_summary.data_quality_score) as 1 | 2 | 3 | 4 | 5}
-                />
-                <span className="text-sm text-foreground-muted">
-                  Weighted average: {report.executive_summary.data_quality_score.toFixed(2)}
-                </span>
-              </div>
-              <p className="text-sm text-foreground-muted mt-2">
-                {report.data_quality_interpretation}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Scope Details */}
+      {/* Scope details */}
       {[report.scope_1, report.scope_2, report.scope_3].map((scopeData) => (
-        <Card key={scopeData.scope}>
-          <CardHeader
-            className="cursor-pointer hover:bg-background-muted/50 transition-colors"
+        <Surface key={scopeData.scope} padding="none" className="px-6 py-4">
+          <button
+            type="button"
             onClick={() => toggleScope(scopeData.scope)}
+            className="flex w-full cursor-pointer items-center justify-between gap-4 text-left"
+            aria-expanded={expandedScopes[scopeData.scope]}
           >
-            <div className="flex items-center justify-between w-full">
-              <CardTitle className="flex items-center gap-3">
-                {getScopeIcon(scopeData.scope)}
-                <ScopeBadge scope={scopeData.scope as 1 | 2 | 3} />
-                <span className="ml-2">{scopeData.scope_name}</span>
-              </CardTitle>
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <p className="font-bold text-foreground">
-                    {formatNumber(scopeData.total_co2e_tonnes, 1)} t CO2e
-                  </p>
-                  <p className="text-sm text-foreground-muted">
-                    {scopeData.percentage_of_total.toFixed(1)}% of total
-                  </p>
-                </div>
-                {expandedScopes[scopeData.scope] ? (
-                  <ChevronUp className="w-5 h-5 text-foreground-muted" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-foreground-muted" />
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          {expandedScopes[scopeData.scope] && (
-            <CardContent>
-              <div className="flex items-center gap-4 mb-4 text-sm text-foreground-muted">
-                <span>{scopeData.activity_count} activities</span>
-                <span>|</span>
-                <span>
-                  Avg. data quality:{' '}
-                  <DataQualityBadge
-                    score={Math.round(scopeData.avg_data_quality) as 1 | 2 | 3 | 4 | 5}
-                    size="sm"
-                  />
+            <span className="flex items-center gap-2.5 text-[13.5px] font-semibold text-cy-ink">
+              <span
+                aria-hidden="true"
+                className={cn('inline-block h-[7px] w-[7px] rounded-full', scopeDots[scopeData.scope])}
+              />
+              {scopeData.scope_name}
+            </span>
+            <span className="flex items-center gap-3">
+              <span className="text-[13px] font-semibold tabular-nums text-cy-ink">
+                {formatNumber(scopeData.total_co2e_tonnes, 1)} t
+                <span className="ml-2 font-normal text-cy-muted">
+                  {scopeData.percentage_of_total.toFixed(1)}%
                 </span>
-              </div>
-
-              {scopeData.sources.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Emission Source</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead className="text-right">Activities</TableHead>
-                      <TableHead className="text-right">Quantity</TableHead>
-                      <TableHead className="text-right">Emissions (t CO2e)</TableHead>
-                      <TableHead className="text-center">Data Quality</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {scopeData.sources.map((source, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="font-medium">{source.display_name}</TableCell>
-                        <TableCell className="text-foreground-muted">
-                          {categoryNames[source.category_code] || source.category_code}
-                        </TableCell>
-                        <TableCell className="text-right">{source.activity_count}</TableCell>
-                        <TableCell className="text-right">
-                          {formatNumber(source.total_quantity, 1)} {source.unit}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {formatNumber(source.total_co2e_tonnes, 2)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <DataQualityBadge
-                            score={Math.round(source.avg_data_quality) as 1 | 2 | 3 | 4 | 5}
-                            size="sm"
-                            showLabel={false}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              </span>
+              {expandedScopes[scopeData.scope] ? (
+                <ChevronUp className="h-4 w-4 text-cy-faint" />
               ) : (
-                <p className="text-center text-foreground-muted py-4">
-                  No {scopeData.scope_name.toLowerCase()} emissions recorded
+                <ChevronDown className="h-4 w-4 text-cy-faint" />
+              )}
+            </span>
+          </button>
+          {expandedScopes[scopeData.scope] && (
+            <div className="mt-3.5">
+              <p className="mb-3 flex items-center gap-2 text-[12px] text-cy-muted">
+                {scopeData.activity_count} activities · avg quality{' '}
+                <DataQualityBadge
+                  score={Math.round(scopeData.avg_data_quality) as 1 | 2 | 3 | 4 | 5}
+                  size="sm"
+                  showLabel={false}
+                />
+              </p>
+              {scopeData.sources.length > 0 ? (
+                <DataTable
+                  columns={sourceColumns}
+                  rows={scopeData.sources}
+                  rowKey={(_, index) => index}
+                />
+              ) : (
+                <p className="py-3 text-[12.5px] text-cy-muted">
+                  No {scopeData.scope_name.toLowerCase()} emissions recorded.
                 </p>
               )}
-            </CardContent>
+            </div>
           )}
-        </Card>
+        </Surface>
       ))}
 
-      {/* Methodology */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Info className="w-5 h-5 text-foreground-muted" />
-            Methodology
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-semibold text-foreground mb-1">Calculation Approach</h4>
-              <p className="text-foreground-muted">{report.methodology.calculation_approach}</p>
-            </div>
-            <div>
-              <h4 className="font-semibold text-foreground mb-1">Global Warming Potentials</h4>
-              <p className="text-foreground-muted">{report.methodology.gwp_values}</p>
-            </div>
-            <div>
-              <h4 className="font-semibold text-foreground mb-1">Emission Factor Sources</h4>
-              <ul className="list-disc list-inside text-foreground-muted">
-                {report.methodology.emission_factor_sources.map((source, index) => (
-                  <li key={index}>{source}</li>
-                ))}
-              </ul>
-            </div>
-            {report.methodology.exclusions.length > 0 && (
-              <div>
-                <h4 className="font-semibold text-foreground mb-1">Exclusions</h4>
-                <ul className="list-disc list-inside text-foreground-muted">
-                  {report.methodology.exclusions.map((exclusion, index) => (
-                    <li key={index}>{exclusion}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {report.methodology.assumptions.length > 0 && (
-              <div>
-                <h4 className="font-semibold text-foreground mb-1">Key Assumptions</h4>
-                <ul className="list-disc list-inside text-foreground-muted">
-                  {report.methodology.assumptions.map((assumption, index) => (
-                    <li key={index}>{assumption}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Base Year Comparison */}
-      {report.base_year_comparison && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {report.base_year_comparison.percentage_change < 0 ? (
-                <TrendingDown className="w-5 h-5 text-success" />
-              ) : (
-                <TrendingUp className="w-5 h-5 text-error" />
-              )}
-              Base Year Comparison
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
-              <div>
-                <p className="text-sm text-foreground-muted">Base Year</p>
-                <p className="text-xl font-bold text-foreground">
-                  {report.base_year_comparison.base_year}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-foreground-muted">Base Year Emissions</p>
-                <p className="text-xl font-bold text-foreground">
-                  {formatNumber(report.base_year_comparison.base_year_emissions_tonnes, 1)} t
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-foreground-muted">Current Emissions</p>
-                <p className="text-xl font-bold text-foreground">
-                  {formatNumber(report.base_year_comparison.current_emissions_tonnes, 1)} t
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-foreground-muted">Change</p>
-                <p
-                  className={cn(
-                    'text-xl font-bold',
-                    report.base_year_comparison.percentage_change < 0 ? 'text-success' : 'text-error'
-                  )}
+      {/* Methodology, base year & verification */}
+      <Surface>
+        <PanelLabel>Methodology &amp; base year</PanelLabel>
+        <Kv label="Calculation">{report.methodology.calculation_approach}</Kv>
+        <Kv label="GWP set">{report.methodology.gwp_values}</Kv>
+        <Kv label="Factor sources">{report.methodology.emission_factor_sources.join(' · ')}</Kv>
+        {report.methodology.exclusions.length > 0 && (
+          <Kv label="Exclusions">{report.methodology.exclusions.join(' · ')}</Kv>
+        )}
+        {report.methodology.assumptions.length > 0 && (
+          <Kv label="Assumptions">{report.methodology.assumptions.join(' · ')}</Kv>
+        )}
+        {report.organization.base_year && (
+          <Kv label="Base year">
+            {report.organization.base_year}
+            {comparison && (
+              <>
+                {' '}· {formatNumber(comparison.base_year_emissions_tonnes, 1)} t →{' '}
+                {formatNumber(comparison.current_emissions_tonnes, 1)} t ·{' '}
+                <span
+                  className={
+                    comparison.percentage_change < 0 ? 'text-cy-accent' : 'text-error'
+                  }
                 >
-                  {report.base_year_comparison.percentage_change > 0 ? '+' : ''}
-                  {report.base_year_comparison.percentage_change.toFixed(1)}%
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Verification Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileCheck className="w-5 h-5 text-foreground-muted" />
-            Verification Status
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4">
-            <Badge
-              variant={
-                report.verification.status === 'verified'
-                  ? 'success'
-                  : report.verification.status === 'audit'
-                  ? 'warning'
-                  : 'default'
-              }
-            >
-              {report.verification.status.charAt(0).toUpperCase() + report.verification.status.slice(1)}
-            </Badge>
-            {report.verification.assurance_level && (
-              <span className="text-foreground-muted">
-                Assurance Level: <span className="font-medium capitalize">{report.verification.assurance_level}</span>
-              </span>
+                  {comparison.percentage_change > 0 ? '+' : ''}
+                  {comparison.percentage_change.toFixed(1)}%
+                </span>
+              </>
             )}
-          </div>
+          </Kv>
+        )}
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[12.5px] text-cy-muted">
+          <Badge
+            variant={
+              report.verification.status === 'verified'
+                ? 'success'
+                : report.verification.status === 'audit'
+                ? 'warning'
+                : 'default'
+            }
+            size="sm"
+          >
+            {report.verification.status.charAt(0).toUpperCase() + report.verification.status.slice(1)}
+          </Badge>
+          {report.verification.assurance_level && (
+            <span>
+              Assurance: <span className="capitalize">{report.verification.assurance_level}</span>
+            </span>
+          )}
           {report.verification.verified_by && (
-            <p className="text-sm text-foreground-muted mt-3">
-              Verified by: {report.verification.verified_by}
+            <span>
+              Verified by {report.verification.verified_by}
               {report.verification.verified_at &&
                 ` on ${new Date(report.verification.verified_at).toLocaleDateString()}`}
-            </p>
+            </span>
           )}
-          {report.verification.verification_statement && (
-            <p className="text-sm text-foreground-muted mt-2 italic">
-              &quot;{report.verification.verification_statement}&quot;
-            </p>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+        {report.verification.verification_statement && (
+          <p className="mt-1.5 text-[12px] italic text-cy-muted">
+            &quot;{report.verification.verification_statement}&quot;
+          </p>
+        )}
+      </Surface>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   api,
@@ -10,13 +10,7 @@ import {
 } from '@/lib/api';
 import { Button, Badge } from '@/components/ui';
 import { cn, num } from '@/lib/utils';
-import {
-  X,
-  Target,
-  Loader2,
-  CheckCircle2,
-  Info,
-} from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 
 interface SetTargetModalProps {
   isOpen: boolean;
@@ -30,33 +24,37 @@ interface SetTargetModalProps {
 const frameworkOptions = [
   {
     value: 'sbti_1_5c' as TargetFramework,
-    label: 'SBTi 1.5°C Aligned',
-    description: 'Most ambitious pathway - 42% reduction by 2030',
+    label: 'SBTi 1.5°C aligned',
+    description: 'Most ambitious pathway — 42% reduction by 2030',
     reduction: 42,
     recommended: true,
   },
   {
     value: 'sbti_wb2c' as TargetFramework,
-    label: 'SBTi Well-Below 2°C',
-    description: 'Less aggressive - 25% reduction by 2030',
+    label: 'SBTi well-below 2°C',
+    description: 'Less aggressive — 25% reduction by 2030',
     reduction: 25,
     recommended: false,
   },
   {
     value: 'net_zero' as TargetFramework,
-    label: 'Net Zero 2050',
+    label: 'Net zero 2050',
     description: 'Long-term commitment to net zero emissions',
     reduction: 90,
     recommended: false,
   },
   {
     value: 'custom' as TargetFramework,
-    label: 'Custom Target',
+    label: 'Custom target',
     description: 'Define your own reduction percentage',
     reduction: null,
     recommended: false,
   },
 ];
+
+const fieldLabel = 'block text-[11px] font-bold tracking-[0.06em] uppercase text-cy-faint mb-1.5';
+const fieldInput =
+  'w-full px-3 py-2.5 rounded-[10px] border-0 bg-cy-row text-[13px] font-semibold text-foreground placeholder:text-cy-faint placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-cy-accent disabled:opacity-50 disabled:cursor-not-allowed';
 
 export function SetTargetModal({
   isOpen,
@@ -134,32 +132,31 @@ export function SetTargetModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-label="Set Target">
-      <div className="bg-background rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Set target">
+      <div className="bg-background-elevated rounded-cy shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Target className="w-6 h-6 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-foreground">
-                {existingTarget ? 'Edit Target' : 'Set Decarbonization Target'}
-              </h2>
-              <p className="text-sm text-foreground-muted">
-                Step {step} of 3
-              </p>
-            </div>
+        <div className="flex items-start justify-between px-6 pt-6 pb-1">
+          <div>
+            <p className="text-[11px] font-bold tracking-[0.08em] uppercase text-cy-accent mb-1.5">
+              Plan · step {step} of 3
+            </p>
+            <h2 className="text-[16px] font-bold text-foreground tracking-[-0.01em]">
+              {existingTarget ? 'Edit your target' : `Set your ${targetYear} target`}
+            </h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-background-muted rounded-lg">
-            <X className="w-5 h-5 text-foreground-muted" />
+          <button
+            onClick={onClose}
+            className="p-1.5 hover:bg-cy-row rounded-md text-cy-muted hover:text-foreground"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
         <div className="p-6">
           {error && (
-            <div className="mb-4 p-3 rounded-lg bg-error/10 text-error text-sm">
+            <div className="mb-4 px-3 py-2.5 rounded-[10px] bg-error-50 text-error text-[12.5px]">
               {error}
             </div>
           )}
@@ -167,31 +164,43 @@ export function SetTargetModal({
           {/* Step 1: Select Framework */}
           {step === 1 && (
             <div className="space-y-4">
-              <h3 className="font-medium text-foreground">Select Target Framework</h3>
-              <div className="grid gap-3">
+              {baselineEmissions ? (
+                <p className="text-[12.5px] text-cy-muted">
+                  Baseline {baseYear} ·{' '}
+                  <b className="font-bold text-foreground tabular-nums">
+                    {baselineEmissions.toLocaleString(undefined, { maximumFractionDigits: 0 })} t CO₂e
+                  </b>
+                </p>
+              ) : null}
+              <div className="grid gap-1">
                 {frameworkOptions.map((option) => (
                   <button
                     key={option.value}
                     onClick={() => setFramework(option.value)}
                     className={cn(
-                      "p-4 rounded-lg border text-left transition-colors",
+                      'px-3.5 py-3 rounded-[12px] text-left transition-colors',
                       framework === option.value
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
+                        ? 'bg-cy-accent-soft'
+                        : 'hover:bg-cy-row'
                     )}
                   >
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-foreground">{option.label}</span>
+                          <span className={cn(
+                            'text-[13.5px] font-semibold',
+                            framework === option.value ? 'text-cy-accent' : 'text-foreground'
+                          )}>
+                            {option.label}
+                          </span>
                           {option.recommended && (
-                            <Badge variant="success" className="text-xs">Recommended</Badge>
+                            <Badge variant="success" size="sm">Recommended</Badge>
                           )}
                         </div>
-                        <p className="text-sm text-foreground-muted mt-1">{option.description}</p>
+                        <p className="text-[12.5px] text-cy-muted mt-0.5">{option.description}</p>
                       </div>
                       {framework === option.value && (
-                        <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
+                        <span className="text-cy-accent font-bold text-[13px] shrink-0" aria-hidden="true">✓</span>
                       )}
                     </div>
                   </button>
@@ -201,9 +210,7 @@ export function SetTargetModal({
               {/* Custom reduction input */}
               {framework === 'custom' && (
                 <div className="mt-4">
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Custom Reduction Percentage
-                  </label>
+                  <label className={fieldLabel}>Custom reduction</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
@@ -211,9 +218,9 @@ export function SetTargetModal({
                       max={100}
                       value={customReductionPercent}
                       onChange={(e) => setCustomReductionPercent(Number(e.target.value))}
-                      className="w-24 px-3 py-2 rounded-lg border border-border bg-background text-foreground"
+                      className={cn(fieldInput, 'w-24')}
                     />
-                    <span className="text-foreground-muted">%</span>
+                    <span className="text-cy-muted text-[13px]">%</span>
                   </div>
                 </div>
               )}
@@ -224,79 +231,71 @@ export function SetTargetModal({
           {step === 2 && (
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Target Name
-                </label>
+                <label className={fieldLabel}>Target name</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground"
+                  className={fieldInput}
                   placeholder="e.g., SBTi 2030 Target"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Base Year
-                  </label>
+                  <label className={fieldLabel}>Base year</label>
                   <input
                     type="number"
                     value={baseYear}
                     disabled
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background-muted text-foreground-muted"
+                    className={fieldInput}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Target Year
-                  </label>
+                  <label className={fieldLabel}>Target year</label>
                   <input
                     type="number"
                     min={baseYear + 1}
                     max={2100}
                     value={targetYear}
                     onChange={(e) => setTargetYear(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground"
+                    className={fieldInput}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Scope Coverage
-                </label>
-                <div className="flex flex-wrap gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
+                <label className={fieldLabel}>Scope coverage</label>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer text-[13px] text-foreground">
                     <input
                       type="checkbox"
                       checked={includeScope1}
                       onChange={(e) => setIncludeScope1(e.target.checked)}
-                      className="w-4 h-4 rounded border-border"
+                      className="w-4 h-4 rounded accent-[var(--cy-accent)]"
                     />
-                    <span className="text-foreground">Scope 1</span>
+                    Scope 1
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer text-[13px] text-foreground">
                     <input
                       type="checkbox"
                       checked={includeScope2}
                       onChange={(e) => setIncludeScope2(e.target.checked)}
-                      className="w-4 h-4 rounded border-border"
+                      className="w-4 h-4 rounded accent-[var(--cy-accent)]"
                     />
-                    <span className="text-foreground">Scope 2</span>
+                    Scope 2
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer text-[13px] text-foreground">
                     <input
                       type="checkbox"
                       checked={includeScope3}
                       onChange={(e) => setIncludeScope3(e.target.checked)}
-                      className="w-4 h-4 rounded border-border"
+                      className="w-4 h-4 rounded accent-[var(--cy-accent)]"
                     />
-                    <span className="text-foreground">Scope 3</span>
+                    Scope 3
                   </label>
                 </div>
-                <p className="text-xs text-foreground-muted mt-2">
+                <p className="text-[11.5px] text-cy-faint mt-2">
                   SBTi requires Scope 1+2. Scope 3 is recommended if it&apos;s more than 40% of your footprint.
                 </p>
               </div>
@@ -305,43 +304,38 @@ export function SetTargetModal({
 
           {/* Step 3: Review */}
           {step === 3 && (
-            <div className="space-y-6">
-              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                <div className="flex items-center gap-2 mb-4">
-                  <Info className="w-5 h-5 text-primary" />
-                  <span className="font-medium text-foreground">Target Summary</span>
-                </div>
+            <div className="space-y-5">
+              <div className="p-4 rounded-[12px] bg-cy-accent-soft">
+                <p className="text-[11px] font-bold tracking-[0.08em] uppercase text-cy-accent mb-3.5">
+                  Your target
+                </p>
 
-                <dl className="grid grid-cols-2 gap-4 text-sm">
+                <dl className="grid grid-cols-2 gap-4">
                   <div>
-                    <dt className="text-foreground-muted">Target Name</dt>
-                    <dd className="font-medium text-foreground">{name}</dd>
+                    <dt className="text-[11.5px] text-cy-muted">Name</dt>
+                    <dd className="text-[13px] font-semibold text-foreground">{name}</dd>
                   </div>
                   <div>
-                    <dt className="text-foreground-muted">Framework</dt>
-                    <dd className="font-medium text-foreground">
+                    <dt className="text-[11.5px] text-cy-muted">Framework</dt>
+                    <dd className="text-[13px] font-semibold text-foreground">
                       {frameworkOptions.find(f => f.value === framework)?.label}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-foreground-muted">Base Year Emissions</dt>
-                    <dd className="font-medium text-foreground">
-                      {baselineEmissions?.toLocaleString()} tCO2e
+                    <dt className="text-[11.5px] text-cy-muted">Baseline ({baseYear})</dt>
+                    <dd className="text-[13px] font-semibold text-foreground tabular-nums">
+                      {baselineEmissions?.toLocaleString()} t CO₂e
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-foreground-muted">Target ({targetYear})</dt>
-                    <dd className="font-medium text-success">
-                      {targetEmissions.toLocaleString(undefined, { maximumFractionDigits: 0 })} tCO2e
+                    <dt className="text-[11.5px] text-cy-muted">Target ({targetYear})</dt>
+                    <dd className="text-[13px] font-semibold text-cy-accent tabular-nums">
+                      {targetEmissions.toLocaleString(undefined, { maximumFractionDigits: 0 })} t CO₂e · −{reductionPercent}%
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-foreground-muted">Reduction</dt>
-                    <dd className="font-medium text-success">-{reductionPercent}%</dd>
-                  </div>
-                  <div>
-                    <dt className="text-foreground-muted">Scope Coverage</dt>
-                    <dd className="font-medium text-foreground">
+                    <dt className="text-[11.5px] text-cy-muted">Scope coverage</dt>
+                    <dd className="text-[13px] font-semibold text-foreground">
                       {[includeScope1 && '1', includeScope2 && '2', includeScope3 && '3']
                         .filter(Boolean)
                         .join(', ')}
@@ -350,18 +344,15 @@ export function SetTargetModal({
                 </dl>
               </div>
 
-              <div className="p-3 rounded-lg bg-success/10">
-                <p className="text-sm text-success">
-                  Setting this target will help you track progress and receive personalized recommendations
-                  for achieving your decarbonization goals.
-                </p>
-              </div>
+              <p className="text-[12.5px] text-cy-muted">
+                Saving this target unlocks your plan — progress tracking and measures matched to your data.
+              </p>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-border">
+        <div className="flex items-center justify-end gap-2 px-6 pb-6">
           <Button
             variant="ghost"
             onClick={() => step > 1 ? setStep(step - 1) : onClose()}
@@ -374,13 +365,13 @@ export function SetTargetModal({
           >
             {createMutation.isPending ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Creating...
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving…
               </>
             ) : step < 3 ? (
               'Continue'
             ) : (
-              'Create Target'
+              'Save target'
             )}
           </Button>
         </div>

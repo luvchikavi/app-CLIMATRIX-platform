@@ -1,41 +1,129 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Badge,
-  ScopeBadge,
-  DataQualityBadge,
-  Button,
-} from '@/components/ui';
-import { cn, formatCO2e, formatNumber, formatDate, categoryNames } from '@/lib/utils';
-import {
-  Download,
-  FileText,
-  ClipboardList,
-  Database,
-  Upload,
-  ChevronDown,
-  ChevronUp,
-  AlertCircle,
-  CheckCircle,
-  BookOpen,
-} from 'lucide-react';
+  Surface,
+  PanelLabel,
+  StatCells,
+  DataTable,
+  CellValue,
+  type CanopyColumn,
+  type StatCell,
+} from '@/components/canopy';
+import { Badge, ScopeBadge, DataQualityBadge, Button } from '@/components/ui';
+import { formatCO2e, formatNumber, formatDate, categoryNames } from '@/lib/utils';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { AuditPackage } from '@/lib/api';
 
 interface AuditPackageViewProps {
   auditPackage: AuditPackage;
   onDownload?: () => void;
 }
+
+/** Quiet key–value row. */
+function Kv({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-3.5 py-1.5 text-[12.5px]">
+      <span className="min-w-[130px] shrink-0 text-cy-faint">{label}</span>
+      <span className="font-semibold text-cy-ink">{children}</span>
+    </div>
+  );
+}
+
+/** Detail line inside an expanded activity row. */
+function DetailKv({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-3 text-[12px]">
+      <span className="w-36 shrink-0 text-cy-faint">{label}</span>
+      <span className="text-cy-ink">{children}</span>
+    </div>
+  );
+}
+
+const thClass =
+  'pb-2.5 text-[10.5px] font-bold tracking-[0.07em] uppercase text-cy-faint text-left';
+const thRight = `${thClass} text-right`;
+const tdClass = 'border-t border-cy-row py-[9px] text-[13px] text-cy-ink';
+const tdRight = `${tdClass} text-right tabular-nums text-cy-muted`;
+
+type EmissionFactorRow = AuditPackage['emission_factors'][number];
+type ImportBatchRow = AuditPackage['import_batches'][number];
+
+const factorColumns: CanopyColumn<EmissionFactorRow>[] = [
+  {
+    key: 'name',
+    header: 'Factor',
+    render: (factor) => <span className="font-semibold">{factor.display_name}</span>,
+  },
+  {
+    key: 'source',
+    header: 'Source',
+    render: (factor) => (
+      <span className="text-cy-muted">
+        {factor.source} ({factor.region}, {factor.year})
+      </span>
+    ),
+  },
+  {
+    key: 'scope',
+    header: 'Scope',
+    render: (factor) => <ScopeBadge scope={factor.scope as 1 | 2 | 3} size="sm" />,
+  },
+  {
+    key: 'value',
+    header: 'Value',
+    align: 'right',
+    render: (factor) => `${factor.co2e_factor.toFixed(4)} ${factor.factor_unit}`,
+  },
+  {
+    key: 'uses',
+    header: 'Uses',
+    align: 'right',
+    render: (factor) => factor.usage_count,
+  },
+  {
+    key: 'total',
+    header: 'Total',
+    align: 'right',
+    render: (factor) => <CellValue>{formatCO2e(factor.total_co2e_kg)}</CellValue>,
+  },
+];
+
+const importColumns: CanopyColumn<ImportBatchRow>[] = [
+  {
+    key: 'file',
+    header: 'File',
+    render: (batch) => <span className="font-semibold">{batch.file_name}</span>,
+  },
+  {
+    key: 'type',
+    header: 'Type',
+    render: (batch) => <span className="text-[11px] uppercase text-cy-muted">{batch.file_type}</span>,
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (batch) => (
+      <Badge
+        variant={
+          batch.status === 'completed' ? 'success' : batch.status === 'failed' ? 'error' : 'warning'
+        }
+        size="sm"
+      >
+        {batch.status}
+      </Badge>
+    ),
+  },
+  { key: 'rows', header: 'Rows', align: 'right', render: (batch) => batch.total_rows },
+  { key: 'ok', header: 'OK', align: 'right', render: (batch) => batch.successful_rows },
+  { key: 'failed', header: 'Failed', align: 'right', render: (batch) => batch.failed_rows },
+  {
+    key: 'uploaded',
+    header: 'Uploaded',
+    align: 'right',
+    render: (batch) => formatDate(batch.uploaded_at),
+  },
+];
 
 export function AuditPackageView({ auditPackage, onDownload }: AuditPackageViewProps) {
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
@@ -71,417 +159,248 @@ export function AuditPackageView({ auditPackage, onDownload }: AuditPackageViewP
     onDownload?.();
   };
 
+  const summary = auditPackage.summary;
+
+  const summaryCells: StatCell[] = [
+    {
+      label: 'Total',
+      value: formatNumber(summary.total_emissions_tonnes, 1),
+      sub: 't CO₂e',
+    },
+    { label: 'Scope 1', value: formatNumber(summary.scope_1_emissions_tonnes, 1), scope: 1 },
+    { label: 'Scope 2', value: formatNumber(summary.scope_2_emissions_tonnes, 1), scope: 2 },
+    { label: 'Scope 3', value: formatNumber(summary.scope_3_emissions_tonnes, 1), scope: 3 },
+    {
+      label: 'Data quality',
+      value: summary.overall_data_quality_score.toFixed(2),
+      sub: '/ 5',
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Package Header */}
-      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-        <CardContent className="py-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-foreground">Audit Package</h2>
-              <p className="text-foreground-muted mt-1">
-                {auditPackage.summary.organization_name} - {auditPackage.summary.period_name}
-              </p>
-              <p className="text-sm text-foreground-muted mt-0.5">
-                Generated: {formatDate(auditPackage.summary.generated_at)}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge variant="secondary">v{auditPackage.package_version}</Badge>
-              <Button variant="primary" leftIcon={<Download className="w-4 h-4" />} onClick={handleDownload}>
-                Download JSON
-              </Button>
-            </div>
+    <div className="space-y-4">
+      {/* Pack summary */}
+      <Surface>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <PanelLabel>Audit pack</PanelLabel>
+          <div className="flex items-center gap-2">
+            <Badge size="sm">v{auditPackage.package_version}</Badge>
+            <Button variant="secondary" size="sm" onClick={handleDownload}>
+              Download JSON
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <Kv label="Organization">{summary.organization_name}</Kv>
+        <Kv label="Period">
+          {summary.period_name} · {formatDate(summary.reporting_period_start)} –{' '}
+          {formatDate(summary.reporting_period_end)}
+        </Kv>
+        <Kv label="Generated">{formatDate(summary.generated_at)}</Kv>
+        <div className="mt-3.5">
+          <StatCells cells={summaryCells} />
+        </div>
+        <p className="mt-3 flex items-center gap-2 text-[12px] text-cy-muted">
+          <Badge
+            variant={
+              summary.verification_status === 'verified'
+                ? 'success'
+                : summary.verification_status === 'audit'
+                ? 'warning'
+                : 'default'
+            }
+            size="sm"
+          >
+            {summary.verification_status}
+          </Badge>
+          {summary.total_activities} activities · every row traces to its source below
+        </p>
+      </Surface>
 
-      {/* Summary Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ClipboardList className="w-5 h-5 text-foreground-muted" />
-            Summary
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div>
-              <p className="text-sm font-medium text-foreground-muted">Reporting Period</p>
-              <p className="text-foreground font-semibold mt-1">
-                {formatDate(auditPackage.summary.reporting_period_start)} -{' '}
-                {formatDate(auditPackage.summary.reporting_period_end)}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground-muted">Total Activities</p>
-              <p className="text-foreground font-semibold mt-1">
-                {auditPackage.summary.total_activities}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground-muted">Total Emissions</p>
-              <p className="text-foreground font-semibold mt-1">
-                {formatNumber(auditPackage.summary.total_emissions_tonnes, 2)} t CO2e
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground-muted">Verification Status</p>
-              <Badge
-                variant={
-                  auditPackage.summary.verification_status === 'verified'
-                    ? 'success'
-                    : auditPackage.summary.verification_status === 'audit'
-                    ? 'warning'
-                    : 'default'
-                }
-                className="mt-1"
-              >
-                {auditPackage.summary.verification_status}
-              </Badge>
-            </div>
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-border grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="text-center p-4 bg-scope1/10 rounded-lg">
-              <p className="text-sm text-scope1 font-medium">Scope 1</p>
-              <p className="text-lg font-bold text-foreground">
-                {formatNumber(auditPackage.summary.scope_1_emissions_tonnes, 2)} t
-              </p>
-            </div>
-            <div className="text-center p-4 bg-scope2/10 rounded-lg">
-              <p className="text-sm text-scope2 font-medium">Scope 2</p>
-              <p className="text-lg font-bold text-foreground">
-                {formatNumber(auditPackage.summary.scope_2_emissions_tonnes, 2)} t
-              </p>
-            </div>
-            <div className="text-center p-4 bg-scope3/10 rounded-lg">
-              <p className="text-sm text-scope3 font-medium">Scope 3</p>
-              <p className="text-lg font-bold text-foreground">
-                {formatNumber(auditPackage.summary.scope_3_emissions_tonnes, 2)} t
-              </p>
-            </div>
-            <div className="text-center p-4 bg-primary/10 rounded-lg">
-              <p className="text-sm text-primary font-medium">Data Quality</p>
-              <p className="text-lg font-bold text-foreground">
-                {auditPackage.summary.overall_data_quality_score.toFixed(2)}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Activities Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between w-full">
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-foreground-muted" />
-              Activities ({auditPackage.activities.length})
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10"></TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Scope</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead className="text-right">Emissions</TableHead>
-                <TableHead className="text-center">DQ</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+      {/* Activity register (expandable rows) */}
+      <Surface>
+        <PanelLabel>Activity register · {auditPackage.activities.length}</PanelLabel>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                <th className={`${thClass} w-8`} aria-label="Expand" />
+                <th className={thClass}>Description</th>
+                <th className={thClass}>Category</th>
+                <th className={thClass}>Scope</th>
+                <th className={thRight}>Quantity</th>
+                <th className={thRight}>Emissions</th>
+                <th className={thRight}>Quality</th>
+              </tr>
+            </thead>
+            <tbody>
               {displayedActivities.map((activity) => (
-                <>
-                  <TableRow
-                    key={activity.activity_id}
-                    className="cursor-pointer hover:bg-background-muted/50"
+                <Fragment key={activity.activity_id}>
+                  <tr
+                    className="cursor-pointer hover:bg-cy-row/40"
                     onClick={() => toggleActivity(activity.activity_id)}
                   >
-                    <TableCell>
+                    <td className={tdClass}>
                       {expandedActivities.has(activity.activity_id) ? (
-                        <ChevronUp className="w-4 h-4 text-foreground-muted" />
+                        <ChevronUp className="h-3.5 w-3.5 text-cy-faint" />
                       ) : (
-                        <ChevronDown className="w-4 h-4 text-foreground-muted" />
+                        <ChevronDown className="h-3.5 w-3.5 text-cy-faint" />
                       )}
-                    </TableCell>
-                    <TableCell className="font-medium">{activity.description}</TableCell>
-                    <TableCell className="text-foreground-muted">
-                      {activity.category_name || categoryNames[activity.category_code] || activity.category_code}
-                    </TableCell>
-                    <TableCell>
+                    </td>
+                    <td className={`${tdClass} font-semibold`}>{activity.description}</td>
+                    <td className={`${tdClass} text-cy-muted`}>
+                      {activity.category_name ||
+                        categoryNames[activity.category_code] ||
+                        activity.category_code}
+                    </td>
+                    <td className={tdClass}>
                       <ScopeBadge scope={activity.scope as 1 | 2 | 3} size="sm" />
-                    </TableCell>
-                    <TableCell className="text-right">
+                    </td>
+                    <td className={tdRight}>
                       {formatNumber(activity.quantity, 2)} {activity.unit}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {formatCO2e(activity.co2e_kg)}
-                    </TableCell>
-                    <TableCell className="text-center">
+                    </td>
+                    <td className={tdRight}>
+                      <CellValue>{formatCO2e(activity.co2e_kg)}</CellValue>
+                    </td>
+                    <td className={`${tdRight}`}>
                       <DataQualityBadge
                         score={activity.data_quality_score as 1 | 2 | 3 | 4 | 5}
                         size="sm"
                         showLabel={false}
                       />
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                   {expandedActivities.has(activity.activity_id) && (
-                    <TableRow key={`${activity.activity_id}-details`}>
-                      <TableCell colSpan={7} className="bg-background-muted/30 p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <p className="font-semibold text-foreground mb-2">Activity Details</p>
-                            <dl className="space-y-1">
-                              <div className="flex">
-                                <dt className="w-40 text-foreground-muted">Activity Key:</dt>
-                                <dd className="font-mono text-xs">{activity.activity_key}</dd>
-                              </div>
-                              <div className="flex">
-                                <dt className="w-40 text-foreground-muted">Activity Date:</dt>
-                                <dd>{formatDate(activity.activity_date)}</dd>
-                              </div>
-                              <div className="flex">
-                                <dt className="w-40 text-foreground-muted">Calculation Method:</dt>
-                                <dd>{activity.calculation_method}</dd>
-                              </div>
-                              <div className="flex">
-                                <dt className="w-40 text-foreground-muted">Data Source:</dt>
-                                <dd>{activity.data_source}</dd>
-                              </div>
-                              {activity.import_file_name && (
-                                <div className="flex">
-                                  <dt className="w-40 text-foreground-muted">Import File:</dt>
-                                  <dd>{activity.import_file_name}</dd>
-                                </div>
-                              )}
-                            </dl>
+                    <tr>
+                      <td colSpan={7} className="border-t border-cy-row">
+                        <div className="my-2 grid grid-cols-1 gap-x-8 gap-y-1.5 rounded-[12px] bg-cy-row/40 p-4 md:grid-cols-2">
+                          <div className="space-y-1.5">
+                            <DetailKv label="Activity key">
+                              <span className="font-mono text-[11px]">{activity.activity_key}</span>
+                            </DetailKv>
+                            <DetailKv label="Date">{formatDate(activity.activity_date)}</DetailKv>
+                            <DetailKv label="Method">{activity.calculation_method}</DetailKv>
+                            <DetailKv label="Data source">{activity.data_source}</DetailKv>
+                            {activity.import_file_name && (
+                              <DetailKv label="Import file">{activity.import_file_name}</DetailKv>
+                            )}
                           </div>
-                          <div>
-                            <p className="font-semibold text-foreground mb-2">Emission Calculation</p>
-                            <dl className="space-y-1">
-                              <div className="flex">
-                                <dt className="w-40 text-foreground-muted">Emission Factor:</dt>
-                                <dd>
-                                  {activity.emission_factor_value} {activity.emission_factor_unit}
-                                </dd>
-                              </div>
-                              {activity.calculation_formula && (
-                                <div className="flex">
-                                  <dt className="w-40 text-foreground-muted">Formula:</dt>
-                                  <dd className="font-mono text-xs">{activity.calculation_formula}</dd>
-                                </div>
-                              )}
-                              <div className="flex">
-                                <dt className="w-40 text-foreground-muted">Confidence:</dt>
-                                <dd>
-                                  <Badge
-                                    variant={
-                                      activity.confidence_level === 'high'
-                                        ? 'success'
-                                        : activity.confidence_level === 'medium'
-                                        ? 'warning'
-                                        : 'error'
-                                    }
-                                    size="sm"
-                                  >
-                                    {activity.confidence_level}
-                                  </Badge>
-                                </dd>
-                              </div>
-                              {activity.wtt_co2e_kg != null && activity.wtt_co2e_kg > 0 && (
-                                <div className="flex">
-                                  <dt className="w-40 text-foreground-muted">WTT Emissions:</dt>
-                                  <dd>{formatCO2e(activity.wtt_co2e_kg)}</dd>
-                                </div>
-                              )}
-                            </dl>
+                          <div className="space-y-1.5">
+                            <DetailKv label="Emission factor">
+                              {activity.emission_factor_value} {activity.emission_factor_unit}
+                            </DetailKv>
+                            {activity.calculation_formula && (
+                              <DetailKv label="Formula">
+                                <span className="font-mono text-[11px]">
+                                  {activity.calculation_formula}
+                                </span>
+                              </DetailKv>
+                            )}
+                            <DetailKv label="Confidence">
+                              <Badge
+                                variant={
+                                  activity.confidence_level === 'high'
+                                    ? 'success'
+                                    : activity.confidence_level === 'medium'
+                                    ? 'warning'
+                                    : 'error'
+                                }
+                                size="sm"
+                              >
+                                {activity.confidence_level}
+                              </Badge>
+                            </DetailKv>
+                            {activity.wtt_co2e_kg != null && activity.wtt_co2e_kg > 0 && (
+                              <DetailKv label="WTT emissions">
+                                {formatCO2e(activity.wtt_co2e_kg)}
+                              </DetailKv>
+                            )}
                           </div>
                           {activity.data_quality_justification && (
-                            <div className="col-span-2">
-                              <p className="font-semibold text-foreground mb-1">Data Quality Justification</p>
-                              <p className="text-foreground-muted">{activity.data_quality_justification}</p>
-                            </div>
+                            <p className="text-[12px] text-cy-muted md:col-span-2">
+                              {activity.data_quality_justification}
+                            </p>
                           )}
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   )}
-                </>
+                </Fragment>
               ))}
-            </TableBody>
-          </Table>
+            </tbody>
+          </table>
+        </div>
 
-          {auditPackage.activities.length > 10 && (
-            <div className="mt-4 text-center">
-              <Button variant="outline" onClick={() => setShowAllActivities(!showAllActivities)}>
-                {showAllActivities
-                  ? 'Show Less'
-                  : `Show All ${auditPackage.activities.length} Activities`}
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        {auditPackage.activities.length > 10 && (
+          <button
+            type="button"
+            onClick={() => setShowAllActivities(!showAllActivities)}
+            className="mt-3 cursor-pointer text-[12.5px] font-semibold text-cy-accent"
+          >
+            {showAllActivities
+              ? 'Show fewer'
+              : `Show all ${auditPackage.activities.length} activities`}{' '}
+            →
+          </button>
+        )}
+      </Surface>
 
-      {/* Emission Factors Used */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="w-5 h-5 text-foreground-muted" />
-            Emission Factors Used ({auditPackage.emission_factors.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Factor Name</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Scope</TableHead>
-                <TableHead className="text-right">Factor Value</TableHead>
-                <TableHead className="text-right">Usage Count</TableHead>
-                <TableHead className="text-right">Total CO2e</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {auditPackage.emission_factors.slice(0, 15).map((factor) => (
-                <TableRow key={factor.factor_id}>
-                  <TableCell className="font-medium">{factor.display_name}</TableCell>
-                  <TableCell className="text-foreground-muted">
-                    {factor.source} ({factor.region}, {factor.year})
-                  </TableCell>
-                  <TableCell>
-                    <ScopeBadge scope={factor.scope as 1 | 2 | 3} size="sm" />
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm">
-                    {factor.co2e_factor.toFixed(4)} {factor.factor_unit}
-                  </TableCell>
-                  <TableCell className="text-right">{factor.usage_count}</TableCell>
-                  <TableCell className="text-right font-semibold">
-                    {formatCO2e(factor.total_co2e_kg)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {auditPackage.emission_factors.length > 15 && (
-            <p className="text-sm text-foreground-muted text-center mt-4">
-              Showing 15 of {auditPackage.emission_factors.length} emission factors. Download the
-              full package for complete data.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      {/* Emission factors */}
+      <Surface>
+        <PanelLabel>Emission factors · {auditPackage.emission_factors.length}</PanelLabel>
+        <div className="overflow-x-auto">
+          <DataTable
+            columns={factorColumns}
+            rows={auditPackage.emission_factors.slice(0, 15)}
+            rowKey={(factor) => factor.factor_id}
+          />
+        </div>
+        {auditPackage.emission_factors.length > 15 && (
+          <p className="mt-3 text-[11.5px] text-cy-faint">
+            Showing 15 of {auditPackage.emission_factors.length} — the downloaded pack has all of
+            them.
+          </p>
+        )}
+      </Surface>
 
-      {/* Import History */}
+      {/* Import history */}
       {auditPackage.import_batches.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5 text-foreground-muted" />
-              Import History ({auditPackage.import_batches.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>File Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Total Rows</TableHead>
-                  <TableHead className="text-right">Successful</TableHead>
-                  <TableHead className="text-right">Failed</TableHead>
-                  <TableHead>Uploaded</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {auditPackage.import_batches.map((batch) => (
-                  <TableRow key={batch.batch_id}>
-                    <TableCell className="font-medium">{batch.file_name}</TableCell>
-                    <TableCell className="text-foreground-muted uppercase text-xs">
-                      {batch.file_type}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          batch.status === 'completed'
-                            ? 'success'
-                            : batch.status === 'failed'
-                            ? 'error'
-                            : 'warning'
-                        }
-                        size="sm"
-                      >
-                        {batch.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">{batch.total_rows}</TableCell>
-                    <TableCell className="text-right text-success">{batch.successful_rows}</TableCell>
-                    <TableCell className="text-right text-error">{batch.failed_rows}</TableCell>
-                    <TableCell className="text-foreground-muted">{formatDate(batch.uploaded_at)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <Surface>
+          <PanelLabel>Import history · {auditPackage.import_batches.length}</PanelLabel>
+          <div className="overflow-x-auto">
+            <DataTable
+              columns={importColumns}
+              rows={auditPackage.import_batches}
+              rowKey={(batch) => batch.batch_id}
+            />
+          </div>
+        </Surface>
       )}
 
-      {/* Methodology Documentation */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-foreground-muted" />
-            Methodology Documentation
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            <div>
-              <h4 className="font-semibold text-foreground mb-2">Overview</h4>
-              <p className="text-foreground-muted">{auditPackage.methodology.overview}</p>
-            </div>
-            <div>
-              <h4 className="font-semibold text-foreground mb-2">GHG Protocol Alignment</h4>
-              <p className="text-foreground-muted">{auditPackage.methodology.ghg_protocol_alignment}</p>
-            </div>
-            <div>
-              <h4 className="font-semibold text-foreground mb-2">Calculation Approach</h4>
-              <p className="text-foreground-muted">{auditPackage.methodology.calculation_approach}</p>
-            </div>
-            <div>
-              <h4 className="font-semibold text-foreground mb-2">Data Validation Rules</h4>
-              <ul className="list-disc list-inside text-foreground-muted">
-                {auditPackage.methodology.data_validation_rules.map((rule, index) => (
-                  <li key={index}>{rule}</li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-foreground mb-2">Confidence Level Criteria</h4>
-              <div className="space-y-2">
-                {Object.entries(auditPackage.methodology.confidence_level_criteria).map(([level, criteria]) => (
-                  <div key={level} className="flex items-start gap-2">
-                    <Badge
-                      variant={level === 'high' ? 'success' : level === 'medium' ? 'warning' : 'error'}
-                      size="sm"
-                    >
-                      {level}
-                    </Badge>
-                    <span className="text-foreground-muted">{criteria}</span>
-                  </div>
-                ))}
+      {/* Methodology */}
+      <Surface>
+        <PanelLabel>Methodology</PanelLabel>
+        <Kv label="Overview">{auditPackage.methodology.overview}</Kv>
+        <Kv label="GHG Protocol">{auditPackage.methodology.ghg_protocol_alignment}</Kv>
+        <Kv label="Calculation">{auditPackage.methodology.calculation_approach}</Kv>
+        <Kv label="Validation rules">
+          {auditPackage.methodology.data_validation_rules.join(' · ')}
+        </Kv>
+        <div className="mt-2 space-y-1.5">
+          {Object.entries(auditPackage.methodology.confidence_level_criteria).map(
+            ([level, criteria]) => (
+              <div key={level} className="flex items-start gap-2 text-[12.5px] text-cy-muted">
+                <Badge
+                  variant={level === 'high' ? 'success' : level === 'medium' ? 'warning' : 'error'}
+                  size="sm"
+                >
+                  {level}
+                </Badge>
+                <span>{criteria}</span>
               </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            )
+          )}
+        </div>
+      </Surface>
     </div>
   );
 }
