@@ -9,9 +9,11 @@
  * retired — Activities owns the ledger, Reports owns the breakdowns.)
  */
 
+import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
-import { usePeriods, useReportSummary } from '@/hooks/useEmissions';
+import { usePeriods, useReportSummary, useSitesBreakdown } from '@/hooks/useEmissions';
 import { useJourney } from '@/hooks/useJourney';
 import { useLoadSampleData } from '@/hooks/useSampleData';
 import { AppShell } from '@/components/layout';
@@ -24,7 +26,9 @@ import {
   StatCells,
   Surface,
   TaskList,
+  type StatCell,
 } from '@/components/canopy';
+import { api } from '@/lib/api';
 import { categoryNames } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
@@ -77,6 +81,42 @@ export default function DashboardPage() {
   const maxSource = topSources[0]?.total_co2e_kg ?? 1;
 
   const isEmpty = !!summary && total === 0;
+
+  // More data on the glance line — still one quiet row, numbers ≤16px.
+  const activityCount = (summary?.by_scope ?? []).reduce((n, s) => n + s.activity_count, 0);
+  const { data: dq } = useQuery({
+    queryKey: ['data-quality', globalPeriodId],
+    queryFn: () => api.getDataQualitySummary(globalPeriodId!),
+    enabled: !!globalPeriodId && total > 0,
+    staleTime: 2 * 60 * 1000,
+  });
+  const { data: sitesBreakdown } = useSitesBreakdown(globalPeriodId);
+  const topSites = [...(sitesBreakdown ?? [])]
+    .sort((a, b) => b.total_co2e_kg - a.total_co2e_kg)
+    .slice(0, 4);
+  const maxSite = topSites[0]?.total_co2e_kg ?? 1;
+
+  const footprintCells: StatCell[] = [
+    { label: 'Total', value: tonnes(total), sub: 't CO₂e' },
+    ...scopes.map((s) => ({
+      label: `Scope ${s.n}`,
+      value: tonnes(s.kg),
+      sub: pct(s.kg),
+      scope: s.n,
+    })),
+    ...(activityCount > 0
+      ? [{ label: 'Activities', value: activityCount.toLocaleString() }]
+      : []),
+    ...(dq
+      ? [
+          {
+            label: 'Data quality · 1 = best',
+            value: dq.weighted_average_score.toFixed(1),
+            sub: '/ 5',
+          },
+        ]
+      : []),
+  ];
 
   return (
     <AppShell>
@@ -134,20 +174,10 @@ export default function DashboardPage() {
 
           <Surface className="mb-4">
             <PanelLabel>Footprint · {summary.period_name}</PanelLabel>
-            <StatCells
-              cells={[
-                { label: 'Total', value: tonnes(total), sub: 't CO₂e' },
-                ...scopes.map((s) => ({
-                  label: `Scope ${s.n}`,
-                  value: tonnes(s.kg),
-                  sub: pct(s.kg),
-                  scope: s.n,
-                })),
-              ]}
-            />
+            <StatCells cells={footprintCells} />
           </Surface>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="mb-4 grid gap-4 md:grid-cols-2">
             <Surface>
               <PanelLabel>Largest sources</PanelLabel>
               {topSources.length > 0 ? (
@@ -170,6 +200,77 @@ export default function DashboardPage() {
                 <TaskList items={journey.tasks} />
               ) : (
                 <p className="text-[12.5px] text-cy-muted">Nothing right now — you’re ahead.</p>
+              )}
+            </Surface>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Surface>
+              <PanelLabel>By site</PanelLabel>
+              {topSites.length > 0 ? (
+                <>
+                  <BarList
+                    items={topSites.map((s) => ({
+                      label: s.site_name,
+                      value: `${tonnes(s.total_co2e_kg)} t`,
+                      pct: (s.total_co2e_kg / maxSite) * 100,
+                    }))}
+                  />
+                  {(sitesBreakdown?.length ?? 0) > 4 && (
+                    <Link
+                      href="/sites"
+                      className="mt-2.5 inline-block text-[12px] font-semibold text-cy-accent"
+                    >
+                      All {sitesBreakdown!.length} sites →
+                    </Link>
+                  )}
+                </>
+              ) : (
+                <p className="text-[12.5px] text-cy-muted">
+                  Assign activities to sites and the split appears here.{' '}
+                  <Link href="/sites" className="font-semibold text-cy-accent">
+                    Manage sites →
+                  </Link>
+                </p>
+              )}
+            </Surface>
+            <Surface>
+              <PanelLabel>Your plan</PanelLabel>
+              {journey.plan.hasTarget ? (
+                <>
+                  <p className="text-[13px] text-cy-ink">
+                    <b className="font-semibold tabular-nums">
+                      −{journey.plan.targetPct?.toFixed(0)}% by {journey.plan.targetYear}
+                    </b>{' '}
+                    <span className="text-cy-muted">· your reduction target</span>
+                  </p>
+                  <div className="mt-2.5 flex items-center gap-3">
+                    <div className="h-1.5 max-w-[240px] flex-1 overflow-hidden rounded-[3px] bg-cy-row" aria-hidden="true">
+                      <div
+                        className="h-full rounded-[3px] bg-cy-accent"
+                        style={{ width: `${Math.min(100, journey.plan.achievementPct)}%` }}
+                      />
+                    </div>
+                    <span className="text-[12px] tabular-nums text-cy-muted">
+                      {journey.plan.hasScenario
+                        ? `plan covers ${journey.plan.achievementPct.toFixed(0)}%`
+                        : 'no measures picked yet'}
+                    </span>
+                  </div>
+                  <Link
+                    href="/decarbonization"
+                    className="mt-3 inline-block text-[12px] font-semibold text-cy-accent"
+                  >
+                    Open the plan →
+                  </Link>
+                </>
+              ) : (
+                <p className="text-[12.5px] text-cy-muted">
+                  No reduction target yet — setting one unlocks measures matched to your data.{' '}
+                  <Link href="/decarbonization" className="font-semibold text-cy-accent">
+                    Set your target →
+                  </Link>
+                </p>
               )}
             </Surface>
           </div>

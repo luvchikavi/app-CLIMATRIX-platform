@@ -13,19 +13,6 @@ import {
   CBAMSuppliers,
   CBAMCertificates,
 } from '@/components/cbam';
-import {
-  LayoutDashboard,
-  Factory,
-  Package,
-  FileText,
-  FileCheck,
-  Calculator,
-  Scale,
-  ExternalLink,
-  Mail,
-  Wallet,
-} from 'lucide-react';
-
 type CBAMView =
   | 'dashboard'
   | 'installations'
@@ -36,15 +23,15 @@ type CBAMView =
   | 'reports'
   | 'calculator';
 
-const NAV_ITEMS: { id: CBAMView; label: string; icon: typeof LayoutDashboard }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'installations', label: 'Installations', icon: Factory },
-  { id: 'imports', label: 'Imports register', icon: Package },
-  { id: 'suppliers', label: 'Suppliers', icon: Mail },
-  { id: 'declaration', label: 'Annual declaration', icon: FileCheck },
-  { id: 'certificates', label: 'Certificates', icon: Wallet },
-  { id: 'reports', label: 'Quarterly history', icon: FileText },
-  { id: 'calculator', label: 'Calculator', icon: Calculator },
+const NAV_ITEMS: { id: CBAMView; label: string }[] = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'installations', label: 'Installations' },
+  { id: 'imports', label: 'Imports register' },
+  { id: 'suppliers', label: 'Suppliers' },
+  { id: 'declaration', label: 'Annual declaration' },
+  { id: 'certificates', label: 'Certificates' },
+  { id: 'reports', label: 'Quarterly history' },
+  { id: 'calculator', label: 'Calculator' },
 ];
 
 export default function CBAMModulePage() {
@@ -75,54 +62,45 @@ export default function CBAMModulePage() {
 
   return (
     <AppShell>
-      {/* Beta banner */}
-      <div className="mb-6 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 flex items-center gap-3 text-sm">
-        <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-primary/15 text-primary shrink-0">
+      {/* Beta notice — a quiet line, not a box */}
+      <div className="mb-4 flex items-center gap-2 text-[12.5px] text-cy-muted">
+        <span className="shrink-0 rounded-full bg-cy-warn-soft px-2 py-0.5 text-[11px] font-bold text-cy-warn">
           Beta
         </span>
-        <span className="text-foreground-muted">
-          CBAM is in beta — preview-quality for exploration, not yet for official regulatory filing.
-        </span>
+        Preview-quality for exploration — not yet for official regulatory filing.
       </div>
 
       {/* Header + sub-navigation */}
-      <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-            <Scale className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground">CBAM</h1>
-            <p className="text-sm text-foreground-muted">Carbon Border Adjustment Mechanism</p>
-          </div>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-cy-ink">CBAM</h1>
+          <p className="mt-[3px] text-[13px] text-cy-muted">Carbon Border Adjustment Mechanism</p>
         </div>
 
-        <nav className="flex items-center gap-1 flex-wrap">
-          <Link
-            href="/cbam-check"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground hover:bg-background-muted"
-          >
-            <ExternalLink className="w-4 h-4" />
-            <span className="hidden sm:inline">Exemption checker</span>
-          </Link>
+        <nav className="flex flex-wrap items-center gap-1.5">
           {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
             const isActive = currentView === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => setCurrentView(item.id)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`cursor-pointer rounded-full px-3.5 py-[7px] text-[12.5px] font-semibold transition-colors ${
                   isActive
-                    ? 'bg-primary text-white'
-                    : 'text-foreground-muted hover:text-foreground hover:bg-background-muted'
+                    ? 'bg-cy-accent-soft text-cy-accent'
+                    : 'text-cy-muted hover:bg-cy-row hover:text-cy-ink'
                 }`}
               >
-                <Icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{item.label}</span>
+                {item.label}
               </button>
             );
           })}
+          <span aria-hidden="true" className="mx-1.5 h-5 w-px shrink-0 bg-cy-row" />
+          <Link
+            href="/cbam-check"
+            className="rounded-full px-3.5 py-[7px] text-[12.5px] font-semibold text-cy-warn/70 transition-colors hover:bg-cy-warn-soft/50 hover:text-cy-warn"
+          >
+            Exemption checker ↗
+          </Link>
         </nav>
       </div>
 
@@ -130,7 +108,7 @@ export default function CBAMModulePage() {
       {renderView()}
 
       {/* Footer info */}
-      <div className="mt-8 border-t border-border pt-4 text-xs text-foreground-muted">
+      <div className="mt-8 text-[11.5px] text-cy-faint">
         EU Regulation 2023/956 · Transitional Phase 2024–2025 · Definitive Phase 2026+ · Covered
         sectors: Cement, Iron &amp; Steel, Aluminium, Fertilisers, Electricity, Hydrogen
       </div>

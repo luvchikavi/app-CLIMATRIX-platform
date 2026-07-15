@@ -271,14 +271,16 @@ export default function ReportsPage() {
             value={activeTab}
             onChange={(id) => setActiveTab(id as ReportTab)}
             tabs={[
+              // Report views — what the numbers say
               { id: 'summary', label: 'Summary' },
+              { id: 'data-quality', label: 'Data quality' },
               { id: 'by-scope', label: 'By scope' },
               { id: 'by-site', label: 'By site' },
               { id: 'inventory', label: 'GHG Inventory' },
-              { id: 'data-quality', label: 'Data quality' },
-              { id: 'audit', label: 'Audit' },
-              { id: 'verification', label: 'Verification' },
-              { id: 'export', label: 'Export' },
+              // Process tabs — what you do with the report
+              { id: 'audit', label: 'Audit', tone: 'warn', dividerBefore: true },
+              { id: 'verification', label: 'Verification', tone: 'warn' },
+              { id: 'export', label: 'Export', tone: 'warn' },
             ]}
           />
 

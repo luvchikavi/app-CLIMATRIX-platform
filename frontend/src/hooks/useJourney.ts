@@ -33,6 +33,14 @@ export interface JourneyState {
   tasks: TaskItem[];
   hasData: boolean;
   relevant: number;
+  /** quiet plan-at-a-glance for the dashboard's "Your plan" panel */
+  plan: {
+    hasTarget: boolean;
+    targetPct?: number;
+    targetYear?: number;
+    hasScenario: boolean;
+    achievementPct: number;
+  };
 }
 
 export function useJourney(): JourneyState {
@@ -226,5 +234,12 @@ export function useJourney(): JourneyState {
     tasks: tasks.slice(0, 4),
     hasData,
     relevant,
+    plan: {
+      hasTarget: !!activeTarget,
+      targetPct: activeTarget ? Number(activeTarget.target_reduction_percent) : undefined,
+      targetYear: activeTarget?.target_year,
+      hasScenario: !!activeScenario,
+      achievementPct: achievement,
+    },
   };
 }
