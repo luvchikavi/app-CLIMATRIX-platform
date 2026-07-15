@@ -10,6 +10,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -971,7 +972,7 @@ async def delete_scenario(
 
     # Delete associated initiatives first
     await session.execute(
-        select(ScenarioInitiative).where(ScenarioInitiative.scenario_id == scenario_id)
+        delete(ScenarioInitiative).where(ScenarioInitiative.scenario_id == scenario_id)
     )
 
     await session.delete(scenario)

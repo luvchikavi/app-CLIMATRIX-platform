@@ -76,6 +76,8 @@ export interface ReportingPeriod {
   verified_at?: string;
   verified_by?: string;
   verification_statement?: string;
+  /** Period was created by "Load sample data" (shows a DEMO badge). */
+  is_demo?: boolean;
 }
 
 export interface StatusHistory {
@@ -129,6 +131,8 @@ export interface Activity {
   data_quality_score: number;
   data_quality_justification?: string | null;
   supporting_document_url?: string | null;
+  /** Row was seeded by "Load sample data" (shows a DEMO badge). */
+  is_demo?: boolean;
 }
 
 export interface Emission {
@@ -152,6 +156,31 @@ export interface Emission {
 export interface ActivityWithEmission {
   activity: Activity;
   emission: Emission | null;
+}
+
+// Sample data (the "Load sample data" button)
+export interface SampleDataStatus {
+  loaded: boolean;
+  period_id: string | null;
+  activities: number;
+}
+
+export interface SampleDataLoadResult {
+  period_id: string;
+  site_id: string;
+  activities_created: number;
+  rows_skipped: number;
+  total_co2e_tonnes: number;
+  target_created: boolean;
+  scenarios_created: number;
+}
+
+export interface SampleDataRemoveResult {
+  removed_activities: number;
+  removed_scenarios: number;
+  removed_targets: number;
+  period_removed: boolean;
+  periods_kept: number;
 }
 
 export interface EmissionFactor {
@@ -1352,6 +1381,23 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ module_id: moduleId, email }),
     });
+  }
+
+  // ============ Sample data (the "Load sample data" button) ============
+
+  /** Whether this org currently has the flagged sample dataset loaded. */
+  async getSampleDataStatus(): Promise<SampleDataStatus> {
+    return this.fetch<SampleDataStatus>('/sample-data');
+  }
+
+  /** Seed the org with the Galil Steel sample dataset (site, period, activities, target + scenarios). */
+  async loadSampleData(): Promise<SampleDataLoadResult> {
+    return this.fetch<SampleDataLoadResult>('/sample-data', { method: 'POST' });
+  }
+
+  /** Remove every sample record (never touches the user's own data). */
+  async removeSampleData(): Promise<SampleDataRemoveResult> {
+    return this.fetch<SampleDataRemoveResult>('/sample-data', { method: 'DELETE' });
   }
 
   async getSupportedRegions(): Promise<Region[]> {

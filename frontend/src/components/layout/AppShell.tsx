@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { TrialBanner, UpgradePrompt } from './TrialStatus';
+import { SampleDataBanner } from '@/components/SampleDataBanner';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
@@ -115,6 +116,7 @@ export function AppShell({ children }: AppShellProps) {
       >
         <div className="p-4 md:p-6 lg:p-8">
           <TrialBanner />
+          <SampleDataBanner />
           {children}
         </div>
       </main>

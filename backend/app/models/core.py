@@ -204,6 +204,9 @@ class Site(SiteBase, table=True):
     organization_id: UUID = Field(foreign_key="organizations.id", index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+    # Seeded by "Load sample data"; removed wholesale by DELETE /sample-data
+    is_demo: bool = Field(default=False)
+
     # Relationships
     organization: Organization = Relationship(back_populates="sites")
     activities: list["Activity"] = Relationship(back_populates="site")
@@ -236,6 +239,9 @@ class ReportingPeriod(ReportingPeriodBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     organization_id: UUID = Field(foreign_key="organizations.id", index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Seeded by "Load sample data"; removed wholesale by DELETE /sample-data
+    is_demo: bool = Field(default=False)
 
     # Verification tracking
     submitted_at: Optional[datetime] = Field(default=None)

@@ -14,6 +14,7 @@ import {
   CardTitle,
   CardContent,
   Button,
+  Badge,
   ScopeBadge,
   Table,
   TableHeader,
@@ -343,6 +344,11 @@ function ActivitiesContent() {
                         {item.activity.category_code}
                       </TableCell>
                       <TableCell className="font-medium text-foreground max-w-xs truncate">
+                        {item.activity.is_demo && (
+                          <Badge variant="warning" size="sm" className="mr-1.5">
+                            Demo
+                          </Badge>
+                        )}
                         {item.activity.description}
                       </TableCell>
                       <TableCell className="text-xs text-foreground-muted">

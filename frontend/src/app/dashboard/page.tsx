@@ -14,6 +14,7 @@ import {
   CardTitle,
   CardContent,
   Button,
+  Badge,
   ScopeBadge,
   KPICard,
   ScopeKPI,
@@ -31,6 +32,8 @@ import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
 import { ScopeDrillDown } from '@/components/dashboard/ScopeDrillDown';
 import { SiteBreakdownChart } from '@/components/dashboard/SiteBreakdownChart';
 import { SiteSelector } from '@/components/SiteSelector';
+import { LoadSampleDataButton } from '@/components/LoadSampleDataButton';
+import { SampleDataHero } from '@/components/SampleDataHero';
 import { cn, formatCO2e } from '@/lib/utils';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import {
@@ -333,12 +336,20 @@ function DashboardContent() {
               onClick: () => router.push('/settings?tab=periods'),
             }}
           />
+          <div className="flex flex-col items-center pb-8 -mt-8">
+            <LoadSampleDataButton caption="Or explore Climatrix with a realistic sample dataset — removable in one click." />
+          </div>
         </Card>
       )}
 
       {/* Dashboard Content */}
       {!isLoading && summary && (
         <div className="space-y-8 animate-fade-in">
+          {/* Front-page hero for brand-new orgs: one click brings the whole
+              app alive with the sample dataset — dashboard, report, scenarios.
+              Self-hides while sample data is loaded. */}
+          {totalEmissions === 0 && filteredActivities.length === 0 && <SampleDataHero />}
+
           {/* Total Emissions KPI */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             <Card padding="lg" className="lg:col-span-1">
@@ -514,6 +525,11 @@ function DashboardContent() {
                           <ScopeBadge scope={item.activity.scope as 1 | 2 | 3} />
                         </TableCell>
                         <TableCell className="font-medium text-foreground max-w-xs truncate">
+                          {item.activity.is_demo && (
+                            <Badge variant="warning" size="sm" className="mr-1.5">
+                              Demo
+                            </Badge>
+                          )}
                           {item.activity.description}
                         </TableCell>
                         <TableCell className="text-foreground-muted font-mono text-xs">

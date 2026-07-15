@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api, InitiativeCategory, PersonalizedRecommendation } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
+import { usePeriodStore } from '@/stores/period';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, toast } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import {
@@ -77,13 +78,15 @@ export default function RecommendationsPage() {
     enabled: !!user?.organization_id,
   });
 
-  // Set default period
+  // Set default period: follow the top-bar (global) selection when valid
+  const globalPeriodId = usePeriodStore((s) => s.selectedPeriodId);
   useEffect(() => {
     if (periods && periods.length > 0 && !selectedPeriodId) {
+      const activePeriod = periods.find(p => p.id === globalPeriodId) || periods[0];
       // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
-      setSelectedPeriodId(periods[0].id);
+      setSelectedPeriodId(activePeriod.id);
     }
-  }, [periods, selectedPeriodId]);
+  }, [periods, selectedPeriodId, globalPeriodId]);
 
   const { data: recommendations, isLoading } = useQuery({
     queryKey: ['all-recommendations', selectedPeriodId, categoryFilter],

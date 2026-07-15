@@ -108,6 +108,8 @@ class ActivityResponse(BaseModel):
     # Supplier data (for market-based Scope 2)
     supplier_name: str | None = None
     supplier_ef: float | None = None
+    # Row was seeded by "Load sample data" (UI shows a DEMO badge)
+    is_demo: bool = False
 
 
 class EmissionResponse(BaseModel):
@@ -271,6 +273,7 @@ async def list_activities(
                         if hasattr(a, "supplier_ef") and a.supplier_ef
                         else None
                     ),
+                    is_demo=bool(getattr(a, "is_demo", False)),
                 ),
                 emission=emission_response,
             )
@@ -416,6 +419,7 @@ async def create_activity(
             supporting_document_url=activity.supporting_document_url,
             supplier_name=activity.supplier_name,
             supplier_ef=float(activity.supplier_ef) if activity.supplier_ef else None,
+            is_demo=activity.is_demo,
         ),
         emission=EmissionResponse(
             id=str(emission.id),
@@ -647,6 +651,7 @@ async def update_activity(
             supporting_document_url=activity.supporting_document_url,
             supplier_name=activity.supplier_name,
             supplier_ef=float(activity.supplier_ef) if activity.supplier_ef else None,
+            is_demo=activity.is_demo,
         ),
         emission=EmissionResponse(
             id=str(emission.id),

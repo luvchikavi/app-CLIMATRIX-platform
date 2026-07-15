@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useAuthStore } from '@/stores/auth';
+import { usePeriodStore } from '@/stores/period';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -65,15 +66,20 @@ function DecarbonizationPageContent() {
     enabled: isAuthenticated,
   });
 
-  // Set default period
+  // Set default period: follow the top-bar (global) selection when it's
+  // valid — e.g. right after "Load sample data" switches it — otherwise the
+  // latest non-locked period, or fall back to first
+  const globalPeriodId = usePeriodStore((s) => s.selectedPeriodId);
   useEffect(() => {
     if (periods && periods.length > 0 && !selectedPeriodId) {
-      // Find latest non-locked period, or fall back to first
-      const activePeriod = periods.find(p => !p.is_locked) || periods[0];
+      const activePeriod =
+        periods.find(p => p.id === globalPeriodId) ||
+        periods.find(p => !p.is_locked) ||
+        periods[0];
       // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
       setSelectedPeriodId(activePeriod.id);
     }
-  }, [periods, selectedPeriodId]);
+  }, [periods, selectedPeriodId, globalPeriodId]);
 
   // Fetch emission profile
   const { data: profile, isLoading: profileLoading } = useQuery({

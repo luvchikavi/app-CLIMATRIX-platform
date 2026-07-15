@@ -143,6 +143,9 @@ class DecarbonizationTarget(SQLModel, table=True):
     updated_at: Optional[datetime] = Field(default=None)
     created_by_id: Optional[UUID] = Field(default=None, foreign_key="users.id")
 
+    # Seeded by "Load sample data"; removed wholesale by DELETE /sample-data
+    is_demo: bool = Field(default=False)
+
     # Relationships
     scenarios: list["Scenario"] = Relationship(back_populates="target")
 
@@ -263,6 +266,9 @@ class Scenario(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default=None)
     created_by_id: Optional[UUID] = Field(default=None, foreign_key="users.id")
+
+    # Seeded by "Load sample data"; removed wholesale by DELETE /sample-data
+    is_demo: bool = Field(default=False)
 
     # Relationships
     target: DecarbonizationTarget = Relationship(back_populates="scenarios")
