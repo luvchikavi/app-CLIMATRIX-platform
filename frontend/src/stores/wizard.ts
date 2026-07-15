@@ -10,6 +10,7 @@
  */
 import { create } from 'zustand';
 import { ActivityCreate, EmissionFactor } from '@/lib/api';
+import { num } from '@/lib/utils';
 
 type WizardStep = 'scope' | 'category' | 'activity' | 'details' | 'review';
 
@@ -178,7 +179,7 @@ export const useWizardStore = create<WizardState>()((set, get) => ({
           ...entry,
           activity_date: entry.activity_date || new Date().toISOString().split('T')[0],
           // Include factor info for preview calculations
-          co2e_factor: factor?.co2e_factor,
+          co2e_factor: factor?.co2e_factor != null ? num(factor.co2e_factor) : undefined,
           factor_source: factor?.source,
           display_name: factor?.display_name,
         }],

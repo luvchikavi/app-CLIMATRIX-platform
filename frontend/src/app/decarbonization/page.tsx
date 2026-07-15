@@ -17,7 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { AppShell } from '@/components/layout';
 import { Button, Card, Badge } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { cn, num, formatMoney as fmtMoney } from '@/lib/utils';
 import {
   Loader2,
   Check,
@@ -39,13 +39,6 @@ const STEP_TITLES = ['Baseline', 'Set target', 'Choose measures', 'Your plan'];
 // API Decimal fields arrive as strings — always coerce before formatting.
 const fmtT = (n: number | string) =>
   Number(n).toLocaleString(undefined, { maximumFractionDigits: 1 });
-
-const fmtMoney = (n: number) =>
-  n >= 1_000_000
-    ? `$${(n / 1_000_000).toFixed(1)}M`
-    : n >= 1_000
-      ? `$${(n / 1_000).toFixed(0)}K`
-      : `$${n.toFixed(0)}`;
 
 function StepRow({
   n,
@@ -182,7 +175,7 @@ function DecarbonizationPageContent() {
   const activeScenario = scenarios?.find((s) => s.is_active);
 
   // Step states — the journey's spine
-  const hasBaseline = !!profile && profile.total_co2e_tonnes > 0;
+  const hasBaseline = !!profile && num(profile.total_co2e_tonnes) > 0;
   const hasTarget = !!activeTarget;
   const hasMeasures = !!activeScenario && (activeScenario.initiatives_count ?? 0) > 0;
   const achievement = activeScenario
@@ -467,7 +460,7 @@ function DecarbonizationPageContent() {
           isOpen={showTargetModal}
           onClose={() => setShowTargetModal(false)}
           existingTarget={activeTarget}
-          baselineEmissions={profile?.total_co2e_tonnes}
+          baselineEmissions={profile ? num(profile.total_co2e_tonnes) : undefined}
           baseYear={
             profile
               ? new Date(profile.analysis_date).getFullYear()

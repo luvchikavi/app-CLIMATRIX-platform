@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ScenarioType } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, toast } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { cn, formatMoney } from '@/lib/utils';
 import {
   Loader2,
   ArrowLeft,
@@ -150,8 +150,8 @@ export default function ScenariosPage() {
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                   <Metric label="Total Reduction" value={`-${Number(scenario.total_reduction_tco2e || 0).toLocaleString()} tCO2e`} accent="text-success" />
-                  <Metric label="Investment" value={`$${(Number(scenario.total_investment || 0) / 1000).toFixed(0)}K`} />
-                  <Metric label="Annual Savings" value={`$${(Number(scenario.total_annual_savings || 0) / 1000).toFixed(0)}K/yr`} accent="text-success" />
+                  <Metric label="Investment" value={formatMoney(scenario.total_investment || 0)} />
+                  <Metric label="Annual Savings" value={`${formatMoney(scenario.total_annual_savings || 0)}/yr`} accent="text-success" />
                   <Metric label="Target Achievement" value={`${Number(scenario.target_achievement_percent || 0).toFixed(0)}%`} />
                 </div>
 

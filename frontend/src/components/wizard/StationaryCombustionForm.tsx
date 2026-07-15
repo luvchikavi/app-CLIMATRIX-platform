@@ -18,7 +18,7 @@ import { useState, useEffect } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity, useActivityOptions } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e } from '@/lib/utils';
+import { formatCO2e, num } from '@/lib/utils';
 import {
   Calculator,
   Save,
@@ -264,7 +264,7 @@ export function StationaryCombustionForm({ periodId, onSuccess }: StationaryComb
   const canProceed = selectedFactor && description && quantity > 0;
 
   const previewCO2e = selectedFactor && quantity
-    ? quantity * (selectedFactor.co2e_factor || 0)
+    ? quantity * num(selectedFactor.co2e_factor)
     : 0;
 
   const handleSave = async () => {

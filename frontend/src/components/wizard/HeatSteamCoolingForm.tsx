@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity, useActivityOptions } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e } from '@/lib/utils';
+import { formatCO2e, num } from '@/lib/utils';
 import {
   Save,
   Plus,
@@ -83,7 +83,7 @@ export function HeatSteamCoolingForm({ periodId, onSuccess }: HeatSteamCoolingFo
       return customFactor;
     }
     if (selectedFactor) {
-      return selectedFactor.co2e_factor || 0;
+      return num(selectedFactor.co2e_factor);
     }
     return DEFAULT_FACTORS[energyType].factor;
   };

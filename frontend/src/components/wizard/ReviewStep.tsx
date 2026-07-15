@@ -5,7 +5,7 @@ import { useCreateActivity } from '@/hooks/useEmissions';
 import { Check, Loader2, AlertCircle, Plus, Trash2, Info, Package } from 'lucide-react';
 import { useState } from 'react';
 import { Button, Card, ScopeBadge } from '@/components/ui';
-import { formatCO2e } from '@/lib/utils';
+import { formatCO2e, num } from '@/lib/utils';
 
 interface ReviewStepProps {
   periodId: string;
@@ -33,7 +33,7 @@ export function ReviewStep({ periodId, onSuccess }: ReviewStepProps) {
 
   // Calculate preview emission using actual factor
   const previewCO2e = selectedFactor && entry.quantity
-    ? entry.quantity * (selectedFactor.co2e_factor || 0)
+    ? entry.quantity * num(selectedFactor.co2e_factor)
     : 0;
 
   // Calculate running total including current entry

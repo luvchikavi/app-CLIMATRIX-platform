@@ -16,7 +16,7 @@ import { useState } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity, useActivityOptions } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e } from '@/lib/utils';
+import { formatCO2e, num } from '@/lib/utils';
 import {
   Save,
   Plus,
@@ -113,11 +113,11 @@ export function FugitiveEmissionsForm({ periodId, onSuccess }: FugitiveEmissions
   const canProceed = selectedFactor && description && quantity > 0;
 
   const previewCO2e = selectedFactor && quantity
-    ? quantity * (selectedFactor.co2e_factor || 0)
+    ? quantity * num(selectedFactor.co2e_factor)
     : 0;
 
   // High GWP warning
-  const isHighGWP = selectedFactor && (selectedFactor.co2e_factor || 0) > 1000;
+  const isHighGWP = selectedFactor && num(selectedFactor.co2e_factor) > 1000;
 
   const handleSave = async () => {
     if (!canProceed || !selectedFactor) return;

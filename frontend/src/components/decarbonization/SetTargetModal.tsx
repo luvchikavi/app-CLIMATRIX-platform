@@ -9,7 +9,7 @@ import {
   TargetCreateRequest,
 } from '@/lib/api';
 import { Button, Badge } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { cn, num } from '@/lib/utils';
 import {
   X,
   Target,
@@ -75,7 +75,7 @@ export function SetTargetModal({
   );
   const [targetYear, setTargetYear] = useState(existingTarget?.target_year || 2030);
   const [customReductionPercent, setCustomReductionPercent] = useState(
-    existingTarget?.target_reduction_percent || 42
+    num(existingTarget?.target_reduction_percent) || 42
   );
   const [includeScope1, setIncludeScope1] = useState(existingTarget?.includes_scope1 ?? true);
   const [includeScope2, setIncludeScope2] = useState(existingTarget?.includes_scope2 ?? true);

@@ -11,6 +11,14 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 // Types
 // ============================================================================
 
+/**
+ * Backend fields typed as Python Decimal arrive as JSON STRINGS ("67.44"),
+ * not numbers — pydantic v2 serializes Decimal to string. Anything typed
+ * ApiDecimal must go through num() (lib/utils) before math or formatting;
+ * calling .toFixed on it is the crash that took down /decarbonization.
+ */
+export type ApiDecimal = number | string;
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -191,7 +199,7 @@ export interface EmissionFactor {
   unit?: string; // For activity options
   scope: number;
   category_code: string;
-  co2e_factor?: number;
+  co2e_factor?: ApiDecimal;
   factor_unit?: string;
   source?: string;
   region?: string;
@@ -2971,13 +2979,13 @@ export interface EmissionSource {
   display_name: string;
   scope: number;
   category_code: string;
-  total_co2e_kg: number;
-  total_co2e_tonnes: number;
-  percentage_of_total: number;
+  total_co2e_kg: ApiDecimal;
+  total_co2e_tonnes: ApiDecimal;
+  percentage_of_total: ApiDecimal;
   site_id?: string;
   site_name?: string;
   activity_count: number;
-  data_quality_avg?: number;
+  data_quality_avg?: ApiDecimal;
 }
 
 export interface EmissionProfileAnalysis {
@@ -2985,18 +2993,18 @@ export interface EmissionProfileAnalysis {
   period_id: string;
   period_name: string;
   analysis_date: string;
-  total_co2e_kg: number;
-  total_co2e_tonnes: number;
-  scope1_co2e_tonnes: number;
-  scope2_co2e_tonnes: number;
-  scope3_co2e_tonnes: number;
-  emissions_by_category: Record<string, number>;
-  emissions_by_activity_key: Record<string, number>;
-  emissions_by_site: Record<string, number>;
+  total_co2e_kg: ApiDecimal;
+  total_co2e_tonnes: ApiDecimal;
+  scope1_co2e_tonnes: ApiDecimal;
+  scope2_co2e_tonnes: ApiDecimal;
+  scope3_co2e_tonnes: ApiDecimal;
+  emissions_by_category: Record<string, ApiDecimal>;
+  emissions_by_activity_key: Record<string, ApiDecimal>;
+  emissions_by_site: Record<string, ApiDecimal>;
   top_sources: EmissionSource[];
-  yoy_change_percent?: number;
+  yoy_change_percent?: ApiDecimal;
   trend_direction?: 'increasing' | 'decreasing' | 'stable';
-  previous_period_total_tonnes?: number;
+  previous_period_total_tonnes?: ApiDecimal;
 }
 
 export interface PersonalizedRecommendation {
@@ -3006,16 +3014,16 @@ export interface PersonalizedRecommendation {
   initiative_description: string;
   target_activity_key: string;
   target_source_name: string;
-  target_source_emissions_tco2e: number;
-  target_source_percent_of_total: number;
-  potential_reduction_tco2e: number;
-  potential_reduction_low_tco2e: number;
-  potential_reduction_high_tco2e: number;
-  reduction_as_percent_of_total: number;
-  estimated_capex?: number;
-  estimated_annual_savings?: number;
-  payback_years?: number;
-  roi_percent?: number;
+  target_source_emissions_tco2e: ApiDecimal;
+  target_source_percent_of_total: ApiDecimal;
+  potential_reduction_tco2e: ApiDecimal;
+  potential_reduction_low_tco2e: ApiDecimal;
+  potential_reduction_high_tco2e: ApiDecimal;
+  reduction_as_percent_of_total: ApiDecimal;
+  estimated_capex?: ApiDecimal;
+  estimated_annual_savings?: ApiDecimal;
+  payback_years?: ApiDecimal;
+  roi_percent?: ApiDecimal;
   impact_score: number;
   feasibility_score: number;
   priority_score: number;
@@ -3033,10 +3041,10 @@ export interface DecarbonizationTarget {
   target_type: TargetType;
   framework: TargetFramework;
   base_year: number;
-  base_year_emissions_tco2e: number;
+  base_year_emissions_tco2e: ApiDecimal;
   target_year: number;
-  target_reduction_percent: number;
-  target_emissions_tco2e: number;
+  target_reduction_percent: ApiDecimal;
+  target_emissions_tco2e: ApiDecimal;
   includes_scope1: boolean;
   includes_scope2: boolean;
   includes_scope3: boolean;
@@ -3051,13 +3059,13 @@ export interface TargetProgress {
   target_id: string;
   period_id: string;
   checkpoint_year: number;
-  actual_emissions_tco2e: number;
-  planned_emissions_tco2e: number;
-  variance_tco2e: number;
-  variance_percent: number;
+  actual_emissions_tco2e: ApiDecimal;
+  planned_emissions_tco2e: ApiDecimal;
+  variance_tco2e: ApiDecimal;
+  variance_percent: ApiDecimal;
   on_track: boolean;
-  progress_percent: number;
-  expected_progress_percent: number;
+  progress_percent: ApiDecimal;
+  expected_progress_percent: ApiDecimal;
 }
 
 export interface TargetCreateRequest {
@@ -3087,12 +3095,12 @@ export interface Initiative {
   applicable_scopes: number[];
   applicable_category_codes: string[];
   applicable_activity_keys: string[];
-  typical_reduction_percent_min: number;
-  typical_reduction_percent_max: number;
-  typical_reduction_percent_median: number;
-  typical_capex_per_tco2e_reduced?: number;
-  typical_payback_years_min?: number;
-  typical_payback_years_max?: number;
+  typical_reduction_percent_min: ApiDecimal;
+  typical_reduction_percent_max: ApiDecimal;
+  typical_reduction_percent_median: ApiDecimal;
+  typical_capex_per_tco2e_reduced?: ApiDecimal;
+  typical_payback_years_min?: ApiDecimal;
+  typical_payback_years_max?: ApiDecimal;
   complexity: ComplexityLevel;
   implementation_time_months_min: number;
   implementation_time_months_max: number;
@@ -3106,11 +3114,11 @@ export interface Scenario {
   description?: string;
   scenario_type: ScenarioType;
   is_active: boolean;
-  total_reduction_tco2e: number;
-  total_investment: number;
-  total_annual_savings: number;
-  weighted_payback_years?: number;
-  target_achievement_percent: number;
+  total_reduction_tco2e: ApiDecimal;
+  total_investment: ApiDecimal;
+  total_annual_savings: ApiDecimal;
+  weighted_payback_years?: ApiDecimal;
+  target_achievement_percent: ApiDecimal;
   carbon_price_scenario: string;
   created_at: string;
   initiatives_count: number;
@@ -3131,10 +3139,10 @@ export interface ScenarioInitiative {
   initiative_name: string;
   target_activity_key: string;
   target_site_id?: string;
-  expected_reduction_tco2e: number;
-  expected_reduction_percent: number;
-  capex: number;
-  annual_savings: number;
+  expected_reduction_tco2e: ApiDecimal;
+  expected_reduction_percent: ApiDecimal;
+  capex: ApiDecimal;
+  annual_savings: ApiDecimal;
   implementation_start?: string;
   implementation_end?: string;
   status: InitiativeStatus;
@@ -3158,19 +3166,19 @@ export interface ScenarioInitiativeRequest {
 export interface TrajectoryResponse {
   target_id: string;
   base_year: number;
-  base_year_emissions: number;
+  base_year_emissions: ApiDecimal;
   target_year: number;
-  target_emissions: number;
-  trajectory: Record<number, number>;
+  target_emissions: ApiDecimal;
+  trajectory: Record<number, ApiDecimal>;
 }
 
 export interface EmissionCheckpoint {
   id: string;
   checkpoint_year: number;
-  actual_emissions_tco2e: number;
-  planned_emissions_tco2e: number;
-  variance_tco2e: number;
-  variance_percent: number;
+  actual_emissions_tco2e: ApiDecimal;
+  planned_emissions_tco2e: ApiDecimal;
+  variance_tco2e: ApiDecimal;
+  variance_percent: ApiDecimal;
   on_track: boolean;
   created_at: string;
 }

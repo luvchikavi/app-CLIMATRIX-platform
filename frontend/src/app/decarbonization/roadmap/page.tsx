@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { cn, formatMoney } from '@/lib/utils';
 import {
   Loader2,
   ArrowLeft,
@@ -242,7 +242,7 @@ export default function RoadmapPage() {
                   <div>
                     <p className="text-sm text-foreground-muted">Total Investment</p>
                     <p className="text-xl font-bold text-foreground">
-                      ${(Number(activeScenario.total_investment || 0) / 1000).toFixed(0)}K
+                      {formatMoney(activeScenario.total_investment || 0)}
                     </p>
                   </div>
                 </div>

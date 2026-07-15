@@ -67,6 +67,17 @@ export function toISODateString(date: Date): string {
 }
 
 /**
+ * The API serializes Python Decimal fields as JSON strings ("67.44"), never
+ * numbers — coerce with this before any arithmetic, .toFixed, or
+ * .toLocaleString. Fields typed ApiDecimal in lib/api.ts all need it.
+ */
+export function num(value: number | string | null | undefined): number {
+  if (value == null) return 0;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
  * Format a number with thousands separator
  */
 export function formatNumber(value: number, decimals: number = 0): string {
@@ -74,6 +85,17 @@ export function formatNumber(value: number, decimals: number = 0): string {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   }).format(value);
+}
+
+/**
+ * Compact money: $850 · $18K · $17.6M (never $17600K). Accepts API decimal
+ * strings.
+ */
+export function formatMoney(value: number | string): string {
+  const n = num(value);
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+  return `$${n.toFixed(0)}`;
 }
 
 /**
