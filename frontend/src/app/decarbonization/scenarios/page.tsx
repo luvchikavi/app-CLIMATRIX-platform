@@ -86,7 +86,7 @@ export default function ScenariosPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Decarbonization Scenarios</h1>
+            <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-cy-ink">Decarbonization scenarios</h1>
             <p className="text-foreground-muted">Compare different reduction pathways</p>
           </div>
         </div>
@@ -218,7 +218,7 @@ function SummaryStat({ icon, bg, value, label }: { icon: React.ReactNode; bg: st
         <div className="flex items-center gap-3">
           <div className={cn('p-2 rounded-lg', bg)}>{icon}</div>
           <div>
-            <p className="text-2xl font-bold text-foreground">{value}</p>
+            <p className="text-[16px] font-[650] tabular-nums text-cy-ink">{value}</p>
             <p className="text-sm text-foreground-muted">{label}</p>
           </div>
         </div>
@@ -334,7 +334,7 @@ function CreateScenarioModal({
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                  className="mt-1 w-full rounded-[10px] border-0 bg-cy-row px-3 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
                 />
               </div>
               <div>
@@ -342,7 +342,7 @@ function CreateScenarioModal({
                 <select
                   value={targetId}
                   onChange={(e) => setTargetId(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                  className="mt-1 w-full rounded-[10px] border-0 bg-cy-row px-3 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
                 >
                   {targets.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -356,7 +356,7 @@ function CreateScenarioModal({
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value as ScenarioType)}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                  className="mt-1 w-full rounded-[10px] border-0 bg-cy-row px-3 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
                 >
                   <option value="conservative">Conservative</option>
                   <option value="moderate">Moderate</option>

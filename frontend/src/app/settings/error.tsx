@@ -29,7 +29,7 @@ export default function SettingsError({
         <div className="flex items-center justify-center gap-3">
           <a
             href="/dashboard"
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-background-muted transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-[10px] bg-cy-row text-cy-muted hover:text-cy-ink transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Dashboard

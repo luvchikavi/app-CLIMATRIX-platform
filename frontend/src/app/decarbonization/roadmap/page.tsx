@@ -60,7 +60,7 @@ export default function RoadmapPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Decarbonization Roadmap</h1>
+            <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-cy-ink">Decarbonization roadmap</h1>
             <p className="text-foreground-muted">Your path to net zero</p>
           </div>
         </div>

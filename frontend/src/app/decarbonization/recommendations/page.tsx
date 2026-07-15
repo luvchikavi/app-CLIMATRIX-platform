@@ -111,7 +111,7 @@ export default function RecommendationsPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Reduction Recommendations</h1>
+            <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-cy-ink">Reduction recommendations</h1>
             <p className="text-foreground-muted">Personalized initiatives based on your emission profile</p>
           </div>
         </div>
@@ -317,7 +317,7 @@ function AddToScenarioModal({
               <select
                 value={scenarioId}
                 onChange={(e) => setScenarioId(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                className="w-full rounded-[10px] border-0 bg-cy-row px-3 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
               >
                 {scenarios.map((s) => (
                   <option key={s.id} value={s.id}>

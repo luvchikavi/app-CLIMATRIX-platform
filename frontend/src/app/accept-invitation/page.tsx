@@ -141,7 +141,7 @@ function AcceptInvitationContent() {
             <div className="w-14 h-14 rounded-full bg-primary-light flex items-center justify-center mx-auto mb-4">
               <Check className="w-7 h-7 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Accept Invitation</h1>
+            <h1 className="text-[17px] font-bold tracking-[-0.01em] text-foreground">Accept invitation</h1>
             <p className="text-foreground-muted mt-2">
               You&apos;ve been invited to join a team on CLIMATRIX
             </p>

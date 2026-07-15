@@ -29,17 +29,19 @@ export const KPICard = forwardRef<HTMLDivElement, KPICardProps>(
     },
     ref
   ) => {
-    const variantStyles = {
-      default: 'border-border-muted',
-      scope1: 'border-l-4 border-l-scope1',
-      scope2: 'border-l-4 border-l-scope2',
-      scope3: 'border-l-4 border-l-scope3',
+    // Canopy: quiet stat cell on a surface — a scope dot, never a border stripe;
+    // numbers cap at 16px (design contract §0.2).
+    const variantDots: Record<string, string | null> = {
+      default: null,
+      scope1: 'bg-cy-scope1',
+      scope2: 'bg-cy-scope2',
+      scope3: 'bg-cy-scope3',
     };
 
     const sizes = {
-      sm: { padding: 'p-4', value: 'text-2xl', title: 'text-xs' },
-      md: { padding: 'p-6', value: 'text-3xl', title: 'text-sm' },
-      lg: { padding: 'p-8', value: 'text-4xl', title: 'text-base' },
+      sm: { padding: 'p-4', value: 'text-[15px]', title: 'text-[10.5px]' },
+      md: { padding: 'px-6 py-5', value: 'text-[16px]', title: 'text-[11px]' },
+      lg: { padding: 'px-6 py-5', value: 'text-[16px]', title: 'text-[11px]' },
     };
 
     const getTrendIcon = () => {
@@ -61,38 +63,43 @@ export const KPICard = forwardRef<HTMLDivElement, KPICardProps>(
       <div
         ref={ref}
         className={cn(
-          'bg-background-elevated rounded-xl border shadow-card',
-          variantStyles[variant],
+          'bg-background-elevated rounded-cy shadow-card',
           sizes[size].padding,
           className
         )}
         {...props}
       >
-        <div className="flex items-start justify-between mb-2">
-          <p className={cn('font-medium text-foreground-muted uppercase tracking-wide', sizes[size].title)}>
+        <div className="flex items-start justify-between mb-1.5">
+          <p className={cn('flex items-center gap-1.5 font-bold text-cy-faint uppercase tracking-[0.08em]', sizes[size].title)}>
+            {variantDots[variant] && (
+              <span
+                aria-hidden="true"
+                className={cn('inline-block h-[7px] w-[7px] rounded-full', variantDots[variant])}
+              />
+            )}
             {title}
           </p>
-          {icon && <div className="text-foreground-muted">{icon}</div>}
+          {icon && <div className="text-cy-faint">{icon}</div>}
         </div>
 
-        <div className="flex items-baseline gap-2">
-          <span className={cn('font-bold text-foreground tracking-tight', sizes[size].value)}>
+        <div className="flex items-baseline gap-1.5">
+          <span className={cn('font-[650] tabular-nums text-foreground', sizes[size].value)}>
             {typeof value === 'number' ? value.toLocaleString() : value}
           </span>
           {unit && (
-            <span className="text-sm text-foreground-muted">{unit}</span>
+            <span className="text-[11.5px] text-cy-muted">{unit}</span>
           )}
         </div>
 
         {change !== undefined && (
-          <div className={cn('flex items-center gap-1 mt-2', getTrendColor())}>
+          <div className={cn('flex items-center gap-1 mt-1.5 text-[12px]', getTrendColor())}>
             {getTrendIcon()}
-            <span className="text-sm font-medium">
+            <span className="font-semibold tabular-nums">
               {change > 0 ? '+' : ''}
               {change.toFixed(1)}%
             </span>
             {changeLabel && (
-              <span className="text-xs text-foreground-muted ml-1">
+              <span className="text-[11.5px] text-cy-muted ml-1">
                 {changeLabel}
               </span>
             )}
@@ -130,10 +137,10 @@ const scopeDescriptions = {
 
 export const ScopeKPI = forwardRef<HTMLDivElement, ScopeKPIProps>(
   ({ className, scope, value, percentage, activityCount, onClick, label, subtitle, ...props }, ref) => {
-    const scopeColors = {
-      1: 'border-l-scope1',
-      2: 'border-l-scope2',
-      3: 'border-l-scope3',
+    const scopeDots = {
+      1: 'bg-cy-scope1',
+      2: 'bg-cy-scope2',
+      3: 'bg-cy-scope3',
     };
 
     const scopeBg = {
@@ -154,9 +161,8 @@ export const ScopeKPI = forwardRef<HTMLDivElement, ScopeKPIProps>(
       <div
         ref={ref}
         className={cn(
-          'bg-background-elevated rounded-xl border-l-4 p-6 shadow-card',
-          scopeColors[scope],
-          isClickable && 'cursor-pointer hover:shadow-lg transition-shadow',
+          'bg-background-elevated rounded-cy px-6 py-5 shadow-card',
+          isClickable && 'cursor-pointer hover:bg-cy-row/40 transition-colors',
           className
         )}
         onClick={onClick}
@@ -166,30 +172,34 @@ export const ScopeKPI = forwardRef<HTMLDivElement, ScopeKPIProps>(
         {...props}
       >
         <div className="flex items-start justify-between mb-1">
-          <p className="text-sm font-medium text-foreground-muted">
+          <p className="flex items-center gap-1.5 text-[11.5px] text-cy-muted">
+            <span
+              aria-hidden="true"
+              className={cn('inline-block h-[7px] w-[7px] rounded-full', scopeDots[scope])}
+            />
             {label || scopeLabels[scope]}
           </p>
           {percentage !== undefined && (
-            <span className={cn('px-2 py-0.5 rounded-full text-xs font-semibold', scopeBg[scope])}>
+            <span className={cn('px-2 py-0.5 rounded-full text-[11px] font-semibold', scopeBg[scope])}>
               {percentage.toFixed(0)}%
             </span>
           )}
         </div>
 
-        <p className="text-3xl font-bold text-foreground tracking-tight">
+        <p className="text-[16px] font-[650] tabular-nums text-foreground">
           {formatValue(value)}
+          <small className="ml-1 text-[11.5px] font-medium text-cy-muted">CO₂e</small>
         </p>
-        <p className="text-xs text-foreground-muted mt-0.5">CO2e</p>
 
         {activityCount !== undefined && (
-          <p className="text-xs text-foreground-muted mt-3">
+          <p className="text-[11.5px] text-cy-muted mt-2">
             {activityCount} {activityCount === 1 ? 'activity' : 'activities'}
           </p>
         )}
 
         {isClickable && activityCount && activityCount > 0 && (
-          <p className="text-xs text-primary mt-2 font-medium">
-            Click for breakdown →
+          <p className="text-[12px] text-cy-accent mt-1.5 font-semibold">
+            Breakdown →
           </p>
         )}
       </div>
