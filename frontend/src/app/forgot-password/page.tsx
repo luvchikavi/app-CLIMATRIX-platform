@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Leaf, Loader2, ArrowLeft, Mail, Check } from 'lucide-react';
+import { Loader2, ArrowLeft, Mail, Check } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api';
 
@@ -38,26 +38,24 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0f1a] text-white flex items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent rounded-full blur-3xl animate-pulse" />
+        
         <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-500/10 via-transparent to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
       </div>
 
       <div className="relative w-full max-w-md">
-        <div className="bg-[#0f1629] rounded-3xl shadow-2xl p-8 border border-white/10">
+        <div className="rounded-cy bg-background-elevated px-8 py-7 shadow-card">
           {/* Logo */}
           <div className="text-center mb-8">
             <Link href="/" className="inline-block">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/25">
-                <Leaf className="w-8 h-8 text-white" />
-              </div>
+              <p className="text-[15px] font-extrabold tracking-[0.01em] text-cy-ink">climatri<span className="text-cy-accent">x</span></p>
             </Link>
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-[17px] font-bold tracking-[-0.01em] text-foreground">
               {isSubmitted ? 'Check Your Email' : 'Reset Password'}
             </h1>
-            <p className="text-gray-500 mt-1">
+            <p className="text-[12.5px] text-cy-muted mt-1">
               {isSubmitted
                 ? 'We sent you a password reset link'
                 : 'Enter your email to receive a reset link'}
@@ -67,11 +65,11 @@ export default function ForgotPasswordPage() {
           {isSubmitted ? (
             <div className="space-y-6">
               <div className="flex flex-col items-center gap-4 py-6">
-                <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                  <Check className="w-8 h-8 text-emerald-400" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-cy-accent-soft">
+                  <Check className="h-6 w-6 text-cy-accent" />
                 </div>
-                <p className="text-center text-gray-400">
-                  If an account exists for <span className="text-white font-medium">{email}</span>,
+                <p className="text-center text-cy-muted">
+                  If an account exists for <span className="font-semibold text-foreground">{email}</span>,
                   you will receive a password reset email shortly.
                 </p>
               </div>
@@ -79,7 +77,7 @@ export default function ForgotPasswordPage() {
               <div className="space-y-3">
                 <Link
                   href="/?login=true"
-                  className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-500/25"
+                  className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-cy-accent py-3 text-[13px] font-semibold text-white transition-colors hover:bg-[color-mix(in_srgb,var(--cy-accent)_88%,#000)]"
                 >
                   Back to Login
                 </Link>
@@ -88,7 +86,7 @@ export default function ForgotPasswordPage() {
                     setIsSubmitted(false);
                     setEmail('');
                   }}
-                  className="w-full py-3.5 bg-white/5 border border-white/10 text-white rounded-xl font-semibold hover:bg-white/10 transition-all"
+                  className="w-full cursor-pointer rounded-[10px] bg-cy-row py-3 text-[13px] font-semibold text-cy-muted transition-colors hover:text-cy-ink"
                 >
                   Try Different Email
                 </button>
@@ -97,32 +95,32 @@ export default function ForgotPasswordPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="mb-1.5 block text-[11px] font-bold tracking-[0.06em] uppercase text-cy-faint">
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cy-muted" />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@company.com"
                     required
-                    className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                    className="w-full rounded-[10px] border-0 bg-cy-row py-2.5 pl-11 pr-4 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
                   />
                 </div>
               </div>
 
               {error && (
-                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
-                  <p className="text-sm text-red-400">{error}</p>
+                <div className="rounded-[10px] bg-error-50 px-3 py-2.5">
+                  <p className="text-[12.5px] text-error">{error}</p>
                 </div>
               )}
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-emerald-500/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5"
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-cy-accent py-3 text-[13px] font-semibold text-white transition-colors hover:bg-[color-mix(in_srgb,var(--cy-accent)_88%,#000)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isLoading ? (
                   <>
@@ -136,7 +134,7 @@ export default function ForgotPasswordPage() {
 
               <Link
                 href="/?login=true"
-                className="flex items-center justify-center gap-2 text-gray-400 hover:text-white transition-colors mt-4"
+                className="flex items-center justify-center gap-2 text-cy-muted hover:text-cy-ink transition-colors mt-4"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back to Login

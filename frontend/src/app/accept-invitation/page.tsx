@@ -221,7 +221,7 @@ function AcceptInvitationContent() {
             </div>
 
             {error && (
-              <div className="p-3 bg-error/10 border border-error/20 rounded-lg">
+              <div className="rounded-[10px] bg-error-50 px-3 py-2.5">
                 <p className="text-sm text-error">{error}</p>
               </div>
             )}

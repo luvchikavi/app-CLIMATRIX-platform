@@ -20,7 +20,11 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { COUNTRIES } from '@/lib/countries';
-import { Leaf, Loader2, ChevronRight } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+
+const fieldLabel = 'mb-1.5 block text-[11px] font-bold tracking-[0.06em] uppercase text-cy-faint';
+const fieldInput =
+  'w-full rounded-[10px] border-0 bg-cy-row px-3 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent';
 
 function LoginPageContent() {
   const searchParams = useSearchParams();
@@ -90,7 +94,7 @@ function LoginPageContent() {
     container.innerHTML = '';
     window.google.accounts.id.renderButton(container, {
       type: 'standard',
-      theme: 'filled_black',
+      theme: 'outline',
       size: 'large',
       text: 'continue_with',
       shape: 'pill',
@@ -135,74 +139,72 @@ function LoginPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0f1a] text-white flex items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
       <div className="w-full max-w-md">
-        <div className="bg-[#0f1629] rounded-3xl shadow-2xl p-8 border border-white/10">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/25">
-              <Leaf className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-white">
-              {isRegistering ? 'Create Account' : 'Welcome Back'}
+        <div className="rounded-cy bg-background-elevated px-8 py-7 shadow-card">
+          <div className="mb-6">
+            <p className="text-[15px] font-extrabold tracking-[0.01em] text-cy-ink">
+              climatri<span className="text-cy-accent">x</span>
+            </p>
+            <h1 className="mt-3 text-[17px] font-bold tracking-[-0.01em] text-foreground">
+              {isRegistering ? 'Create your account' : 'Welcome back'}
             </h1>
-            <p className="text-gray-500 mt-1">
-              {isRegistering ? 'Start your carbon journey' : 'Sign in to your CLIMATRIX account'}
+            <p className="mt-0.5 text-[12.5px] text-cy-muted">
+              {isRegistering
+                ? 'Measure, plan and report — starting with one file.'
+                : 'Sign in to your Climatrix account'}
             </p>
           </div>
 
           {/* Google Sign-In Button */}
-          <div id="google-btn-container" className="flex justify-center mb-4 min-h-[44px]" />
+          <div id="google-btn-container" className="mb-4 flex min-h-[44px] justify-center" />
 
           {/* Divider */}
-          <div className="relative flex items-center gap-4 mb-4">
-            <div className="flex-1 h-px bg-white/10" />
-            <span className="text-xs text-gray-500 uppercase tracking-wider">or continue with email</span>
-            <div className="flex-1 h-px bg-white/10" />
+          <div className="mb-4 flex items-center gap-4">
+            <div className="h-px flex-1 bg-cy-row" />
+            <span className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-cy-faint">
+              or with email
+            </span>
+            <div className="h-px flex-1 bg-cy-row" />
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isRegistering && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Full Name
-                  </label>
+                  <label className={fieldLabel}>Full name</label>
                   <input
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="John Smith"
                     required
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                    className={fieldInput}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Organization Name
-                  </label>
+                  <label className={fieldLabel}>Organization name</label>
                   <input
                     type="text"
                     value={organizationName}
                     onChange={(e) => setOrganizationName(e.target.value)}
                     placeholder="Acme Corporation"
                     required
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                    className={fieldInput}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Country (Optional)
-                  </label>
+                  <label className={fieldLabel}>Country (optional)</label>
                   <select
                     value={countryCode}
                     onChange={(e) => setCountryCode(e.target.value)}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                    className={fieldInput}
                   >
-                    <option value="" className="bg-[#0f1629]">Select country...</option>
+                    <option value="">Select country…</option>
                     {COUNTRIES.map((c) => (
-                      <option key={c.code} value={c.code} className="bg-[#0f1629]">{c.name}</option>
+                      <option key={c.code} value={c.code}>{c.name}</option>
                     ))}
                   </select>
                 </div>
@@ -210,23 +212,19 @@ function LoginPageContent() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Email
-              </label>
+              <label className={fieldLabel}>Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@company.com"
                 required
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                className={fieldInput}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Password
-              </label>
+              <label className={fieldLabel}>Password</label>
               <input
                 type="password"
                 value={password}
@@ -234,15 +232,15 @@ function LoginPageContent() {
                 placeholder={isRegistering ? 'Create a password' : 'Enter your password'}
                 required
                 minLength={isRegistering ? 6 : undefined}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                className={fieldInput}
               />
               {isRegistering ? (
-                <p className="text-xs text-gray-600 mt-1">Minimum 6 characters</p>
+                <p className="mt-1 text-[11.5px] text-cy-faint">Minimum 6 characters</p>
               ) : (
-                <div className="flex justify-end mt-2">
+                <div className="mt-2 flex justify-end">
                   <a
                     href="/forgot-password"
-                    className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                    className="text-[12px] font-semibold text-cy-accent"
                   >
                     Forgot password?
                   </a>
@@ -251,21 +249,21 @@ function LoginPageContent() {
             </div>
 
             {isRegistering && (
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-2.5">
                 <input
                   type="checkbox"
                   id="terms"
                   checked={termsAccepted}
                   onChange={(e) => setTermsAccepted(e.target.checked)}
-                  className="mt-1 w-4 h-4 rounded border-white/20 bg-white/5 text-emerald-500 focus:ring-emerald-500/50"
+                  className="mt-0.5 h-4 w-4 rounded accent-[var(--cy-accent)]"
                 />
-                <label htmlFor="terms" className="text-sm text-gray-400">
+                <label htmlFor="terms" className="text-[12.5px] text-cy-muted">
                   I agree to the{' '}
-                  <a href="/terms" target="_blank" className="text-emerald-400 hover:underline">
+                  <a href="/terms" target="_blank" className="font-semibold text-cy-accent">
                     Terms of Service
                   </a>{' '}
                   and{' '}
-                  <a href="/privacy" target="_blank" className="text-emerald-400 hover:underline">
+                  <a href="/privacy" target="_blank" className="font-semibold text-cy-accent">
                     Privacy Policy
                   </a>
                 </label>
@@ -273,38 +271,35 @@ function LoginPageContent() {
             )}
 
             {error && (
-              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
-                <p className="text-sm text-red-400">{error}</p>
+              <div className="rounded-[10px] bg-error-50 px-3 py-2.5">
+                <p className="text-[12.5px] text-error">{error}</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={isLoading || (isRegistering && !termsAccepted)}
-              className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-emerald-500/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5"
+              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-cy-accent py-3 text-[13px] font-semibold text-white transition-colors hover:bg-[color-mix(in_srgb,var(--cy-accent)_88%,#000)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cy-accent disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  {isRegistering ? 'Creating account...' : 'Signing in...'}
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {isRegistering ? 'Creating account…' : 'Signing in…'}
                 </>
               ) : (
-                <>
-                  {isRegistering ? 'Create Account' : 'Sign In'}
-                  <ChevronRight className="w-5 h-5" />
-                </>
+                <>{isRegistering ? 'Create account' : 'Sign in'}</>
               )}
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-500">
+            <p className="text-[12.5px] text-cy-muted">
               {isRegistering ? (
                 <>
                   Already have an account?{' '}
                   <button
                     onClick={toggleMode}
-                    className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
+                    className="cursor-pointer font-semibold text-cy-accent"
                   >
                     Sign in
                   </button>
@@ -314,7 +309,7 @@ function LoginPageContent() {
                   Don&apos;t have an account?{' '}
                   <button
                     onClick={toggleMode}
-                    className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
+                    className="cursor-pointer font-semibold text-cy-accent"
                   >
                     Create one
                   </button>
@@ -324,10 +319,10 @@ function LoginPageContent() {
           </div>
         </div>
 
-        <p className="mt-6 text-center text-sm text-gray-600">
+        <p className="mt-6 text-center text-[12.5px] text-cy-faint">
           <a
             href="https://climatrix.co"
-            className="hover:text-gray-400 transition-colors"
+            className="transition-colors hover:text-cy-muted"
           >
             &larr; climatrix.co
           </a>
@@ -341,13 +336,8 @@ function LoginPageContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center animate-pulse">
-            <Leaf className="w-7 h-7 text-white" />
-          </div>
-          <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-cy-accent" />
       </div>
     }>
       <LoginPageContent />
