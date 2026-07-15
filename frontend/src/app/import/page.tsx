@@ -19,7 +19,7 @@ export default function ImportRedirect() {
   }, [router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center gap-2 text-slate-400">
+    <div className="flex min-h-screen items-center justify-center gap-2 text-cy-faint">
       <Loader2 className="h-5 w-5 animate-spin" />
       Taking you to the Data Hub…
     </div>

@@ -12,7 +12,8 @@ import { useCallback, useEffect, useRef, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/layout';
-import { Card, CardContent, Button, toast } from '@/components/ui';
+import { Surface, PanelLabel, PageHead } from '@/components/canopy';
+import { Button, ScopeBadge, toast } from '@/components/ui';
 import { usePeriods } from '@/hooks/useEmissions';
 import { usePeriodStore } from '@/stores/period';
 import {
@@ -22,74 +23,48 @@ import {
   ClarificationQuestion,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import {
-  UploadCloud,
-  Loader2,
-  CheckCircle2,
-  AlertTriangle,
-  HelpCircle,
-  ShieldCheck,
-  Sparkles,
-  ArrowRight,
-  FileSpreadsheet,
-} from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 const BAND: Record<string, { dot: string; text: string; label: string }> = {
-  green: { dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', label: 'High confidence' },
-  amber: { dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400', label: 'Review suggested' },
-  red: { dot: 'bg-red-500', text: 'text-red-600 dark:text-red-400', label: 'Needs attention' },
+  green: { dot: 'bg-cy-accent', text: 'text-cy-accent', label: 'High confidence' },
+  amber: { dot: 'bg-cy-warn', text: 'text-cy-warn', label: 'Review suggested' },
+  red: { dot: 'bg-error', text: 'text-error', label: 'Needs attention' },
 };
 
 // The data-quality ladder — the client-friendly view of what they can stand behind.
 const TIER: Record<string, { label: string; chip: string; dot: string; blurb: string }> = {
   measured: {
     label: 'Measured',
-    chip: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
-    dot: 'bg-emerald-500',
+    chip: 'bg-cy-accent-soft text-cy-accent',
+    dot: 'bg-cy-accent',
     blurb: 'Primary / supplier data — highest quality',
   },
   calculated: {
     label: 'Calculated',
-    chip: 'bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300',
-    dot: 'bg-teal-500',
+    chip: 'bg-info-50 text-info',
+    dot: 'bg-cy-scope3',
     blurb: 'Real activity data × a standard factor',
   },
   estimated: {
     label: 'Estimated',
-    chip: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
-    dot: 'bg-amber-500',
+    chip: 'bg-cy-warn-soft text-cy-warn',
+    dot: 'bg-cy-warn',
     blurb: 'From spend/proxy — an estimate you can upgrade',
   },
   gap: {
     label: 'Gap',
-    chip: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
-    dot: 'bg-slate-400',
+    chip: 'bg-cy-row text-cy-muted',
+    dot: 'bg-cy-faint/40',
     blurb: 'Not yet measurable — needs the right data',
   },
 };
 const TIER_ORDER = ['measured', 'calculated', 'estimated', 'gap'] as const;
 
-// Scope is the classification a validator (and the client) cares about most —
-// keep it unmistakable and colour-coded throughout.
-const SCOPE: Record<number, { label: string; blurb: string; chip: string; dot: string }> = {
-  1: {
-    label: 'Scope 1',
-    blurb: 'Direct emissions',
-    chip: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300',
-    dot: 'bg-rose-500',
-  },
-  2: {
-    label: 'Scope 2',
-    blurb: 'Purchased energy',
-    chip: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
-    dot: 'bg-amber-500',
-  },
-  3: {
-    label: 'Scope 3',
-    blurb: 'Value chain',
-    chip: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
-    dot: 'bg-emerald-500',
-  },
+// Scope is the classification a validator (and the client) cares about most.
+const SCOPE_BLURB: Record<number, string> = {
+  1: 'Direct emissions',
+  2: 'Purchased energy',
+  3: 'Value chain',
 };
 
 const CATEGORY_NAMES: Record<string, string> = {
@@ -276,15 +251,15 @@ function IngestContent() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-5xl space-y-6 py-2">
+      <div className="mx-auto max-w-5xl space-y-4 py-2">
         {/* Header */}
         <div>
-          <div className="mb-1 flex items-center justify-between">
+          <div className="mb-2 flex items-center justify-between">
             <Link
               href="/hub"
-              className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-cy-muted hover:text-cy-ink"
             >
-              ← Data Hub
+              ← Data hub
             </Link>
             {session && !busy && (
               <Button
@@ -295,135 +270,116 @@ function IngestContent() {
                   setAnswers({});
                 }}
               >
-                <UploadCloud className="mr-1.5 h-4 w-4" />
                 New upload
               </Button>
             )}
           </div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold text-slate-900 dark:text-white">
-            <Sparkles className="h-6 w-6 text-emerald-500" />
-            Drop your data — we&apos;ll do the rest
-          </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Any spreadsheet, any layout. We read it, map every line to the right scope &amp;
-            category, ask only where we&apos;re unsure, and show you everything before anything
-            is saved.
-          </p>
+          <PageHead
+            title={session ? session.filename : 'Drop your data — we’ll do the rest'}
+            subtitle={
+              session
+                ? undefined
+                : 'Any spreadsheet, any layout. We read it, map every line to the right scope & category, ask only where we’re unsure, and show you everything before anything is saved.'
+            }
+          />
         </div>
 
         {/* The period is chosen once, in the top bar — pages only display it. */}
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-[12.5px] text-cy-muted">
           Reporting period:{' '}
-          <span className="font-medium text-slate-700 dark:text-slate-200">
+          <span className="font-semibold text-cy-ink">
             {periods?.find((p) => p.id === periodId)?.name || '…'}
           </span>
         </p>
 
         {/* Dropzone */}
         {!session && (
-          <Card>
-            <CardContent className="p-0">
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={onDrop}
-                onClick={() => fileRef.current?.click()}
-                className={cn(
-                  'flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-16 text-center transition-colors',
-                  dragOver
-                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
-                    : 'border-slate-300 hover:border-emerald-400 dark:border-slate-700'
-                )}
-              >
-                {busy ? (
-                  <>
-                    <Loader2 className="h-10 w-10 animate-spin text-emerald-500" />
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                      Reading your file and mapping every line…
-                    </p>
-                    <p className="text-xs text-slate-400">This can take up to a minute for large workbooks.</p>
-                  </>
-                ) : (
-                  <>
-                    <UploadCloud className="h-10 w-10 text-emerald-500" />
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                      Drag a file here, or click to browse
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      CSV, Excel (.xlsx/.xls), or PDF — up to 50&nbsp;MB
-                    </p>
-                  </>
-                )}
-                <input
-                  ref={fileRef}
-                  type="file"
-                  className="hidden"
-                  accept=".csv,.tsv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.txt"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleFile(f);
-                  }}
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <Surface
+            padding="none"
+            tint="soft"
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            onClick={() => fileRef.current?.click()}
+            className={cn(
+              'flex cursor-pointer flex-col items-center justify-center gap-2 px-6 py-16 text-center transition-shadow',
+              dragOver && 'ring-2 ring-cy-accent'
+            )}
+          >
+            {busy ? (
+              <>
+                <Loader2 className="h-7 w-7 animate-spin text-cy-accent" />
+                <p className="text-[14px] font-bold text-cy-ink">
+                  Reading your file and mapping every line…
+                </p>
+                <p className="text-[12px] text-cy-muted">This can take up to a minute for large workbooks.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-[14px] font-bold text-cy-ink">
+                  Drag a file here, or click to browse
+                </p>
+                <p className="text-[12.5px] text-cy-muted">
+                  CSV, Excel (.xlsx/.xls), or PDF — up to 50&nbsp;MB
+                </p>
+              </>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              className="hidden"
+              accept=".csv,.tsv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.txt"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFile(f);
+              }}
+            />
+          </Surface>
         )}
 
         {/* Analyzing (worker is parsing the file) */}
         {isAnalyzing && (
-          <Card>
-            <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
-              <Loader2 className="h-10 w-10 animate-spin text-emerald-500" />
-              <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                Reading {session?.filename} and mapping every line…
-              </p>
-              <p className="text-xs text-slate-400">
-                Large workbooks can take up to a minute — this keeps running even if you
-                switch tabs.
-              </p>
-            </CardContent>
-          </Card>
+          <Surface className="flex flex-col items-center gap-2 py-16 text-center">
+            <Loader2 className="h-7 w-7 animate-spin text-cy-accent" />
+            <p className="text-[14px] font-bold text-cy-ink">
+              Reading {session?.filename} and mapping every line…
+            </p>
+            <p className="text-[12px] text-cy-muted">
+              Large workbooks can take up to a minute — this keeps running even if you
+              switch tabs.
+            </p>
+          </Surface>
         )}
 
         {/* Failed */}
         {session?.status === 'failed' && (
-          <Card>
-            <CardContent className="flex items-start gap-3 py-6">
-              <AlertTriangle className="mt-0.5 h-5 w-5 text-red-500" />
-              <div>
-                <p className="font-medium text-slate-800 dark:text-slate-100">
-                  We couldn&apos;t process this file
-                </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">{session.error_message}</p>
-                <Button variant="secondary" className="mt-3" onClick={() => setSession(null)}>
-                  Try another file
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <Surface>
+            <p className="flex items-center gap-2 text-[13.5px] font-bold text-cy-ink">
+              <span className="h-[7px] w-[7px] rounded-full bg-error" aria-hidden="true" />
+              We couldn&apos;t process this file
+            </p>
+            <p className="mt-1 text-[12.5px] text-cy-muted">{session.error_message}</p>
+            <Button variant="secondary" size="sm" className="mt-3" onClick={() => setSession(null)}>
+              Try another file
+            </Button>
+          </Surface>
         )}
 
         {/* No data found — explain instead of a silent "0 rows read" */}
         {session && !isAnalyzing && session.total_rows === 0 && session.summary?.notice && (
-          <Card>
-            <CardContent className="flex items-start gap-3 py-6">
-              <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-500" />
-              <div>
-                <p className="font-medium text-slate-800 dark:text-slate-100">
-                  No data rows to import from {session.filename}
-                </p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  {session.summary.notice}
-                </p>
-                <Button variant="secondary" className="mt-3" onClick={() => setSession(null)}>
-                  Upload a different file
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <Surface>
+            <p className="flex items-center gap-2 text-[13.5px] font-bold text-cy-ink">
+              <span className="h-[7px] w-[7px] rounded-full bg-cy-warn" aria-hidden="true" />
+              No data rows to import from {session.filename}
+            </p>
+            <p className="mt-1 text-[12.5px] text-cy-muted">{session.summary.notice}</p>
+            <Button variant="secondary" size="sm" className="mt-3" onClick={() => setSession(null)}>
+              Upload a different file
+            </Button>
+          </Surface>
         )}
 
         {/* Summary bar */}
@@ -448,106 +404,89 @@ function IngestContent() {
 
         {/* Duplicate-import warning */}
         {session?.summary?.duplicate_warning && !isCommitted && (
-          <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{session.summary.duplicate_warning}</span>
-          </div>
+          <Surface tint="warn" padding="none" className="px-4 py-3">
+            <p className="text-[12.5px] text-cy-warn">{session.summary.duplicate_warning}</p>
+          </Surface>
         )}
 
         {/* Sheets skipped as non-data — nothing vanishes silently */}
         {session?.summary?.skipped_sheets && session.summary.skipped_sheets.length > 0 && (
-          <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
-            <FileSpreadsheet className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>
-              Skipped as non-data: {session.summary.skipped_sheets.join(', ')} — tell us if one of
-              these holds data.
-            </span>
-          </div>
+          <p className="px-1 text-[12px] text-cy-muted">
+            Skipped as non-data: {session.summary.skipped_sheets.join(', ')} — tell us if one of
+            these holds data.
+          </p>
         )}
 
         {/* Questions */}
         {session && openQuestions.length > 0 && !isCommitted && (
-          <Card>
-            <CardContent className="space-y-4 py-5">
-              <div className="flex items-center gap-2">
-                <HelpCircle className="h-5 w-5 text-amber-500" />
-                <h2 className="font-semibold text-slate-800 dark:text-slate-100">
-                  A few quick questions ({openQuestions.length})
-                </h2>
-              </div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                We only ask where getting it wrong would change your numbers. Everything else is
-                already mapped.
-              </p>
-              <div className="space-y-3">
-                {openQuestions.map((q) => (
-                  <QuestionRow
-                    key={q.id}
-                    q={q}
-                    value={answers[q.id] ?? ''}
-                    onChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))}
-                  />
-                ))}
-              </div>
-              <Button onClick={submitAnswers} disabled={busy}>
-                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Submit answers
-              </Button>
-            </CardContent>
-          </Card>
+          <Surface>
+            <PanelLabel>Needs you · {openQuestions.length}</PanelLabel>
+            <p className="-mt-2 mb-3 text-[12.5px] text-cy-muted">
+              We only ask where getting it wrong would change your numbers. Everything else is
+              already mapped.
+            </p>
+            <div className="space-y-1">
+              {openQuestions.map((q) => (
+                <QuestionRow
+                  key={q.id}
+                  q={q}
+                  value={answers[q.id] ?? ''}
+                  onChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))}
+                />
+              ))}
+            </div>
+            <Button className="mt-4" onClick={submitAnswers} disabled={busy}>
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Submit answers
+            </Button>
+          </Surface>
         )}
 
         {/* Review grid */}
         {session && session.rows.length > 0 && session.status !== 'failed' && (
-          <Card>
-            <CardContent className="py-5">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-semibold text-slate-800 dark:text-slate-100">
-                  Review {session.rows.length} rows
-                </h2>
-                {!isCommitted && (
-                  <div className="flex gap-2">
-                    <Button variant="secondary" size="sm" onClick={approveAllReady} disabled={busy}>
-                      Approve all mapped
-                    </Button>
-                    <Button size="sm" onClick={commit} disabled={busy || approvedCount === 0}>
-                      {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Add {approvedCount || ''} to inventory
-                    </Button>
-                  </div>
-                )}
-              </div>
-              <ReviewGrid session={session} onPatch={patchRow} readOnly={isCommitted} />
-            </CardContent>
-          </Card>
+          <Surface>
+            <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
+              <PanelLabel className="mb-0">Ready to review · {session.rows.length} rows</PanelLabel>
+              {!isCommitted && (
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" onClick={approveAllReady} disabled={busy}>
+                    Approve all mapped
+                  </Button>
+                  <Button size="sm" onClick={commit} disabled={busy || approvedCount === 0}>
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Add {approvedCount || ''} to inventory
+                  </Button>
+                </div>
+              )}
+            </div>
+            <ReviewGrid session={session} onPatch={patchRow} readOnly={isCommitted} />
+          </Surface>
         )}
 
         {/* Committed */}
         {isCommitted && (
-          <Card>
-            <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
-              <CheckCircle2 className="h-10 w-10 text-emerald-500" />
-              <p className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                {session.committed_count} rows added to your inventory
-              </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                They&apos;re now calculated and included in your dashboard totals.
-              </p>
-              <div className="mt-2 flex gap-3">
-                <Link href="/hub">
-                  <Button>
-                    Back to Data Hub <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link href="/dashboard">
-                  <Button variant="secondary">View dashboard</Button>
-                </Link>
-                <Button variant="secondary" onClick={() => setSession(null)}>
-                  Import another file
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <Surface className="flex flex-col items-center gap-2 py-8 text-center">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-cy-accent-soft text-[16px] font-bold text-cy-accent" aria-hidden="true">
+              ✓
+            </span>
+            <p className="text-[15px] font-bold text-cy-ink">
+              {session.committed_count} rows added to your inventory
+            </p>
+            <p className="text-[12.5px] text-cy-muted">
+              They&apos;re now calculated and included in your dashboard totals.
+            </p>
+            <div className="mt-2 flex flex-wrap justify-center gap-2">
+              <Link href="/hub">
+                <Button>Back to Data hub →</Button>
+              </Link>
+              <Link href="/dashboard">
+                <Button variant="secondary">View dashboard</Button>
+              </Link>
+              <Button variant="secondary" onClick={() => setSession(null)}>
+                Import another file
+              </Button>
+            </div>
+          </Surface>
         )}
       </div>
     </AppShell>
@@ -571,18 +510,16 @@ function InventoryQuality({
   const solid = (byTier.measured || 0) + (byTier.calculated || 0);
   const pct = Math.round((solid / total) * 100);
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/50">
-      <div className="mb-2 flex items-baseline justify-between">
-        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-          Inventory quality
-        </p>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          <span className="font-semibold text-emerald-600 dark:text-emerald-400">{pct}%</span> you
-          can stand behind (measured + calculated)
+    <Surface>
+      <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
+        <PanelLabel className="mb-0">Inventory quality</PanelLabel>
+        <p className="text-[12.5px] text-cy-muted">
+          <span className="font-bold text-cy-accent">{pct}%</span> you can stand behind
+          (measured + calculated)
         </p>
       </div>
       {/* stacked bar */}
-      <div className="flex h-2.5 w-full overflow-hidden rounded-full">
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-cy-row">
         {TIER_ORDER.map((t) =>
           byTier[t] ? (
             <div
@@ -594,41 +531,35 @@ function InventoryQuality({
           ) : null
         )}
       </div>
-      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs">
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-[11.5px]">
         {TIER_ORDER.map((t) => (
           <span key={t} className="flex items-center gap-1.5">
-            <span className={cn('h-2 w-2 rounded-full', TIER[t].dot)} />
-            <span className="font-medium text-slate-700 dark:text-slate-200">{TIER[t].label}</span>
-            <span className="text-slate-400">{byTier[t] || 0}</span>
-            <span className="text-slate-400 dark:text-slate-500">· {TIER[t].blurb}</span>
+            <span className={cn('h-[7px] w-[7px] rounded-full', TIER[t].dot)} />
+            <span className="font-semibold text-cy-ink">{TIER[t].label}</span>
+            <span className="tabular-nums text-cy-muted">{byTier[t] || 0}</span>
+            <span className="text-cy-faint">· {TIER[t].blurb}</span>
           </span>
         ))}
       </div>
-    </div>
+    </Surface>
   );
 }
 
 function ScopeBreakdown({ byScope }: { byScope: Record<string, number> }) {
   const rows = [1, 2, 3].map((s) => ({ scope: s, count: byScope[`scope_${s}`] || 0 }));
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900/50">
-      <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">Scope split</span>
+    <Surface padding="none" className="flex flex-wrap items-center gap-x-5 gap-y-2 px-6 py-3.5">
+      <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-cy-faint">
+        Scope split
+      </span>
       {rows.map(({ scope, count }) => (
-        <span
-          key={scope}
-          className={cn(
-            'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm',
-            SCOPE[scope].chip
-          )}
-          title={SCOPE[scope].blurb}
-        >
-          <span className="font-semibold">{SCOPE[scope].label}</span>
-          <span className="opacity-70">·</span>
-          <span>{count}</span>
-          <span className="hidden text-xs opacity-70 sm:inline">{SCOPE[scope].blurb}</span>
+        <span key={scope} className="flex items-center gap-1.5 text-[12.5px]" title={SCOPE_BLURB[scope]}>
+          <ScopeBadge scope={scope as 1 | 2 | 3} size="sm" />
+          <span className="font-semibold tabular-nums text-cy-ink">{count}</span>
+          <span className="hidden text-cy-faint sm:inline">{SCOPE_BLURB[scope]}</span>
         </span>
       ))}
-    </div>
+    </Surface>
   );
 }
 
@@ -636,27 +567,24 @@ function SummaryBar({ session }: { session: IngestionSessionDetail }) {
   const band = session.summary?.by_band ?? {};
   const security = session.summary?.security;
   return (
-    <div className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900/50">
-      <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-        <FileSpreadsheet className="h-4 w-4" /> {session.filename}
-      </span>
-      <span className="text-slate-400">·</span>
-      <span className="text-slate-600 dark:text-slate-300">{session.total_rows} rows read</span>
+    <Surface padding="none" className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-6 py-3.5 text-[12.5px]">
+      <span className="font-semibold text-cy-ink">{session.filename}</span>
+      <span className="text-cy-faint" aria-hidden="true">·</span>
+      <span className="tabular-nums text-cy-muted">{session.total_rows} rows read</span>
       {(['green', 'amber', 'red'] as const).map((b) =>
         band[b] ? (
           <span key={b} className="flex items-center gap-1.5">
-            <span className={cn('h-2 w-2 rounded-full', BAND[b].dot)} />
-            <span className={BAND[b].text}>{band[b]}</span>
+            <span className={cn('h-[7px] w-[7px] rounded-full', BAND[b].dot)} />
+            <span className={cn('tabular-nums font-semibold', BAND[b].text)}>{band[b]}</span>
           </span>
         ) : null
       )}
       {security && (security.formula_cells_sanitised > 0 || security.injection_flags > 0) && (
-        <span className="ml-auto flex items-center gap-1.5 text-xs text-slate-500">
-          <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+        <span className="ml-auto text-[11.5px] text-cy-faint">
           {security.formula_cells_sanitised + security.injection_flags} unsafe cells neutralised
         </span>
       )}
-    </div>
+    </Surface>
   );
 }
 
@@ -672,56 +600,59 @@ function QuestionRow({
   const choices = q.choices ?? [];
   const selected = choices.find((c) => c.value === value);
   return (
-    <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-      <div className="mb-2 flex items-start justify-between gap-3">
-        <p className="text-sm text-slate-700 dark:text-slate-200">{q.question}</p>
-        {q.applies_count > 1 && (
-          <span className="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-            {q.applies_count} rows
-          </span>
+    <div className="flex items-baseline gap-2.5 py-2.5">
+      <span className="relative top-px h-2 w-2 shrink-0 rounded-full border-[1.5px] border-cy-warn" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-[13px] text-cy-ink">{q.question}</p>
+          {q.applies_count > 1 && (
+            <span className="whitespace-nowrap rounded-full bg-cy-warn-soft px-2 py-0.5 text-[11px] font-bold text-cy-warn">
+              {q.applies_count} rows
+            </span>
+          )}
+        </div>
+        {choices.length === 0 ? (
+          // No preset options — free text as a last resort.
+          <input
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Type your answer…"
+            className="mt-2 w-full rounded-[10px] border-0 bg-cy-row px-3 py-2 text-[13px] font-semibold text-cy-ink placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
+          />
+        ) : choices.length <= 4 ? (
+          // A few options — show them as pick-one pills.
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {choices.map((c) => (
+              <button
+                key={c.value || '__gap__'}
+                onClick={() => onChange(c.value)}
+                className={cn(
+                  'cursor-pointer rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors',
+                  selected?.value === c.value
+                    ? 'bg-cy-accent text-white'
+                    : 'bg-cy-row text-cy-muted hover:text-cy-ink'
+                )}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          // Many options — a dropdown keeps it compact.
+          <select
+            value={value || '__unanswered__'}
+            onChange={(e) => onChange(e.target.value)}
+            className="mt-2 w-full cursor-pointer rounded-[10px] border-0 bg-cy-row px-3 py-2 text-[13px] font-semibold text-cy-ink focus:outline-none focus:ring-2 focus:ring-cy-accent"
+          >
+            <option value="__unanswered__">Choose the right activity…</option>
+            {choices.map((c) => (
+              <option key={c.value || '__gap__'} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
         )}
       </div>
-      {choices.length === 0 ? (
-        // No preset options — free text as a last resort.
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Type your answer…"
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-        />
-      ) : choices.length <= 4 ? (
-        // A few options — show them as pick-one buttons.
-        <div className="flex flex-wrap gap-2">
-          {choices.map((c) => (
-            <button
-              key={c.value || '__gap__'}
-              onClick={() => onChange(c.value)}
-              className={cn(
-                'rounded-full border px-3 py-1 text-xs transition-colors',
-                selected?.value === c.value
-                  ? 'border-emerald-500 bg-emerald-500 text-white'
-                  : 'border-slate-300 text-slate-600 hover:border-emerald-400 dark:border-slate-700 dark:text-slate-300'
-              )}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-      ) : (
-        // Many options — a dropdown keeps it compact.
-        <select
-          value={value || '__unanswered__'}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-        >
-          <option value="__unanswered__">Choose the right activity…</option>
-          {choices.map((c) => (
-            <option key={c.value || '__gap__'} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-      )}
     </div>
   );
 }
@@ -735,19 +666,20 @@ function ReviewGrid({
   onPatch: (row: StagedRow, status: string) => void;
   readOnly: boolean;
 }) {
+  const th = 'py-2 pr-3 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-cy-faint';
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full border-collapse text-[13px]">
         <thead>
-          <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400 dark:border-slate-800">
-            <th className="py-2 pr-3 font-medium"> </th>
-            <th className="py-2 pr-3 font-medium">Source</th>
-            <th className="py-2 pr-3 font-medium">Mapped to</th>
-            <th className="py-2 pr-3 font-medium">Scope</th>
-            <th className="py-2 pr-3 font-medium">Quantity</th>
-            <th className="py-2 pr-3 font-medium">Confidence</th>
-            <th className="py-2 pr-3 font-medium">Data quality</th>
-            {!readOnly && <th className="py-2 pr-3 font-medium">Action</th>}
+          <tr>
+            <th className={th}> </th>
+            <th className={th}>Source</th>
+            <th className={th}>Mapped to</th>
+            <th className={th}>Scope</th>
+            <th className={th}>Quantity</th>
+            <th className={th}>Confidence</th>
+            <th className={th}>Data quality</th>
+            {!readOnly && <th className={th}>Action</th>}
           </tr>
         </thead>
         <tbody>
@@ -757,30 +689,30 @@ function ReviewGrid({
               <tr
                 key={r.id}
                 className={cn(
-                  'border-b border-slate-100 align-top dark:border-slate-800/60',
+                  'border-t border-cy-row align-top',
                   r.status === 'rejected' && 'opacity-40'
                 )}
               >
-                <td className="py-2 pr-3">
-                  <span className={cn('inline-block h-2.5 w-2.5 rounded-full', b.dot)} title={b.label} />
+                <td className="py-2.5 pr-3">
+                  <span className={cn('inline-block h-2 w-2 rounded-full', b.dot)} title={b.label} />
                 </td>
-                <td className="max-w-[16rem] py-2 pr-3 text-slate-600 dark:text-slate-300">
-                  <div className="truncate">{r.description || '—'}</div>
+                <td className="max-w-[16rem] py-2.5 pr-3 text-cy-ink">
+                  <div className="truncate font-semibold">{r.description || '—'}</div>
                   {r.reasons && r.reasons.length > 0 && (
-                    <div className="mt-0.5 truncate text-xs text-slate-400" title={r.reasons.join(' · ')}>
+                    <div className="mt-0.5 truncate text-[11.5px] text-cy-faint" title={r.reasons.join(' · ')}>
                       {r.reasons[0]}
                     </div>
                   )}
                 </td>
-                <td className="py-2 pr-3">
+                <td className="py-2.5 pr-3">
                   {r.activity_key ? (
                     <>
-                      <span className="font-mono text-xs text-slate-700 dark:text-slate-200">
+                      <span className="font-mono text-[11.5px] text-cy-ink">
                         {r.activity_key}
                       </span>
                       {r.provenance?.factor_source && (
                         <div
-                          className="mt-0.5 text-xs text-slate-400"
+                          className="mt-0.5 text-[11.5px] text-cy-faint"
                           title={r.provenance.method_label || undefined}
                         >
                           {r.provenance.factor_source}
@@ -790,48 +722,41 @@ function ReviewGrid({
                       )}
                     </>
                   ) : (
-                    <span className="text-xs italic text-amber-500">unmapped</span>
+                    <span className="text-[11.5px] italic text-cy-warn">unmapped</span>
                   )}
                 </td>
-                <td className="py-2 pr-3">
-                  {r.scope && SCOPE[r.scope] ? (
+                <td className="py-2.5 pr-3">
+                  {r.scope ? (
                     <div>
-                      <span
-                        className={cn(
-                          'inline-flex items-center rounded px-1.5 py-0.5 text-xs font-semibold',
-                          SCOPE[r.scope].chip
-                        )}
-                      >
-                        {SCOPE[r.scope].label}
-                      </span>
+                      <ScopeBadge scope={r.scope as 1 | 2 | 3} size="sm" />
                       {r.category_code && CATEGORY_NAMES[r.category_code] && (
-                        <div className="mt-0.5 text-xs text-slate-500">
+                        <div className="mt-0.5 text-[11.5px] text-cy-muted">
                           {r.category_code} · {CATEGORY_NAMES[r.category_code]}
                         </div>
                       )}
                     </div>
                   ) : (
-                    <span className="text-xs text-slate-400">—</span>
+                    <span className="text-[11.5px] text-cy-faint">—</span>
                   )}
                 </td>
-                <td className="py-2 pr-3 text-slate-600 dark:text-slate-300">
+                <td className="py-2.5 pr-3 tabular-nums text-cy-muted">
                   {r.quantity != null ? `${r.quantity} ${r.unit ?? ''}` : '—'}
                 </td>
-                <td className="py-2 pr-3">
-                  <span className={cn('text-xs font-medium', b.text)}>
+                <td className="py-2.5 pr-3">
+                  <span className={cn('text-[12px] font-semibold tabular-nums', b.text)}>
                     {Math.round(r.confidence * 100)}%
                   </span>
                   {r.commit_error && (
-                    <div className="text-xs text-red-500" title={r.commit_error}>
+                    <div className="text-[11.5px] text-error" title={r.commit_error}>
                       not added
                     </div>
                   )}
                 </td>
-                <td className="py-2 pr-3">
+                <td className="py-2.5 pr-3">
                   {r.measurement_tier && TIER[r.measurement_tier] ? (
                     <span
                       className={cn(
-                        'inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium',
+                        'inline-flex items-center rounded-full px-2 py-[2.5px] text-[10px] font-semibold tracking-[0.03em]',
                         TIER[r.measurement_tier].chip
                       )}
                       title={
@@ -842,22 +767,22 @@ function ReviewGrid({
                       {TIER[r.measurement_tier].label}
                     </span>
                   ) : (
-                    <span className="text-xs text-slate-400">—</span>
+                    <span className="text-[11.5px] text-cy-faint">—</span>
                   )}
                 </td>
                 {!readOnly && (
-                  <td className="py-2 pr-3">
+                  <td className="py-2.5 pr-3">
                     {r.status === 'committed' ? (
-                      <span className="text-xs text-emerald-500">added</span>
+                      <span className="text-[11.5px] font-semibold text-cy-accent">added</span>
                     ) : (
                       <div className="flex gap-1">
                         <button
                           onClick={() => onPatch(r, 'approved')}
                           className={cn(
-                            'rounded px-2 py-0.5 text-xs',
+                            'cursor-pointer rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition-colors',
                             r.status === 'approved'
-                              ? 'bg-emerald-500 text-white'
-                              : 'border border-slate-300 text-slate-500 hover:border-emerald-400 dark:border-slate-700'
+                              ? 'bg-cy-accent text-white'
+                              : 'bg-cy-row text-cy-muted hover:text-cy-ink'
                           )}
                         >
                           Keep
@@ -865,10 +790,10 @@ function ReviewGrid({
                         <button
                           onClick={() => onPatch(r, 'rejected')}
                           className={cn(
-                            'rounded px-2 py-0.5 text-xs',
+                            'cursor-pointer rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition-colors',
                             r.status === 'rejected'
-                              ? 'bg-red-500 text-white'
-                              : 'border border-slate-300 text-slate-500 hover:border-red-400 dark:border-slate-700'
+                              ? 'bg-error text-white'
+                              : 'bg-cy-row text-cy-muted hover:text-cy-ink'
                           )}
                         >
                           Drop

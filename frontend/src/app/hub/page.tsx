@@ -13,58 +13,34 @@ import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppShell } from '@/components/layout';
-import { Card, CardContent, Button, toast } from '@/components/ui';
+import { Surface, PanelLabel, PageHead, StatCells, type StatCell } from '@/components/canopy';
+import { Button, toast } from '@/components/ui';
 import { usePeriods, useSites } from '@/hooks/useEmissions';
 import { useHubOverview, useSaveHubProfile } from '@/hooks/useHub';
 import { usePeriodStore } from '@/stores/period';
 import { CategoryDrawer } from '@/components/hub/CategoryDrawer';
 import { api, HubCategory, HubRelevance } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import {
-  UploadCloud,
-  HelpCircle,
-  CheckCircle2,
-  XCircle,
-  CircleDashed,
-  Loader2,
-  ArrowRight,
-  Ban,
-  FileSpreadsheet,
-  PlusCircle,
-  ChevronRight,
-} from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 const SESSION_STATUS: Record<string, { label: string; chip: string }> = {
-  needs_answers: {
-    label: 'Questions waiting',
-    chip: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300',
-  },
-  ready_for_review: {
-    label: 'Ready to review',
-    chip: 'bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300',
-  },
-  committed: {
-    label: 'In ledger',
-    chip: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
-  },
-  analyzing: {
-    label: 'Analyzing…',
-    chip: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
-  },
-  failed: {
-    label: 'Failed',
-    chip: 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300',
-  },
+  needs_answers: { label: 'Questions waiting', chip: 'bg-cy-warn-soft text-cy-warn' },
+  ready_for_review: { label: 'Ready to review', chip: 'bg-info-50 text-info' },
+  committed: { label: 'In ledger', chip: 'bg-cy-accent-soft text-cy-accent' },
+  analyzing: { label: 'Analyzing…', chip: 'bg-cy-row text-cy-muted' },
+  failed: { label: 'Failed', chip: 'bg-error-50 text-error' },
 };
 
 // The data-quality ladder colours — same language as the import review grid.
 const TIER_SEGMENT: Record<string, { bar: string; label: string }> = {
-  measured: { bar: 'bg-emerald-500', label: 'Measured' },
-  calculated: { bar: 'bg-teal-500', label: 'Calculated' },
-  estimated: { bar: 'bg-amber-500', label: 'Estimated' },
-  gap: { bar: 'bg-slate-400', label: 'Gap' },
+  measured: { bar: 'bg-cy-accent', label: 'Measured' },
+  calculated: { bar: 'bg-cy-scope3', label: 'Calculated' },
+  estimated: { bar: 'bg-cy-warn', label: 'Estimated' },
+  gap: { bar: 'bg-cy-faint/40', label: 'Gap' },
 };
 const TIER_ORDER = ['measured', 'calculated', 'estimated', 'gap'] as const;
+// "In ledger" = banked — ink, distinct from every ladder tier.
+const LEDGER_BAR = 'bg-cy-ink/60';
 
 const SCOPE_SECTIONS: { title: string; blurb: string; match: (c: HubCategory) => boolean }[] = [
   { title: 'Scope 1 — Direct emissions', blurb: 'Fuel you burn, vehicles you run, refrigerants you lose', match: (c) => c.scope === 1 },
@@ -81,30 +57,10 @@ const SCOPE_SECTIONS: { title: string; blurb: string; match: (c: HubCategory) =>
   },
 ];
 
-const RELEVANCE_OPTIONS: {
-  value: HubRelevance;
-  label: string;
-  icon: typeof CheckCircle2;
-  active: string;
-}[] = [
-  {
-    value: 'relevant',
-    label: 'Relevant',
-    icon: CheckCircle2,
-    active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
-  },
-  {
-    value: 'not_relevant',
-    label: 'Not relevant',
-    icon: XCircle,
-    active: 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  },
-  {
-    value: 'not_sure',
-    label: 'Not sure',
-    icon: CircleDashed,
-    active: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300',
-  },
+const RELEVANCE_OPTIONS: { value: HubRelevance; label: string; active: string }[] = [
+  { value: 'relevant', label: 'Relevant', active: 'bg-cy-accent-soft text-cy-accent' },
+  { value: 'not_relevant', label: 'Not relevant', active: 'bg-cy-surface text-cy-muted shadow-sm' },
+  { value: 'not_sure', label: 'Not sure', active: 'bg-cy-warn-soft text-cy-warn' },
 ];
 
 function CoverageBar({ category }: { category: HubCategory }) {
@@ -114,23 +70,20 @@ function CoverageBar({ category }: { category: HubCategory }) {
 
   if (relevance === 'not_relevant') {
     return (
-      <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
-        <Ban className="h-3.5 w-3.5 shrink-0" />
-        <span className="truncate italic">{profile?.exclusion_reason || 'Excluded'}</span>
-      </div>
+      <p className="truncate text-[12px] italic text-cy-faint">
+        {profile?.exclusion_reason || 'Excluded'}
+      </p>
     );
   }
 
   if (total === 0) {
     return (
       <div className="flex items-center gap-2">
-        <div className="h-2 flex-1 rounded-full bg-slate-100 dark:bg-slate-800" />
+        <div className="h-1.5 flex-1 rounded-full bg-cy-row" />
         <span
           className={cn(
-            'shrink-0 text-xs font-medium',
-            relevance === 'relevant'
-              ? 'text-rose-500 dark:text-rose-400'
-              : 'text-slate-400 dark:text-slate-500'
+            'shrink-0 text-[12px] font-semibold',
+            relevance === 'relevant' ? 'text-cy-warn' : 'text-cy-faint'
           )}
         >
           {relevance === 'relevant' ? 'No data yet' : '—'}
@@ -141,10 +94,10 @@ function CoverageBar({ category }: { category: HubCategory }) {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="flex h-2 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+      <div className="flex h-1.5 flex-1 overflow-hidden rounded-full bg-cy-row">
         {coverage.committed_count > 0 && (
           <div
-            className="bg-indigo-500"
+            className={LEDGER_BAR}
             style={{ width: `${(coverage.committed_count / total) * 100}%` }}
             title={`${coverage.committed_count} in ledger`}
           />
@@ -162,7 +115,7 @@ function CoverageBar({ category }: { category: HubCategory }) {
           );
         })}
       </div>
-      <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">
+      <span className="shrink-0 text-[12px] tabular-nums text-cy-muted">
         {total} {total === 1 ? 'row' : 'rows'}
         {coverage.committed_count > 0 && ` · ${coverage.committed_count} in ledger`}
       </span>
@@ -207,23 +160,23 @@ function CategoryRow({
   return (
     <div
       className={cn(
-        'grid grid-cols-1 gap-2 px-4 py-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1.6fr)_auto] sm:items-center sm:gap-4',
+        'grid grid-cols-1 gap-2 py-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1.6fr)_auto] sm:items-center sm:gap-4',
         relevance === 'not_relevant' && 'opacity-60'
       )}
     >
-      <button type="button" onClick={() => onOpen(category)} className="min-w-0 text-left">
+      <button type="button" onClick={() => onOpen(category)} className="min-w-0 cursor-pointer text-left">
         <div className="flex items-baseline gap-2">
-          <span className="text-xs font-mono text-slate-400 dark:text-slate-500">{category.code}</span>
-          <span className="truncate text-sm font-medium text-slate-800 hover:text-emerald-600 dark:text-slate-100 dark:hover:text-emerald-400">
+          <span className="font-mono text-[11px] text-cy-faint">{category.code}</span>
+          <span className="truncate text-[13px] font-semibold text-cy-ink hover:text-cy-accent">
             {category.name}
           </span>
           {category.profile?.data_owner && (
-            <span className="hidden truncate text-xs text-slate-400 lg:inline">
+            <span className="hidden truncate text-[11.5px] text-cy-faint lg:inline">
               · {category.profile.data_owner}
             </span>
           )}
         </div>
-        <p className="truncate text-xs text-slate-500 dark:text-slate-400">{category.description}</p>
+        <p className="truncate text-[12px] text-cy-muted">{category.description}</p>
       </button>
 
       <CoverageBar category={category} />
@@ -232,16 +185,14 @@ function CategoryRow({
         {category.coverage.open_questions > 0 && (
           <Link
             href="/ingest"
-            className="flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-200 dark:bg-amber-950/60 dark:text-amber-300"
+            className="shrink-0 rounded-full bg-cy-warn-soft px-2 py-0.5 text-[11px] font-bold text-cy-warn"
             title="Open questions from your uploads"
           >
-            <HelpCircle className="h-3 w-3" />
-            {category.coverage.open_questions}
+            ? {category.coverage.open_questions}
           </Link>
         )}
-        <div className="flex shrink-0 rounded-lg border border-slate-200 p-0.5 dark:border-slate-700">
+        <div className="flex shrink-0 rounded-full bg-cy-row p-0.5">
           {RELEVANCE_OPTIONS.map((opt) => {
-            const Icon = opt.icon;
             const isActive = relevance === opt.value && reasonDraft === null;
             return (
               <button
@@ -251,14 +202,11 @@ function CategoryRow({
                 onClick={() => pick(opt.value)}
                 title={opt.label}
                 className={cn(
-                  'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
-                  isActive
-                    ? opt.active
-                    : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
+                  'cursor-pointer rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition-colors',
+                  isActive ? opt.active : 'text-cy-faint hover:text-cy-muted'
                 )}
               >
-                <Icon className="h-3.5 w-3.5" />
-                <span className="hidden lg:inline">{opt.label}</span>
+                {opt.label}
               </button>
             );
           })}
@@ -273,7 +221,7 @@ function CategoryRow({
             onChange={(e) => setReasonDraft(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && confirmExclusion()}
             placeholder="Why is this not relevant? e.g. “No district heating at any site”"
-            className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900"
+            className="flex-1 rounded-[10px] border-0 bg-cy-row px-3 py-2 text-[13px] font-semibold text-cy-ink placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
           />
           <Button size="sm" onClick={confirmExclusion} disabled={saving}>
             Exclude
@@ -341,20 +289,35 @@ export default function HubPage() {
     );
   };
 
+  const statCells: StatCell[] | null = data
+    ? [
+        {
+          label: 'Categories relevant',
+          value: String(data.stats.relevant),
+          sub: `/ ${data.stats.total_categories}`,
+        },
+        {
+          label: 'Relevant with data',
+          value: String(data.stats.with_data),
+          sub: data.stats.relevant ? `/ ${data.stats.relevant}` : undefined,
+        },
+        { label: 'Open questions', value: String(data.stats.open_questions) },
+        { label: 'Still undecided', value: String(data.stats.not_sure) },
+      ]
+    : null;
+
   return (
     <AppShell>
-      <div className="mx-auto max-w-5xl space-y-6">
+      <div className="mx-auto max-w-5xl space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Data Hub</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Your whole inventory in one place — what&apos;s relevant, what&apos;s arrived, what&apos;s
-              still missing.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+          <PageHead
+            title="Data hub"
+            subtitle="Everything Climatrix knows comes through here — files in, verified numbers out."
+          />
+          <div className="mb-[22px] flex flex-wrap items-center gap-2">
             <Button
               variant="ghost"
+              size="sm"
               onClick={() =>
                 api
                   .downloadPunchList(periodId)
@@ -364,14 +327,13 @@ export default function HubPage() {
               }
               title="The auditor punch-list: what's solid, what's estimated, what's missing"
             >
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
               Verification pack
             </Button>
             {(sites?.length ?? 0) > 1 && (
               <select
                 value={siteId}
                 onChange={(e) => setSiteId(e.target.value)}
-                className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                className="cursor-pointer rounded-full border-0 bg-cy-row px-3 py-1.5 text-[12px] font-semibold text-cy-ink focus:outline-none focus:ring-2 focus:ring-cy-accent"
                 title="Which profile layer to view/edit — coverage is org-wide"
               >
                 <option value="">All sites (org profile)</option>
@@ -381,44 +343,37 @@ export default function HubPage() {
               </select>
             )}
             <Link href="/activities?add=1">
-              <Button variant="outline">
-                <PlusCircle className="mr-2 h-4 w-4" />
+              <Button variant="secondary" size="sm">
                 Add manually
-              </Button>
-            </Link>
-            <Link href="/ingest">
-              <Button>
-                <UploadCloud className="mr-2 h-4 w-4" />
-                Upload data
               </Button>
             </Link>
           </div>
         </div>
 
         {/* Drop several files at once — each becomes its own upload session */}
-        <div
+        <Surface
+          padding="none"
+          tint="soft"
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
             if (e.dataTransfer.files?.length) uploadFiles(e.dataTransfer.files);
           }}
           onClick={() => !uploading && fileRef.current?.click()}
-          className={cn(
-            'flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-3 text-sm transition-colors',
-            uploading
-              ? 'border-emerald-400 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
-              : 'border-slate-300 text-slate-500 hover:border-emerald-400 dark:border-slate-700 dark:text-slate-400'
-          )}
+          className="cursor-pointer px-6 py-7 text-center"
         >
           {uploading ? (
-            <>
+            <p className="flex items-center justify-center gap-2 text-[13px] font-semibold text-cy-accent">
               <Loader2 className="h-4 w-4 animate-spin" />
               Reading {uploading}…
-            </>
+            </p>
           ) : (
             <>
-              <UploadCloud className="h-4 w-4" />
-              Drop one or many files here — invoices export, fuel cards, the CLIMATRIX template…
+              <p className="text-[14px] font-bold text-cy-ink">Drop a file to import</p>
+              <p className="mt-1 text-[12.5px] text-cy-muted">
+                One or many — invoices export, fuel cards, the CLIMATRIX template. Climatrix reads
+                it and asks only what it can&apos;t infer.
+              </p>
             </>
           )}
           <input
@@ -429,47 +384,13 @@ export default function HubPage() {
             accept=".xlsx,.xlsm,.csv"
             onChange={(e) => e.target.files?.length && uploadFiles(e.target.files)}
           />
-        </div>
+        </Surface>
 
-        {data && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-2xl font-semibold text-slate-900 dark:text-white">
-                  {data.stats.relevant}
-                  <span className="text-sm font-normal text-slate-400"> / {data.stats.total_categories}</span>
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Categories relevant</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-2xl font-semibold text-slate-900 dark:text-white">
-                  {data.stats.with_data}
-                  <span className="text-sm font-normal text-slate-400">
-                    {' '}/ {data.stats.relevant || '—'}
-                  </span>
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Relevant with data</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-2xl font-semibold text-amber-600 dark:text-amber-400">
-                  {data.stats.open_questions}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Open questions</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-2xl font-semibold text-slate-900 dark:text-white">
-                  {data.stats.not_sure}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Still undecided</p>
-              </CardContent>
-            </Card>
-          </div>
+        {statCells && (
+          <Surface>
+            <PanelLabel>Your inventory map</PanelLabel>
+            <StatCells cells={statCells} />
+          </Surface>
         )}
 
         {/* The chase list — relevant categories still waiting for data */}
@@ -482,93 +403,72 @@ export default function HubPage() {
           );
           if (missing.length === 0) return null;
           return (
-            <Card className="border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20">
-              <CardContent className="p-4">
-                <p className="mb-2 text-sm font-semibold text-slate-900 dark:text-white">
-                  Still missing — your chase list
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {missing.map((c) => (
-                    <button
-                      key={c.code}
-                      onClick={() => setDrawer(c)}
-                      className="rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-transparent dark:text-amber-300"
-                    >
-                      {c.code} {c.name}
-                      {c.profile?.data_owner && ` → ask ${c.profile.data_owner}`}
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <Surface tint="warn">
+              <PanelLabel className="text-cy-warn">Still missing — your chase list</PanelLabel>
+              <div className="flex flex-wrap gap-1.5">
+                {missing.map((c) => (
+                  <button
+                    key={c.code}
+                    onClick={() => setDrawer(c)}
+                    className="cursor-pointer rounded-full bg-cy-surface px-3 py-1 text-[12px] font-semibold text-cy-ink hover:text-cy-accent"
+                  >
+                    {c.code} {c.name}
+                    {c.profile?.data_owner && ` → ask ${c.profile.data_owner}`}
+                  </button>
+                ))}
+              </div>
+            </Surface>
           );
         })()}
 
         {recentSessions.length > 0 && (
-          <Card>
-            <CardContent className="p-0">
-              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-                    Recent uploads
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Every file lands here — answer its questions, review, commit.
-                  </p>
-                </div>
-              </div>
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {recentSessions.map((s) => {
-                  const meta = SESSION_STATUS[s.status] ?? {
-                    label: s.status,
-                    chip: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
-                  };
-                  return (
-                    <Link
-                      key={s.id}
-                      href={`/ingest?session=${s.id}`}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-900/50"
-                    >
-                      <FileSpreadsheet className="h-4 w-4 shrink-0 text-slate-400" />
-                      <span className="min-w-0 flex-1 truncate text-sm text-slate-800 dark:text-slate-200">
-                        {s.filename}
-                      </span>
-                      <span className="hidden text-xs text-slate-400 sm:inline">
-                        {s.total_rows} rows
-                        {s.open_question_count > 0 && ` · ${s.open_question_count} open questions`}
-                      </span>
-                      <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', meta.chip)}>
-                        {meta.label}
-                      </span>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
-                    </Link>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+          <Surface>
+            <PanelLabel>In review</PanelLabel>
+            <div className="divide-y divide-cy-row">
+              {recentSessions.map((s) => {
+                const meta = SESSION_STATUS[s.status] ?? {
+                  label: s.status,
+                  chip: 'bg-cy-row text-cy-muted',
+                };
+                return (
+                  <Link
+                    key={s.id}
+                    href={`/ingest?session=${s.id}`}
+                    className="flex items-center gap-3 py-2.5 hover:bg-cy-row/40"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-cy-ink">
+                      {s.filename}
+                    </span>
+                    <span className="hidden text-[12px] tabular-nums text-cy-muted sm:inline">
+                      {s.total_rows} rows
+                      {s.open_question_count > 0 && ` · ${s.open_question_count} open questions`}
+                    </span>
+                    <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-bold', meta.chip)}>
+                      {meta.label}
+                    </span>
+                    <span className="text-cy-faint" aria-hidden="true">→</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </Surface>
         )}
 
         {setupMode && (
-          <Card className="border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20">
-            <CardContent className="flex items-start gap-3 p-4">
-              <ArrowRight className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-              <div className="text-sm text-slate-700 dark:text-slate-300">
-                <p className="font-medium text-slate-900 dark:text-white">
-                  Start by mapping your inventory — two clicks per row.
-                </p>
-                <p className="mt-0.5 text-slate-500 dark:text-slate-400">
-                  Mark each category as relevant or not. This becomes your reporting boundary: it
-                  tells the parser what to expect and tells you what&apos;s still missing. You can
-                  change any answer later.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <Surface tint="soft">
+            <p className="text-[13px] font-bold text-cy-ink">
+              Start by mapping your inventory — two clicks per row.
+            </p>
+            <p className="mt-0.5 max-w-[62ch] text-[12.5px] text-cy-muted">
+              Mark each category as relevant or not. This becomes your reporting boundary: it
+              tells the parser what to expect and tells you what&apos;s still missing. You can
+              change any answer later.
+            </p>
+          </Surface>
         )}
 
         {isLoading && (
-          <div className="flex items-center justify-center gap-2 py-16 text-slate-400">
+          <div className="flex items-center justify-center gap-2 py-16 text-cy-faint">
             <Loader2 className="h-5 w-5 animate-spin" />
             Loading your inventory map…
           </div>
@@ -579,38 +479,32 @@ export default function HubPage() {
             const cats = data.categories.filter(section.match);
             if (cats.length === 0) return null;
             return (
-              <Card key={section.title}>
-                <CardContent className="p-0">
-                  <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-                    <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-                      {section.title}
-                    </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{section.blurb}</p>
-                  </div>
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {cats.map((c) => (
-                      <CategoryRow
-                        key={c.code}
-                        category={c}
-                        onRelevance={handleRelevance}
-                        onOpen={setDrawer}
-                        saving={saveProfile.isPending}
-                      />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <Surface key={section.title}>
+                <PanelLabel>{section.title}</PanelLabel>
+                <p className="-mt-2.5 mb-2 text-[12px] text-cy-muted">{section.blurb}</p>
+                <div className="divide-y divide-cy-row">
+                  {cats.map((c) => (
+                    <CategoryRow
+                      key={c.code}
+                      category={c}
+                      onRelevance={handleRelevance}
+                      onOpen={setDrawer}
+                      saving={saveProfile.isPending}
+                    />
+                  ))}
+                </div>
+              </Surface>
             );
           })}
 
         {data && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs text-slate-400 dark:text-slate-500">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11.5px] text-cy-faint">
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-indigo-500" /> In ledger
+              <span className={cn('h-[7px] w-[7px] rounded-full', LEDGER_BAR)} /> In ledger
             </span>
             {TIER_ORDER.map((tier) => (
               <span key={tier} className="flex items-center gap-1.5">
-                <span className={cn('h-2 w-2 rounded-full', TIER_SEGMENT[tier].bar)} />
+                <span className={cn('h-[7px] w-[7px] rounded-full', TIER_SEGMENT[tier].bar)} />
                 {TIER_SEGMENT[tier].label}
               </span>
             ))}
