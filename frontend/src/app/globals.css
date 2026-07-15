@@ -406,6 +406,100 @@
 }
 
 /* =============================================================================
+   CANOPY — Console × Guide design system (locked 2026-07-15, Forest rail)
+
+   Phase 1: additive, namespaced cy-* tokens. Nothing outside components/canopy
+   uses them yet; legacy tokens above are re-pointed in batch 2.1 and deleted
+   in batch 2.7. Source of truth: DESIGN-REVISION-PLAN.md §0 + §2.1.
+   ============================================================================= */
+
+:root,
+.light {
+  /* canvas & surfaces */
+  --cy-canvas: #F4F7F5;
+  --cy-surface: #FFFFFF;
+  --cy-ink: #212724;
+  --cy-muted: #67716B;
+  --cy-faint: #939C96;
+  --cy-row: #EDF2EE;
+  /* accent & functional */
+  --cy-accent: #1F7A5C;
+  --cy-accent-soft: #E4F1EB;
+  --cy-warn: #A97614;
+  --cy-warn-soft: #F6EEDC;
+  --cy-error: #B04A3A;
+  /* GHG scopes */
+  --cy-scope1: #BC6434;
+  --cy-scope2: #1F7A5C;
+  --cy-scope3: #52639E;
+  /* forest rail */
+  --cy-rail-bg: #17342A;
+  --cy-rail-ink: #E3EFE8;
+  --cy-rail-muted: #8FAC9F;
+  --cy-rail-faint: #6C8A7D;
+  --cy-rail-soft: #24473A;
+  --cy-rail-accent: #7ED0AC;
+  --cy-rail-divider: rgba(255, 255, 255, 0.08);
+  /* elevation */
+  --cy-shadow-surface: 0 1px 2px rgba(25, 40, 32, 0.04), 0 10px 28px -18px rgba(25, 40, 32, 0.14);
+  /* type: self-hosted Nunito Sans sets --font-canopy on the Canopy shell;
+     this fallback keeps font-cy sane outside it */
+  --font-canopy-stack: "Avenir Next", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.dark {
+  --cy-canvas: #141816;
+  --cy-surface: #1C211E;
+  --cy-ink: #E5E9E6;
+  --cy-muted: #94A099;
+  --cy-faint: #6A756E;
+  --cy-row: #242B27;
+  --cy-accent: #5EC49A;
+  --cy-accent-soft: #1E322A;
+  --cy-warn: #D9A94E;
+  --cy-warn-soft: #33301F;
+  --cy-error: #CE7A6B;
+  --cy-scope1: #D98B5F;
+  --cy-scope2: #5EC49A;
+  --cy-scope3: #94A3DB;
+  --cy-rail-bg: #10231C;
+  --cy-rail-ink: #DDEBE3;
+  --cy-rail-muted: #84A294;
+  --cy-rail-faint: #5F7D6F;
+  --cy-rail-soft: #1D3A2E;
+  --cy-rail-accent: #7ED0AC;
+  --cy-rail-divider: rgba(255, 255, 255, 0.07);
+  --cy-shadow-surface: 0 1px 2px rgba(0, 0, 0, 0.28), 0 10px 28px -18px rgba(0, 0, 0, 0.45);
+}
+
+@theme inline {
+  --color-cy-canvas: var(--cy-canvas);
+  --color-cy-surface: var(--cy-surface);
+  --color-cy-ink: var(--cy-ink);
+  --color-cy-muted: var(--cy-muted);
+  --color-cy-faint: var(--cy-faint);
+  --color-cy-row: var(--cy-row);
+  --color-cy-accent: var(--cy-accent);
+  --color-cy-accent-soft: var(--cy-accent-soft);
+  --color-cy-warn: var(--cy-warn);
+  --color-cy-warn-soft: var(--cy-warn-soft);
+  --color-cy-error: var(--cy-error);
+  --color-cy-scope1: var(--cy-scope1);
+  --color-cy-scope2: var(--cy-scope2);
+  --color-cy-scope3: var(--cy-scope3);
+  --color-cy-rail: var(--cy-rail-bg);
+  --color-cy-rail-ink: var(--cy-rail-ink);
+  --color-cy-rail-muted: var(--cy-rail-muted);
+  --color-cy-rail-faint: var(--cy-rail-faint);
+  --color-cy-rail-soft: var(--cy-rail-soft);
+  --color-cy-rail-accent: var(--cy-rail-accent);
+  --color-cy-rail-divider: var(--cy-rail-divider);
+  --shadow-cy-surface: var(--cy-shadow-surface);
+  --radius-cy: 16px;
+  --font-cy: var(--font-canopy, var(--font-canopy-stack));
+}
+
+/* =============================================================================
    BASE STYLES
    ============================================================================= */
 

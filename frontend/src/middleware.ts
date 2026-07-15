@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const PUBLIC_PATHS = new Set([
   '/login',
+  '/design-preview', // dev-only Canopy kit QA surface; 404s in production builds
   '/try',
   '/cbam-check',
   '/pricing',
