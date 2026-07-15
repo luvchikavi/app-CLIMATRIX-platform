@@ -3,8 +3,18 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth';
-import { api, AdminStats, AdminOrganization, AdminUser, AdminActivity, AdminOrgReport } from '@/lib/api';
+import {
+  api,
+  AdminStats,
+  AdminOrganization,
+  AdminUser,
+  AdminActivity,
+  AdminOrgReport,
+  CockpitData,
+} from '@/lib/api';
 import { AppShell } from '@/components/layout';
+import { LeadsPanel } from '@/components/admin/LeadsPanel';
+import { Surface, PanelLabel, StatCells, BarList } from '@/components/canopy';
 import {
   Card,
   CardHeader,
@@ -25,7 +35,6 @@ import {
   Building2,
   Users,
   Activity,
-  TrendingUp,
   RefreshCw,
   ChevronRight,
   ArrowLeft,
@@ -35,7 +44,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 
-type TabType = 'overview' | 'organizations' | 'users' | 'activities';
+type TabType = 'overview' | 'leads' | 'organizations' | 'users' | 'activities';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -47,6 +56,7 @@ export default function AdminDashboard() {
 
   // Data states
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [cockpit, setCockpit] = useState<CockpitData | null>(null);
   const [organizations, setOrganizations] = useState<AdminOrganization[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [activities, setActivities] = useState<AdminActivity[]>([]);
@@ -81,13 +91,15 @@ export default function AdminDashboard() {
     setIsLoading(true);
     setError(null);
     try {
-      const [statsData, orgsData, usersData, activitiesData] = await Promise.all([
+      const [statsData, cockpitData, orgsData, usersData, activitiesData] = await Promise.all([
         api.getAdminStats(),
+        api.getAdminCockpit(),
         api.getAdminOrganizations(),
         api.getAdminUsers(),
         api.getAdminActivities(0, 50),
       ]);
       setStats(statsData);
+      setCockpit(cockpitData);
       setOrganizations(orgsData);
       setUsers(usersData);
       setActivities(activitiesData);
@@ -118,7 +130,6 @@ export default function AdminDashboard() {
 
   // Organization detail view
   if (selectedOrg && orgReport) {
-    const org = organizations.find(o => o.id === selectedOrg);
     return (
       <AppShell>
         {/* Header */}
@@ -236,10 +247,10 @@ export default function AdminDashboard() {
         <div>
           <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground flex items-center gap-2">
             <Shield className="w-6 h-6 text-primary" />
-            Admin Dashboard
+            Super admin
           </h1>
           <p className="text-foreground-muted mt-1">
-            View all organizations, users, and activity logs
+            The company cockpit — platform, revenue and pipeline at a glance.
           </p>
         </div>
         <Button
@@ -269,58 +280,45 @@ export default function AdminDashboard() {
 
       {!isLoading && stats && (
         <>
-          {/* Stats Overview */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <Card padding="md">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary-light">
-                  <Building2 className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-foreground-muted">Organizations</p>
-                  <p className="text-[16px] font-[650] tabular-nums">{stats.total_organizations}</p>
-                </div>
-              </div>
-            </Card>
-            <Card padding="md">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-info-light">
-                  <Users className="w-5 h-5 text-info" />
-                </div>
-                <div>
-                  <p className="text-sm text-foreground-muted">Users</p>
-                  <p className="text-[16px] font-[650] tabular-nums">{stats.total_users}</p>
-                </div>
-              </div>
-            </Card>
-            <Card padding="md">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-success-light">
-                  <Activity className="w-5 h-5 text-success" />
-                </div>
-                <div>
-                  <p className="text-sm text-foreground-muted">Activities</p>
-                  <p className="text-[16px] font-[650] tabular-nums">{stats.total_activities}</p>
-                </div>
-              </div>
-            </Card>
-            <Card padding="md">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-warning-light">
-                  <TrendingUp className="w-5 h-5 text-warning" />
-                </div>
-                <div>
-                  <p className="text-sm text-foreground-muted">Total CO2e</p>
-                  <p className="text-[16px] font-[650] tabular-nums">{stats.total_co2e_tonnes.toFixed(1)}t</p>
-                </div>
-              </div>
-            </Card>
-          </div>
+          {/* Company glance: platform + revenue + pipeline in one quiet band */}
+          <Surface className="mb-8">
+            <PanelLabel>Company · at a glance</PanelLabel>
+            <StatCells
+              cells={[
+                {
+                  label: 'Organizations',
+                  value: String(cockpit?.organizations_total ?? stats.total_organizations),
+                  sub: `${cockpit?.organizations_active ?? '—'} active`,
+                },
+                { label: 'Users', value: String(stats.total_users) },
+                {
+                  label: 'MRR (list-price est.)',
+                  value: `$${(cockpit?.mrr_usd ?? 0).toLocaleString()}`,
+                  sub: `${cockpit?.paying_orgs ?? 0} paying`,
+                },
+                { label: 'Active trials', value: String(cockpit?.trialing_orgs ?? 0) },
+                {
+                  label: 'Open leads',
+                  value: String(cockpit?.leads_open ?? 0),
+                  sub: `of ${cockpit?.leads_total ?? 0}`,
+                },
+                { label: 'Activities', value: stats.total_activities.toLocaleString() },
+                {
+                  label: 'Tracked emissions',
+                  value: stats.total_co2e_tonnes.toLocaleString(undefined, {
+                    maximumFractionDigits: 0,
+                  }),
+                  sub: 't CO₂e',
+                },
+              ]}
+            />
+          </Surface>
 
           {/* Tabs */}
           <div className="flex gap-2 mb-6 border-b border-cy-row pb-2">
             {[
               { key: 'overview', label: 'Overview', icon: BarChart3 },
+              { key: 'leads', label: 'Leads', icon: Users },
               { key: 'organizations', label: 'Organizations', icon: Building2 },
               { key: 'users', label: 'Users', icon: Users },
               { key: 'activities', label: 'Activity Log', icon: Activity },
@@ -341,6 +339,117 @@ export default function AdminDashboard() {
           </div>
 
           {/* Tab Content */}
+          {activeTab === 'overview' && cockpit && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {/* Signups — last 14 days */}
+              <Surface>
+                <PanelLabel>Signups · last 14 days</PanelLabel>
+                {(() => {
+                  const max = Math.max(1, ...cockpit.signups_14d.map((d) => d.signups));
+                  return (
+                    <BarList
+                      items={cockpit.signups_14d.slice(-7).map((d) => ({
+                        label: new Date(d.day).toLocaleDateString(undefined, {
+                          weekday: 'short',
+                          day: 'numeric',
+                        }),
+                        value: String(d.signups),
+                        pct: (d.signups / max) * 100,
+                      }))}
+                    />
+                  );
+                })()}
+                <p className="mt-4 text-[11.5px] text-cy-muted">
+                  {cockpit.signups_14d.reduce((sum, d) => sum + d.signups, 0)} signups in 14
+                  days
+                </p>
+              </Surface>
+
+              {/* Lead pipeline + plans */}
+              <Surface>
+                <PanelLabel>Lead pipeline</PanelLabel>
+                {(() => {
+                  const max = Math.max(1, ...cockpit.lead_pipeline.map((s) => s.count));
+                  return (
+                    <BarList
+                      items={cockpit.lead_pipeline.map((s) => ({
+                        label: s.status,
+                        value: String(s.count),
+                        pct: (s.count / max) * 100,
+                      }))}
+                    />
+                  );
+                })()}
+                <div className="mt-5">
+                  <PanelLabel>Plans</PanelLabel>
+                  <StatCells
+                    cells={cockpit.plans.map((p) => ({
+                      label: p.plan,
+                      value: String(p.orgs),
+                      sub: p.mrr_usd > 0 ? `$${p.mrr_usd.toLocaleString()}/mo` : undefined,
+                    }))}
+                  />
+                </div>
+              </Surface>
+
+              {/* Recent leads */}
+              <Surface>
+                <PanelLabel>Recent leads</PanelLabel>
+                {cockpit.recent_leads.length === 0 ? (
+                  <p className="text-[12.5px] text-cy-muted">
+                    No leads yet — the website forms and the CBAM checker feed this list.
+                  </p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {cockpit.recent_leads.map((lead) => (
+                      <div
+                        key={`${lead.email}-${lead.created_at}`}
+                        className="flex items-center justify-between gap-3 text-[12.5px]"
+                      >
+                        <span className="min-w-0 truncate text-cy-ink">{lead.email}</span>
+                        <span className="whitespace-nowrap text-cy-muted">
+                          {lead.source} · {lead.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={() => setActiveTab('leads')}
+                  className="mt-4 text-[12.5px] font-bold text-cy-accent"
+                >
+                  Open the lead CRM →
+                </button>
+              </Surface>
+
+              {/* Recent signups */}
+              <Surface>
+                <PanelLabel>Recent signups</PanelLabel>
+                {cockpit.recent_signups.length === 0 ? (
+                  <p className="text-[12.5px] text-cy-muted">No signups yet.</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {cockpit.recent_signups.map((signup) => (
+                      <div
+                        key={`${signup.email}-${signup.created_at}`}
+                        className="flex items-center justify-between gap-3 text-[12.5px]"
+                      >
+                        <span className="min-w-0 truncate text-cy-ink">{signup.email}</span>
+                        <span className="whitespace-nowrap text-cy-muted">
+                          {signup.organization_name} ·{' '}
+                          {new Date(signup.created_at).toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Surface>
+            </div>
+          )}
+
           {activeTab === 'overview' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Recent Organizations */}
@@ -406,6 +515,8 @@ export default function AdminDashboard() {
               </Card>
             </div>
           )}
+
+          {activeTab === 'leads' && <LeadsPanel />}
 
           {activeTab === 'organizations' && (
             <Card>

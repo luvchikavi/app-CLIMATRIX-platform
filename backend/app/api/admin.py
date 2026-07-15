@@ -88,6 +88,59 @@ class AdminStats(BaseModel):
     activities_this_month: int
 
 
+# Self-serve list prices until Stripe webhooks land (cockpit phase 3).
+PLAN_PRICES_USD = {"starter": 99, "professional": 349}
+
+
+class CockpitDay(BaseModel):
+    day: str  # ISO date
+    signups: int
+
+
+class CockpitPlanSlice(BaseModel):
+    plan: str
+    orgs: int
+    mrr_usd: float
+
+
+class CockpitLeadSlice(BaseModel):
+    status: str
+    count: int
+
+
+class CockpitRecentSignup(BaseModel):
+    email: str
+    organization_name: str
+    created_at: datetime
+
+
+class CockpitRecentLead(BaseModel):
+    email: str
+    source: str
+    status: str
+    created_at: datetime
+
+
+class CockpitOut(BaseModel):
+    """Everything the super-admin overview needs in one round-trip."""
+
+    organizations_total: int
+    organizations_active: int
+    users_total: int
+    activities_total: int
+    total_co2e_tonnes: float
+    mrr_usd: float
+    paying_orgs: int
+    trialing_orgs: int
+    leads_total: int
+    leads_open: int
+    signups_14d: list[CockpitDay]
+    plans: list[CockpitPlanSlice]
+    lead_pipeline: list[CockpitLeadSlice]
+    recent_signups: list[CockpitRecentSignup]
+    recent_leads: list[CockpitRecentLead]
+
+
 class CreateUserRequest(BaseModel):
     """Request to create a new user."""
 
@@ -159,6 +212,142 @@ async def get_admin_stats(
         total_co2e_tonnes=total_co2e_kg / 1000,
         active_organizations=active_orgs,
         activities_this_month=activities_this_month,
+    )
+
+
+@router.get("/cockpit", response_model=CockpitOut)
+async def get_cockpit(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[User, Depends(require_super_admin)],
+):
+    """The company cockpit: platform, revenue and pipeline at a glance.
+
+    Aggregation happens in Python over slim column selects — org and lead
+    counts are small, and this keeps the queries portable (SQLite + PG).
+    """
+    from datetime import date, timedelta
+
+    from app.models.crm import Lead
+
+    org_rows = (
+        await session.execute(
+            select(
+                Organization.subscription_plan,
+                Organization.subscription_status,
+                Organization.is_active,
+            )
+        )
+    ).all()
+    organizations_total = len(org_rows)
+    organizations_active = sum(1 for r in org_rows if r.is_active)
+
+    plan_counts: dict[str, int] = {}
+    paying_orgs = 0
+    trialing_orgs = 0
+    mrr_usd = 0.0
+    for r in org_rows:
+        plan = (r.subscription_plan or "free").lower()
+        status = (r.subscription_status or "").lower()
+        if status == "trialing":
+            trialing_orgs += 1
+        if status == "active" and plan in PLAN_PRICES_USD:
+            paying_orgs += 1
+            mrr_usd += PLAN_PRICES_USD[plan]
+        plan_counts[plan] = plan_counts.get(plan, 0) + 1
+    plans = [
+        CockpitPlanSlice(
+            plan=plan,
+            orgs=count,
+            mrr_usd=float(PLAN_PRICES_USD.get(plan, 0) * count),
+        )
+        for plan, count in sorted(plan_counts.items(), key=lambda kv: -kv[1])
+    ]
+
+    users_total = (await session.execute(select(func.count(User.id)))).scalar() or 0
+    activities_total = (
+        await session.execute(select(func.count(Activity.id)))
+    ).scalar() or 0
+    total_co2e_kg = (
+        await session.execute(select(func.sum(Emission.co2e_kg)))
+    ).scalar() or 0
+
+    # Signups per day, last 14 days (bucketed in Python — the volume is tiny).
+    cutoff = date.today() - timedelta(days=13)
+    signup_dates = (
+        (
+            await session.execute(
+                select(User.created_at).where(
+                    User.created_at >= datetime.combine(cutoff, datetime.min.time())
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    by_day: dict[str, int] = {
+        (cutoff + timedelta(days=i)).isoformat(): 0 for i in range(14)
+    }
+    for created in signup_dates:
+        key = created.date().isoformat()
+        if key in by_day:
+            by_day[key] += 1
+    signups_14d = [CockpitDay(day=d, signups=n) for d, n in by_day.items()]
+
+    lead_rows = (await session.execute(select(Lead.status))).scalars().all()
+    lead_counts: dict[str, int] = {}
+    for status in lead_rows:
+        lead_counts[status] = lead_counts.get(status, 0) + 1
+    lead_pipeline = [
+        CockpitLeadSlice(status=s, count=lead_counts.get(s, 0))
+        for s in ("new", "contacted", "trial", "customer", "lost")
+    ]
+    leads_total = len(lead_rows)
+    leads_open = lead_counts.get("new", 0) + lead_counts.get("contacted", 0)
+
+    recent_signup_rows = (
+        await session.execute(
+            select(User.email, User.created_at, Organization.name)
+            .join(Organization, User.organization_id == Organization.id)
+            .order_by(User.created_at.desc())
+            .limit(8)
+        )
+    ).all()
+    recent_signups = [
+        CockpitRecentSignup(email=email, organization_name=org_name, created_at=created)
+        for email, created, org_name in recent_signup_rows
+    ]
+
+    recent_lead_rows = (
+        (await session.execute(select(Lead).order_by(Lead.created_at.desc()).limit(8)))
+        .scalars()
+        .all()
+    )
+    recent_leads = [
+        CockpitRecentLead(
+            email=lead.email,
+            source=lead.source,
+            status=lead.status,
+            created_at=lead.created_at,
+        )
+        for lead in recent_lead_rows
+    ]
+
+    return CockpitOut(
+        organizations_total=organizations_total,
+        organizations_active=organizations_active,
+        users_total=users_total,
+        activities_total=activities_total,
+        total_co2e_tonnes=float(total_co2e_kg) / 1000,
+        mrr_usd=mrr_usd,
+        paying_orgs=paying_orgs,
+        trialing_orgs=trialing_orgs,
+        leads_total=leads_total,
+        leads_open=leads_open,
+        signups_14d=signups_14d,
+        plans=plans,
+        lead_pipeline=lead_pipeline,
+        recent_signups=recent_signups,
+        recent_leads=recent_leads,
     )
 
 

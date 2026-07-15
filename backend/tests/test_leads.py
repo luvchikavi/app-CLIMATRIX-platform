@@ -71,7 +71,7 @@ async def test_list_leads_requires_auth(client):
 
 
 @pytest.mark.asyncio
-async def test_admin_list_and_filters(client, auth_headers):
+async def test_admin_list_and_filters(client, admin_headers):
     """Admin can list leads newest-first with status/source filters."""
     await client.post(
         "/api/leads",
@@ -83,7 +83,7 @@ async def test_admin_list_and_filters(client, auth_headers):
     )
 
     # List all
-    resp = await client.get("/api/leads", headers=auth_headers)
+    resp = await client.get("/api/leads", headers=admin_headers)
     assert resp.status_code == 200
     leads = resp.json()
     assert len(leads) >= 2
@@ -92,7 +92,7 @@ async def test_admin_list_and_filters(client, auth_headers):
     assert emails.index("b@example.com") < emails.index("a@example.com")
 
     # Filter by source
-    resp = await client.get("/api/leads?source=forum", headers=auth_headers)
+    resp = await client.get("/api/leads?source=forum", headers=admin_headers)
     assert resp.status_code == 200
     forum_leads = resp.json()
     assert all(lead["source"] == "forum" for lead in forum_leads)
@@ -100,7 +100,7 @@ async def test_admin_list_and_filters(client, auth_headers):
 
 
 @pytest.mark.asyncio
-async def test_admin_update_status_and_notes(client, auth_headers):
+async def test_admin_update_status_and_notes(client, admin_headers):
     """Admin can update a lead's status and notes."""
     created = await client.post(
         "/api/leads",
@@ -110,7 +110,7 @@ async def test_admin_update_status_and_notes(client, auth_headers):
 
     resp = await client.patch(
         f"/api/leads/{lead_id}",
-        headers=auth_headers,
+        headers=admin_headers,
         json={"status": "contacted", "notes": "Emailed on Monday"},
     )
     assert resp.status_code == 200, resp.text
@@ -120,12 +120,12 @@ async def test_admin_update_status_and_notes(client, auth_headers):
     assert body["updated_at"] is not None
 
     # Status filter now reflects the update.
-    listing = await client.get("/api/leads?status=contacted", headers=auth_headers)
+    listing = await client.get("/api/leads?status=contacted", headers=admin_headers)
     assert any(lead["id"] == lead_id for lead in listing.json())
 
 
 @pytest.mark.asyncio
-async def test_admin_update_rejects_invalid_status(client, auth_headers):
+async def test_admin_update_rejects_invalid_status(client, admin_headers):
     created = await client.post(
         "/api/leads",
         json={"email": "invalid-status@example.com", "source": "manual"},
@@ -134,7 +134,38 @@ async def test_admin_update_rejects_invalid_status(client, auth_headers):
 
     resp = await client.patch(
         f"/api/leads/{lead_id}",
-        headers=auth_headers,
+        headers=admin_headers,
         json={"status": "nonsense"},
     )
     assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_list_leads_forbidden_for_org_admin(client, auth_headers):
+    """The lead book is company-internal: org admins get 403, not the pipeline."""
+    resp = await client.get("/api/leads", headers=auth_headers)
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_update_lead_forbidden_for_org_admin(client, auth_headers, admin_headers):
+    created = await client.post(
+        "/api/leads",
+        json={"email": "gated@example.com", "source": "manual"},
+    )
+    lead_id = created.json()["id"]
+
+    resp = await client.patch(
+        f"/api/leads/{lead_id}",
+        headers=auth_headers,
+        json={"status": "contacted"},
+    )
+    assert resp.status_code == 403
+
+    # Super admin still can.
+    resp = await client.patch(
+        f"/api/leads/{lead_id}",
+        headers=admin_headers,
+        json={"status": "contacted"},
+    )
+    assert resp.status_code == 200

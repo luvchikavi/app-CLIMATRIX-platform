@@ -1770,6 +1770,10 @@ class ApiClient {
     return this.fetch<AdminStats>('/admin/stats');
   }
 
+  async getAdminCockpit(): Promise<CockpitData> {
+    return this.fetch<CockpitData>('/admin/cockpit');
+  }
+
   async getAdminOrganizations(skip = 0, limit = 50): Promise<AdminOrganization[]> {
     return this.fetch<AdminOrganization[]>(`/admin/organizations?skip=${skip}&limit=${limit}`);
   }
@@ -2795,6 +2799,24 @@ export interface AdminStats {
   total_co2e_tonnes: number;
   active_organizations: number;
   activities_this_month: number;
+}
+
+export interface CockpitData {
+  organizations_total: number;
+  organizations_active: number;
+  users_total: number;
+  activities_total: number;
+  total_co2e_tonnes: number;
+  mrr_usd: number;
+  paying_orgs: number;
+  trialing_orgs: number;
+  leads_total: number;
+  leads_open: number;
+  signups_14d: { day: string; signups: number }[];
+  plans: { plan: string; orgs: number; mrr_usd: number }[];
+  lead_pipeline: { status: string; count: number }[];
+  recent_signups: { email: string; organization_name: string; created_at: string }[];
+  recent_leads: { email: string; source: string; status: string; created_at: string }[];
 }
 
 export interface AdminOrganization {

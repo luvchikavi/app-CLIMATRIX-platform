@@ -72,14 +72,10 @@ export function AppShell({ children }: AppShellProps) {
       })),
       { label: 'Activities', href: '/activities', active: isActive('/activities') },
       { label: 'Sites', href: '/sites', active: isActive('/sites') },
-      { label: 'Leads', href: '/leads', active: isActive('/leads') },
       { label: 'Billing', href: '/billing', active: isActive('/billing') },
       { label: 'Roadmap', href: '/roadmap', active: isActive('/roadmap') },
       ...(isSuperAdmin
-        ? [
-            { label: 'Admin', href: '/admin', active: isActive('/admin') },
-            { label: 'Audit trail', href: '/audit', active: isActive('/audit') },
-          ]
+        ? [{ label: 'Audit trail', href: '/audit', active: isActive('/audit') }]
         : []),
     ];
 
@@ -91,7 +87,23 @@ export function AppShell({ children }: AppShellProps) {
       // Secondary sections sit behind hairlines: the collapsible Tools group,
       // then Settings on its own.
       { label: 'Tools', items: tools, separatorBefore: true },
-      { label: 'Settings', href: '/settings', active: isActive('/settings'), separatorBefore: true },
+      // The company cockpit (dashboard + CRM) — internal, super admins only.
+      ...(isSuperAdmin
+        ? [
+            {
+              label: 'Super admin',
+              href: '/admin',
+              active: isActive('/admin') || isActive('/leads'),
+              separatorBefore: true,
+            },
+          ]
+        : []),
+      {
+        label: 'Settings',
+        href: '/settings',
+        active: isActive('/settings'),
+        separatorBefore: !isSuperAdmin,
+      },
     ];
   }, [pathname, user?.role]);
 

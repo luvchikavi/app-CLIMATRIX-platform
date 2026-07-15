@@ -15,7 +15,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.api.auth import get_current_user
+from app.api.admin import require_super_admin
 from app.config import settings
 from app.database import get_session
 from app.rate_limit import limiter
@@ -151,7 +151,7 @@ async def list_leads(
     source: Optional[str] = Query(default=None, description="Filter by source"),
     limit: int = Query(default=200, le=1000),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: Annotated[User, Depends(get_current_user)] = None,
+    current_user: Annotated[User, Depends(require_super_admin)] = None,
 ):
     """List leads, newest first. Admin only. Optional status/source filters."""
     query = select(Lead)
@@ -174,7 +174,7 @@ async def update_lead(
     lead_id: UUID,
     payload: LeadUpdate,
     session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: Annotated[User, Depends(get_current_user)] = None,
+    current_user: Annotated[User, Depends(require_super_admin)] = None,
 ):
     """Update a lead's status and/or notes. Admin only."""
     result = await session.execute(select(Lead).where(Lead.id == lead_id))
@@ -206,7 +206,7 @@ async def update_lead(
 async def send_follow_up(
     lead_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: Annotated[User, Depends(get_current_user)] = None,
+    current_user: Annotated[User, Depends(require_super_admin)] = None,
 ):
     """Send the follow-up email to a lead and move it to 'contacted'. Admin only."""
     from app.services.email import email_service
