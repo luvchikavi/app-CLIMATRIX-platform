@@ -5,16 +5,18 @@ import { Rail, RailProps } from './Rail';
 
 /**
  * Canopy app frame: forest rail + sage canvas, content floating on surfaces.
- * Phase 1 is presentational; batch 2.1 replaces layout/AppShell with this and
- * carries over its auth/trial logic.
+ * Presentational — layout/AppShell wraps it with auth/setup/trial logic;
+ * /design-preview renders it with static props.
  */
 export interface ShellProps {
   rail: RailProps;
+  /** the quiet top-right cluster (period · theme · user) */
+  topbar?: ReactNode;
   children: ReactNode;
   className?: string;
 }
 
-export function Shell({ rail, children, className }: ShellProps) {
+export function Shell({ rail, topbar, children, className }: ShellProps) {
   return (
     <div
       className={cn(
@@ -25,7 +27,10 @@ export function Shell({ rail, children, className }: ShellProps) {
     >
       <div className="lg:grid lg:grid-cols-[224px_1fr]">
         <Rail {...rail} />
-        <main className="px-5 pt-6 pb-11 lg:px-9 lg:pt-7">{children}</main>
+        <main id="main-content" className="min-w-0 px-5 pt-4 pb-11 lg:px-9">
+          {topbar ? <div className="mb-3">{topbar}</div> : <div className="pt-3" />}
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ export {
   type JourneyStepState,
 } from './Rail';
 export { Shell, PageHead, type ShellProps } from './Shell';
+export { TopBar } from './TopBar';
 export { FocusCard, type FocusCardProps } from './FocusCard';
 export { StatCells, type StatCell } from './StatCells';
 export { BarList, type BarListItem } from './BarList';

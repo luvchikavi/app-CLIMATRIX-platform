@@ -1,37 +1,36 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth';
-import { Sidebar } from './Sidebar';
-import { Header } from './Header';
 import { TrialBanner, UpgradePrompt } from './TrialStatus';
 import { SampleDataBanner } from '@/components/SampleDataBanner';
-import { cn } from '@/lib/utils';
+import { Shell, TopBar, type RailNavGroup, type RailNavItem } from '@/components/canopy';
+import { useJourney } from '@/hooks/useJourney';
+import { MODULE_REGISTRY } from '@/lib/modules';
 import { Loader2 } from 'lucide-react';
 
 interface AppShellProps {
   children: React.ReactNode;
 }
 
+/**
+ * The authenticated app frame (batch 2.1: Canopy). Auth redirect, setup gate,
+ * trial/sample banners and the upgrade modal carry over from the old shell;
+ * the chrome is now canopy/Shell — forest rail (journey + nav) and the quiet
+ * top-right cluster instead of a fixed header.
+ */
 export function AppShell({ children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, isLoading, organization } = useAuthStore();
+  const { isAuthenticated, isLoading, organization, user } = useAuthStore();
+  const { steps } = useJourney();
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // Wait one tick for the persisted auth store to rehydrate — redirecting on the
   // very first render bounced hard page-loads of authed routes back to login.
   const [mounted, setMounted] = useState(false);
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount; no behavior change
   useEffect(() => setMounted(true), []);
-
-  // Close mobile menu on route change
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
-    setMobileMenuOpen(false);
-  }, [pathname]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -54,13 +53,53 @@ export function AppShell({ children }: AppShellProps) {
     }
   }, [isAuthenticated, isLoading, organization, pathname, router]);
 
+  const nav = useMemo<(RailNavItem | RailNavGroup)[]>(() => {
+    const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
+    const isSuperAdmin = user?.role === 'super_admin';
+
+    // Decarbonization is the rail's "Plan" entry; the other modules live
+    // under Tools with the rest of the secondary pages (IA per decision #5).
+    const tools: RailNavItem[] = [
+      ...MODULE_REGISTRY.filter((m) => m.id !== 'decarbonization').map((m) => ({
+        label: m.name,
+        href: m.href,
+        active: isActive(m.href),
+        ...(m.status === 'coming-soon'
+          ? { disabled: true }
+          : m.status === 'beta'
+            ? { badge: 'Beta' }
+            : {}),
+      })),
+      { label: 'Activities', href: '/activities', active: isActive('/activities') },
+      { label: 'Sites', href: '/sites', active: isActive('/sites') },
+      { label: 'Leads', href: '/leads', active: isActive('/leads') },
+      { label: 'Billing', href: '/billing', active: isActive('/billing') },
+      { label: 'Roadmap', href: '/roadmap', active: isActive('/roadmap') },
+      ...(isSuperAdmin
+        ? [
+            { label: 'Admin', href: '/admin', active: isActive('/admin') },
+            { label: 'Audit trail', href: '/audit', active: isActive('/audit') },
+          ]
+        : []),
+    ];
+
+    return [
+      { label: 'Dashboard', href: '/dashboard', active: isActive('/dashboard') },
+      { label: 'Data hub', href: '/hub', active: isActive('/hub') || isActive('/ingest') || isActive('/import') },
+      { label: 'Plan', href: '/decarbonization', active: isActive('/decarbonization') },
+      { label: 'Reports', href: '/reports', active: isActive('/reports') },
+      { label: 'Tools', items: tools },
+      { label: 'Settings', href: '/settings', active: isActive('/settings') },
+    ];
+  }, [pathname, user?.role]);
+
   // Show loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-cy-canvas">
         <div className="text-center">
-          <Loader2 className="w-10 h-10 text-primary animate-spin mx-auto mb-4" />
-          <p className="text-foreground-muted">Loading...</p>
+          <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-cy-accent" />
+          <p className="text-cy-muted">Loading...</p>
         </div>
       </div>
     );
@@ -72,57 +111,15 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:block">
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-        />
-      </div>
-
-      {/* Mobile Sidebar Overlay */}
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
-
-      {/* Mobile Sidebar */}
-      <div
-        className={cn(
-          'fixed inset-y-0 left-0 z-40 w-[280px] bg-background-elevated border-r border-border',
-          'transform transition-transform duration-300 ease-in-out lg:hidden',
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        )}
-      >
-        <Sidebar onToggle={() => setMobileMenuOpen(false)} />
-      </div>
-
-      {/* Header */}
-      <Header
-        onMenuClick={() => setMobileMenuOpen(true)}
-        sidebarCollapsed={sidebarCollapsed}
-      />
-
-      {/* Main Content */}
-      <main
-        id="main-content"
-        className={cn(
-          'pt-16 min-h-screen transition-all duration-300',
-          sidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-[280px]'
-        )}
-      >
-        <div className="p-4 md:p-6 lg:p-8">
-          <TrialBanner />
-          <SampleDataBanner />
-          {children}
-        </div>
-      </main>
+    <>
+      <Shell rail={{ steps, nav }} topbar={<TopBar />}>
+        <TrialBanner />
+        <SampleDataBanner />
+        {children}
+      </Shell>
 
       {/* 402 limit-reached upgrade modal (global) */}
       <UpgradePrompt />
-    </div>
+    </>
   );
 }

@@ -1,16 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Open_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { cn } from "@/lib/utils";
-
-// Open Sans is the single CLIMATRIX brand font (Latin + Hebrew for the Israeli audience).
-const openSans = Open_Sans({
-  subsets: ["latin", "hebrew"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-sans",
-  display: "swap",
-});
+// Canopy's self-hosted Nunito Sans (batch 2.1) — the single app face.
+// Latin-only: Hebrew strings fall back to the system stack (app UI is English).
+import { canopyFont } from "@/components/canopy/font";
 
 export const metadata: Metadata = {
   title: "CLIMATRIX - GHG Emissions Platform",
@@ -45,8 +39,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F8FAFC" },
-    { media: "(prefers-color-scheme: dark)", color: "#020617" },
+    { media: "(prefers-color-scheme: light)", color: "#F4F7F5" },
+    { media: "(prefers-color-scheme: dark)", color: "#141816" },
   ],
 };
 
@@ -56,13 +50,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={cn("font-sans", openSans.variable)}>
-      <head>
-        {/* Preconnect to Google Fonts for performance */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      </head>
-      <body className={`${openSans.variable} font-sans antialiased`}>
+    <html lang="en" suppressHydrationWarning className={cn("font-sans", canopyFont.variable)}>
+      <body className={`${canopyFont.variable} font-sans antialiased`}>
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-lg focus:text-sm focus:font-medium focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"

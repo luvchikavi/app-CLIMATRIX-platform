@@ -20,73 +20,74 @@
 :root {
   /* -------------------------------------------------------------------------
      COLOR PALETTE - Primary
-     Derived from climatrix.io branding
+     Batch 2.1: legacy scales alias to Canopy so un-migrated pages inherit the
+     palette through the names they already use. Deleted in batch 2.7.
      ------------------------------------------------------------------------- */
-  --color-primary-50: #E6F3FF;
-  --color-primary-100: #CCE7FF;
-  --color-primary-200: #99CFFF;
-  --color-primary-300: #66B7FF;
-  --color-primary-400: #339FFF;
-  --color-primary-500: #0073E6;  /* Main brand color */
-  --color-primary-600: #0059B3;
-  --color-primary-700: #004080;
-  --color-primary-800: #002B57;
-  --color-primary-900: #00162E;
+  --color-primary-50: var(--cy-accent-soft);
+  --color-primary-100: var(--cy-accent-soft);
+  --color-primary-200: color-mix(in srgb, var(--cy-accent) 25%, var(--cy-surface));
+  --color-primary-300: color-mix(in srgb, var(--cy-accent) 45%, var(--cy-surface));
+  --color-primary-400: color-mix(in srgb, var(--cy-accent) 70%, var(--cy-surface));
+  --color-primary-500: var(--cy-accent);
+  --color-primary-600: color-mix(in srgb, var(--cy-accent) 85%, #000000);
+  --color-primary-700: color-mix(in srgb, var(--cy-accent) 72%, #000000);
+  --color-primary-800: color-mix(in srgb, var(--cy-accent) 58%, #000000);
+  --color-primary-900: color-mix(in srgb, var(--cy-accent) 45%, #000000);
 
   /* -------------------------------------------------------------------------
-     COLOR PALETTE - Secondary (Green - Sustainability)
+     COLOR PALETTE - Secondary (folds into the single Canopy accent)
      ------------------------------------------------------------------------- */
-  --color-secondary-50: #E6F7F0;
-  --color-secondary-100: #CCEFE1;
-  --color-secondary-200: #99DFC3;
-  --color-secondary-300: #66CFA5;
-  --color-secondary-400: #33BF87;
-  --color-secondary-500: #00A86B;  /* Sustainability green */
-  --color-secondary-600: #008555;
-  --color-secondary-700: #00623E;
-  --color-secondary-800: #003F28;
-  --color-secondary-900: #001C12;
+  --color-secondary-50: var(--cy-accent-soft);
+  --color-secondary-100: var(--cy-accent-soft);
+  --color-secondary-200: color-mix(in srgb, var(--cy-accent) 25%, var(--cy-surface));
+  --color-secondary-300: color-mix(in srgb, var(--cy-accent) 45%, var(--cy-surface));
+  --color-secondary-400: color-mix(in srgb, var(--cy-accent) 70%, var(--cy-surface));
+  --color-secondary-500: var(--cy-accent);
+  --color-secondary-600: color-mix(in srgb, var(--cy-accent) 85%, #000000);
+  --color-secondary-700: color-mix(in srgb, var(--cy-accent) 72%, #000000);
+  --color-secondary-800: color-mix(in srgb, var(--cy-accent) 58%, #000000);
+  --color-secondary-900: color-mix(in srgb, var(--cy-accent) 45%, #000000);
 
   /* -------------------------------------------------------------------------
-     COLOR PALETTE - Accent (Orange - Alerts/Actions)
+     COLOR PALETTE - Accent (legacy action orange → Canopy warn amber)
      ------------------------------------------------------------------------- */
-  --color-accent-50: #FFF3ED;
-  --color-accent-100: #FFE7DB;
-  --color-accent-200: #FFCFB7;
-  --color-accent-300: #FFB793;
-  --color-accent-400: #FF9F6F;
-  --color-accent-500: #FF6B35;  /* Action orange */
-  --color-accent-600: #CC552A;
-  --color-accent-700: #993F20;
-  --color-accent-800: #662A15;
-  --color-accent-900: #33150B;
+  --color-accent-50: var(--cy-warn-soft);
+  --color-accent-100: var(--cy-warn-soft);
+  --color-accent-200: color-mix(in srgb, var(--cy-warn) 25%, var(--cy-surface));
+  --color-accent-300: color-mix(in srgb, var(--cy-warn) 45%, var(--cy-surface));
+  --color-accent-400: color-mix(in srgb, var(--cy-warn) 70%, var(--cy-surface));
+  --color-accent-500: var(--cy-warn);
+  --color-accent-600: color-mix(in srgb, var(--cy-warn) 85%, #000000);
+  --color-accent-700: color-mix(in srgb, var(--cy-warn) 72%, #000000);
+  --color-accent-800: color-mix(in srgb, var(--cy-warn) 58%, #000000);
+  --color-accent-900: color-mix(in srgb, var(--cy-warn) 45%, #000000);
 
   /* -------------------------------------------------------------------------
-     COLOR PALETTE - Semantic Colors
+     COLOR PALETTE - Semantic Colors (re-tuned to Canopy, plan §2.1)
      ------------------------------------------------------------------------- */
-  --color-success-50: #ECFDF5;
-  --color-success-100: #D1FAE5;
-  --color-success-500: #10B981;
-  --color-success-600: #059669;
-  --color-success-700: #047857;
+  --color-success-50: var(--cy-accent-soft);
+  --color-success-100: var(--cy-accent-soft);
+  --color-success-500: var(--cy-accent);
+  --color-success-600: color-mix(in srgb, var(--cy-accent) 85%, #000000);
+  --color-success-700: color-mix(in srgb, var(--cy-accent) 72%, #000000);
 
-  --color-warning-50: #FFFBEB;
-  --color-warning-100: #FEF3C7;
-  --color-warning-500: #F59E0B;
-  --color-warning-600: #D97706;
-  --color-warning-700: #B45309;
+  --color-warning-50: var(--cy-warn-soft);
+  --color-warning-100: var(--cy-warn-soft);
+  --color-warning-500: var(--cy-warn);
+  --color-warning-600: color-mix(in srgb, var(--cy-warn) 85%, #000000);
+  --color-warning-700: color-mix(in srgb, var(--cy-warn) 72%, #000000);
 
-  --color-error-50: #FEF2F2;
-  --color-error-100: #FEE2E2;
-  --color-error-500: #EF4444;
-  --color-error-600: #DC2626;
-  --color-error-700: #B91C1C;
+  --color-error-50: color-mix(in srgb, var(--cy-error) 12%, var(--cy-surface));
+  --color-error-100: color-mix(in srgb, var(--cy-error) 18%, var(--cy-surface));
+  --color-error-500: var(--cy-error);
+  --color-error-600: color-mix(in srgb, var(--cy-error) 85%, #000000);
+  --color-error-700: color-mix(in srgb, var(--cy-error) 72%, #000000);
 
-  --color-info-50: #EFF6FF;
-  --color-info-100: #DBEAFE;
-  --color-info-500: #3B82F6;
-  --color-info-600: #2563EB;
-  --color-info-700: #1D4ED8;
+  --color-info-50: color-mix(in srgb, var(--cy-scope3) 12%, var(--cy-surface));
+  --color-info-100: color-mix(in srgb, var(--cy-scope3) 18%, var(--cy-surface));
+  --color-info-500: var(--cy-scope3);
+  --color-info-600: color-mix(in srgb, var(--cy-scope3) 85%, #000000);
+  --color-info-700: color-mix(in srgb, var(--cy-scope3) 72%, #000000);
 
   /* -------------------------------------------------------------------------
      COLOR PALETTE - Neutrals (Gray Scale)
@@ -106,20 +107,20 @@
   --color-neutral-950: #020617;
 
   /* -------------------------------------------------------------------------
-     SCOPE COLORS (GHG Protocol Standard)
+     SCOPE COLORS (Canopy: S1 sienna · S2 green · S3 slate-blue)
      ------------------------------------------------------------------------- */
-  --color-scope1: #EF4444;  /* Red - Direct emissions */
-  --color-scope2: #F59E0B;  /* Amber - Energy indirect */
-  --color-scope3: #3B82F6;  /* Blue - Value chain */
+  --color-scope1: var(--cy-scope1);
+  --color-scope2: var(--cy-scope2);
+  --color-scope3: var(--cy-scope3);
 
-  --color-scope1-light: #FEE2E2;
-  --color-scope2-light: #FEF3C7;
-  --color-scope3-light: #DBEAFE;
+  --color-scope1-light: color-mix(in srgb, var(--cy-scope1) 14%, var(--cy-surface));
+  --color-scope2-light: color-mix(in srgb, var(--cy-scope2) 14%, var(--cy-surface));
+  --color-scope3-light: color-mix(in srgb, var(--cy-scope3) 14%, var(--cy-surface));
 
   /* -------------------------------------------------------------------------
-     TYPOGRAPHY - Open Sans (Apple-like)
+     TYPOGRAPHY - Nunito Sans (Canopy, self-hosted; set in layout.tsx)
      ------------------------------------------------------------------------- */
-  --font-family-sans: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  --font-family-sans: var(--font-canopy, var(--font-canopy-stack));
   --font-family-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', monospace;
 
   /* Font Sizes (using rem for accessibility) */
@@ -194,9 +195,9 @@
   --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
   --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
 
-  /* Card shadow (subtle elevation) */
-  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px 0 rgb(0 0 0 / 0.02);
-  --shadow-card-hover: 0 4px 12px 0 rgb(0 0 0 / 0.08);
+  /* Card shadow (Canopy soft elevation) */
+  --shadow-card: var(--cy-shadow-surface);
+  --shadow-card-hover: var(--cy-shadow-surface);
 
   /* -------------------------------------------------------------------------
      TRANSITIONS
@@ -229,45 +230,46 @@
   --max-content-width: 1440px;
 
   /* -------------------------------------------------------------------------
-     LIGHT THEME (Default)
+     SEMANTIC TOKENS (batch 2.1: all alias Canopy; cy-* flips per theme, so
+     one set of references serves light and dark)
      ------------------------------------------------------------------------- */
-  --background-elevated: var(--color-neutral-0);
-  --background-muted: var(--color-neutral-100);
-  --foreground-muted: var(--color-neutral-500);
-  --border: oklch(0.922 0 0);
-  --border-muted: var(--color-neutral-100);
-  --ring: var(--color-primary-500); /* CLIMATRIX brand blue */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: var(--color-primary-500); /* CLIMATRIX brand blue #0073E6 (was near-black shadcn default) */
-  --primary-foreground: var(--color-neutral-0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --input: oklch(0.922 0 0);
-  /* Chart palette: brand blue, brand green, then GHG scope colors */
-  --chart-1: var(--color-primary-500);   /* brand blue */
-  --chart-2: var(--color-secondary-500); /* brand green */
-  --chart-3: var(--color-scope1);        /* scope 1 (red) */
-  --chart-4: var(--color-scope2);        /* scope 2 (amber) */
-  --chart-5: var(--color-scope3);        /* scope 3 (blue) */
+  --background-elevated: var(--cy-surface);
+  --background-muted: var(--cy-row);
+  --foreground-muted: var(--cy-muted);
+  --border: var(--cy-row);
+  --border-muted: var(--cy-row);
+  --ring: var(--cy-accent);
+  --background: var(--cy-canvas);
+  --foreground: var(--cy-ink);
+  --card: var(--cy-surface);
+  --card-foreground: var(--cy-ink);
+  --popover: var(--cy-surface);
+  --popover-foreground: var(--cy-ink);
+  --primary: var(--cy-accent);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--cy-row);
+  --secondary-foreground: var(--cy-ink);
+  --muted: var(--cy-row);
+  --muted-foreground: var(--cy-muted);
+  --accent: var(--cy-row);
+  --accent-foreground: var(--cy-ink);
+  --destructive: var(--cy-error);
+  --input: var(--cy-row);
+  /* Chart palette: Canopy accent, then the scope colors */
+  --chart-1: var(--cy-accent);
+  --chart-2: var(--cy-scope3);
+  --chart-3: var(--cy-scope1);
+  --chart-4: var(--cy-warn);
+  --chart-5: var(--cy-faint);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: var(--color-primary-500); /* brand blue active nav */
-  --sidebar-primary-foreground: var(--color-neutral-0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: var(--color-primary-500);
+  --sidebar: var(--cy-rail-bg);
+  --sidebar-foreground: var(--cy-rail-ink);
+  --sidebar-primary: var(--cy-rail-accent);
+  --sidebar-primary-foreground: var(--cy-rail-bg);
+  --sidebar-accent: var(--cy-rail-soft);
+  --sidebar-accent-foreground: var(--cy-rail-ink);
+  --sidebar-border: var(--cy-rail-divider);
+  --sidebar-ring: var(--cy-rail-accent);
 }
 
 /* =============================================================================
@@ -277,55 +279,9 @@
    overrode a subset of tokens and fought the class strategy (half-dark render).
    ============================================================================= */
 
-/* Force light theme class */
-.light {
-  --background: var(--color-neutral-50);
-  --background-elevated: var(--color-neutral-0);
-  --background-muted: var(--color-neutral-100);
-  --foreground: var(--color-neutral-900);
-  --foreground-muted: var(--color-neutral-500);
-  --border: var(--color-neutral-200);
-  --border-muted: var(--color-neutral-100);
-}
-
-/* Force dark theme class */
-.dark {
-  --background: oklch(0.145 0 0);
-  --background-elevated: var(--color-neutral-900);
-  --background-muted: var(--color-neutral-800);
-  --foreground: oklch(0.985 0 0);
-  --foreground-muted: var(--color-neutral-400);
-  --border: oklch(1 0 0 / 10%);
-  --border-muted: var(--color-neutral-700);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
+/* Batch 2.1: the .light / .dark theme blocks moved to the Canopy section at
+   the end of this file — every semantic token above references cy-* variables,
+   which flip there. No legacy token is theme-switched separately anymore. */
 
 /* =============================================================================
    TAILWIND V4 THEME CONFIGURATION
@@ -369,9 +325,9 @@
   --color-scope3: var(--color-scope3);
 
   /* Typography */
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-family-sans);
   --font-mono: var(--font-family-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-family-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

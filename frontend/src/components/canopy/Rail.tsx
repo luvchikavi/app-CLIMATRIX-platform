@@ -1,12 +1,15 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 /**
  * The journey rail — the app chrome (design contract §0.1). Permanent left
  * rail on desktop: logo → "Your journey" steps → page nav pinned to the
- * bottom. Collapses to a top strip below lg (finalized in batch 2.1).
- * Phase 1 is presentational: states arrive as props; Phase 3's useJourney()
- * becomes the single source for them.
+ * bottom. Below lg it collapses to a top strip with a disclosure menu.
+ * Presentational: journey states arrive via props (useJourney provides them).
  */
 export type JourneyStepState = 'done' | 'now' | 'todo' | 'locked';
 
@@ -22,6 +25,10 @@ export interface RailNavItem {
   label: string;
   href: string;
   active?: boolean;
+  /** small chip after the label, e.g. "Beta", "AI" */
+  badge?: string;
+  /** renders faint with a "Soon" chip and doesn't navigate */
+  disabled?: boolean;
 }
 
 export interface RailNavGroup {
@@ -97,17 +104,66 @@ function JourneyStep({ step }: { step: RailJourneyStep }) {
   return <div className={cls}>{body}</div>;
 }
 
-function NavLink({ item }: { item: RailNavItem }) {
+function NavBadge({ children }: { children: string }) {
+  return (
+    <span className="ml-2 rounded-full bg-cy-rail-soft px-1.5 py-px align-[1px] text-[9.5px] font-bold tracking-[0.04em] text-cy-rail-accent">
+      {children}
+    </span>
+  );
+}
+
+function NavLink({ item, onNavigate }: { item: RailNavItem; onNavigate?: () => void }) {
+  if (item.disabled) {
+    return (
+      <span className="block cursor-not-allowed text-cy-rail-faint">
+        {item.label}
+        <span className="ml-2 rounded-full bg-cy-rail-soft px-1.5 py-px align-[1px] text-[9.5px] font-bold tracking-[0.04em] text-cy-rail-faint">
+          Soon
+        </span>
+      </span>
+    );
+  }
   return (
     <Link
       href={item.href}
+      onClick={onNavigate}
       className={cn(
         'block hover:text-cy-rail-ink',
         item.active ? 'font-semibold text-cy-rail-ink' : 'text-cy-rail-muted'
       )}
     >
       {item.label}
+      {item.badge && <NavBadge>{item.badge}</NavBadge>}
     </Link>
+  );
+}
+
+function NavList({
+  nav,
+  onNavigate,
+  className,
+}: {
+  nav: (RailNavItem | RailNavGroup)[];
+  onNavigate?: () => void;
+  className?: string;
+}) {
+  return (
+    <nav className={cn('flex flex-col gap-3 text-[12.5px]', className)}>
+      {nav.map((item) =>
+        isGroup(item) ? (
+          <div key={item.label}>
+            <p className="text-cy-rail-faint">{item.label} ▸</p>
+            <div className="mt-2 flex flex-col gap-2 pl-3">
+              {item.items.map((sub) => (
+                <NavLink key={sub.label} item={sub} onNavigate={onNavigate} />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <NavLink key={item.label} item={item} onNavigate={onNavigate} />
+        )
+      )}
+    </nav>
   );
 }
 
@@ -120,6 +176,15 @@ export function Logo({ className }: { className?: string }) {
 }
 
 export function Rail({ steps, nav, className }: RailProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Close the mobile menu on navigation.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync on route change
+    setMenuOpen(false);
+  }, [pathname]);
+
   return (
     <>
       {/* Desktop: the permanent rail */}
@@ -129,50 +194,60 @@ export function Rail({ steps, nav, className }: RailProps) {
           className
         )}
       >
-        <Logo className="mx-1 mt-0.5 mb-[30px]" />
+        <Link href="/dashboard" className="mx-1 mt-0.5 mb-[30px] block">
+          <Logo />
+        </Link>
         <p className="mx-1 mb-3 text-[10px] font-bold tracking-[0.1em] uppercase text-cy-rail-faint">
           Your journey
         </p>
         {steps.map((step) => (
           <JourneyStep key={step.title} step={step} />
         ))}
-        <nav className="mt-auto flex flex-col gap-3 border-t border-cy-rail-divider px-1 pt-[18px] pb-0.5 text-[12.5px]">
-          {nav.map((item) =>
-            isGroup(item) ? (
-              <div key={item.label}>
-                <p className="text-cy-rail-faint">{item.label} ▸</p>
-                <div className="mt-2 flex flex-col gap-2 pl-3">
-                  {item.items.map((sub) => (
-                    <NavLink key={sub.label} item={sub} />
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <NavLink key={item.label} item={item} />
-            )
-          )}
-        </nav>
+        <NavList
+          nav={nav}
+          className="mt-auto border-t border-cy-rail-divider px-1 pt-[18px] pb-0.5"
+        />
       </aside>
 
-      {/* Mobile: slim top journey strip */}
-      <div className="flex items-center gap-4 overflow-x-auto bg-cy-rail px-4 py-3 text-cy-rail-ink lg:hidden">
-        <Logo />
-        <div className="flex items-center gap-3">
-          {steps.map((step) => (
-            <span key={step.title} className="flex items-center gap-1.5 whitespace-nowrap">
-              <StepMarker state={step.state} />
-              <span
-                className={cn(
-                  'text-[12px] font-semibold',
-                  step.state === 'now' && 'text-cy-rail-accent',
-                  step.state === 'locked' && 'text-cy-rail-faint'
-                )}
-              >
-                {step.title}
+      {/* Mobile: slim top journey strip + disclosure nav */}
+      <div className="bg-cy-rail text-cy-rail-ink lg:hidden">
+        <div className="flex items-center gap-4 overflow-x-auto px-4 py-3">
+          <Link href="/dashboard">
+            <Logo />
+          </Link>
+          <div className="flex items-center gap-3">
+            {steps.map((step) => (
+              <span key={step.title} className="flex items-center gap-1.5 whitespace-nowrap">
+                <StepMarker state={step.state} />
+                <span
+                  className={cn(
+                    'text-[12px] font-semibold',
+                    step.state === 'now' && 'text-cy-rail-accent',
+                    step.state === 'locked' && 'text-cy-rail-faint'
+                  )}
+                >
+                  {step.title}
+                </span>
               </span>
-            </span>
-          ))}
+            ))}
+          </div>
+          <button
+            type="button"
+            aria-expanded={menuOpen}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            onClick={() => setMenuOpen((v) => !v)}
+            className="ml-auto rounded-[8px] px-2.5 py-1.5 text-[12.5px] font-semibold text-cy-rail-muted hover:text-cy-rail-ink"
+          >
+            {menuOpen ? '✕' : 'Menu'}
+          </button>
         </div>
+        {menuOpen && (
+          <NavList
+            nav={nav}
+            onNavigate={() => setMenuOpen(false)}
+            className="border-t border-cy-rail-divider px-5 py-4"
+          />
+        )}
       </div>
     </>
   );
