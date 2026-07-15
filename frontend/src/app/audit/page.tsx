@@ -158,7 +158,7 @@ function AuditPageContent() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Audit Trail</h1>
+          <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground">Audit Trail</h1>
           <p className="text-foreground-muted mt-1">
             Track all actions and changes in your organization
           </p>
@@ -174,7 +174,7 @@ function AuditPageContent() {
                 <History className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{auditStats.total_events.toLocaleString()}</p>
+                <p className="text-[16px] font-[650] tabular-nums text-foreground">{auditStats.total_events.toLocaleString()}</p>
                 <p className="text-sm text-foreground-muted">Total Events</p>
               </div>
             </div>
@@ -185,7 +185,7 @@ function AuditPageContent() {
                 <Activity className="w-5 h-5 text-success" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{auditStats.recent_activity_count}</p>
+                <p className="text-[16px] font-[650] tabular-nums text-foreground">{auditStats.recent_activity_count}</p>
                 <p className="text-sm text-foreground-muted">Last 24 Hours</p>
               </div>
             </div>
@@ -196,7 +196,7 @@ function AuditPageContent() {
                 <FileText className="w-5 h-5 text-secondary" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{Object.keys(auditStats.events_by_resource).length}</p>
+                <p className="text-[16px] font-[650] tabular-nums text-foreground">{Object.keys(auditStats.events_by_resource).length}</p>
                 <p className="text-sm text-foreground-muted">Resource Types</p>
               </div>
             </div>
@@ -207,7 +207,7 @@ function AuditPageContent() {
                 <Filter className="w-5 h-5 text-warning" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{Object.keys(auditStats.events_by_action).length}</p>
+                <p className="text-[16px] font-[650] tabular-nums text-foreground">{Object.keys(auditStats.events_by_action).length}</p>
                 <p className="text-sm text-foreground-muted">Action Types</p>
               </div>
             </div>

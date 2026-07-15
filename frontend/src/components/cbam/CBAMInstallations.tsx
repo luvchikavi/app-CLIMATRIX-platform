@@ -29,10 +29,10 @@ const CBAM_SECTORS: { value: CBAMSector; label: string }[] = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-700',
-  verified: 'bg-green-100 text-green-700',
-  rejected: 'bg-red-100 text-red-700',
-  expired: 'bg-gray-100 text-gray-700',
+  pending: 'bg-cy-warn-soft text-cy-warn',
+  verified: 'bg-cy-accent-soft text-cy-accent',
+  rejected: 'bg-error-50 text-error',
+  expired: 'bg-cy-row text-cy-ink',
 };
 
 export function CBAMInstallations() {

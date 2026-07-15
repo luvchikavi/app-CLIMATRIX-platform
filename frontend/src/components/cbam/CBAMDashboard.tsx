@@ -71,10 +71,10 @@ export function CBAMDashboard({ onNavigate }: CBAMDashboardProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">CBAM Dashboard</h1>
+          <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground">CBAM Dashboard</h1>
           <p className="text-foreground-muted">
             Carbon Border Adjustment Mechanism - {dashboard?.year}
-            <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+            <span className="ml-2 px-2 py-0.5 bg-info-50 text-info rounded text-xs font-medium">
               {dashboard?.phase === 'transitional' ? 'Transitional Phase' : 'Definitive Phase'}
             </span>
           </p>
@@ -136,7 +136,7 @@ export function CBAMDashboard({ onNavigate }: CBAMDashboardProps) {
                       </div>
                       <div className="h-2 bg-background-muted rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-blue-500 rounded-full transition-all"
+                          className="h-full bg-cy-scope3 rounded-full transition-all"
                           style={{ width: `${percentage}%` }}
                         />
                       </div>

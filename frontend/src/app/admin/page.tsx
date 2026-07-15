@@ -134,7 +134,7 @@ export default function AdminDashboard() {
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground flex items-center gap-2">
               <Building2 className="w-6 h-6" />
               {orgReport.organization.name}
             </h1>
@@ -150,7 +150,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-scope-1">Scope 1</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
+                <p className="text-[16px] font-[650] tabular-nums text-foreground mt-1">
                   {formatCO2e(orgReport.by_scope.scope_1.total_co2e_kg)}
                 </p>
               </div>
@@ -163,7 +163,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-scope-2">Scope 2</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
+                <p className="text-[16px] font-[650] tabular-nums text-foreground mt-1">
                   {formatCO2e(orgReport.by_scope.scope_2.total_co2e_kg)}
                 </p>
               </div>
@@ -176,7 +176,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-scope-3">Scope 3</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
+                <p className="text-[16px] font-[650] tabular-nums text-foreground mt-1">
                   {formatCO2e(orgReport.by_scope.scope_3.total_co2e_kg)}
                 </p>
               </div>
@@ -234,7 +234,7 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground flex items-center gap-2">
             <Shield className="w-6 h-6 text-primary" />
             Admin Dashboard
           </h1>
@@ -278,7 +278,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-foreground-muted">Organizations</p>
-                  <p className="text-2xl font-bold">{stats.total_organizations}</p>
+                  <p className="text-[16px] font-[650] tabular-nums">{stats.total_organizations}</p>
                 </div>
               </div>
             </Card>
@@ -289,7 +289,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-foreground-muted">Users</p>
-                  <p className="text-2xl font-bold">{stats.total_users}</p>
+                  <p className="text-[16px] font-[650] tabular-nums">{stats.total_users}</p>
                 </div>
               </div>
             </Card>
@@ -300,7 +300,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-foreground-muted">Activities</p>
-                  <p className="text-2xl font-bold">{stats.total_activities}</p>
+                  <p className="text-[16px] font-[650] tabular-nums">{stats.total_activities}</p>
                 </div>
               </div>
             </Card>
@@ -311,14 +311,14 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-foreground-muted">Total CO2e</p>
-                  <p className="text-2xl font-bold">{stats.total_co2e_tonnes.toFixed(1)}t</p>
+                  <p className="text-[16px] font-[650] tabular-nums">{stats.total_co2e_tonnes.toFixed(1)}t</p>
                 </div>
               </div>
             </Card>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 mb-6 border-b border-border pb-2">
+          <div className="flex gap-2 mb-6 border-b border-cy-row pb-2">
             {[
               { key: 'overview', label: 'Overview', icon: BarChart3 },
               { key: 'organizations', label: 'Organizations', icon: Building2 },

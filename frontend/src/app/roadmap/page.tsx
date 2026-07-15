@@ -55,14 +55,14 @@ const ROADMAP: RoadmapItem[] = [
         name: 'Multi-Region Emission Factors',
         description: 'Support for UK, US, EU, Israel, and Global emission factors',
         icon: Globe,
-        color: 'bg-blue-500',
+        color: 'bg-cy-scope3',
         status: 'completed',
       },
       {
         name: 'Modern Dashboard',
         description: 'Real-time KPIs, scope breakdown charts, and activity timeline',
         icon: TrendingUp,
-        color: 'bg-emerald-500',
+        color: 'bg-cy-accent',
         status: 'completed',
         href: '/dashboard',
       },
@@ -77,7 +77,7 @@ const ROADMAP: RoadmapItem[] = [
         name: 'CBAM Module',
         description: 'EU Carbon Border Adjustment Mechanism compliance and reporting',
         icon: Scale,
-        color: 'bg-blue-600',
+        color: 'bg-cy-scope3',
         status: 'in_progress',
         href: '/modules/cbam',
       },
@@ -92,7 +92,7 @@ const ROADMAP: RoadmapItem[] = [
         name: 'Enhanced Security',
         description: 'SOC 2 compliance, SSO integration, and audit logging',
         icon: Shield,
-        color: 'bg-slate-600',
+        color: 'bg-cy-surface',
         status: 'planned',
       },
     ],
@@ -106,7 +106,7 @@ const ROADMAP: RoadmapItem[] = [
         name: 'PCAF Module',
         description: 'Financed emissions tracking for financial institutions',
         icon: Coins,
-        color: 'bg-amber-500',
+        color: 'bg-cy-warn',
         status: 'planned',
         href: '/modules/pcaf',
       },
@@ -114,7 +114,7 @@ const ROADMAP: RoadmapItem[] = [
         name: 'API & Integrations',
         description: 'Public API for ERP, accounting, and sustainability software integration',
         icon: Globe,
-        color: 'bg-indigo-500',
+        color: 'bg-cy-scope3',
         status: 'planned',
       },
     ],
@@ -136,7 +136,7 @@ const ROADMAP: RoadmapItem[] = [
         name: 'EPD Reports',
         description: 'Environmental Product Declaration generation and verification',
         icon: FileStack,
-        color: 'bg-teal-600',
+        color: 'bg-cy-scope3',
         status: 'planned',
         href: '/modules/epd',
       },
@@ -193,7 +193,7 @@ export default function RoadmapPage() {
     <AppShell>
       {/* Page Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Product Roadmap</h1>
+        <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground">Product Roadmap</h1>
         <p className="text-foreground-muted mt-1">
           See what we&apos;re building and what&apos;s coming next
         </p>

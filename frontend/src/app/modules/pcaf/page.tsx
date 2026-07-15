@@ -19,7 +19,7 @@ export default function PCAFModulePage() {
       name="PCAF"
       description="Partnership for Carbon Accounting Financials"
       icon={Coins}
-      color="bg-amber-500"
+      color="bg-cy-warn"
       features={[
         'Asset Class Attribution - Calculate financed emissions by investment type',
         'Financed Emissions Tracking - Monitor carbon footprint of lending and investment portfolios',

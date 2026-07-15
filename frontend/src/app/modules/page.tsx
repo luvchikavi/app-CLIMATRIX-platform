@@ -116,7 +116,7 @@ export default function ModulesPage() {
   return (
     <AppShell>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Modules</h1>
+        <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground">Modules</h1>
         <p className="text-foreground-muted mt-1">
           Find the right service for your organization. Every module builds on the emissions
           inventory you assemble in the Data Hub.

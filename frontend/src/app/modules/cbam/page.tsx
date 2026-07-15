@@ -92,7 +92,7 @@ export default function CBAMModulePage() {
             <Scale className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">CBAM</h1>
+            <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground">CBAM</h1>
             <p className="text-sm text-foreground-muted">Carbon Border Adjustment Mechanism</p>
           </div>
         </div>

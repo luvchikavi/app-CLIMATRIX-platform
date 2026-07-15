@@ -44,7 +44,7 @@ export function LockedModule({
             <Icon className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">{moduleName}</h1>
+            <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground">{moduleName}</h1>
             <p className="text-foreground-muted">{description}</p>
           </div>
         </div>
@@ -68,7 +68,7 @@ export function LockedModule({
             <div className={cn('w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6', color)}>
               <Icon className="w-10 h-10 text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-foreground mb-4">{moduleName}</h2>
+            <h2 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground mb-4">{moduleName}</h2>
             <p className="text-foreground-muted mb-6 max-w-md mx-auto">{description}</p>
           </CardContent>
         </Card>

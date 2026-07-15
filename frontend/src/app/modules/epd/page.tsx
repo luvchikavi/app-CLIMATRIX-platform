@@ -19,7 +19,7 @@ export default function EPDModulePage() {
       name="EPD Reports"
       description="Environmental Product Declarations"
       icon={FileStack}
-      color="bg-teal-600"
+      color="bg-cy-scope3"
       features={[
         'Automated EPD Generation - Create declarations from LCA data',
         'Third-party Verification Support - Streamlined verification workflow',

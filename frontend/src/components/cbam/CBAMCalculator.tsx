@@ -341,7 +341,7 @@ export function CBAMCalculator() {
                 )}
 
                 {/* CBAM Cost Estimate */}
-                <div className="bg-blue-50 rounded-lg p-4">
+                <div className="bg-info-50 rounded-lg p-4">
                   <h4 className="font-medium mb-2 flex items-center gap-2">
                     <Info className="w-4 h-4" />
                     Estimated CBAM Cost
@@ -364,12 +364,12 @@ export function CBAMCalculator() {
 
                 {/* Warnings */}
                 {result.warnings.length > 0 && (
-                  <div className="border-l-4 border-yellow-400 bg-yellow-50 p-3">
-                    <h4 className="font-medium text-yellow-800 flex items-center gap-2 mb-2">
+                  <div className="border-l-4 border-cy-warn bg-cy-warn-soft p-3">
+                    <h4 className="font-medium text-cy-warn flex items-center gap-2 mb-2">
                       <AlertTriangle className="w-4 h-4" />
                       Notes
                     </h4>
-                    <ul className="text-sm text-yellow-700 space-y-1">
+                    <ul className="text-sm text-cy-warn space-y-1">
                       {result.warnings.map((warning, idx) => (
                         <li key={idx}>- {warning}</li>
                       ))}

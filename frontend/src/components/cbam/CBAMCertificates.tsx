@@ -55,10 +55,10 @@ const ENTRY_TYPE_LABELS: Record<CBAMCertificateEntryType, string> = {
 };
 
 const QUARTER_STATUS_STYLES: Record<string, string> = {
-  met: 'bg-green-100 text-green-700',
-  shortfall: 'bg-red-100 text-red-700',
-  upcoming: 'bg-gray-100 text-gray-600',
-  not_applicable: 'bg-gray-100 text-gray-500',
+  met: 'bg-cy-accent-soft text-cy-accent',
+  shortfall: 'bg-error-50 text-error',
+  upcoming: 'bg-cy-row text-cy-muted',
+  not_applicable: 'bg-cy-row text-cy-muted',
 };
 
 const QUARTER_STATUS_LABELS: Record<string, string> = {
@@ -395,7 +395,7 @@ export function CBAMCertificates() {
                     </TableCell>
                     <TableCell className="text-right">
                       {summary.holding_rule_applies && q.shortfall > 0 ? (
-                        <span className="text-red-600 font-medium">
+                        <span className="text-error font-medium">
                           {num(q.shortfall)}
                         </span>
                       ) : (

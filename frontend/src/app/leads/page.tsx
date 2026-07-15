@@ -112,7 +112,7 @@ export default function LeadsPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Leads</h1>
+          <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground">Leads</h1>
           <p className="text-foreground-muted mt-1">
             Track people who tried the app, left details, or came from a conference or forum.
           </p>
@@ -128,7 +128,7 @@ export default function LeadsPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as LeadStatus | '')}
-          className="text-sm bg-transparent border border-border rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          className="rounded-full border-0 bg-cy-row px-3.5 py-1.5 text-[12.5px] font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-cy-accent"
         >
           <option value="">All statuses</option>
           {STATUS_OPTIONS.map((s) => (
@@ -140,7 +140,7 @@ export default function LeadsPage() {
         <select
           value={sourceFilter}
           onChange={(e) => setSourceFilter(e.target.value as LeadSource | '')}
-          className="text-sm bg-transparent border border-border rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          className="rounded-full border-0 bg-cy-row px-3.5 py-1.5 text-[12.5px] font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-cy-accent"
         >
           <option value="">All sources</option>
           {SOURCE_OPTIONS.map((s) => (
@@ -212,7 +212,7 @@ export default function LeadsPage() {
                               status: e.target.value as LeadStatus,
                             })
                           }
-                          className="text-sm bg-transparent border border-border rounded-lg px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          className="rounded-full border-0 bg-cy-row px-2.5 py-1 text-[12px] font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-cy-accent"
                         >
                           {STATUS_OPTIONS.map((s) => (
                             <option key={s} value={s}>
@@ -238,7 +238,7 @@ export default function LeadsPage() {
                       <button
                         onClick={() => followUpMutation.mutate(lead.id)}
                         disabled={followUpMutation.isPending}
-                        className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-foreground-muted hover:border-primary hover:text-primary disabled:opacity-50"
+                        className="rounded-full bg-cy-row px-2.5 py-1 text-[11.5px] font-semibold text-cy-muted hover:text-cy-accent disabled:opacity-50"
                         title="Send the follow-up email and mark as contacted"
                       >
                         Send follow-up

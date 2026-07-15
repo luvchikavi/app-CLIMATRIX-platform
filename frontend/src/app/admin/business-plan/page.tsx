@@ -273,7 +273,7 @@ function EditableField({
           min={min}
           max={max}
           step={step}
-          className="w-full px-2 py-1.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+          className="w-full px-2 py-1.5 text-sm rounded-lg border-0 bg-cy-row text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
         {suffix && <span className="text-xs text-foreground-muted whitespace-nowrap">{suffix}</span>}
       </div>
@@ -328,7 +328,7 @@ function CustomTooltip({
 }) {
   if (!active || !payload) return null;
   return (
-    <div className="bg-background-elevated border border-border rounded-lg p-3 shadow-lg">
+    <div className="bg-background-elevated border border-cy-row rounded-lg p-3 shadow-lg">
       <p className="font-semibold text-sm mb-1">{label}</p>
       {payload.map((entry, i: number) => (
         <p key={i} className="text-xs" style={{ color: entry.color }}>
@@ -545,7 +545,7 @@ export default function BusinessPlanPage() {
         {/* ── Header ────────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground flex items-center gap-2">
               <Briefcase className="w-6 h-6 text-primary" />
               Business Plan — Israel Market
             </h1>
@@ -595,7 +595,7 @@ export default function BusinessPlanPage() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 <div className="col-span-full">
-                  <h4 className="text-sm font-bold text-foreground mb-2 border-b border-border pb-1">Market</h4>
+                  <h4 className="text-sm font-bold text-foreground mb-2 border-b border-cy-row pb-1">Market</h4>
                 </div>
                 <EditableField label="Total Addressable Market" value={assumptions.totalAddressableMarket} onChange={v => updateAssumption('totalAddressableMarket', v)} suffix="companies" />
                 <EditableField label="Initial Penetration" value={assumptions.initialPenetrationPct} onChange={v => updateAssumption('initialPenetrationPct', v)} suffix="%" min={0.5} max={50} step={0.5} />
@@ -603,28 +603,28 @@ export default function BusinessPlanPage() {
                 <EditableField label="Annual Churn" value={assumptions.annualChurnPct} onChange={v => updateAssumption('annualChurnPct', v)} suffix="%" min={0} max={50} />
 
                 <div className="col-span-full">
-                  <h4 className="text-sm font-bold text-foreground mb-2 border-b border-border pb-1">Growth Rates</h4>
+                  <h4 className="text-sm font-bold text-foreground mb-2 border-b border-cy-row pb-1">Growth Rates</h4>
                 </div>
                 <EditableField label="Optimistic Growth" value={assumptions.annualGrowthOptimistic} onChange={v => updateAssumption('annualGrowthOptimistic', v)} suffix="%" min={5} max={100} />
                 <EditableField label="Realistic Growth" value={assumptions.annualGrowthRealistic} onChange={v => updateAssumption('annualGrowthRealistic', v)} suffix="%" min={5} max={100} />
                 <EditableField label="Pessimistic Growth" value={assumptions.annualGrowthPessimistic} onChange={v => updateAssumption('annualGrowthPessimistic', v)} suffix="%" min={5} max={100} />
 
                 <div className="col-span-full">
-                  <h4 className="text-sm font-bold text-foreground mb-2 border-b border-border pb-1">Pricing (Monthly)</h4>
+                  <h4 className="text-sm font-bold text-foreground mb-2 border-b border-cy-row pb-1">Pricing (Monthly)</h4>
                 </div>
                 <EditableField label="Starter" value={assumptions.starterPrice} onChange={v => updateAssumption('starterPrice', v)} prefix="$" />
                 <EditableField label="Professional" value={assumptions.professionalPrice} onChange={v => updateAssumption('professionalPrice', v)} prefix="$" />
                 <EditableField label="Enterprise" value={assumptions.enterprisePrice} onChange={v => updateAssumption('enterprisePrice', v)} prefix="$" />
 
                 <div className="col-span-full">
-                  <h4 className="text-sm font-bold text-foreground mb-2 border-b border-border pb-1">Customer Mix</h4>
+                  <h4 className="text-sm font-bold text-foreground mb-2 border-b border-cy-row pb-1">Customer Mix</h4>
                 </div>
                 <EditableField label="Starter %" value={assumptions.starterMixPct} onChange={v => updateAssumption('starterMixPct', v)} suffix="%" min={0} max={100} />
                 <EditableField label="Professional %" value={assumptions.professionalMixPct} onChange={v => updateAssumption('professionalMixPct', v)} suffix="%" min={0} max={100} />
                 <EditableField label="Enterprise %" value={assumptions.enterpriseMixPct} onChange={v => updateAssumption('enterpriseMixPct', v)} suffix="%" min={0} max={100} />
 
                 <div className="col-span-full">
-                  <h4 className="text-sm font-bold text-foreground mb-2 border-b border-border pb-1">Costs</h4>
+                  <h4 className="text-sm font-bold text-foreground mb-2 border-b border-cy-row pb-1">Costs</h4>
                 </div>
                 <EditableField label="Implementation/Customer" value={assumptions.implementationCostPerCustomer} onChange={v => updateAssumption('implementationCostPerCustomer', v)} prefix="$" />
                 <EditableField label="Hosting/Customer/mo" value={assumptions.monthlyHostingPerCustomer} onChange={v => updateAssumption('monthlyHostingPerCustomer', v)} prefix="$" />
@@ -633,7 +633,7 @@ export default function BusinessPlanPage() {
                 <EditableField label="Support/Customer/mo" value={assumptions.supportCostPerCustomer} onChange={v => updateAssumption('supportCostPerCustomer', v)} prefix="$" />
 
                 <div className="col-span-full">
-                  <h4 className="text-sm font-bold text-foreground mb-2 border-b border-border pb-1">Add-ons</h4>
+                  <h4 className="text-sm font-bold text-foreground mb-2 border-b border-cy-row pb-1">Add-ons</h4>
                 </div>
                 <EditableField label="Add-on Adoption" value={assumptions.addOnAdoptionPct} onChange={v => updateAssumption('addOnAdoptionPct', v)} suffix="%" min={0} max={100} />
                 <EditableField label="Avg Add-on Revenue" value={assumptions.avgAddOnRevenue} onChange={v => updateAssumption('avgAddOnRevenue', v)} prefix="$" suffix="/mo" />
@@ -677,7 +677,7 @@ export default function BusinessPlanPage() {
         </div>
 
         {/* ── Tab Navigation ────────────────────────────────────────────── */}
-        <div className="flex gap-1 border-b border-border pb-2 overflow-x-auto">
+        <div className="flex gap-1 border-b border-cy-row pb-2 overflow-x-auto">
           {tabs.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -797,7 +797,7 @@ export default function BusinessPlanPage() {
               <CardContent className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border">
+                    <tr className="border-b border-cy-row">
                       <th className="text-left py-2 px-3 font-semibold">Year</th>
                       <th className="text-right py-2 px-3 font-semibold text-success">Opt. ARR</th>
                       <th className="text-right py-2 px-3 font-semibold text-primary">Real. ARR</th>
@@ -810,7 +810,7 @@ export default function BusinessPlanPage() {
                   </thead>
                   <tbody>
                     {projections.map((p) => (
-                      <tr key={p.year} className="border-b border-border/50 hover:bg-background-muted transition-colors">
+                      <tr key={p.year} className="border-b border-cy-row/50 hover:bg-background-muted transition-colors">
                         <td className="py-2 px-3 font-semibold">{p.year}</td>
                         <td className="py-2 px-3 text-right text-success">{fmt(p.scenarios.optimistic.arr)}</td>
                         <td className="py-2 px-3 text-right text-primary">{fmt(p.scenarios.realistic.arr)}</td>
@@ -1065,7 +1065,7 @@ export default function BusinessPlanPage() {
               <CardContent className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border">
+                    <tr className="border-b border-cy-row">
                       <th className="text-left py-2 px-3">Segment</th>
                       <th className="text-right py-2 px-3">Companies</th>
                       <th className="text-right py-2 px-3">Avg Monthly Deal</th>
@@ -1075,7 +1075,7 @@ export default function BusinessPlanPage() {
                   </thead>
                   <tbody>
                     {marketSegmentData.map((s) => (
-                      <tr key={s.segment} className="border-b border-border/50 hover:bg-background-muted">
+                      <tr key={s.segment} className="border-b border-cy-row/50 hover:bg-background-muted">
                         <td className="py-2 px-3 font-medium flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
                           {s.segment}
@@ -1086,7 +1086,7 @@ export default function BusinessPlanPage() {
                         <td className="py-2 px-3 text-right">{((s.companies / assumptions.totalAddressableMarket) * 100).toFixed(0)}%</td>
                       </tr>
                     ))}
-                    <tr className="font-bold border-t-2 border-border">
+                    <tr className="font-bold border-t-2 border-cy-row">
                       <td className="py-2 px-3">Total</td>
                       <td className="py-2 px-3 text-right">{MARKET_SEGMENTS.reduce((a, s) => a + s.companies, 0)}</td>
                       <td className="py-2 px-3 text-right">—</td>
@@ -1203,7 +1203,7 @@ export default function BusinessPlanPage() {
                   </div>
 
                   {/* Fit Bar */}
-                  <div className="mt-3 pt-3 border-t border-border">
+                  <div className="mt-3 pt-3 border-t border-cy-row">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-foreground-muted">IL Market Fit</span>
                       <span className="text-xs font-bold">{c.marketFit}%</span>
@@ -1240,7 +1240,7 @@ export default function BusinessPlanPage() {
                     { title: 'Fast Implementation', desc: '2-week avg go-live vs 2-3 months for enterprise competitors. Lower implementation cost = faster ROI.' },
                     { title: 'Competitive Pricing', desc: '40-60% cheaper than Watershed/Persefoni for equivalent features. Made for Israeli SMB-to-midmarket budgets.' },
                   ].map((item, i) => (
-                    <div key={i} className="p-4 rounded-xl bg-background/80 border border-border/50">
+                    <div key={i} className="p-4 rounded-xl bg-background/80 border border-cy-row/50">
                       <h4 className="font-semibold text-sm mb-1">{item.title}</h4>
                       <p className="text-xs text-foreground-muted leading-relaxed">{item.desc}</p>
                     </div>
@@ -1351,7 +1351,7 @@ export default function BusinessPlanPage() {
               <CardContent className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border">
+                    <tr className="border-b border-cy-row">
                       <th className="text-left py-2 px-3">Line Item</th>
                       {projections.map(p => (
                         <th key={p.year} className="text-right py-2 px-3">{p.year}</th>
@@ -1370,7 +1370,7 @@ export default function BusinessPlanPage() {
                       { label: 'Total Costs', key: 'totalCosts', bold: true, color: 'text-error' },
                       { label: 'Net Profit', key: 'profit', bold: true, color: '' },
                     ].map((row) => (
-                      <tr key={row.label} className={`border-b border-border/50 ${row.bold ? 'bg-background-muted/50' : ''}`}>
+                      <tr key={row.label} className={`border-b border-cy-row/50 ${row.bold ? 'bg-background-muted/50' : ''}`}>
                         <td className={`py-2 px-3 ${row.bold ? 'font-bold' : ''}`}>{row.label}</td>
                         {projections.map(p => {
                           const val = p.scenarios[selectedScenario][row.key as keyof ScenarioMetrics];
@@ -1384,7 +1384,7 @@ export default function BusinessPlanPage() {
                         })}
                       </tr>
                     ))}
-                    <tr className="border-t-2 border-border font-bold">
+                    <tr className="border-t-2 border-cy-row font-bold">
                       <td className="py-2 px-3">Margin %</td>
                       {projections.map(p => {
                         const m = p.scenarios[selectedScenario].margin;
@@ -1426,8 +1426,8 @@ export default function BusinessPlanPage() {
                   name: 'Professional',
                   price: assumptions.professionalPrice,
                   color: 'from-blue-500/10 to-blue-500/5',
-                  border: 'border-blue-500/30',
-                  badge: 'bg-blue-500',
+                  border: 'border-info',
+                  badge: 'bg-cy-scope3',
                   popular: true,
                   users: 10,
                   sites: 25,
@@ -1441,8 +1441,8 @@ export default function BusinessPlanPage() {
                   name: 'Enterprise',
                   price: assumptions.enterprisePrice,
                   color: 'from-emerald-500/10 to-emerald-500/5',
-                  border: 'border-emerald-500/20',
-                  badge: 'bg-emerald-500',
+                  border: 'border-cy-accent',
+                  badge: 'bg-cy-accent',
                   users: -1,
                   sites: -1,
                   sla: '99.95%',
@@ -1455,11 +1455,11 @@ export default function BusinessPlanPage() {
                 <Card
                   key={tier.name}
                   padding="lg"
-                  className={`bg-gradient-to-b ${tier.color} ${tier.border} relative ${tier.popular ? 'ring-2 ring-blue-500/30' : ''}`}
+                  className={`bg-gradient-to-b ${tier.color} ${tier.border} relative ${tier.popular ? 'ring-2 ring-info' : ''}`}
                 >
                   {tier.popular && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <span className="px-3 py-1 bg-blue-500 text-white text-xs font-bold rounded-full">
+                      <span className="px-3 py-1 bg-cy-scope3 text-white text-xs font-bold rounded-full">
                         Most Popular
                       </span>
                     </div>
@@ -1475,27 +1475,27 @@ export default function BusinessPlanPage() {
                   </div>
 
                   <div className="space-y-3 text-sm">
-                    <div className="flex justify-between py-1 border-b border-border/50">
+                    <div className="flex justify-between py-1 border-b border-cy-row/50">
                       <span className="text-foreground-muted">Users</span>
                       <span className="font-semibold">{tier.users === -1 ? 'Unlimited' : tier.users}</span>
                     </div>
-                    <div className="flex justify-between py-1 border-b border-border/50">
+                    <div className="flex justify-between py-1 border-b border-cy-row/50">
                       <span className="text-foreground-muted">Sites</span>
                       <span className="font-semibold">{tier.sites === -1 ? 'Unlimited' : `Up to ${tier.sites}`}</span>
                     </div>
-                    <div className="flex justify-between py-1 border-b border-border/50">
+                    <div className="flex justify-between py-1 border-b border-cy-row/50">
                       <span className="text-foreground-muted">SLA Uptime</span>
                       <span className="font-semibold text-success">{tier.sla}</span>
                     </div>
-                    <div className="flex justify-between py-1 border-b border-border/50">
+                    <div className="flex justify-between py-1 border-b border-cy-row/50">
                       <span className="text-foreground-muted">Response Time</span>
                       <span className="font-semibold">{tier.response}</span>
                     </div>
-                    <div className="flex justify-between py-1 border-b border-border/50">
+                    <div className="flex justify-between py-1 border-b border-cy-row/50">
                       <span className="text-foreground-muted">Implementation</span>
                       <span className="font-semibold">{tier.implementation}</span>
                     </div>
-                    <div className="flex justify-between py-1 border-b border-border/50">
+                    <div className="flex justify-between py-1 border-b border-cy-row/50">
                       <span className="text-foreground-muted">Maintenance</span>
                       <span className="font-semibold">{tier.maintenance}</span>
                     </div>
@@ -1528,11 +1528,11 @@ export default function BusinessPlanPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-border">
+                      <tr className="border-b border-cy-row">
                         <th className="text-left py-3 px-4">SLA Component</th>
                         <th className="text-center py-3 px-4 text-purple-500">Starter</th>
-                        <th className="text-center py-3 px-4 text-blue-500">Professional</th>
-                        <th className="text-center py-3 px-4 text-emerald-500">Enterprise</th>
+                        <th className="text-center py-3 px-4 text-info">Professional</th>
+                        <th className="text-center py-3 px-4 text-cy-accent">Enterprise</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1547,7 +1547,7 @@ export default function BusinessPlanPage() {
                         { item: 'Custom Integrations', starter: '—', pro: 'API access', ent: 'Full + dedicated' },
                         { item: 'Penalty (SLA breach)', starter: '—', pro: '5% credit', ent: '10% credit' },
                       ].map((row) => (
-                        <tr key={row.item} className="border-b border-border/50 hover:bg-background-muted">
+                        <tr key={row.item} className="border-b border-cy-row/50 hover:bg-background-muted">
                           <td className="py-2 px-4 font-medium">{row.item}</td>
                           <td className="py-2 px-4 text-center">{row.starter}</td>
                           <td className="py-2 px-4 text-center">{row.pro}</td>
@@ -1574,7 +1574,7 @@ export default function BusinessPlanPage() {
                     { phase: 'Week 4', title: 'Go-Live', items: ['Final review', 'Production deployment', 'Handover & documentation', 'Ongoing support begins'], color: '#8B5CF6' },
                   ].map((phase, i) => (
                     <div key={i} className="flex-1 relative">
-                      <div className="p-4 rounded-xl border border-border bg-background-muted/50">
+                      <div className="p-4 rounded-xl border-0 bg-cy-row-muted/50">
                         <div className="flex items-center gap-2 mb-2">
                           <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ backgroundColor: phase.color }}>
                             {i + 1}

@@ -17,11 +17,11 @@ import {
 } from 'lucide-react';
 
 const STATUS_CONFIG: Record<string, { color: string; icon: typeof CheckCircle }> = {
-  draft: { color: 'bg-gray-100 text-gray-700', icon: FileText },
-  review: { color: 'bg-yellow-100 text-yellow-700', icon: Clock },
-  submitted: { color: 'bg-green-100 text-green-700', icon: CheckCircle },
-  accepted: { color: 'bg-green-100 text-green-700', icon: CheckCircle },
-  rejected: { color: 'bg-red-100 text-red-700', icon: AlertCircle },
+  draft: { color: 'bg-cy-row text-cy-ink', icon: FileText },
+  review: { color: 'bg-cy-warn-soft text-cy-warn', icon: Clock },
+  submitted: { color: 'bg-cy-accent-soft text-cy-accent', icon: CheckCircle },
+  accepted: { color: 'bg-cy-accent-soft text-cy-accent', icon: CheckCircle },
+  rejected: { color: 'bg-error-50 text-error', icon: AlertCircle },
 };
 
 // Transitional reporting years (the quarterly regime ended 31 Dec 2025).

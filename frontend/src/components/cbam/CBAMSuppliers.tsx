@@ -28,9 +28,9 @@ import type { CBAMDataRequest, CBAMInstallation } from '@/lib/types';
 import { Factory, Globe, Mail, Send, X, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-700',
-  submitted: 'bg-green-100 text-green-700',
-  expired: 'bg-gray-100 text-gray-700',
+  pending: 'bg-cy-warn-soft text-cy-warn',
+  submitted: 'bg-cy-accent-soft text-cy-accent',
+  expired: 'bg-cy-row text-cy-ink',
 };
 
 function formatDate(iso: string | null): string {
@@ -122,7 +122,7 @@ export function CBAMSuppliers() {
               tCO₂e/t
             </span>
             {row.verified && (
-              <span className="inline-flex items-center gap-0.5 text-green-600">
+              <span className="inline-flex items-center gap-0.5 text-cy-accent">
                 <ShieldCheck className="w-3 h-3" /> verified
               </span>
             )}
@@ -303,7 +303,7 @@ export function CBAMSuppliers() {
                   <TableCell>
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium ${
-                        STATUS_COLORS[req.status] || 'bg-gray-100 text-gray-700'
+                        STATUS_COLORS[req.status] || 'bg-cy-row text-cy-ink'
                       }`}
                     >
                       {req.status}
@@ -325,7 +325,7 @@ export function CBAMSuppliers() {
                         Remind
                       </Button>
                     ) : req.status === 'submitted' ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-green-600">
+                      <span className="inline-flex items-center gap-1 text-xs text-cy-accent">
                         <CheckCircle2 className="w-4 h-4" /> {formatDate(req.submitted_at)}
                       </span>
                     ) : (
