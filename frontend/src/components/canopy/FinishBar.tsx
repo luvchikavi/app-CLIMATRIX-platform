@@ -10,7 +10,7 @@ import { Surface } from './Surface';
 export interface FinishBarProps {
   status: { label: string; tone?: 'warn' | 'done' };
   summary: ReactNode;
-  action?: { label: string; href: string };
+  action?: { label: string; href?: string; onClick?: () => void };
   exports?: { label: string; href?: string; onClick?: () => void }[];
   className?: string;
 }
@@ -36,11 +36,20 @@ export function FinishBar({ status, summary, action, exports, className }: Finis
         {status.label}
       </span>
       <span>{summary}</span>
-      {action && (
-        <Link href={action.href} className="font-semibold text-cy-accent">
-          {action.label} →
-        </Link>
-      )}
+      {action &&
+        (action.href ? (
+          <Link href={action.href} className="font-semibold text-cy-accent">
+            {action.label} →
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={action.onClick}
+            className="cursor-pointer font-semibold text-cy-accent"
+          >
+            {action.label} →
+          </button>
+        ))}
       {exports && exports.length > 0 && (
         <span className="ml-auto flex gap-2">
           {exports.map((item) =>

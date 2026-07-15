@@ -1,33 +1,33 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+/**
+ * Reports (batch 2.5) — the locked template page: pill tabs, one summary
+ * surface (footprint cells + the category table with share bars), and the
+ * FinishBar as the page's finish line (status · verification · exports).
+ * The deep sub-reports (GHG inventory, data quality, audit, verification)
+ * keep their components inside the frame; their own re-skin is 2.5b.
+ */
+
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
 import { usePeriods, useReportSummary, useActivities, useSites } from '@/hooks/useEmissions';
 import { AppShell } from '@/components/layout';
 import {
-  Button,
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  EmptyState,
-  ScopeBadge,
-  Badge,
-  PeriodStatusBadge,
-  toast,
-} from '@/components/ui';
-import { ScopePieChart } from '@/components/dashboard/ScopePieChart';
-import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
-import { FootprintBand } from '@/components/dashboard/FootprintBand';
+  CellValue,
+  DataTable,
+  FinishBar,
+  FocusCard,
+  PageHead,
+  PanelLabel,
+  PillTabs,
+  ShareBar,
+  StatCells,
+  Surface,
+  type CanopyColumn,
+} from '@/components/canopy';
+import { toast } from '@/components/ui';
 import {
   GHGInventoryReport,
   DataQualityReport,
@@ -35,48 +35,55 @@ import {
   ExportOptions,
   VerificationWorkflow,
 } from '@/components/reports';
-import { api } from '@/lib/api';
-import { cn, formatCO2e, categoryNames, downloadFile } from '@/lib/utils';
+import { api, CategorySummary } from '@/lib/api';
+import { categoryNames, downloadFile } from '@/lib/utils';
 import type { PeriodStatus, AssuranceLevel } from '@/lib/api';
-import {
-  FileText,
-  PieChart,
-  BarChart3,
-  List,
-  Loader2,
-  Building2,
-  FileSpreadsheet,
-  File,
-  ClipboardList,
-  Shield,
-  Download,
-  CheckSquare,
-} from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
-type ReportTab = 'summary' | 'by-scope' | 'by-category' | 'by-site' | 'inventory' | 'data-quality' | 'audit' | 'export' | 'verification';
+type ReportTab =
+  | 'summary'
+  | 'by-scope'
+  | 'by-site'
+  | 'inventory'
+  | 'data-quality'
+  | 'audit'
+  | 'verification'
+  | 'export';
 
-function ReportsPageContent() {
-  const router = useRouter();
+const STATUS_META: Record<PeriodStatus, { label: string; tone: 'warn' | 'done'; line: string }> = {
+  draft: { label: 'Draft', tone: 'warn', line: 'ready for internal review' },
+  review: { label: 'In review', tone: 'warn', line: 'internal review in progress' },
+  submitted: { label: 'Submitted', tone: 'warn', line: 'submitted for verification' },
+  audit: { label: 'In audit', tone: 'warn', line: 'external audit in progress' },
+  verified: { label: 'Verified ✓', tone: 'done', line: 'independently verified' },
+  locked: { label: 'Locked', tone: 'done', line: 'locked for the record' },
+};
+
+/** tonnes, calm: integers once real, decimals only while tiny */
+function tonnes(kg: number): string {
+  const t = kg / 1000;
+  if (t >= 100) return Math.round(t).toLocaleString();
+  if (t >= 1) return t.toFixed(1);
+  return t.toFixed(2);
+}
+
+export default function ReportsPage() {
   const queryClient = useQueryClient();
-  const { isAuthenticated, user } = useAuthStore();
+  const { user } = useAuthStore();
   const { selectedPeriodId } = usePeriodStore();
 
-  // All useState hooks
   const [activeTab, setActiveTab] = useState<ReportTab>('summary');
-  const [mounted, setMounted] = useState(false);
 
-  // All data fetching hooks (must be before any conditional returns)
   const { data: periods, isLoading: periodsLoading } = usePeriods();
-  // Only trust the persisted period if it belongs to THIS org's list — a stale
-  // localStorage value from another session/org would 404 every query.
+  // Only trust the persisted period if it belongs to THIS org's list.
   const activePeriodId = periods?.find((p) => p.id === selectedPeriodId)?.id ?? periods?.[0]?.id ?? '';
-  const activePeriod = periods?.find(p => p.id === activePeriodId);
+  const activePeriod = periods?.find((p) => p.id === activePeriodId);
 
   const { data: summary, isLoading: summaryLoading } = useReportSummary(activePeriodId);
   const { data: activities } = useActivities(activePeriodId);
   const { data: sites } = useSites();
 
-  // Phase 1 specific queries - only fetch when on relevant tabs
+  // Deep-report queries — fetched only when their tab opens
   const { data: ghgInventory, isLoading: inventoryLoading } = useQuery({
     queryKey: ['ghg-inventory', activePeriodId],
     queryFn: () => api.getGHGInventoryReport(activePeriodId),
@@ -113,7 +120,7 @@ function ReportsPageContent() {
     enabled: !!activePeriodId && activeTab === 'verification',
   });
 
-  // Mutations for verification workflow
+  // Verification workflow mutations
   const transitionMutation = useMutation({
     mutationFn: (newStatus: PeriodStatus) => api.transitionPeriodStatus(activePeriodId, newStatus),
     onSuccess: () => {
@@ -123,8 +130,11 @@ function ReportsPageContent() {
   });
 
   const verifyMutation = useMutation({
-    mutationFn: (data: { assurance_level: AssuranceLevel; verified_by: string; verification_statement: string }) =>
-      api.verifyPeriod(activePeriodId, data),
+    mutationFn: (data: {
+      assurance_level: AssuranceLevel;
+      verified_by: string;
+      verification_statement: string;
+    }) => api.verifyPeriod(activePeriodId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['periods'] });
       queryClient.invalidateQueries({ queryKey: ['status-history', activePeriodId] });
@@ -139,50 +149,13 @@ function ReportsPageContent() {
     },
   });
 
-  // All useEffect hooks
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing intentional state sync on mount/deps change; no behavior change
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (mounted && !isAuthenticated) {
-      router.push('/');
-    }
-  }, [mounted, isAuthenticated, router]);
-
-  // Conditional return AFTER all hooks
-  if (!mounted || !isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-      </div>
-    );
-  }
-
   const isLoading = periodsLoading || summaryLoading;
-
-  // Group activities by scope
-  const activitiesByScope = activities?.reduce((acc, item) => {
-    const scope = item.activity.scope;
-    if (!acc[scope]) acc[scope] = [];
-    acc[scope].push(item);
-    return acc;
-  }, {} as Record<number, typeof activities>);
-
-  // Group activities by site
-  const activitiesBySite = activities?.reduce((acc, item) => {
-    const siteId = item.activity.site_id || 'unassigned';
-    if (!acc[siteId]) acc[siteId] = [];
-    acc[siteId].push(item);
-    return acc;
-  }, {} as Record<string, typeof activities>);
+  const total = summary?.total_co2e_kg ?? 0;
+  const pct = (kg: number) => (total > 0 ? `${Math.round((kg / total) * 100)}%` : '0%');
+  const hasData = !!summary && (activities?.length ?? 0) > 0;
+  const status = activePeriod ? STATUS_META[activePeriod.status] : STATUS_META.draft;
 
   const handleExportCSV = async () => {
-    if (!activePeriodId) {
-      toast.error('Please select a reporting period');
-      return;
-    }
     try {
       await api.downloadReportExport('csv', activePeriodId);
       toast.success('CSV report downloaded');
@@ -192,10 +165,6 @@ function ReportsPageContent() {
   };
 
   const handleExportPDF = async () => {
-    if (!activePeriodId) {
-      toast.error('Please select a reporting period');
-      return;
-    }
     try {
       await api.downloadReportExport('pdf', activePeriodId);
       toast.success('PDF report downloaded');
@@ -224,435 +193,257 @@ function ReportsPageContent() {
     }
   };
 
-  const tabs: { id: ReportTab; label: string; icon: React.ElementType }[] = [
-    { id: 'summary', label: 'Summary', icon: PieChart },
-    { id: 'by-scope', label: 'By Scope', icon: BarChart3 },
-    { id: 'by-category', label: 'By Category', icon: List },
-    { id: 'by-site', label: 'By Site', icon: Building2 },
-    { id: 'inventory', label: 'GHG Inventory', icon: FileText },
-    { id: 'data-quality', label: 'Data Quality', icon: CheckSquare },
-    { id: 'audit', label: 'Audit Package', icon: ClipboardList },
-    { id: 'export', label: 'Export', icon: Download },
-    { id: 'verification', label: 'Verification', icon: Shield },
+  const categoryColumns: CanopyColumn<CategorySummary>[] = [
+    {
+      key: 'category',
+      header: 'Category',
+      render: (c) => categoryNames[c.category_code] || c.category_code,
+    },
+    { key: 'scope', header: 'Scope', render: (c) => c.scope },
+    { key: 'activities', header: 'Activities', align: 'right', render: (c) => c.activity_count },
+    {
+      key: 'tonnes',
+      header: 't CO₂e',
+      align: 'right',
+      render: (c) => <CellValue>{tonnes(c.total_co2e_kg)}</CellValue>,
+    },
+    {
+      key: 'share',
+      header: 'Share',
+      align: 'right',
+      render: (c) => <ShareBar pct={total > 0 ? (c.total_co2e_kg / total) * 100 : 0} />,
+    },
   ];
 
-  // Nine flat tabs were unscannable — cluster them by the question they answer.
-  const tabGroups: { title: string; ids: ReportTab[] }[] = [
-    { title: 'Overview', ids: ['summary', 'by-scope', 'by-category', 'by-site'] },
-    { title: 'Inventory & Quality', ids: ['inventory', 'data-quality'] },
-    { title: 'Audit & Compliance', ids: ['audit', 'verification', 'export'] },
+  const activityColumns = (withCategory: boolean): CanopyColumn<NonNullable<typeof activities>[number]>[] => [
+    {
+      key: 'description',
+      header: 'Description',
+      render: (i) => i.activity.description,
+    },
+    ...(withCategory
+      ? [
+          {
+            key: 'category',
+            header: 'Category',
+            render: (i) => categoryNames[i.activity.category_code] || i.activity.category_code,
+          } as CanopyColumn<NonNullable<typeof activities>[number]>,
+        ]
+      : [
+          {
+            key: 'scope',
+            header: 'Scope',
+            render: (i) => i.activity.scope,
+          } as CanopyColumn<NonNullable<typeof activities>[number]>,
+        ]),
+    {
+      key: 'quantity',
+      header: 'Quantity',
+      align: 'right',
+      render: (i) => `${i.activity.quantity.toLocaleString()} ${i.activity.unit}`,
+    },
+    {
+      key: 'co2e',
+      header: 't CO₂e',
+      align: 'right',
+      render: (i) => <CellValue>{tonnes(i.emission?.co2e_kg || 0)}</CellValue>,
+    },
   ];
 
   return (
     <AppShell>
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-foreground">Reports</h1>
-            {activePeriod && <PeriodStatusBadge status={activePeriod.status} />}
-          </div>
-          <p className="text-foreground-muted mt-1">
-            {/* The period is chosen once, in the top bar — pages only display it. */}
-            View and export your emission reports · {activePeriod?.name || '…'}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={handleExportCSV}
-            leftIcon={<FileSpreadsheet className="w-4 h-4" />}
-          >
-            CSV
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleExportPDF}
-            leftIcon={<File className="w-4 h-4" />}
-          >
-            PDF
-          </Button>
-        </div>
-      </div>
+      <PageHead
+        title={`Reports — ${activePeriod?.name || '…'}`}
+        subtitle="Everything here updates live from your data. Verify when you're ready."
+      />
 
-      {/* Loading State */}
       {isLoading && (
         <div className="flex items-center justify-center py-20" role="status" aria-live="polite">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
-          <span className="ml-3 text-foreground-muted">Loading report...</span>
+          <Loader2 className="h-6 w-6 animate-spin text-cy-accent" aria-hidden="true" />
+          <span className="ml-3 text-[13px] text-cy-muted">Loading your report…</span>
         </div>
       )}
 
-      {/* Report Content - Always show tabs */}
       {!isLoading && (
-        <div className="space-y-6 animate-fade-in">
-          {/* Tab Navigation - grouped by purpose, always visible */}
-          <div className="flex items-start gap-6 border-b border-border pb-4 overflow-x-auto">
-            {tabGroups.map((group) => (
-              <div key={group.title} className="shrink-0">
-                <p className="mb-1.5 px-1 text-xs font-medium uppercase tracking-wide text-foreground-muted">
-                  {group.title}
-                </p>
-                <div className="flex items-center gap-1">
-                  {group.ids.map((id) => {
-                    const tab = tabs.find((t) => t.id === id)!;
-                    const Icon = tab.icon;
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={cn(
-                          'flex items-center gap-2 px-3 py-2 rounded-lg transition-colors whitespace-nowrap',
-                          activeTab === tab.id
-                            ? 'bg-primary text-white'
-                            : 'text-foreground-muted hover:bg-background-muted'
-                        )}
-                      >
-                        <Icon className="w-4 h-4" />
-                        <span className="font-medium">{tab.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+        <>
+          <PillTabs
+            className="mb-5"
+            value={activeTab}
+            onChange={(id) => setActiveTab(id as ReportTab)}
+            tabs={[
+              { id: 'summary', label: 'Summary' },
+              { id: 'by-scope', label: 'By scope' },
+              { id: 'by-site', label: 'By site' },
+              { id: 'inventory', label: 'GHG Inventory' },
+              { id: 'data-quality', label: 'Data quality' },
+              { id: 'audit', label: 'Audit' },
+              { id: 'verification', label: 'Verification' },
+              { id: 'export', label: 'Export' },
+            ]}
+          />
 
-          {/* No Data State - Show for data-dependent tabs only */}
-          {(!summary || !activities || activities.length === 0) &&
-           !['verification', 'export', 'inventory', 'data-quality', 'audit'].includes(activeTab) && (
-            <Card padding="lg">
-              <EmptyState
-                icon={<FileText className="w-12 h-12" />}
-                title="No data to report"
-                description="Add activities to your reporting period to generate reports."
-                action={{
-                  label: 'Add Activity',
-                  onClick: () => router.push('/activities?add=1'),
-                }}
-              />
-            </Card>
+          {/* No-data guide for the data tabs */}
+          {!hasData && ['summary', 'by-scope', 'by-site'].includes(activeTab) && (
+            <FocusCard
+              kicker="Reports"
+              title="No data to report yet"
+              body="Your reports build themselves from your activity data. Bring data in and this page comes alive."
+              action={{ label: 'Open the Data hub', href: '/hub' }}
+              skip={{ label: 'or add one activity', href: '/activities?add=1' }}
+            />
           )}
 
-          {/* Summary Tab */}
-          {activeTab === 'summary' && summary && (
-            <div className="space-y-6">
-              {/* One footprint band instead of five KPI cards; the band also
-                  carries period + activity count. WTT (3.3) is already inside
-                  scope_3_co2e_kg — don't re-add it. */}
-              <FootprintBand
-                total={summary.total_co2e_kg}
-                periodName={summary.period_name}
-                activityCount={activities?.length || 0}
-                scopes={[
-                  {
-                    scope: 1,
-                    label: 'Scope 1 · Direct',
-                    value: summary.scope_1_co2e_kg,
-                    percentage:
-                      summary.total_co2e_kg > 0
-                        ? (summary.scope_1_co2e_kg / summary.total_co2e_kg) * 100
-                        : 0,
-                    activityCount: activitiesByScope?.[1]?.length ?? 0,
-                  },
-                  {
-                    scope: 2,
-                    label: 'Scope 2 · Location-based',
-                    value: summary.scope_2_location_based_co2e_kg,
-                    percentage:
-                      summary.total_co2e_kg > 0
-                        ? (summary.scope_2_co2e_kg / summary.total_co2e_kg) * 100
-                        : 0,
-                    activityCount: activitiesByScope?.[2]?.length ?? 0,
-                  },
-                  {
-                    scope: 3,
-                    label: 'Scope 3 · Value chain (incl. WTT)',
-                    value: summary.scope_3_co2e_kg,
-                    percentage:
-                      summary.total_co2e_kg > 0
-                        ? (summary.scope_3_co2e_kg / summary.total_co2e_kg) * 100
-                        : 0,
-                    activityCount: activitiesByScope?.[3]?.length ?? 0,
-                  },
-                ]}
-                marketBased={summary.scope_2_market_based_co2e_kg}
-              />
-
-              {/* Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <PieChart className="w-5 h-5 text-foreground-muted" />
-                      Emissions by Scope
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ScopePieChart data={summary} />
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <BarChart3 className="w-5 h-5 text-foreground-muted" />
-                      Emissions by Category
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <CategoryBreakdown categories={summary.by_category} />
-                  </CardContent>
-                </Card>
-              </div>
-
-            </div>
+          {activeTab === 'summary' && hasData && summary && (
+            <>
+              <Surface className="mb-4">
+                <PanelLabel>Footprint</PanelLabel>
+                <StatCells
+                  cells={[
+                    { label: 'Total', value: tonnes(total), sub: 't CO₂e' },
+                    {
+                      label: 'Scope 1',
+                      value: tonnes(summary.scope_1_co2e_kg),
+                      sub: pct(summary.scope_1_co2e_kg),
+                      scope: 1,
+                    },
+                    {
+                      label: 'Scope 2',
+                      value: tonnes(summary.scope_2_co2e_kg),
+                      sub: pct(summary.scope_2_co2e_kg),
+                      scope: 2,
+                    },
+                    {
+                      label: 'Scope 3 (incl. WTT)',
+                      value: tonnes(summary.scope_3_co2e_kg),
+                      sub: pct(summary.scope_3_co2e_kg),
+                      scope: 3,
+                    },
+                  ]}
+                />
+              </Surface>
+              <Surface className="mb-4">
+                <PanelLabel>By category</PanelLabel>
+                <DataTable
+                  columns={categoryColumns}
+                  rows={[...summary.by_category].sort((a, b) => b.total_co2e_kg - a.total_co2e_kg)}
+                  rowKey={(c) => `${c.scope}-${c.category_code}`}
+                />
+              </Surface>
+            </>
           )}
 
-          {/* By Scope Tab */}
-          {activeTab === 'by-scope' && (
-            <div className="space-y-6">
+          {activeTab === 'by-scope' && hasData && (
+            <div className="space-y-4">
               {[1, 2, 3].map((scope) => {
-                const scopeActivities = activitiesByScope?.[scope] || [];
+                const scopeActivities = (activities ?? []).filter((i) => i.activity.scope === scope);
                 const scopeTotal = scopeActivities.reduce(
-                  (sum, item) => sum + (item.emission?.co2e_kg || 0),
+                  (sum, i) => sum + (i.emission?.co2e_kg || 0),
                   0
                 );
-
                 return (
-                  <Card key={scope}>
-                    <CardHeader>
-                      <div className="flex items-center justify-between w-full">
-                        <CardTitle className="flex items-center gap-3">
-                          <ScopeBadge scope={scope as 1 | 2 | 3} />
-                          Scope {scope} Activities
-                        </CardTitle>
-                        <span className="text-lg font-bold text-foreground">
-                          {formatCO2e(scopeTotal)}
-                        </span>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {scopeActivities.length === 0 ? (
-                        <p className="text-foreground-muted text-center py-4">
-                          No Scope {scope} activities recorded
-                        </p>
-                      ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Description</TableHead>
-                              <TableHead>Category</TableHead>
-                              <TableHead>Quantity</TableHead>
-                              <TableHead className="text-right">CO2e</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {scopeActivities.map((item) => (
-                              <TableRow key={item.activity.id}>
-                                <TableCell className="font-medium">
-                                  {item.activity.description}
-                                </TableCell>
-                                <TableCell className="text-foreground-muted">
-                                  {categoryNames[item.activity.category_code] || item.activity.category_code}
-                                </TableCell>
-                                <TableCell>
-                                  {item.activity.quantity.toLocaleString()} {item.activity.unit}
-                                </TableCell>
-                                <TableCell className="text-right font-semibold">
-                                  {formatCO2e(item.emission?.co2e_kg || 0)}
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      )}
-                    </CardContent>
-                  </Card>
+                  <Surface key={scope}>
+                    <PanelLabel>
+                      Scope {scope} · {tonnes(scopeTotal)} t CO₂e
+                    </PanelLabel>
+                    {scopeActivities.length === 0 ? (
+                      <p className="text-[12.5px] text-cy-muted">
+                        No Scope {scope} activities recorded.
+                      </p>
+                    ) : (
+                      <DataTable
+                        columns={activityColumns(true)}
+                        rows={scopeActivities}
+                        rowKey={(i) => i.activity.id}
+                      />
+                    )}
+                  </Surface>
                 );
               })}
             </div>
           )}
 
-          {/* By Category Tab */}
-          {activeTab === 'by-category' && summary && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Emissions by GHG Category</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Scope</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Activities</TableHead>
-                      <TableHead className="text-right">Total CO2e</TableHead>
-                      <TableHead className="text-right">% of Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {summary.by_category
-                      .sort((a, b) => b.total_co2e_kg - a.total_co2e_kg)
-                      .map((category) => {
-                        const percentage =
-                          summary.total_co2e_kg > 0
-                            ? (category.total_co2e_kg / summary.total_co2e_kg) * 100
-                            : 0;
-                        return (
-                          <TableRow key={`${category.scope}-${category.category_code}`}>
-                            <TableCell>
-                              <ScopeBadge scope={category.scope as 1 | 2 | 3} />
-                            </TableCell>
-                            <TableCell className="font-mono text-sm">
-                              {category.category_code}
-                            </TableCell>
-                            <TableCell>
-                              {categoryNames[category.category_code] || category.category_code}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {category.activity_count}
-                            </TableCell>
-                            <TableCell className="text-right font-semibold">
-                              {formatCO2e(category.total_co2e_kg)}
-                            </TableCell>
-                            <TableCell className="text-right text-foreground-muted">
-                              {percentage.toFixed(1)}%
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* By Site Tab */}
-          {activeTab === 'by-site' && (
-            <div className="space-y-6">
-              {Object.entries(activitiesBySite || {}).map(([siteId, siteActivities]) => {
+          {activeTab === 'by-site' && hasData && (
+            <div className="space-y-4">
+              {Object.entries(
+                (activities ?? []).reduce(
+                  (acc, item) => {
+                    const siteId = item.activity.site_id || 'unassigned';
+                    (acc[siteId] ??= []).push(item);
+                    return acc;
+                  },
+                  {} as Record<string, NonNullable<typeof activities>>
+                )
+              ).map(([siteId, siteActivities]) => {
                 const site = sites?.find((s) => s.id === siteId);
-                const siteName = site?.name || 'Unassigned';
-                const siteTotal = siteActivities?.reduce(
-                  (sum, item) => sum + (item.emission?.co2e_kg || 0),
+                const siteTotal = siteActivities.reduce(
+                  (sum, i) => sum + (i.emission?.co2e_kg || 0),
                   0
-                ) || 0;
-
+                );
                 return (
-                  <Card key={siteId}>
-                    <CardHeader>
-                      <div className="flex items-center justify-between w-full">
-                        <CardTitle className="flex items-center gap-3">
-                          <Building2 className="w-5 h-5 text-foreground-muted" />
-                          {siteName}
-                          {site?.country_code && (
-                            <Badge variant="secondary">{site.country_code}</Badge>
-                          )}
-                        </CardTitle>
-                        <span className="text-lg font-bold text-foreground">
-                          {formatCO2e(siteTotal)}
-                        </span>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Scope</TableHead>
-                            <TableHead>Description</TableHead>
-                            <TableHead>Quantity</TableHead>
-                            <TableHead className="text-right">CO2e</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {siteActivities?.map((item) => (
-                            <TableRow key={item.activity.id}>
-                              <TableCell>
-                                <ScopeBadge scope={item.activity.scope as 1 | 2 | 3} />
-                              </TableCell>
-                              <TableCell className="font-medium">
-                                {item.activity.description}
-                              </TableCell>
-                              <TableCell>
-                                {item.activity.quantity.toLocaleString()} {item.activity.unit}
-                              </TableCell>
-                              <TableCell className="text-right font-semibold">
-                                {formatCO2e(item.emission?.co2e_kg || 0)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
+                  <Surface key={siteId}>
+                    <PanelLabel>
+                      {site?.name || 'Unassigned'}
+                      {site?.country_code ? ` · ${site.country_code}` : ''} · {tonnes(siteTotal)} t CO₂e
+                    </PanelLabel>
+                    <DataTable
+                      columns={activityColumns(false)}
+                      rows={siteActivities}
+                      rowKey={(i) => i.activity.id}
+                    />
+                  </Surface>
                 );
               })}
             </div>
           )}
 
-          {/* GHG Inventory Tab */}
-          {activeTab === 'inventory' && (
-            inventoryLoading ? (
+          {activeTab === 'inventory' &&
+            (inventoryLoading ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                <span className="ml-3 text-foreground-muted">Loading GHG inventory report...</span>
+                <Loader2 className="h-6 w-6 animate-spin text-cy-accent" />
+                <span className="ml-3 text-[13px] text-cy-muted">Building the GHG inventory…</span>
               </div>
             ) : ghgInventory ? (
               <GHGInventoryReport report={ghgInventory} />
             ) : (
-              <Card padding="lg">
-                <EmptyState
-                  icon={<FileText className="w-12 h-12" />}
-                  title="Unable to generate report"
-                  description="There was an issue generating the GHG inventory report. Please try again."
-                />
-              </Card>
-            )
-          )}
+              <Surface tint="warn" className="max-w-[560px]">
+                <p className="text-[13.5px] text-cy-ink">
+                  The GHG inventory report didn’t generate — try again in a moment.
+                </p>
+              </Surface>
+            ))}
 
-          {/* Data Quality Tab */}
-          {activeTab === 'data-quality' && (
-            qualityLoading ? (
+          {activeTab === 'data-quality' &&
+            (qualityLoading ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                <span className="ml-3 text-foreground-muted">Loading data quality report...</span>
+                <Loader2 className="h-6 w-6 animate-spin text-cy-accent" />
+                <span className="ml-3 text-[13px] text-cy-muted">Scoring your data quality…</span>
               </div>
             ) : dataQuality ? (
               <DataQualityReport report={dataQuality} />
             ) : (
-              <Card padding="lg">
-                <EmptyState
-                  icon={<CheckSquare className="w-12 h-12" />}
-                  title="Unable to generate report"
-                  description="There was an issue generating the data quality report. Please try again."
-                />
-              </Card>
-            )
-          )}
+              <Surface tint="warn" className="max-w-[560px]">
+                <p className="text-[13.5px] text-cy-ink">
+                  The data quality report didn’t generate — try again in a moment.
+                </p>
+              </Surface>
+            ))}
 
-          {/* Audit Package Tab */}
-          {activeTab === 'audit' && (
-            auditLoading ? (
+          {activeTab === 'audit' &&
+            (auditLoading ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                <span className="ml-3 text-foreground-muted">Loading audit package...</span>
+                <Loader2 className="h-6 w-6 animate-spin text-cy-accent" />
+                <span className="ml-3 text-[13px] text-cy-muted">Assembling the audit package…</span>
               </div>
             ) : auditPackage ? (
               <AuditPackageView auditPackage={auditPackage} />
             ) : (
-              <Card padding="lg">
-                <EmptyState
-                  icon={<ClipboardList className="w-12 h-12" />}
-                  title="Unable to generate audit package"
-                  description="There was an issue generating the audit package. Please try again."
-                />
-              </Card>
-            )
-          )}
+              <Surface tint="warn" className="max-w-[560px]">
+                <p className="text-[13.5px] text-cy-ink">
+                  The audit package didn’t generate — try again in a moment.
+                </p>
+              </Surface>
+            ))}
 
-          {/* Export Tab */}
           {activeTab === 'export' && (
             <ExportOptions
               cdpData={cdpExport}
@@ -664,7 +455,6 @@ function ReportsPageContent() {
             />
           )}
 
-          {/* Verification Tab */}
           {activeTab === 'verification' && activePeriod && (
             <VerificationWorkflow
               period={activePeriod}
@@ -681,26 +471,26 @@ function ReportsPageContent() {
               }}
             />
           )}
-        </div>
+
+          {/* The finish line — on every tab */}
+          {activePeriod && (
+            <FinishBar
+              className="mt-4"
+              status={{ label: status.label, tone: status.tone }}
+              summary={`${activities?.length ?? 0} activities · ${status.line}`}
+              action={
+                activeTab !== 'verification' && !['verified', 'locked'].includes(activePeriod.status)
+                  ? { label: 'Start verification', onClick: () => setActiveTab('verification') }
+                  : undefined
+              }
+              exports={[
+                { label: 'PDF', onClick: handleExportPDF },
+                { label: 'CSV', onClick: handleExportCSV },
+              ]}
+            />
+          )}
+        </>
       )}
     </AppShell>
-  );
-}
-
-// Loading fallback for Suspense
-function ReportsLoading() {
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <Loader2 className="w-8 h-8 text-primary animate-spin" />
-    </div>
-  );
-}
-
-// Main export with Suspense boundary
-export default function ReportsPage() {
-  return (
-    <Suspense fallback={<ReportsLoading />}>
-      <ReportsPageContent />
-    </Suspense>
   );
 }
