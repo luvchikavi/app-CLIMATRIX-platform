@@ -263,9 +263,9 @@ function SettingsPageContent() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-          <p className="text-foreground-muted mt-1">
-            Manage your organization&apos;s settings and preferences
+          <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-cy-ink">Settings</h1>
+          <p className="mt-[3px] text-[13px] text-cy-muted">
+            Your organization, team and reporting setup
           </p>
         </div>
       </div>
@@ -291,30 +291,30 @@ function SettingsPageContent() {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={cn(
-                      'w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left',
+                      'w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-[10px] transition-colors text-left text-[13px] font-semibold',
                       activeTab === tab.id
-                        ? 'bg-primary text-white'
-                        : 'text-foreground hover:bg-background-muted'
+                        ? 'bg-cy-accent-soft text-cy-accent'
+                        : 'text-cy-muted hover:bg-cy-row hover:text-cy-ink'
                     )}
                   >
-                    <Icon className="w-5 h-5" />
-                    <span className="font-medium">{tab.label}</span>
+                    <Icon className="w-4 h-4" strokeWidth={1.75} />
+                    {tab.label}
                   </button>
                 );
               })}
             </nav>
 
             {/* Logout Button */}
-            <div className="mt-8 pt-8 border-t border-border">
+            <div className="mt-8">
               <Button
-                variant="outline"
-                className="w-full text-error border-error/30 hover:bg-error/10"
+                variant="ghost"
+                className="w-full text-error hover:bg-error-50 hover:text-error"
                 onClick={() => {
                   logout();
                   router.push('/');
                 }}
               >
-                Sign Out
+                Sign out
               </Button>
             </div>
           </div>
@@ -467,21 +467,26 @@ function SettingsPageContent() {
                           onClick={() => handleRegionChange(region.code)}
                           disabled={updateOrg.isPending}
                           className={cn(
-                            'p-4 rounded-xl border-2 text-left transition-all',
+                            'p-4 rounded-[12px] text-left transition-colors',
                             org?.default_region === region.code
-                              ? 'border-primary bg-primary-light'
-                              : 'border-border hover:border-primary/50 hover:bg-primary-light/50'
+                              ? 'bg-cy-accent-soft'
+                              : 'bg-cy-row/50 hover:bg-cy-row'
                           )}
                         >
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-3">
                             <div>
-                              <h3 className="font-semibold text-foreground">{region.name}</h3>
-                              <p className="text-sm text-foreground-muted mt-1">{region.description}</p>
+                              <h3
+                                className={cn(
+                                  'text-[13px] font-semibold',
+                                  org?.default_region === region.code ? 'text-cy-accent' : 'text-foreground'
+                                )}
+                              >
+                                {region.name}
+                              </h3>
+                              <p className="text-[12px] text-cy-muted mt-0.5">{region.description}</p>
                             </div>
                             {org?.default_region === region.code && (
-                              <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                                <Check className="w-4 h-4 text-white" />
-                              </div>
+                              <span className="shrink-0 text-[13px] font-bold text-cy-accent" aria-hidden="true">✓</span>
                             )}
                           </div>
                         </button>
@@ -532,7 +537,7 @@ function SettingsPageContent() {
                         {periods.map((period) => (
                           <div
                             key={period.id}
-                            className="flex items-center justify-between p-4 border border-border rounded-xl"
+                            className="flex items-center justify-between rounded-[12px] bg-cy-row/40 px-4 py-3"
                           >
                             <div className="flex items-center gap-4">
                               <div className="p-2 rounded-lg bg-background-muted">
@@ -601,9 +606,9 @@ function SettingsPageContent() {
                   <CardContent>
                     <div className="space-y-3">
                       {/* Current user */}
-                      <div className="flex items-center justify-between p-4 border border-border rounded-xl">
+                      <div className="flex items-center justify-between rounded-[12px] bg-cy-row/40 px-4 py-3">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-semibold">
+                          <div className="w-9 h-9 rounded-full bg-cy-accent-soft flex items-center justify-center text-cy-accent text-[13px] font-bold">
                             {user?.email?.charAt(0).toUpperCase()}
                           </div>
                           <div>
@@ -622,10 +627,10 @@ function SettingsPageContent() {
                         .map((inv) => (
                           <div
                             key={inv.id}
-                            className="flex items-center justify-between p-4 border border-border rounded-xl"
+                            className="flex items-center justify-between rounded-[12px] bg-cy-row/40 px-4 py-3"
                           >
                             <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center text-success font-semibold">
+                              <div className="w-9 h-9 rounded-full bg-cy-accent-soft flex items-center justify-center text-cy-accent text-[13px] font-bold">
                                 {inv.email.charAt(0).toUpperCase()}
                               </div>
                               <div>
@@ -665,10 +670,10 @@ function SettingsPageContent() {
                           .map((inv) => (
                             <div
                               key={inv.id}
-                              className="flex items-center justify-between p-4 border border-border rounded-xl"
+                              className="flex items-center justify-between rounded-[12px] bg-cy-row/40 px-4 py-3"
                             >
                               <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center">
+                                <div className="w-9 h-9 rounded-full bg-cy-warn-soft flex items-center justify-center">
                                   <Mail className="w-5 h-5 text-warning" />
                                 </div>
                                 <div>
@@ -732,23 +737,24 @@ function SettingsPageContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Settings">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-neutral-950/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={handleClosePeriodModal}
           />
 
           {/* Modal */}
-          <div className="relative bg-background-elevated rounded-2xl shadow-2xl max-w-md w-full animate-fade-in-up">
+          <div className="relative bg-background-elevated rounded-cy shadow-xl max-w-md w-full animate-fade-in-up">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <div className="flex items-start justify-between px-6 pb-2 pt-6">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Create Reporting Period</h2>
-                <p className="text-sm text-foreground-muted">Define a new reporting period</p>
+                <h2 className="text-[16px] font-bold tracking-[-0.01em] text-foreground">Create reporting period</h2>
+                <p className="text-[12.5px] text-cy-muted">Define a new reporting period</p>
               </div>
               <button
                 onClick={handleClosePeriodModal}
-                className="p-2 rounded-lg hover:bg-background-muted transition-colors"
+                className="rounded-md p-1.5 text-cy-muted transition-colors hover:bg-cy-row hover:text-foreground"
+                aria-label="Close"
               >
-                <X className="w-5 h-5 text-foreground-muted" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
@@ -766,10 +772,10 @@ function SettingsPageContent() {
                       type="button"
                       onClick={() => handleYearSelect(year)}
                       className={cn(
-                        'px-4 py-2 rounded-lg border-2 font-medium transition-all',
+                        'cursor-pointer rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors',
                         selectedYear === year
-                          ? 'border-primary bg-primary text-white'
-                          : 'border-border bg-background hover:border-primary/50 text-foreground'
+                          ? 'bg-cy-accent text-white'
+                          : 'bg-cy-row text-cy-muted hover:text-cy-ink'
                       )}
                     >
                       {year}
@@ -819,8 +825,8 @@ function SettingsPageContent() {
 
               {/* Info box showing what will be created */}
               {periodForm.name && periodForm.start_date && periodForm.end_date && (
-                <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                  <p className="text-sm text-primary">
+                <div className="rounded-[12px] bg-cy-accent-soft p-3">
+                  <p className="text-[12.5px] text-cy-accent">
                     <span className="font-medium">Creating:</span> {periodForm.name} ({new Date(periodForm.start_date).toLocaleDateString()} - {new Date(periodForm.end_date).toLocaleDateString()})
                   </p>
                 </div>
@@ -828,8 +834,8 @@ function SettingsPageContent() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">
-              <Button variant="outline" onClick={handleClosePeriodModal}>
+            <div className="flex items-center justify-end gap-2 px-6 pb-6">
+              <Button variant="ghost" onClick={handleClosePeriodModal}>
                 Cancel
               </Button>
               <Button
@@ -850,23 +856,24 @@ function SettingsPageContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Settings">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-neutral-950/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={handleCloseInviteModal}
           />
 
           {/* Modal */}
-          <div className="relative bg-background-elevated rounded-2xl shadow-2xl max-w-md w-full animate-fade-in-up">
+          <div className="relative bg-background-elevated rounded-cy shadow-xl max-w-md w-full animate-fade-in-up">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <div className="flex items-start justify-between px-6 pb-2 pt-6">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Invite Team Member</h2>
-                <p className="text-sm text-foreground-muted">Send an invitation to join your organization</p>
+                <h2 className="text-[16px] font-bold tracking-[-0.01em] text-foreground">Invite a teammate</h2>
+                <p className="text-[12.5px] text-cy-muted">Send an invitation to join your organization</p>
               </div>
               <button
                 onClick={handleCloseInviteModal}
-                className="p-2 rounded-lg hover:bg-background-muted transition-colors"
+                className="rounded-md p-1.5 text-cy-muted transition-colors hover:bg-cy-row hover:text-foreground"
+                aria-label="Close"
               >
-                <X className="w-5 h-5 text-foreground-muted" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
@@ -889,16 +896,16 @@ function SettingsPageContent() {
                   { value: 'admin', label: 'Admin - Full access' },
                 ]}
               />
-              <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                <p className="text-sm text-primary">
+              <div className="rounded-[12px] bg-cy-accent-soft p-3">
+                <p className="text-[12.5px] text-cy-accent">
                   An email will be sent with a link to create an account and join your organization.
                 </p>
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">
-              <Button variant="outline" onClick={handleCloseInviteModal}>
+            <div className="flex items-center justify-end gap-2 px-6 pb-6">
+              <Button variant="ghost" onClick={handleCloseInviteModal}>
                 Cancel
               </Button>
               <Button

@@ -312,7 +312,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
               <div className="w-20 h-20 mx-auto mb-6 rounded-2xl gradient-primary flex items-center justify-center">
                 <Leaf className="w-10 h-10 text-white" />
               </div>
-              <h1 className="text-3xl font-bold text-foreground mb-4">
+              <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground mb-4">
                 Welcome to CLIMATRIX
               </h1>
               <p className="text-lg text-foreground-muted mb-8 max-w-md mx-auto">
@@ -352,7 +352,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                   <select
                     value={orgDetails.industry_code}
                     onChange={(e) => setOrgDetails({ ...orgDetails, industry_code: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    className="w-full rounded-[10px] border-0 bg-cy-row px-4 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
                   >
                     <option value="">Select your industry</option>
                     <option value="manufacturing">Manufacturing</option>
@@ -375,7 +375,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                   <select
                     value={orgDetails.base_year}
                     onChange={(e) => setOrgDetails({ ...orgDetails, base_year: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    className="w-full rounded-[10px] border-0 bg-cy-row px-4 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
                   >
                     {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(year => (
                       <option key={year} value={year}>{year}</option>
@@ -394,7 +394,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                     <select
                       value={orgDetails.currency}
                       onChange={(e) => setOrgDetails({ ...orgDetails, currency: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      className="w-full rounded-[10px] border-0 bg-cy-row px-4 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
                     >
                       {CURRENCY_OPTIONS.map((c) => (
                         <option key={c} value={c}>{c}</option>
@@ -411,7 +411,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                     <select
                       value={orgDetails.unit_system}
                       onChange={(e) => setOrgDetails({ ...orgDetails, unit_system: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      className="w-full rounded-[10px] border-0 bg-cy-row px-4 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
                     >
                       <option value="metric">Metric (liters, km, kg)</option>
                       <option value="imperial">Imperial (gallons, miles, lbs)</option>
@@ -431,7 +431,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                     onChange={(e) =>
                       setOrgDetails({ ...orgDetails, consolidation_approach: e.target.value })
                     }
-                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    className="w-full rounded-[10px] border-0 bg-cy-row px-4 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
                   >
                     <option value="operational_control">
                       Operational control (most common) — what you operate
@@ -445,7 +445,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                 </div>
               </div>
 
-              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between border-t border-border bg-background-elevated px-8 py-4">
+              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between bg-background-elevated shadow-[0_-1px_0_var(--cy-row)] px-8 py-4">
                 <Button variant="outline" onClick={prevStep}>
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Back
@@ -484,10 +484,10 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                     key={region.code}
                     onClick={() => setSelectedRegion(region.code)}
                     className={cn(
-                      'p-4 rounded-xl border-2 text-left transition-all',
+                      'p-4 rounded-[12px] text-left transition-colors',
                       selectedRegion === region.code
-                        ? 'border-primary bg-primary-light'
-                        : 'border-border hover:border-primary/50'
+                        ? 'bg-cy-accent-soft'
+                        : 'bg-cy-row/50 hover:bg-cy-row'
                     )}
                   >
                     <div className="flex items-center justify-between">
@@ -496,16 +496,14 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                         <p className="text-sm text-foreground-muted mt-0.5">{region.description}</p>
                       </div>
                       {selectedRegion === region.code && (
-                        <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                          <Check className="w-3 h-3 text-white" />
-                        </div>
+                        <span className="shrink-0 text-[13px] font-bold text-cy-accent" aria-hidden="true">✓</span>
                       )}
                     </div>
                   </button>
                 ))}
               </div>
 
-              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between border-t border-border bg-background-elevated px-8 py-4">
+              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between bg-background-elevated shadow-[0_-1px_0_var(--cy-row)] px-8 py-4">
                 <Button variant="outline" onClick={prevStep}>
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Back
@@ -568,10 +566,10 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                       if (fieldErrors.site_name) clearError('site_name');
                     }}
                     className={cn(
-                      'w-full px-4 py-2.5 rounded-lg border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary',
+                      'w-full rounded-[10px] border-0 bg-cy-row px-4 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2',
                       fieldErrors.site_name
-                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
-                        : 'border-border'
+                        ? 'ring-2 ring-error/50 focus:ring-error'
+                        : 'focus:ring-cy-accent'
                     )}
                   />
                   {fieldErrors.site_name && (
@@ -587,7 +585,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                   <select
                     value={siteDetails.country_code}
                     onChange={(e) => setSiteDetails({ ...siteDetails, country_code: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    className="w-full rounded-[10px] border-0 bg-cy-row px-4 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
                   >
                     {COUNTRY_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -607,7 +605,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                     placeholder="Street address, city, postal code"
                     value={siteDetails.address}
                     onChange={(e) => setSiteDetails({ ...siteDetails, address: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    className="w-full rounded-[10px] border-0 bg-cy-row px-4 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
                   />
                 </div>
 
@@ -620,7 +618,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                     <select
                       value={siteDetails.grid_region}
                       onChange={(e) => setSiteDetails({ ...siteDetails, grid_region: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      className="w-full rounded-[10px] border-0 bg-cy-row px-4 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
                     >
                       <option value="">Select grid region...</option>
                       {regions.map((r) => (
@@ -635,7 +633,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                       placeholder="e.g. ERCOT, PJM, CAISO"
                       value={siteDetails.grid_region}
                       onChange={(e) => setSiteDetails({ ...siteDetails, grid_region: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      className="w-full rounded-[10px] border-0 bg-cy-row px-4 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
                     />
                   )}
                   <p className="mt-1.5 text-sm text-foreground-muted">
@@ -644,7 +642,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                 </div>
               </div>
 
-              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between border-t border-border bg-background-elevated px-8 py-4">
+              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between bg-background-elevated shadow-[0_-1px_0_var(--cy-row)] px-8 py-4">
                 <Button variant="outline" onClick={prevStep}>
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Back
@@ -694,10 +692,10 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                       key={year}
                       onClick={() => setPeriodYear(year)}
                       className={cn(
-                        'px-6 py-3 rounded-lg border-2 font-medium transition-all',
+                        'cursor-pointer rounded-full px-5 py-2.5 text-[13px] font-semibold transition-colors',
                         periodYear === year
-                          ? 'border-primary bg-primary text-white'
-                          : 'border-border hover:border-primary/50 text-foreground'
+                          ? 'bg-cy-accent text-white'
+                          : 'bg-cy-row text-cy-muted hover:text-cy-ink'
                       )}
                     >
                       FY {year}
@@ -710,7 +708,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                 </p>
               </div>
 
-              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between border-t border-border bg-background-elevated px-8 py-4">
+              <div className="sticky bottom-0 -mx-8 -mb-8 mt-8 flex justify-between bg-background-elevated shadow-[0_-1px_0_var(--cy-row)] px-8 py-4">
                 <Button variant="outline" onClick={prevStep}>
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Back
@@ -734,7 +732,7 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
               <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-success/10 flex items-center justify-center">
                 <Check className="w-10 h-10 text-success" />
               </div>
-              <h2 className="text-2xl font-bold text-foreground mb-4">
+              <h2 className="text-[18px] font-bold tracking-[-0.01em] text-foreground mb-4">
                 You&apos;re All Set!
               </h2>
               <p className="text-lg text-foreground-muted mb-8 max-w-md mx-auto">

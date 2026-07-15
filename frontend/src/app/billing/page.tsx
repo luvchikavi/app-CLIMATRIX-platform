@@ -25,7 +25,6 @@ import {
   Sparkles,
   Crown,
   ExternalLink,
-  AlertCircle,
 } from 'lucide-react';
 
 function BillingPageContent() {
@@ -164,8 +163,8 @@ function BillingPageContent() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Billing & Plans</h1>
-          <p className="text-foreground-muted mt-1">
+          <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-cy-ink">Billing &amp; plans</h1>
+          <p className="mt-[3px] text-[13px] text-cy-muted">
             Manage your subscription and billing details
           </p>
         </div>
@@ -173,33 +172,33 @@ function BillingPageContent() {
 
       {/* Checkout Status Messages */}
       {checkoutStatus === 'success' && (
-        <div className="mb-6 p-4 rounded-xl bg-success/10 border border-success/20 flex items-center gap-3">
-          <Check className="w-5 h-5 text-success" />
-          <p className="text-success font-medium">
-            Subscription updated successfully! Thank you for your purchase.
+        <div className="mb-6 flex items-center gap-2.5 rounded-[12px] bg-cy-accent-soft p-3.5">
+          <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-cy-accent" aria-hidden="true" />
+          <p className="text-[12.5px] font-semibold text-cy-accent">
+            Subscription updated — thank you!
           </p>
         </div>
       )}
 
       {checkoutStatus === 'canceled' && (
-        <div className="mb-6 p-4 rounded-xl bg-warning/10 border border-warning/20 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-warning" />
-          <p className="text-warning font-medium">
-            Checkout was canceled. No changes were made to your subscription.
+        <div className="mb-6 flex items-center gap-2.5 rounded-[12px] bg-cy-warn-soft p-3.5">
+          <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-cy-warn" aria-hidden="true" />
+          <p className="text-[12.5px] font-semibold text-cy-warn">
+            Checkout was canceled — no changes were made to your subscription.
           </p>
         </div>
       )}
 
       {/* Trial Status Banner */}
       {subscription?.is_trialing && trialEndsAt && (
-        <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Sparkles className="w-5 h-5 text-primary" />
+        <div className="mb-6 flex items-center justify-between gap-4 rounded-[12px] bg-cy-warn-soft p-3.5">
+          <div className="flex items-center gap-2.5">
+            <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-cy-warn" aria-hidden="true" />
             <div>
-              <p className="text-primary font-semibold">
-                Free Trial Active &mdash; {trialDaysRemaining} day{trialDaysRemaining !== 1 ? 's' : ''} remaining
+              <p className="text-[12.5px] font-bold text-cy-warn">
+                Trial · {trialDaysRemaining} day{trialDaysRemaining !== 1 ? 's' : ''} remaining
               </p>
-              <p className="text-sm text-foreground-muted mt-0.5">
+              <p className="text-[12px] text-cy-muted mt-0.5">
                 Your trial ends on {trialEndsAt.toLocaleDateString()}. Upgrade to a paid plan to keep full access.
               </p>
             </div>
@@ -248,8 +247,8 @@ function BillingPageContent() {
                     );
                   })()}
                   <div>
-                    <h3 className="text-xl font-bold text-foreground capitalize">
-                      {currentPlan} Plan
+                    <h3 className="text-[15px] font-bold text-foreground capitalize tracking-[-0.01em]">
+                      {currentPlan} plan
                     </h3>
                     <div className="flex items-center gap-2 mt-1">
                       {subscription?.status && (
@@ -288,32 +287,32 @@ function BillingPageContent() {
 
               {/* Current Plan Limits */}
               {subscription?.plan_limits && (
-                <div className="mt-6 pt-6 border-t border-border">
-                  <h4 className="text-sm font-medium text-foreground-muted mb-4">Your Plan Limits</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    <div className="p-3 rounded-lg bg-background-muted">
-                      <p className="text-2xl font-bold text-foreground">
+                <div className="mt-6">
+                  <h4 className="mb-3.5 text-[11px] font-bold uppercase tracking-[0.08em] text-cy-faint">Your plan limits</h4>
+                  <div className="flex flex-wrap gap-x-11 gap-y-2.5">
+                    <div>
+                      <p className="text-[16px] font-[650] tabular-nums text-cy-ink">
                         {subscription.plan_limits.activities_per_month === -1
                           ? 'Unlimited'
                           : subscription.plan_limits.activities_per_month.toLocaleString()}
                       </p>
-                      <p className="text-sm text-foreground-muted">Activities/month</p>
+                      <p className="mt-0.5 text-[11.5px] text-cy-muted">Activities / month</p>
                     </div>
-                    <div className="p-3 rounded-lg bg-background-muted">
-                      <p className="text-2xl font-bold text-foreground">
+                    <div>
+                      <p className="text-[16px] font-[650] tabular-nums text-cy-ink">
                         {subscription.plan_limits.users === -1
                           ? 'Unlimited'
                           : subscription.plan_limits.users}
                       </p>
-                      <p className="text-sm text-foreground-muted">Team members</p>
+                      <p className="mt-0.5 text-[11.5px] text-cy-muted">Team members</p>
                     </div>
-                    <div className="p-3 rounded-lg bg-background-muted">
-                      <p className="text-2xl font-bold text-foreground">
+                    <div>
+                      <p className="text-[16px] font-[650] tabular-nums text-cy-ink">
                         {subscription.plan_limits.sites === -1
                           ? 'Unlimited'
                           : subscription.plan_limits.sites}
                       </p>
-                      <p className="text-sm text-foreground-muted">Sites</p>
+                      <p className="mt-0.5 text-[11.5px] text-cy-muted">Sites</p>
                     </div>
                   </div>
                 </div>
@@ -336,7 +335,7 @@ function BillingPageContent() {
                     padding="lg"
                     className={cn(
                       'relative',
-                      isPopular && 'ring-2 ring-primary'
+                      isPopular && 'ring-2 ring-cy-accent'
                     )}
                   >
                     {isPopular && (
@@ -349,15 +348,15 @@ function BillingPageContent() {
                       <div className={cn('inline-flex p-3 rounded-xl bg-background-muted mb-4', getPlanColor(plan.id))}>
                         <Icon className="w-6 h-6" />
                       </div>
-                      <h3 className="text-lg font-bold text-foreground">{plan.name}</h3>
+                      <h3 className="text-[14px] font-bold text-foreground">{plan.name}</h3>
                       <div className="mt-2">
                         {plan.price_monthly !== null ? (
                           <>
-                            <span className="text-3xl font-bold text-foreground">${plan.price_monthly}</span>
-                            <span className="text-foreground-muted">/month</span>
+                            <span className="text-[20px] font-[650] tabular-nums text-foreground">${plan.price_monthly}</span>
+                            <span className="text-[12.5px] text-cy-muted"> /month</span>
                           </>
                         ) : (
-                          <span className="text-lg font-semibold text-foreground">Custom Pricing</span>
+                          <span className="text-[14px] font-semibold text-foreground">Custom pricing</span>
                         )}
                       </div>
                     </div>
