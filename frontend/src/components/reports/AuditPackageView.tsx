@@ -17,17 +17,14 @@ import {
   DataQualityBadge,
   Button,
 } from '@/components/ui';
-import { cn, formatCO2e, formatNumber, formatDate, categoryNames } from '@/lib/utils';
+import { formatCO2e, formatNumber, formatDate, categoryNames } from '@/lib/utils';
 import {
   Download,
   FileText,
-  ClipboardList,
   Database,
   Upload,
   ChevronDown,
   ChevronUp,
-  AlertCircle,
-  CheckCircle,
   BookOpen,
 } from 'lucide-react';
 import type { AuditPackage } from '@/lib/api';
@@ -40,6 +37,7 @@ interface AuditPackageViewProps {
 export function AuditPackageView({ auditPackage, onDownload }: AuditPackageViewProps) {
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
   const [showAllActivities, setShowAllActivities] = useState(false);
+  const [showMethodology, setShowMethodology] = useState(false);
 
   const toggleActivity = (activityId: string) => {
     setExpandedActivities((prev) => {
@@ -72,103 +70,75 @@ export function AuditPackageView({ auditPackage, onDownload }: AuditPackageViewP
   };
 
   return (
-    <div className="space-y-6">
-      {/* Package Header */}
-      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-        <CardContent className="py-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-foreground">Audit Package</h2>
-              <p className="text-foreground-muted mt-1">
-                {auditPackage.summary.organization_name} - {auditPackage.summary.period_name}
-              </p>
-              <p className="text-sm text-foreground-muted mt-0.5">
-                Generated: {formatDate(auditPackage.summary.generated_at)}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
+    <div className="space-y-4">
+      {/* Header + summary in one card: what, when, the numbers, the action */}
+      <Card padding="none" className="overflow-hidden">
+        <div className="px-5 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-border">
+          <div>
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              Audit Package
               <Badge variant="secondary">v{auditPackage.package_version}</Badge>
-              <Button variant="primary" leftIcon={<Download className="w-4 h-4" />} onClick={handleDownload}>
-                Download JSON
-              </Button>
-            </div>
+            </h2>
+            <p className="text-sm text-foreground-muted">
+              {auditPackage.summary.organization_name} · {auditPackage.summary.period_name} (
+              {formatDate(auditPackage.summary.reporting_period_start)} –{' '}
+              {formatDate(auditPackage.summary.reporting_period_end)}) · Generated{' '}
+              {formatDate(auditPackage.summary.generated_at)}
+            </p>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Summary Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ClipboardList className="w-5 h-5 text-foreground-muted" />
-            Summary
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div>
-              <p className="text-sm font-medium text-foreground-muted">Reporting Period</p>
-              <p className="text-foreground font-semibold mt-1">
-                {formatDate(auditPackage.summary.reporting_period_start)} -{' '}
-                {formatDate(auditPackage.summary.reporting_period_end)}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground-muted">Total Activities</p>
-              <p className="text-foreground font-semibold mt-1">
-                {auditPackage.summary.total_activities}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground-muted">Total Emissions</p>
-              <p className="text-foreground font-semibold mt-1">
-                {formatNumber(auditPackage.summary.total_emissions_tonnes, 2)} t CO2e
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground-muted">Verification Status</p>
-              <Badge
-                variant={
-                  auditPackage.summary.verification_status === 'verified'
-                    ? 'success'
-                    : auditPackage.summary.verification_status === 'audit'
-                    ? 'warning'
-                    : 'default'
-                }
-                className="mt-1"
-              >
-                {auditPackage.summary.verification_status}
-              </Badge>
-            </div>
+          <Button variant="primary" leftIcon={<Download className="w-4 h-4" />} onClick={handleDownload}>
+            Download JSON
+          </Button>
+        </div>
+        <div className="flex flex-wrap divide-x divide-border">
+          <div className="px-5 py-3 min-w-[160px]">
+            <p className="text-xs font-medium text-foreground-muted">Total emissions</p>
+            <p className="text-xl font-bold text-foreground mt-0.5 tracking-tight">
+              {formatNumber(auditPackage.summary.total_emissions_tonnes, 2)} t CO2e
+            </p>
+            <p className="text-xs text-foreground-muted mt-0.5">
+              {auditPackage.summary.total_activities} activities
+            </p>
           </div>
-
-          <div className="mt-6 pt-6 border-t border-border grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="text-center p-4 bg-scope1/10 rounded-lg">
-              <p className="text-sm text-scope1 font-medium">Scope 1</p>
-              <p className="text-lg font-bold text-foreground">
-                {formatNumber(auditPackage.summary.scope_1_emissions_tonnes, 2)} t
+          {(
+            [
+              [1, auditPackage.summary.scope_1_emissions_tonnes, 'bg-scope1'],
+              [2, auditPackage.summary.scope_2_emissions_tonnes, 'bg-scope2'],
+              [3, auditPackage.summary.scope_3_emissions_tonnes, 'bg-scope3'],
+            ] as const
+          ).map(([scope, tonnes, dot]) => (
+            <div key={scope} className="px-5 py-3 min-w-[120px]">
+              <p className="flex items-center gap-1.5 text-xs font-medium text-foreground-muted">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
+                Scope {scope}
+              </p>
+              <p className="text-xl font-bold text-foreground mt-0.5 tracking-tight">
+                {formatNumber(tonnes, 2)} t
               </p>
             </div>
-            <div className="text-center p-4 bg-scope2/10 rounded-lg">
-              <p className="text-sm text-scope2 font-medium">Scope 2</p>
-              <p className="text-lg font-bold text-foreground">
-                {formatNumber(auditPackage.summary.scope_2_emissions_tonnes, 2)} t
-              </p>
-            </div>
-            <div className="text-center p-4 bg-scope3/10 rounded-lg">
-              <p className="text-sm text-scope3 font-medium">Scope 3</p>
-              <p className="text-lg font-bold text-foreground">
-                {formatNumber(auditPackage.summary.scope_3_emissions_tonnes, 2)} t
-              </p>
-            </div>
-            <div className="text-center p-4 bg-primary/10 rounded-lg">
-              <p className="text-sm text-primary font-medium">Data Quality</p>
-              <p className="text-lg font-bold text-foreground">
-                {auditPackage.summary.overall_data_quality_score.toFixed(2)}
-              </p>
-            </div>
+          ))}
+          <div className="px-5 py-3 min-w-[120px]">
+            <p className="text-xs font-medium text-foreground-muted">Data quality</p>
+            <p className="text-xl font-bold text-foreground mt-0.5 tracking-tight">
+              {auditPackage.summary.overall_data_quality_score.toFixed(2)}
+            </p>
           </div>
-        </CardContent>
+          <div className="px-5 py-3 min-w-[130px]">
+            <p className="text-xs font-medium text-foreground-muted">Verification</p>
+            <Badge
+              variant={
+                auditPackage.summary.verification_status === 'verified'
+                  ? 'success'
+                  : auditPackage.summary.verification_status === 'audit'
+                  ? 'warning'
+                  : 'default'
+              }
+              className="mt-1"
+            >
+              {auditPackage.summary.verification_status}
+            </Badge>
+          </div>
+        </div>
       </Card>
 
       {/* Activities Table */}
@@ -433,30 +403,39 @@ export function AuditPackageView({ auditPackage, onDownload }: AuditPackageViewP
         </Card>
       )}
 
-      {/* Methodology Documentation */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-foreground-muted" />
+      {/* Methodology — reference text, collapsed by default */}
+      <Card padding="none" className="overflow-hidden">
+        <button
+          type="button"
+          className="w-full px-5 py-3 flex items-center justify-between hover:bg-background-muted/50 transition-colors"
+          onClick={() => setShowMethodology((v) => !v)}
+        >
+          <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <BookOpen className="w-4 h-4 text-foreground-muted" />
             Methodology Documentation
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
+          </span>
+          {showMethodology ? (
+            <ChevronUp className="w-4 h-4 text-foreground-muted" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-foreground-muted" />
+          )}
+        </button>
+        {showMethodology && (
+          <div className="px-5 pb-4 border-t border-border pt-3 space-y-3 text-sm">
             <div>
-              <h4 className="font-semibold text-foreground mb-2">Overview</h4>
+              <h4 className="font-semibold text-foreground mb-0.5">Overview</h4>
               <p className="text-foreground-muted">{auditPackage.methodology.overview}</p>
             </div>
             <div>
-              <h4 className="font-semibold text-foreground mb-2">GHG Protocol Alignment</h4>
+              <h4 className="font-semibold text-foreground mb-0.5">GHG Protocol Alignment</h4>
               <p className="text-foreground-muted">{auditPackage.methodology.ghg_protocol_alignment}</p>
             </div>
             <div>
-              <h4 className="font-semibold text-foreground mb-2">Calculation Approach</h4>
+              <h4 className="font-semibold text-foreground mb-0.5">Calculation Approach</h4>
               <p className="text-foreground-muted">{auditPackage.methodology.calculation_approach}</p>
             </div>
             <div>
-              <h4 className="font-semibold text-foreground mb-2">Data Validation Rules</h4>
+              <h4 className="font-semibold text-foreground mb-0.5">Data Validation Rules</h4>
               <ul className="list-disc list-inside text-foreground-muted">
                 {auditPackage.methodology.data_validation_rules.map((rule, index) => (
                   <li key={index}>{rule}</li>
@@ -464,8 +443,8 @@ export function AuditPackageView({ auditPackage, onDownload }: AuditPackageViewP
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold text-foreground mb-2">Confidence Level Criteria</h4>
-              <div className="space-y-2">
+              <h4 className="font-semibold text-foreground mb-0.5">Confidence Level Criteria</h4>
+              <div className="space-y-1.5">
                 {Object.entries(auditPackage.methodology.confidence_level_criteria).map(([level, criteria]) => (
                   <div key={level} className="flex items-start gap-2">
                     <Badge
@@ -480,7 +459,7 @@ export function AuditPackageView({ auditPackage, onDownload }: AuditPackageViewP
               </div>
             </div>
           </div>
-        </CardContent>
+        )}
       </Card>
     </div>
   );

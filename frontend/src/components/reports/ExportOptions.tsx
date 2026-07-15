@@ -12,12 +12,9 @@ import {
 } from '@/components/ui';
 import { formatNumber } from '@/lib/utils';
 import {
-  Download,
   FileJson,
   Globe,
   Building2,
-  Leaf,
-  CheckCircle,
   ExternalLink,
   AlertCircle,
   Loader2,
@@ -63,25 +60,8 @@ export function ExportOptions({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Export Overview */}
-      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-        <CardContent className="py-6">
-          <div className="flex items-start gap-4">
-            <div className="p-3 rounded-xl bg-primary/10">
-              <Download className="w-6 h-6 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-foreground">Export Data</h2>
-              <p className="text-foreground-muted mt-1">
-                Export your GHG inventory data in standardized formats for reporting frameworks.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* CDP Climate Export */}
         <Card>
           <CardHeader>
@@ -175,21 +155,6 @@ export function ExportOptions({
                   </p>
                 </div>
               )}
-
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-foreground-muted">
-                  <CheckCircle className="w-4 h-4 text-success" />
-                  <span>Scope 1, 2 & 3 emissions breakdown</span>
-                </div>
-                <div className="flex items-center gap-2 text-foreground-muted">
-                  <CheckCircle className="w-4 h-4 text-success" />
-                  <span>Data quality and verification status</span>
-                </div>
-                <div className="flex items-center gap-2 text-foreground-muted">
-                  <CheckCircle className="w-4 h-4 text-success" />
-                  <span>Emission factor sources documented</span>
-                </div>
-              </div>
             </div>
           </CardContent>
           <CardFooter className="border-t border-border bg-background-muted/30">
@@ -304,25 +269,6 @@ export function ExportOptions({
                   </p>
                 </div>
               )}
-
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-foreground-muted">
-                  <CheckCircle className="w-4 h-4 text-success" />
-                  <span>Gross GHG emissions by scope</span>
-                </div>
-                <div className="flex items-center gap-2 text-foreground-muted">
-                  <CheckCircle className="w-4 h-4 text-success" />
-                  <span>Scope 3 category breakdown</span>
-                </div>
-                <div className="flex items-center gap-2 text-foreground-muted">
-                  <CheckCircle className="w-4 h-4 text-success" />
-                  <span>Transition plan and targets</span>
-                </div>
-                <div className="flex items-center gap-2 text-foreground-muted">
-                  <CheckCircle className="w-4 h-4 text-success" />
-                  <span>Intensity metrics</span>
-                </div>
-              </div>
             </div>
           </CardContent>
           <CardFooter className="border-t border-border bg-background-muted/30">
@@ -354,42 +300,10 @@ export function ExportOptions({
         </Card>
       </div>
 
-      {/* Additional Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Leaf className="w-5 h-5 text-foreground-muted" />
-            Export Standards Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-semibold text-foreground mb-2">CDP (Carbon Disclosure Project)</h4>
-              <p className="text-sm text-foreground-muted">
-                CDP is a not-for-profit charity that runs the global disclosure system for
-                investors, companies, cities, states and regions to manage their environmental
-                impacts. The exported JSON follows CDP&apos;s climate change questionnaire structure.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-semibold text-foreground mb-2">ESRS E1 (CSRD)</h4>
-              <p className="text-sm text-foreground-muted">
-                The European Sustainability Reporting Standards (ESRS) E1 covers climate change
-                disclosure requirements under the Corporate Sustainability Reporting Directive
-                (CSRD). The export includes gross emissions, intensity metrics, and transition plans.
-              </p>
-            </div>
-          </div>
-          <div className="mt-6 p-4 bg-info/10 rounded-lg border border-info/20">
-            <p className="text-sm text-info">
-              <strong>Note:</strong> These exports provide structured data in JSON format. For
-              official submissions, you may need to transfer this data to the respective reporting
-              platforms&apos; submission systems.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <p className="text-sm text-foreground-muted">
+        Exports are structured JSON. For official submissions, transfer the data to the
+        respective reporting platform&apos;s submission system.
+      </p>
     </div>
   );
 }

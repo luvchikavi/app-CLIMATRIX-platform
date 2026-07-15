@@ -63,6 +63,9 @@ export type {
 export { KPICard, ScopeKPI } from './KPICard';
 export type { KPICardProps, ScopeKPIProps } from './KPICard';
 
+export { StatBand } from './StatBand';
+export type { StatBandProps, StatBandCell } from './StatBand';
+
 export {
   EmptyState,
   NoActivitiesEmpty,
