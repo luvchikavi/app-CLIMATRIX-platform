@@ -6,7 +6,7 @@ import { api, InitiativeCategory, PersonalizedRecommendation } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, toast } from '@/components/ui';
-import { cn, num } from '@/lib/utils';
+import { cn, num, formatMoney } from '@/lib/utils';
 import {
   Loader2,
   ArrowLeft,
@@ -212,7 +212,7 @@ export default function RecommendationsPage() {
                             <DollarSign className="w-5 h-5 text-foreground-muted" />
                             <div>
                               <p className="font-semibold text-foreground">
-                                ${(Number(rec.estimated_capex || 0) / 1000).toFixed(0)}K
+                                {formatMoney(rec.estimated_capex || 0)}
                               </p>
                               <p className="text-xs text-foreground-muted">Investment</p>
                             </div>
