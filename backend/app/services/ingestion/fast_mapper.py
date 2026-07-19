@@ -230,6 +230,8 @@ def map_distinct(
         "- Match the physical basis: a spend/$ amount → a spend key; a physical amount "
         "(kg, kWh, L, km) → a physical key. Bare money amounts are in the "
         "organization's declared currency.\n"
+        "- Hotel stays counted in NIGHTS are physical (hotel_night) — spend hotel "
+        "keys are only for money amounts.\n"
         "- Prefer keys in the organization's EXPECTED categories when several fit.\n\n"
         f"Sheet: {table.sheet}\nCANDIDATE KEYS (key | scope | expected unit | name):\n{cand_block}"
     )

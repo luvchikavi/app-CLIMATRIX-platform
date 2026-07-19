@@ -179,6 +179,26 @@ def test_hotel_without_nights_returns_none():
     assert derive_hotel(TravelEntities(kind="hotel")) is None
 
 
+def test_spend_hotel_rekeys_to_physical_nights():
+    # Mapper picked the spend key but the file had no money unit — nights in
+    # the text win the method hierarchy and re-key the row to hotel_night.
+    m = _mapped("travel_spend_hotel", 3, "USD", defaulted=True)
+    assert derivation_kind(m) == "hotel"
+    d = derive_hotel(
+        TravelEntities(
+            kind="hotel", nights=3, travelers=2, stay_location_text="Berlin"
+        ),
+        m.quantity,
+    )
+    assert d.activity_key == "hotel_night"
+    assert d.quantity == 6.0
+    assert d.region == "DE"  # Berlin -> its airport's country
+
+
+def test_spend_hotel_with_real_money_unit_untouched():
+    assert derivation_kind(_mapped("travel_spend_hotel", 4000, "USD")) is None
+
+
 # =============================================================================
 # Freight resolver
 # =============================================================================

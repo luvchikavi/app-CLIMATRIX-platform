@@ -880,6 +880,12 @@ def derivation_kind(m) -> str | None:
     elif key == "hotel_night":
         if m.quantity is None or unit_defaulted or unit_norm not in _NIGHT_UNITS:
             return "hotel"
+    elif key == "travel_spend_hotel":
+        # Mapped to the SPEND key but the file carried no money unit — if the
+        # text names nights, the physical method wins the hierarchy and the
+        # derivation re-keys the row to hotel_night.
+        if m.quantity is None or unit_defaulted:
+            return "hotel"
     elif key in _FREIGHT_MODE_BY_KEY:
         if (
             m.quantity is None
