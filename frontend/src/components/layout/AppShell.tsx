@@ -57,36 +57,34 @@ export function AppShell({ children }: AppShellProps) {
     const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
     const isSuperAdmin = user?.role === 'super_admin';
 
-    // Decarbonization is the rail's "Plan" entry; the other modules live
-    // under Tools with the rest of the secondary pages (IA per decision #5).
-    const tools: RailNavItem[] = [
-      ...MODULE_REGISTRY.filter((m) => m.id !== 'decarbonization').map((m) => ({
-        label: m.name,
-        href: m.href,
-        active: isActive(m.href),
-        ...(m.status === 'coming-soon'
-          ? { disabled: true }
-          : m.status === 'beta'
-            ? { badge: 'Beta' }
-            : {}),
-      })),
-      { label: 'Activities', href: '/activities', active: isActive('/activities') },
-      { label: 'Sites', href: '/sites', active: isActive('/sites') },
-      { label: 'Billing', href: '/billing', active: isActive('/billing') },
-      { label: 'Roadmap', href: '/roadmap', active: isActive('/roadmap') },
-      ...(isSuperAdmin
-        ? [{ label: 'Audit trail', href: '/audit', active: isActive('/audit') }]
-        : []),
-    ];
+    // Flat, journey-ordered rail. Coming-soon modules (PCAF/LCA/EPD) are not
+    // rail entries at all — they live on /roadmap and the /modules catalog.
+    // CBAM is the one live module beyond the journey, so it stands alone
+    // rather than inside a collapsed drawer that used to hide it.
+    const cbam = MODULE_REGISTRY.find((m) => m.id === 'cbam');
 
     return [
       { label: 'Dashboard', href: '/dashboard', active: isActive('/dashboard') },
       { label: 'Data hub', href: '/hub', active: isActive('/hub') || isActive('/ingest') || isActive('/import') },
+      { label: 'Activities', href: '/activities', active: isActive('/activities') },
       { label: 'Plan', href: '/decarbonization', active: isActive('/decarbonization') },
       { label: 'Reports', href: '/reports', active: isActive('/reports') },
-      // Secondary sections sit behind hairlines: the collapsible Tools group,
-      // then Settings on its own.
-      { label: 'Tools', items: tools, separatorBefore: true },
+      ...(cbam
+        ? [
+            {
+              label: cbam.name,
+              href: cbam.href,
+              active: isActive(cbam.href),
+              ...(cbam.status === 'beta' ? { badge: 'Beta' } : {}),
+              separatorBefore: true,
+            },
+          ]
+        : []),
+      // Workspace: org-level pages behind their own hairline.
+      { label: 'Sites', href: '/sites', active: isActive('/sites'), separatorBefore: true },
+      { label: 'Billing', href: '/billing', active: isActive('/billing') },
+      { label: 'Roadmap', href: '/roadmap', active: isActive('/roadmap') },
+      { label: 'Settings', href: '/settings', active: isActive('/settings') },
       // The company cockpit (dashboard + CRM) — internal, super admins only.
       ...(isSuperAdmin
         ? [
@@ -96,14 +94,9 @@ export function AppShell({ children }: AppShellProps) {
               active: isActive('/admin') || isActive('/leads'),
               separatorBefore: true,
             },
+            { label: 'Audit trail', href: '/audit', active: isActive('/audit') },
           ]
         : []),
-      {
-        label: 'Settings',
-        href: '/settings',
-        active: isActive('/settings'),
-        separatorBefore: !isSuperAdmin,
-      },
     ];
   }, [pathname, user?.role]);
 
