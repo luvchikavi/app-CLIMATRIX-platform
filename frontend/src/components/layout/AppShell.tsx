@@ -57,36 +57,46 @@ export function AppShell({ children }: AppShellProps) {
     const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
     const isSuperAdmin = user?.role === 'super_admin';
 
-    // Decarbonization is the rail's "Plan" entry; the other modules live
-    // under Tools with the rest of the secondary pages (IA per decision #5).
-    const tools: RailNavItem[] = [
-      ...MODULE_REGISTRY.filter((m) => m.id !== 'decarbonization').map((m) => ({
-        label: m.name,
-        href: m.href,
-        active: isActive(m.href),
-        ...(m.status === 'coming-soon'
-          ? { disabled: true }
-          : m.status === 'beta'
-            ? { badge: 'Beta' }
-            : {}),
-      })),
-      { label: 'Activities', href: '/activities', active: isActive('/activities') },
-      { label: 'Sites', href: '/sites', active: isActive('/sites') },
-      { label: 'Billing', href: '/billing', active: isActive('/billing') },
-      { label: 'Roadmap', href: '/roadmap', active: isActive('/roadmap') },
-      ...(isSuperAdmin
-        ? [{ label: 'Audit trail', href: '/audit', active: isActive('/audit') }]
-        : []),
-    ];
+    // Journey-ordered rail. Coming-soon modules (PCAF/LCA/EPD) are not rail
+    // entries at all — they live on /roadmap and the /modules catalog.
+    // Tools holds real, working tools only; Workspace holds org-level pages.
+    // Both groups render expanded so nothing hides behind a closed drawer.
+    const cbam = MODULE_REGISTRY.find((m) => m.id === 'cbam');
 
     return [
       { label: 'Dashboard', href: '/dashboard', active: isActive('/dashboard') },
       { label: 'Data hub', href: '/hub', active: isActive('/hub') || isActive('/ingest') || isActive('/import') },
+      { label: 'Activities', href: '/activities', active: isActive('/activities') },
       { label: 'Plan', href: '/decarbonization', active: isActive('/decarbonization') },
       { label: 'Reports', href: '/reports', active: isActive('/reports') },
-      // Secondary sections sit behind hairlines: the collapsible Tools group,
-      // then Settings on its own.
-      { label: 'Tools', items: tools, separatorBefore: true },
+      {
+        label: 'Tools',
+        separatorBefore: true,
+        defaultOpen: true,
+        items: cbam
+          ? [
+              {
+                label: cbam.name,
+                href: cbam.href,
+                active: isActive(cbam.href),
+                ...(cbam.status === 'beta' ? { badge: 'Beta' } : {}),
+              },
+            ]
+          : [],
+      },
+      {
+        label: 'Workspace',
+        separatorBefore: true,
+        defaultOpen: true,
+        items: [
+          { label: 'Sites', href: '/sites', active: isActive('/sites') },
+          { label: 'Billing', href: '/billing', active: isActive('/billing') },
+          { label: 'Roadmap', href: '/roadmap', active: isActive('/roadmap') },
+          ...(isSuperAdmin
+            ? [{ label: 'Audit trail', href: '/audit', active: isActive('/audit') }]
+            : []),
+        ],
+      },
       // The company cockpit (dashboard + CRM) — internal, super admins only.
       ...(isSuperAdmin
         ? [
