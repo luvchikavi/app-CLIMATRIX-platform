@@ -19,6 +19,12 @@ export interface RailJourneyStep {
   state: JourneyStepState;
   /** Soft-lock (decision #3): locked steps stay clickable when href is set. */
   href?: string;
+  /**
+   * Route prefixes that belong to this step (e.g. Measure owns /hub and
+   * /activities). The rail highlights the step the user is currently IN;
+   * the ✓/dot markers stay progress-driven.
+   */
+  routes?: string[];
 }
 
 export interface RailNavItem {
@@ -73,7 +79,7 @@ function StepMarker({ state }: { state: JourneyStepState }) {
   );
 }
 
-function JourneyStep({ step }: { step: RailJourneyStep }) {
+function JourneyStep({ step, highlighted }: { step: RailJourneyStep; highlighted: boolean }) {
   const body = (
     <>
       <StepMarker state={step.state} />
@@ -81,8 +87,8 @@ function JourneyStep({ step }: { step: RailJourneyStep }) {
         <span
           className={cn(
             'block text-[13px] font-semibold',
-            step.state === 'now' && 'text-cy-rail-accent',
-            step.state === 'locked' && 'text-cy-rail-faint'
+            highlighted && 'text-cy-rail-accent',
+            !highlighted && step.state === 'locked' && 'text-cy-rail-faint'
           )}
         >
           {step.title}
@@ -90,7 +96,7 @@ function JourneyStep({ step }: { step: RailJourneyStep }) {
         <span
           className={cn(
             'mt-0.5 block text-[11px] leading-[1.4]',
-            step.state === 'locked' ? 'text-cy-rail-faint' : 'text-cy-rail-muted'
+            step.state === 'locked' && !highlighted ? 'text-cy-rail-faint' : 'text-cy-rail-muted'
           )}
         >
           {step.status}
@@ -100,7 +106,7 @@ function JourneyStep({ step }: { step: RailJourneyStep }) {
   );
   const cls = cn(
     'mb-1 flex gap-[11px] rounded-[10px] px-2 py-2',
-    step.state === 'now' && 'bg-cy-rail-soft'
+    highlighted && 'bg-cy-rail-soft'
   );
   if (step.href) {
     return (
@@ -242,6 +248,16 @@ export function Rail({ steps, nav, onSignOut, className }: RailProps) {
     setMenuOpen(false);
   }, [pathname]);
 
+  // The highlight follows WHERE the user currently is (the step whose pages
+  // they're on); on non-journey pages (dashboard, settings…) it falls back to
+  // the progress-driven "now" step. The ✓/dot markers stay progress-driven.
+  const routeStep = steps.find((s) =>
+    (s.routes ?? (s.href ? [s.href] : [])).some(
+      (r) => pathname === r || pathname.startsWith(r + '/')
+    )
+  );
+  const highlightTitle = (routeStep ?? steps.find((s) => s.state === 'now'))?.title;
+
   return (
     <>
       {/* Desktop: the permanent rail */}
@@ -258,7 +274,7 @@ export function Rail({ steps, nav, onSignOut, className }: RailProps) {
           Your journey
         </p>
         {steps.map((step) => (
-          <JourneyStep key={step.title} step={step} />
+          <JourneyStep key={step.title} step={step} highlighted={step.title === highlightTitle} />
         ))}
         <NavList
           nav={nav}
@@ -288,8 +304,10 @@ export function Rail({ steps, nav, onSignOut, className }: RailProps) {
                 <span
                   className={cn(
                     'text-[12px] font-semibold',
-                    step.state === 'now' && 'text-cy-rail-accent',
-                    step.state === 'locked' && 'text-cy-rail-faint'
+                    step.title === highlightTitle && 'text-cy-rail-accent',
+                    step.title !== highlightTitle &&
+                      step.state === 'locked' &&
+                      'text-cy-rail-faint'
                   )}
                 >
                   {step.title}

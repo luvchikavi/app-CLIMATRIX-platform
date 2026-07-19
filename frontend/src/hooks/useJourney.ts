@@ -227,9 +227,27 @@ export function useJourney(): JourneyState {
 
   return {
     steps: [
-      { title: 'Measure', status: measureStatus, state: state(0), href: '/hub' },
-      { title: 'Plan', status: planStatus, state: state(1), href: '/decarbonization' },
-      { title: 'Report', status: reportStatus, state: state(2), href: '/reports' },
+      {
+        title: 'Measure',
+        status: measureStatus,
+        state: state(0),
+        href: '/hub',
+        routes: ['/hub', '/ingest', '/import', '/activities'],
+      },
+      {
+        title: 'Plan',
+        status: planStatus,
+        state: state(1),
+        href: '/decarbonization',
+        routes: ['/decarbonization', '/plan'],
+      },
+      {
+        title: 'Report',
+        status: reportStatus,
+        state: state(2),
+        href: '/reports',
+        routes: ['/reports'],
+      },
     ],
     focus,
     progress: { fraction: doneCount / 3, label: `${doneCount}/3` },
