@@ -131,14 +131,18 @@ async def add_missing_emission_factors(session) -> None:
     from app.models.emission import EmissionFactor
     from app.data import EMISSION_FACTORS
 
-    # Get all existing activity_keys from the database
-    result = await session.execute(select(EmissionFactor.activity_key))
-    existing_keys = {row[0] for row in result.all()}
+    # A factor's identity is (activity_key, region) — one key can carry many
+    # regional variants (e.g. hotel_night per country). Keying by activity_key
+    # alone would treat all variants as one row.
+    result = await session.execute(
+        select(EmissionFactor.activity_key, EmissionFactor.region)
+    )
+    existing_keys = {(row[0], row[1]) for row in result.all()}
 
     # Add any missing factors
     added_count = 0
     for ef_data in EMISSION_FACTORS:
-        if ef_data["activity_key"] not in existing_keys:
+        if (ef_data["activity_key"], ef_data.get("region")) not in existing_keys:
             logger.info(f"Adding missing emission factor: {ef_data['activity_key']}")
             ef = EmissionFactor(**ef_data)
             session.add(ef)
@@ -156,8 +160,12 @@ async def update_existing_emission_factors(session) -> None:
     from app.models.emission import EmissionFactor
     from app.data import EMISSION_FACTORS
 
-    # Build lookup from code: activity_key -> factor data
-    code_factors = {ef["activity_key"]: ef for ef in EMISSION_FACTORS}
+    # Identity is (activity_key, region) — never collapse regional variants
+    # onto one code entry, and never rewrite a row's region: matching the
+    # wrong variant would stamp every country's factor with the last one.
+    code_factors = {
+        (ef["activity_key"], ef.get("region")): ef for ef in EMISSION_FACTORS
+    }
 
     # Fetch all existing factors from DB
     result = await session.execute(select(EmissionFactor))
@@ -173,13 +181,12 @@ async def update_existing_emission_factors(session) -> None:
         "source",
         "activity_unit",
         "factor_unit",
-        "region",
         "year",
         "notes",
     ]
 
     for db_ef in db_factors:
-        code_ef = code_factors.get(db_ef.activity_key)
+        code_ef = code_factors.get((db_ef.activity_key, db_ef.region))
         if not code_ef:
             continue
 

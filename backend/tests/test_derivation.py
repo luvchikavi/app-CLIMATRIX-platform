@@ -494,6 +494,36 @@ async def test_hotel_country_factor_selected_by_region(test_session):
 
 
 # =============================================================================
+# Startup factor sync must respect (activity_key, region) identity
+# =============================================================================
+
+
+async def test_factor_sync_is_region_aware(test_session):
+    from app.database import (
+        add_missing_emission_factors,
+        update_existing_emission_factors,
+    )
+
+    await add_missing_emission_factors(test_session)
+    await update_existing_emission_factors(test_session)
+
+    rows = (
+        (
+            await test_session.execute(
+                select(EmissionFactor.region).where(
+                    EmissionFactor.activity_key == "hotel_night"
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    # All per-country variants present, none collapsed onto one region.
+    assert len(rows) == len(set(rows)) and len(rows) >= 16
+    assert {"Global", "IL", "DE"} <= set(rows)
+
+
+# =============================================================================
 # Orchestrator integration: derive → stage → answer → commit
 # =============================================================================
 
