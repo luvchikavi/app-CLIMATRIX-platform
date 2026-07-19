@@ -3727,3 +3727,29 @@ EMISSION_FACTORS = [
         "year": 2024,
     },
 ]
+
+# =============================================================================
+# COUNTRY-SPECIFIC HOTEL-NIGHT FACTORS (Scope 3.6)
+# Derived-quantity rule: hotel = nights × travelers × the STAY country's factor.
+# Generated from the per-country table in reference_data so both stay in sync;
+# the resolver picks these by region and falls back to the Global row above.
+# =============================================================================
+from app.data.reference_data import HOTEL_EMISSION_FACTORS as _HOTEL_BY_COUNTRY
+
+EMISSION_FACTORS += [
+    {
+        "scope": 3,
+        "category_code": "3.6",
+        "subcategory": "travel",
+        "activity_key": "hotel_night",
+        "display_name": f"Hotel Stay ({h['country_name']})",
+        "co2e_factor": h["co2e_per_night"],
+        "activity_unit": "nights",
+        "factor_unit": "kg CO2e/night",
+        "source": h.get("source", "DEFRA default"),
+        "region": iso2,
+        "year": 2024,
+    }
+    for iso2, h in _HOTEL_BY_COUNTRY.items()
+    if iso2 != "GLOBAL"
+]

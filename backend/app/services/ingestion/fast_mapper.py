@@ -316,6 +316,7 @@ def map_table_fast(
                 llm_confidence=float(m.get("confidence", 0.5)),
                 question=m.get("question"),
                 source={str(k): _json_safe(v) for k, v in r.items()},
+                unit_defaulted=not unit and entry is not None,
             )
         )
     return out

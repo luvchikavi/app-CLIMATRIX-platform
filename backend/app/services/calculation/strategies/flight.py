@@ -18,7 +18,10 @@ from app.services.calculation.result import CalculationResult
 from app.services.calculation.strategies.base import BaseCalculator
 
 # Radiative Forcing multiplier (accounts for non-CO2 climate effects at altitude)
-# DEFRA recommends 1.9, but this is configurable
+# DEFRA recommends 1.9, but this is configurable.
+# NOTE: the catalog's DEFRA cabin-class factors are seeded RF-INCLUSIVE ("with
+# RF" in factor.notes) — the pipeline passes include_rf=False for those so RF
+# is never double-counted. Only pass include_rf=True with an RF-exclusive factor.
 RF_MULTIPLIER = Decimal("1.9")
 
 # Distance thresholds (km)

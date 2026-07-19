@@ -272,8 +272,25 @@ class CalculationPipeline:
         calculator_class = self.CALCULATORS.get(
             input_data.category_code, self.DEFAULT_CALCULATOR
         )
+        if calculator_class is FlightCalculator and not (
+            input_data.activity_key or ""
+        ).startswith("flight_"):
+            # Category 3.6 is broader than flying — hotel nights, rail, taxis,
+            # travel spend. Aviation treatment (the RF multiplier) applies to
+            # aircraft only; everything else in 3.6 is plain quantity × factor.
+            calculator_class = self.DEFAULT_CALCULATOR
         calculator = calculator_class()
-        result = calculator.calculate(normalized, factor, wtt_factor)
+        if isinstance(calculator, FlightCalculator):
+            # DEFRA cabin-class flight factors are seeded RF-INCLUSIVE (the
+            # factor notes say "with RF") — applying ×1.9 again would
+            # double-count radiative forcing. Apply RF only when the factor
+            # doesn't already carry it.
+            include_rf = "with rf" not in (factor.notes or "").lower()
+            result = calculator.calculate(
+                normalized, factor, wtt_factor, include_rf=include_rf
+            )
+        else:
+            result = calculator.calculate(normalized, factor, wtt_factor)
 
         # Add resolution metadata
         result.resolution_strategy = resolution.strategy.value
