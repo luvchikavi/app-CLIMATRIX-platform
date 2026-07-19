@@ -490,6 +490,12 @@ async def punch_list(
     from fastapi.responses import PlainTextResponse
 
     from app.models.core import Organization, ReportingPeriod
+    from app.services.entitlements import get_entitlement, require_report_generation
+
+    if format == "csv":
+        # The CSV download is an export — same teaser rule as report exports.
+        entitlement = await get_entitlement(current_user, session)
+        await require_report_generation(entitlement)
 
     org_id = current_user.organization_id
     org = await session.get(Organization, org_id)

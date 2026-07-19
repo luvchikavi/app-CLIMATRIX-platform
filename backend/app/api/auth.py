@@ -736,11 +736,15 @@ async def invite_user(
     """
     from app.models.core import UserRole, Invitation, InvitationStatus, Organization
     from app.services.email import EmailService
+    from app.services.entitlements import ensure_seat_capacity
     import secrets
 
     # Check if user is admin
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can invite users")
+
+    # Plan seat cap (trial is single-user) — 402 before any invite side effects
+    await ensure_seat_capacity(session, current_user.organization_id)
 
     # Check if email already exists
     existing_user = await session.execute(select(User).where(User.email == data.email))

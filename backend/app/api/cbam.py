@@ -27,6 +27,7 @@ from app.config import settings
 from app.database import get_session
 from app.models.core import Organization, User
 from app.rate_limit import limiter
+from app.services.entitlements import require_cbam_workflow
 from app.models.cbam import (
     CBAMInstallation,
     CBAMInstallationStatus,
@@ -569,6 +570,7 @@ async def create_installation(
     data: CBAMInstallationCreate,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _gate: Annotated[None, Depends(require_cbam_workflow)] = None,
 ):
     """Create a new CBAM installation (non-EU production facility)."""
     # Map request fields to model fields
@@ -622,6 +624,7 @@ async def update_installation(
     data: CBAMInstallationUpdate,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _gate: Annotated[None, Depends(require_cbam_workflow)] = None,
 ):
     """Update a CBAM installation."""
     result = await session.execute(
@@ -666,6 +669,7 @@ async def delete_installation(
     installation_id: UUID,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _gate: Annotated[None, Depends(require_cbam_workflow)] = None,
 ):
     """Delete a CBAM installation."""
     result = await session.execute(
@@ -791,6 +795,7 @@ async def create_data_request(
     data: CBAMDataRequestCreate,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _gate: Annotated[None, Depends(require_cbam_workflow)] = None,
 ):
     """
     Request actual embedded-emissions data from a supplier.
@@ -875,6 +880,7 @@ async def remind_data_request(
     request_id: UUID,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _gate: Annotated[None, Depends(require_cbam_workflow)] = None,
 ):
     """Re-send the data-request email to the supplier (pending requests only)."""
     req, installation = await _get_org_data_request(
@@ -1083,6 +1089,7 @@ async def create_import(
     data: CBAMImportCreate,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _gate: Annotated[None, Depends(require_cbam_workflow)] = None,
 ):
     """Create a new CBAM import record with automatic emissions calculation."""
     # Installation is optional; when provided it must belong to the org and
@@ -1199,6 +1206,7 @@ async def delete_import(
     import_id: UUID,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _gate: Annotated[None, Depends(require_cbam_workflow)] = None,
 ):
     """Delete a CBAM import."""
     result = await session.execute(
@@ -1497,6 +1505,7 @@ async def create_certificate_entry(
     data: CBAMCertificateEntryCreate,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _gate: Annotated[None, Depends(require_cbam_workflow)] = None,
 ):
     """
     Record a certificate account movement.
@@ -1546,6 +1555,7 @@ async def delete_certificate_entry(
     entry_id: UUID,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _gate: Annotated[None, Depends(require_cbam_workflow)] = None,
 ):
     """
     Remove a mis-entered ledger row.
@@ -1957,6 +1967,7 @@ async def generate_annual_declaration(
     year: int,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _gate: Annotated[None, Depends(require_cbam_workflow)] = None,
 ):
     """
     Generate — or regenerate — the annual CBAM declaration draft for a year.
@@ -2108,6 +2119,7 @@ async def update_annual_declaration_status(
     data: CBAMDeclarationStatusUpdate,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _gate: Annotated[None, Depends(require_cbam_workflow)] = None,
 ):
     """
     Move an annual declaration between `draft` and `ready`.
@@ -2154,6 +2166,7 @@ async def export_annual_declaration_csv(
     year: int,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _gate: Annotated[None, Depends(require_cbam_workflow)] = None,
 ):
     """
     Export the annual declaration draft pack as CSV.
@@ -2346,6 +2359,7 @@ async def export_quarterly_report_csv(
     quarter: int,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _gate: Annotated[None, Depends(require_cbam_workflow)] = None,
 ):
     """
     Export quarterly CBAM report data as CSV.
@@ -2420,6 +2434,7 @@ async def export_quarterly_report_eu_format(
     quarter: int,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _gate: Annotated[None, Depends(require_cbam_workflow)] = None,
 ):
     """
     Export quarterly CBAM report in EU Commission format.

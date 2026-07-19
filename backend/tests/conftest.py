@@ -77,6 +77,11 @@ async def test_org(test_session: AsyncSession):
         name="Test Organization",
         country_code="US",
         default_region="US",
+        # Active paid plan so entitlement gates (teaser trial / free caps)
+        # don't interfere with unrelated tests. Trial/free/expired states are
+        # exercised explicitly in test_entitlements.py.
+        subscription_plan="professional",
+        subscription_status="active",
     )
     test_session.add(org)
     await test_session.commit()

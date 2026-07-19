@@ -23,6 +23,7 @@ stripe.api_key = settings.stripe_secret_key
 
 
 # Plan limits (-1 = unlimited). reports_per_month gates formal report generation/export.
+# import_files / import_rows cap the Smart Import funnel (uploads / committed rows).
 PLAN_LIMITS = {
     SubscriptionPlan.FREE: {
         "activities_per_month": 50,
@@ -32,6 +33,8 @@ PLAN_LIMITS = {
         "ai_extractions": 0,
         "reports_per_month": 0,  # preview only, no new report generation
         "export_formats": ["csv"],
+        "import_files": 0,  # expired trial / free: data preserved, no new uploads
+        "import_rows": 0,
     },
     SubscriptionPlan.STARTER: {
         "activities_per_month": 500,
@@ -41,6 +44,8 @@ PLAN_LIMITS = {
         "ai_extractions": 10,
         "reports_per_month": 5,
         "export_formats": ["csv", "json"],
+        "import_files": -1,
+        "import_rows": -1,
     },
     SubscriptionPlan.PROFESSIONAL: {
         "activities_per_month": 5000,
@@ -50,6 +55,8 @@ PLAN_LIMITS = {
         "ai_extractions": 100,
         "reports_per_month": -1,  # unlimited
         "export_formats": ["csv", "json", "cdp", "esrs"],
+        "import_files": -1,
+        "import_rows": -1,
     },
     SubscriptionPlan.ENTERPRISE: {
         "activities_per_month": -1,
@@ -59,13 +66,29 @@ PLAN_LIMITS = {
         "ai_extractions": -1,
         "reports_per_month": -1,
         "export_formats": ["csv", "json", "cdp", "esrs", "custom"],
+        "import_files": -1,
+        "import_rows": -1,
     },
 }
 
 # Canonical pricing — the single source of truth the frontend mirrors.
 # Annual totals are ~15% off the monthly rate.
 TRIAL_DAYS = 14
-TRIAL_REPORT_CAP = 1  # trial users get one (watermarked) report export
+
+# The 14-day TEASER trial (GOING-LIVE-PLAN Wave 4): the user sees the parser +
+# calculation engine run on their own data, but gets no extractable deliverable —
+# zero exports, single site/period/seat, capped import volume.
+TRIAL_LIMITS = {
+    "activities_per_month": 500,
+    "users": 1,
+    "periods": 1,
+    "sites": 1,
+    "ai_extractions": 100,
+    "reports_per_month": 0,  # no exports of any kind during trial
+    "export_formats": [],
+    "import_files": 3,
+    "import_rows": 500,
+}
 
 PLAN_PRICING = {
     SubscriptionPlan.FREE: {"monthly": 0, "annual": 0},

@@ -17,6 +17,7 @@ from sqlmodel import select
 
 from app.api.auth import get_current_user
 from app.database import get_session
+from app.services.entitlements import require_period_capacity
 from app.models.core import (
     User,
     ReportingPeriod,
@@ -141,6 +142,7 @@ async def create_period(
     data: ReportingPeriodCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
+    _gate: Annotated[None, Depends(require_period_capacity)] = None,
 ):
     """Create a new reporting period (starts in 'draft' status)."""
     period = ReportingPeriod(

@@ -23,7 +23,7 @@ from app.database import get_session
 from app.models.core import User, ReportingPeriod, Organization
 from app.models.emission import Activity, Emission, EmissionFactor, ImportBatch
 from app.services.calculation.wtt import WTTService
-from app.services.entitlements import require_report_generation
+from app.services.entitlements import require_report_generation, require_report_view
 from app.data.reference_data import GRID_EMISSION_FACTORS
 
 router = APIRouter()
@@ -915,7 +915,8 @@ async def get_ghg_inventory_report(
     period_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
-    _gate: Annotated[None, Depends(require_report_generation)] = None,
+    # On-screen view stays open during the teaser trial; exports below stay locked.
+    _gate: Annotated[None, Depends(require_report_view)] = None,
 ):
     """
     Generate ISO 14064-1 compliant GHG Inventory Report.
@@ -1439,6 +1440,7 @@ async def get_audit_package(
     period_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
+    _gate: Annotated[None, Depends(require_report_generation)] = None,
 ):
     """
     Generate comprehensive audit package for third-party verification.
