@@ -315,6 +315,18 @@ async def google_login(
 
         await BillingService.start_free_trial(session, organization)
 
+        # Welcome email — must never block or fail the signup
+        from app.services.email import email_service
+
+        try:
+            email_service.send_welcome_email(
+                to_email=user.email,
+                user_name=user.full_name or user.email,
+                org_name=organization.name,
+            )
+        except Exception:
+            pass
+
     # Fetch organization
     org_result = await session.execute(
         select(Organization).where(Organization.id == user.organization_id)
@@ -538,6 +550,18 @@ async def register(
     from app.services.billing import BillingService
 
     await BillingService.start_free_trial(session, organization)
+
+    # Welcome email — must never block or fail the signup
+    from app.services.email import email_service
+
+    try:
+        email_service.send_welcome_email(
+            to_email=user.email,
+            user_name=user.full_name or user.email,
+            org_name=organization.name,
+        )
+    except Exception:
+        pass
 
     # Create tokens
     token_data = {
