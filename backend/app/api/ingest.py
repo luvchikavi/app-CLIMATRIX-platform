@@ -24,7 +24,7 @@ from arq import create_pool
 from arq.connections import RedisSettings
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth import get_current_user
@@ -37,6 +37,11 @@ from app.models.ingestion import (
     IngestionStatus,
     RowStatus,
     StagedRow,
+)
+from app.services.entitlements import (
+    ensure_import_file_capacity,
+    ensure_import_row_capacity,
+    get_entitlement,
 )
 from app.services.ingestion import orchestrator
 from app.services.ingestion.file_guard import FileRejected, check_upload
@@ -247,6 +252,7 @@ async def upload_and_analyze(
     reporting_period_id: Optional[UUID] = Form(default=None),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
     current_user: Annotated[User, Depends(get_current_user)] = None,
+    entitlement: Annotated[dict, Depends(get_entitlement)] = None,
 ):
     """Upload a file, security-check it, and parse it into staged rows + questions.
 
@@ -254,6 +260,10 @@ async def upload_and_analyze(
     with status 'analyzing'; the client polls GET /ingest/{id}). Everywhere else — or
     if the queue is unreachable — it runs inline so dev/test stay self-contained.
     """
+    # Plan upload allowance (trial: 3 files; expired trial: closed) — 402 pre-parse
+    await ensure_import_file_capacity(
+        session, entitlement, current_user.organization_id
+    )
     content = await file.read()
     try:
         report = check_upload(content, file.filename or "upload", max_bytes=_MAX_BYTES)
@@ -421,6 +431,7 @@ async def commit(
     body: CommitBody | None = None,
     session: Annotated[AsyncSession, Depends(get_session)] = None,
     current_user: Annotated[User, Depends(get_current_user)] = None,
+    entitlement: Annotated[dict, Depends(get_entitlement)] = None,
 ):
     ingestion = await _get_owned_session(session_id, session, current_user)
     period_id = (
@@ -434,6 +445,21 @@ async def commit(
     period = await session.get(ReportingPeriod, period_id)
     if period is None or period.organization_id != current_user.organization_id:
         raise HTTPException(status_code=404, detail="Reporting period not found.")
+
+    # Plan committed-row allowance (trial: 500 rows total) — 402 before writing
+    committable = (
+        await session.execute(
+            select(func.count())
+            .select_from(StagedRow)
+            .where(
+                StagedRow.session_id == ingestion.id,
+                StagedRow.status.in_([RowStatus.READY.value, RowStatus.APPROVED.value]),
+            )
+        )
+    ).scalar_one()
+    await ensure_import_row_capacity(
+        session, entitlement, current_user.organization_id, int(committable or 0)
+    )
 
     try:
         await orchestrator.commit_session(

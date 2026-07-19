@@ -16,6 +16,7 @@ from sqlmodel import select, func
 
 from app.api.auth import get_current_user
 from app.database import get_session
+from app.services.entitlements import require_site_capacity
 from app.models.core import (
     User,
     Organization,
@@ -271,6 +272,7 @@ async def create_site(
     data: SiteCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
+    _gate: Annotated[None, Depends(require_site_capacity)] = None,
 ):
     """Create a new site for the organization."""
     site = Site(

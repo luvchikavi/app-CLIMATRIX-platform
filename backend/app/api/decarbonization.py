@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +30,10 @@ from app.models.decarbonization import (
     ScenarioType,
 )
 from app.api.auth import get_current_user
+from app.services.entitlements import (
+    get_entitlement,
+    require_decarb_management,
+)
 from app.services.decarbonization import (
     EmissionProfileService,
     RecommendationEngine,
@@ -232,8 +236,10 @@ async def get_emission_profile(
 
 @router.get("/recommendations", response_model=list[PersonalizedRecommendation])
 async def get_recommendations(
+    response: Response,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    entitlement: Annotated[dict, Depends(get_entitlement)],
     period_id: UUID = Query(..., description="Reporting period ID"),
     limit: int = Query(default=10, le=50),
     category: Optional[InitiativeCategory] = Query(default=None),
@@ -241,6 +247,9 @@ async def get_recommendations(
     """
     Get personalized reduction recommendations based on client's emission data.
     Recommendations are matched to actual emission sources and ranked by impact.
+
+    Teaser tiers (trial/free/starter) receive the top recommendation only;
+    X-Recommendations-Total carries the full count for the upsell UI.
     """
     recommendations = await RecommendationEngine.generate_recommendations(
         session=session,
@@ -249,6 +258,14 @@ async def get_recommendations(
         limit=limit,
         category_filter=category,
     )
+    full_access = not entitlement["is_trialing"] and entitlement["effective_plan"] in (
+        "professional",
+        "enterprise",
+    )
+    response.headers["X-Recommendations-Total"] = str(len(recommendations))
+    if not full_access:
+        response.headers["X-Recommendations-Teaser"] = "1"
+        return recommendations[:1]
     return recommendations
 
 
@@ -336,6 +353,7 @@ async def create_target(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
     request: TargetCreateRequest,
+    _gate: Annotated[None, Depends(require_decarb_management)] = None,
 ):
     """
     Create a new decarbonization target.
@@ -420,6 +438,7 @@ async def update_target(
     session: Annotated[AsyncSession, Depends(get_session)],
     target_id: UUID,
     request: TargetCreateRequest,
+    _gate: Annotated[None, Depends(require_decarb_management)] = None,
 ):
     """Update an existing target in place (recalculates SBTi emissions like create).
 
@@ -580,6 +599,7 @@ async def delete_target(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
     target_id: UUID,
+    _gate: Annotated[None, Depends(require_decarb_management)] = None,
 ):
     """Delete a target."""
     result = await session.execute(
@@ -745,6 +765,7 @@ async def create_scenario(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
     request: ScenarioCreateRequest,
+    _gate: Annotated[None, Depends(require_decarb_management)] = None,
 ):
     """Create a new scenario."""
     # Verify target exists and belongs to org
@@ -792,6 +813,7 @@ async def activate_scenario(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
     scenario_id: UUID,
+    _gate: Annotated[None, Depends(require_decarb_management)] = None,
 ):
     """Set a scenario as the active/selected scenario."""
     # Get scenario
@@ -832,6 +854,7 @@ async def add_initiative_to_scenario(
     session: Annotated[AsyncSession, Depends(get_session)],
     scenario_id: UUID,
     request: ScenarioInitiativeRequest,
+    _gate: Annotated[None, Depends(require_decarb_management)] = None,
 ):
     """Add an initiative to a scenario."""
     # Verify scenario exists and belongs to org
@@ -971,6 +994,7 @@ async def remove_initiative_from_scenario(
     session: Annotated[AsyncSession, Depends(get_session)],
     scenario_id: UUID,
     initiative_id: UUID,
+    _gate: Annotated[None, Depends(require_decarb_management)] = None,
 ):
     """Remove an initiative from a scenario."""
     # Verify scenario exists and belongs to org
@@ -1007,6 +1031,7 @@ async def delete_scenario(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
     scenario_id: UUID,
+    _gate: Annotated[None, Depends(require_decarb_management)] = None,
 ):
     """Delete a scenario."""
     result = await session.execute(
@@ -1071,6 +1096,7 @@ async def create_checkpoint(
     session: Annotated[AsyncSession, Depends(get_session)],
     target_id: UUID = Query(...),
     period_id: UUID = Query(...),
+    _gate: Annotated[None, Depends(require_decarb_management)] = None,
 ):
     """Create an emission checkpoint for progress tracking."""
     try:

@@ -39,6 +39,7 @@ class SubscriptionResponse(BaseModel):
     current_period_end: str | None
     trial_ends_at: str | None
     is_trialing: bool
+    is_expired: bool = False
     plan_limits: dict
 
 
@@ -80,16 +81,15 @@ async def get_subscription(
     if not organization:
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    # subscription_plan / subscription_status are stored as plain strings.
-    # Coerce the plan to the enum (defaulting to FREE) and keep status as a string.
-    try:
-        plan_enum = SubscriptionPlan(organization.subscription_plan or "free")
-    except ValueError:
-        plan_enum = SubscriptionPlan.FREE
+    # Entitlements is the single source of truth: is_trialing respects expiry,
+    # and plan_limits reflect what the org can actually do (teaser trial included).
+    from app.services.entitlements import resolve_entitlement
+
+    entitlement = resolve_entitlement(organization)
     status_str = organization.subscription_status or None
 
     return SubscriptionResponse(
-        plan=plan_enum.value,
+        plan=entitlement["effective_plan"],
         status=status_str,
         current_period_end=(
             organization.subscription_current_period_end.isoformat()
@@ -101,8 +101,9 @@ async def get_subscription(
             if organization.trial_ends_at
             else None
         ),
-        is_trialing=organization.trial_ends_at is not None and status_str == "trialing",
-        plan_limits=BillingService.get_plan_limits(plan_enum),
+        is_trialing=entitlement["is_trialing"],
+        is_expired=entitlement["is_expired"],
+        plan_limits=entitlement["limits"],
     )
 
 
