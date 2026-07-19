@@ -26,6 +26,9 @@ class CalculationResult:
     ch4_kg: Optional[Decimal] = None
     n2o_kg: Optional[Decimal] = None
 
+    # Biogenic CO2 (outside of scopes — reported separately, not in co2e_kg)
+    biogenic_co2_kg: Optional[Decimal] = None
+
     # WTT for automatic 3.3 tracking
     wtt_co2e_kg: Optional[Decimal] = None
 

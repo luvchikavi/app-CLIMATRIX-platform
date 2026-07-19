@@ -631,6 +631,7 @@ async def commit_session(
                 co2_kg=calc.co2_kg,
                 ch4_kg=calc.ch4_kg,
                 n2o_kg=calc.n2o_kg,
+                biogenic_co2_kg=calc.biogenic_co2_kg,
                 wtt_co2e_kg=calc.wtt_co2e_kg,
                 converted_quantity=calc.converted_quantity,
                 converted_unit=calc.converted_unit,

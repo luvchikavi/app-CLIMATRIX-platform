@@ -18,6 +18,7 @@ from sqlmodel import select, func
 from app.api.auth import get_current_user
 from app.database import get_session
 from app.models.core import User
+from app.services.methodology import tier_of_score
 from app.models.emission import Activity, Emission
 from app.models.hub import (
     CategoryProfile,
@@ -465,14 +466,9 @@ async def hub_overview(
 # ============================================================================
 
 
-def _tier_of_score(score: int | None) -> str:
-    if score is None:
-        return "estimated"
-    if score <= 2:
-        return "measured"
-    if score == 3:
-        return "calculated"
-    return "estimated"
+# Canonical PCAF-score → ladder-tier mapping lives in the methodology module
+# so hub, reports, and parser can never drift apart.
+_tier_of_score = tier_of_score
 
 
 @router.get("/hub/punch-list")

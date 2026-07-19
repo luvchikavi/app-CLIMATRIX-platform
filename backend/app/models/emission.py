@@ -156,6 +156,9 @@ class EmissionFactorBase(SQLModel):
     ch4_factor: Optional[Decimal] = Field(default=None)
     n2o_factor: Optional[Decimal] = Field(default=None)
     co2e_factor: Decimal
+    # Biogenic CO2 per activity unit ("outside of scopes" in DEFRA terms) —
+    # reported separately, never added into co2e_factor.
+    biogenic_co2_factor: Optional[Decimal] = Field(default=None)
 
     # Units
     activity_unit: str = Field(max_length=50)  # "liters", "kWh", "km", "USD"
@@ -422,6 +425,9 @@ class Emission(SQLModel, table=True):
     ch4_kg: Optional[Decimal] = Field(default=None)
     n2o_kg: Optional[Decimal] = Field(default=None)
     co2e_kg: Decimal
+    # Biogenic CO2 — outside the scopes, reported as its own inventory line
+    # (GHG Protocol), so it is never summed into co2e_kg.
+    biogenic_co2_kg: Optional[Decimal] = Field(default=None)
 
     # WTT (Scope 3.3) - Auto-calculated
     wtt_co2e_kg: Optional[Decimal] = Field(default=None)

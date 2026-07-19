@@ -1055,3 +1055,22 @@ async def get_commuting_distance(
         office_city=office_city,
         distance_km=distance,
     )
+
+
+# ============================================================================
+# Methodology (single source of truth — app/services/methodology.py)
+# ============================================================================
+
+
+@router.get("/methodology")
+async def get_methodology_reference():
+    """The platform's GHG methodology description.
+
+    UI surfaces (report pages, hub explanations, import review) render
+    methodology text from this payload — GWP basis, consolidation
+    approaches, the data-quality ladder, the method hierarchy, and the
+    biogenic policy — instead of hardcoding their own copies.
+    """
+    from app.services.methodology import methodology_reference
+
+    return methodology_reference()

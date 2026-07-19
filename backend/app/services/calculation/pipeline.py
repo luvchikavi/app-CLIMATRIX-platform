@@ -540,6 +540,7 @@ class CalculationPipeline:
                     emission.co2_kg = calc_result.co2_kg
                     emission.ch4_kg = calc_result.ch4_kg
                     emission.n2o_kg = calc_result.n2o_kg
+                    emission.biogenic_co2_kg = calc_result.biogenic_co2_kg
                     emission.wtt_co2e_kg = calc_result.wtt_co2e_kg
                     emission.emission_factor_id = calc_result.emission_factor_id
                     emission.formula = calc_result.formula

@@ -72,6 +72,11 @@ class BaseCalculator(ABC):
         if wtt_factor:
             wtt_co2e_kg = qty * wtt_factor.co2e_factor
 
+        # Biogenic CO2 (outside of scopes) — kept out of co2e_kg
+        biogenic_co2_kg = None
+        if factor.biogenic_co2_factor:
+            biogenic_co2_kg = qty * factor.biogenic_co2_factor
+
         # Build formula string
         if normalized.conversion_applied:
             formula = (
@@ -92,6 +97,7 @@ class BaseCalculator(ABC):
             co2_kg=co2_kg,
             ch4_kg=ch4_kg,
             n2o_kg=n2o_kg,
+            biogenic_co2_kg=biogenic_co2_kg,
             wtt_co2e_kg=wtt_co2e_kg,
             emission_factor_id=factor.id,
             factor_display_name=factor.display_name,

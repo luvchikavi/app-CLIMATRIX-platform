@@ -189,12 +189,14 @@ EMISSION_FACTORS = [
         "ch4_factor": Decimal("0.0001"),
         "n2o_factor": Decimal("0.0001"),
         "co2e_factor": Decimal("0.17"),  # Only non-CO2 GHGs
+        "biogenic_co2_factor": Decimal("2.4952"),  # Outside of scopes, per litre
         "activity_unit": "liters",
         "factor_unit": "kg CO2e/liter",
         "source": "DEFRA_2024",
         "region": "Global",
         "year": 2024,
-        "notes": "Biogenic CO2 excluded per GHG Protocol. Only CH4/N2O emissions counted.",
+        "notes": "Biogenic CO2 excluded per GHG Protocol; tracked separately as "
+        "outside-of-scopes (DEFRA Biodiesel ME). Only CH4/N2O counted in Scope 1.",
     },
     {
         "scope": 1,

@@ -5,7 +5,7 @@ Generates emission summaries and reports.
 Includes ISO 14064-1 compliant GHG inventory reports and audit package exports.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Optional
 from uuid import UUID
@@ -21,7 +21,10 @@ import io
 from app.api.auth import get_current_user
 from app.database import get_session
 from app.models.core import User, ReportingPeriod, Organization
+from app.models.decarbonization import DecarbonizationTarget
 from app.models.emission import Activity, Emission, EmissionFactor, ImportBatch
+from app.models.hub import GHG_CATEGORIES, CategoryProfile, CategoryRelevance
+from app.services import methodology
 from app.services.calculation.wtt import WTTService
 from app.services.entitlements import require_report_generation, require_report_view
 from app.data.reference_data import GRID_EMISSION_FACTORS
@@ -189,6 +192,9 @@ class ISO14064Report(BaseModel):
     scope_3: ScopeDetail
     total_emissions_kg: float
     total_emissions_tonnes: float
+    # Biogenic CO2 — outside the scopes, disclosed separately (GHG Protocol).
+    # None when the period has no biofuel/biomass combustion.
+    biogenic_co2_tonnes: Optional[float] = None
 
     # 5. Data Quality
     overall_data_quality_score: float
@@ -345,38 +351,10 @@ async def get_report_summary(
     has_market = False
 
     for activity, emission, factor in scope2_rows:
-        # Get country code
-        factor_region = factor.region if factor else None
-        country_code = _extract_country_code(activity.activity_key, factor_region)
-        grid_factor = GRID_EMISSION_FACTORS.get(country_code) if country_code else None
-        if not grid_factor:
-            grid_factor = GRID_EMISSION_FACTORS.get(
-                "GLOBAL",
-                {
-                    "location_factor": Decimal("0.436"),
-                    "market_factor": None,
-                },
-            )
-
-        location_factor_val = grid_factor.get(
-            "location_factor", factor.co2e_factor if factor else Decimal("0.436")
-        )
-        market_factor_val = grid_factor.get("market_factor")
-        quantity = float(activity.quantity)
-
-        # Location-based
-        scope2_location_total += Decimal(str(quantity * float(location_factor_val)))
-
-        # Market-based
-        is_supplier = (
-            emission.resolution_strategy == "market_based_supplier"
-            or emission.resolution_strategy == "supplier_provided"
-        )
-        if is_supplier:
-            scope2_market_total += emission.co2e_kg or Decimal(0)
-            has_market = True
-        elif market_factor_val:
-            scope2_market_total += Decimal(str(quantity * float(market_factor_val)))
+        dual = _scope2_row_dual(activity, emission, factor)
+        scope2_location_total += Decimal(str(dual["location_co2e"]))
+        if dual["market_co2e"] is not None:
+            scope2_market_total += Decimal(str(dual["market_co2e"]))
             has_market = True
 
     return ReportSummaryResponse(
@@ -583,6 +561,121 @@ def _extract_country_code(activity_key: str, factor_region: str | None) -> str |
     return None
 
 
+def _scope2_row_dual(activity, emission, factor) -> dict:
+    """Location vs market figures for one Scope 2 row.
+
+    Single implementation shared by the Scope 2 comparison report and the
+    CDP / ESRS exports (GHG Protocol dual reporting): a supplier-provided
+    EF is itself the market-based figure; otherwise the country's
+    residual-mix market factor applies. market_co2e is None when no market
+    factor exists for the country.
+    """
+    factor_region = factor.region if factor else None
+    country_code = _extract_country_code(activity.activity_key, factor_region)
+
+    grid_factor = GRID_EMISSION_FACTORS.get(country_code) if country_code else None
+    if not grid_factor:
+        grid_factor = GRID_EMISSION_FACTORS.get(
+            "GLOBAL",
+            {
+                "country_name": "Global Average",
+                "location_factor": Decimal("0.436"),
+                "market_factor": None,
+            },
+        )
+        country_name = grid_factor.get("country_name", "Global Average")
+    else:
+        country_name = grid_factor.get("country_name", country_code)
+
+    location_factor_val = grid_factor.get(
+        "location_factor", factor.co2e_factor if factor else Decimal("0.436")
+    )
+    market_factor_val = grid_factor.get("market_factor")
+
+    quantity_kwh = float(activity.quantity)
+    location_co2e = quantity_kwh * float(location_factor_val)
+
+    is_supplier_provided = emission.resolution_strategy in (
+        "market_based_supplier",
+        "supplier_provided",
+    )
+    if is_supplier_provided:
+        market_co2e = float(emission.co2e_kg)
+    elif market_factor_val:
+        market_co2e = quantity_kwh * float(market_factor_val)
+    else:
+        market_co2e = None
+
+    return {
+        "country_code": country_code,
+        "country_name": country_name,
+        "quantity_kwh": quantity_kwh,
+        "location_factor": location_factor_val,
+        "market_factor": market_factor_val,
+        "location_co2e": location_co2e,
+        "market_co2e": market_co2e,
+        "is_supplier_provided": is_supplier_provided,
+    }
+
+
+async def _base_year_total_tonnes(
+    session: AsyncSession, organization_id: UUID, base_year: int
+) -> Optional[float]:
+    """Total recorded emissions (tonnes) across periods starting in the base year.
+
+    Returns None when no base-year data exists — callers must omit the
+    comparison rather than print zeros.
+    """
+    query = (
+        select(func.sum(Emission.co2e_kg))
+        .join(Activity, Emission.activity_id == Activity.id)
+        .join(ReportingPeriod, Activity.reporting_period_id == ReportingPeriod.id)
+        .where(
+            Activity.organization_id == organization_id,
+            ReportingPeriod.start_date >= date(base_year, 1, 1),
+            ReportingPeriod.start_date <= date(base_year, 12, 31),
+        )
+    )
+    total = (await session.execute(query)).scalar()
+    if not total:
+        return None
+    return round(float(total) / 1000, 2)
+
+
+async def _documented_exclusions(
+    session: AsyncSession, organization_id: UUID
+) -> list[str]:
+    """The org's real documented exclusions (CategoryProfile not_relevant rows)."""
+    names = {c["code"]: c["name"] for c in GHG_CATEGORIES}
+    query = select(CategoryProfile).where(
+        CategoryProfile.organization_id == organization_id,
+        CategoryProfile.site_id.is_(None),
+        CategoryProfile.relevance == CategoryRelevance.NOT_RELEVANT.value,
+    )
+    profiles = (await session.execute(query)).scalars().all()
+    exclusions = []
+    for profile in sorted(profiles, key=lambda p: p.category_code):
+        name = names.get(profile.category_code, profile.category_code)
+        reason = profile.exclusion_reason or "No reason recorded"
+        exclusions.append(f"Category {profile.category_code} ({name}): {reason}")
+    return exclusions
+
+
+async def _active_targets(
+    session: AsyncSession, organization_id: UUID
+) -> list[DecarbonizationTarget]:
+    """The org's active decarbonization targets, newest first."""
+    query = (
+        select(DecarbonizationTarget)
+        .where(
+            DecarbonizationTarget.organization_id == organization_id,
+            DecarbonizationTarget.is_active == True,  # noqa: E712
+        )
+        .order_by(DecarbonizationTarget.created_at.desc())
+    )
+    return list((await session.execute(query)).scalars().all())
+
+
 @router.get(
     "/periods/{period_id}/report/scope-2-comparison",
     response_model=Scope2ComparisonResponse,
@@ -635,50 +728,10 @@ async def get_scope2_comparison(
     has_any_market_factor = False
 
     for activity, emission, factor in rows:
-        # Get country code from activity_key or factor region (factor may be None for supplier-provided)
-        factor_region = factor.region if factor else None
-        country_code = _extract_country_code(activity.activity_key, factor_region)
-
-        # Get grid factors for this country
-        grid_factor = GRID_EMISSION_FACTORS.get(country_code) if country_code else None
-
-        # If no specific country factor, use Global
-        if not grid_factor:
-            grid_factor = GRID_EMISSION_FACTORS.get(
-                "GLOBAL",
-                {
-                    "country_name": "Global Average",
-                    "location_factor": Decimal("0.436"),
-                    "market_factor": None,
-                },
-            )
-            country_name = grid_factor.get("country_name", "Global Average")
-        else:
-            country_name = grid_factor.get("country_name", country_code)
-
-        location_factor_val = grid_factor.get(
-            "location_factor", factor.co2e_factor if factor else Decimal("0.436")
-        )
-        market_factor_val = grid_factor.get("market_factor")
-
-        # Calculate quantity in kWh (may already be in kWh)
-        quantity_kwh = float(activity.quantity)
-
-        # Calculate location-based emissions using grid average
-        location_co2e = quantity_kwh * float(location_factor_val)
-
-        # For market-based: if this activity was calculated with a supplier EF,
-        # use the actual stored emission value as market-based
-        is_supplier_provided = (
-            emission.resolution_strategy == "market_based_supplier"
-            or emission.resolution_strategy == "supplier_provided"
-        )
-        if is_supplier_provided:
-            market_co2e = float(emission.co2e_kg)
-        elif market_factor_val:
-            market_co2e = quantity_kwh * float(market_factor_val)
-        else:
-            market_co2e = None
+        dual = _scope2_row_dual(activity, emission, factor)
+        location_co2e = dual["location_co2e"]
+        market_co2e = dual["market_co2e"]
+        quantity_kwh = dual["quantity_kwh"]
 
         # Track totals
         total_location += Decimal(str(location_co2e))
@@ -686,7 +739,9 @@ async def get_scope2_comparison(
             total_market += Decimal(str(market_co2e))
             has_any_market_factor = True
         else:
-            countries_without_market.add(country_name or country_code or "Unknown")
+            countries_without_market.add(
+                dual["country_name"] or dual["country_code"] or "Unknown"
+            )
 
         # Calculate difference
         difference_kg = None
@@ -699,16 +754,16 @@ async def get_scope2_comparison(
             Scope2ActivityComparison(
                 activity_id=str(activity.id),
                 description=activity.description,
-                country_code=country_code or "GLOBAL",
-                country_name=country_name,
+                country_code=dual["country_code"] or "GLOBAL",
+                country_name=dual["country_name"],
                 quantity_kwh=quantity_kwh,
-                location_factor=float(location_factor_val),
+                location_factor=float(dual["location_factor"]),
                 market_factor=(
-                    float(market_factor_val)
-                    if market_factor_val
+                    float(dual["market_factor"])
+                    if dual["market_factor"]
                     else (
                         float(emission.co2e_kg) / quantity_kwh
-                        if is_supplier_provided and quantity_kwh > 0
+                        if dual["is_supplier_provided"] and quantity_kwh > 0
                         else None
                     )
                 ),
@@ -979,6 +1034,7 @@ async def get_ghg_inventory_report(
     total_quality_weighted_sum = Decimal(0)
     total_co2e = Decimal(0)
     wtt_total = Decimal(0)
+    biogenic_total = Decimal(0)
 
     for activity, emission, factor in rows:
         scope = activity.scope
@@ -986,6 +1042,7 @@ async def get_ghg_inventory_report(
         # WTT from Scope 1/2 energy is reported under Scope 3.3 (see fold below).
         if scope in (1, 2):
             wtt_total += emission.wtt_co2e_kg or Decimal(0)
+        biogenic_total += emission.biogenic_co2_kg or Decimal(0)
 
         if key not in scope_data[scope]:
             scope_data[scope][key] = {
@@ -1153,17 +1210,23 @@ async def get_ghg_inventory_report(
         ],
     }
 
-    # Base year comparison (if org has base year and we have data)
+    # Base year comparison — only when real base-year data exists; a stubbed
+    # zero would be a fabricated disclosure, so we omit the section instead.
     base_year_comparison = None
     if org and org.base_year and org.base_year < period.start_date.year:
-        # This would query historical data - simplified for now
-        base_year_comparison = BaseYearComparison(
-            base_year=org.base_year,
-            base_year_emissions_tonnes=0,  # Would need historical data
-            current_emissions_tonnes=round(float(total_co2e) / 1000, 2),
-            absolute_change_tonnes=0,
-            percentage_change=0,
+        base_tonnes = await _base_year_total_tonnes(
+            session, current_user.organization_id, org.base_year
         )
+        if base_tonnes:
+            current_tonnes = round(float(total_co2e) / 1000, 2)
+            change = round(current_tonnes - base_tonnes, 2)
+            base_year_comparison = BaseYearComparison(
+                base_year=org.base_year,
+                base_year_emissions_tonnes=base_tonnes,
+                current_emissions_tonnes=current_tonnes,
+                absolute_change_tonnes=change,
+                percentage_change=round(change / base_tonnes * 100, 1),
+            )
 
     # Verification info
     verification = VerificationInfo(
@@ -1182,19 +1245,23 @@ async def get_ghg_inventory_report(
         for data in scope_data[scope].values():
             factor_sources.add(data["factor_source"])
 
-    methodology = MethodologySection(
-        calculation_approach="Activity-based calculations using GHG Protocol methodology",
+    # Exclusions are the org's real documented ones (hub CategoryProfile),
+    # not a static claim; the biogenic policy line appears only when the
+    # period actually has biogenic combustion to disclose.
+    exclusions = await _documented_exclusions(session, current_user.organization_id)
+    if biogenic_total > 0:
+        exclusions.append(methodology.BIOGENIC_POLICY)
+    if not exclusions:
+        exclusions = ["No GHG inventory categories excluded"]
+
+    methodology_section = MethodologySection(
+        calculation_approach=methodology.CALCULATION_APPROACH,
         emission_factor_sources=list(factor_sources) or ["DEFRA 2024", "EPA eGRID"],
-        gwp_values="IPCC AR6 100-year GWP values (CO2=1, CH4=27.9, N2O=273)",
-        exclusions=[
-            "Biogenic emissions reported separately",
-            "De minimis sources (<1% of total)",
-        ],
-        assumptions=[
-            "Operational control approach for organizational boundaries",
-            "Location-based method for Scope 2 unless market-based data available",
-            "Average emission factors used where supplier-specific data unavailable",
-        ],
+        gwp_values=methodology.GWP_STATEMENT,
+        exclusions=exclusions,
+        assumptions=methodology.build_assumptions(
+            org.consolidation_approach if org else None
+        ),
     )
 
     return ISO14064Report(
@@ -1208,7 +1275,11 @@ async def get_ghg_inventory_report(
             base_year=org.base_year if org else None,
         ),
         boundaries=ReportingBoundary(
-            consolidation_approach="operational_control",
+            consolidation_approach=(
+                org.consolidation_approach
+                if org and org.consolidation_approach
+                else methodology.DEFAULT_CONSOLIDATION_APPROACH
+            ),
             included_facilities=facility_count,
             reporting_period_start=period.start_date.strftime("%Y-%m-%d"),
             reporting_period_end=period.end_date.strftime("%Y-%m-%d"),
@@ -1219,9 +1290,12 @@ async def get_ghg_inventory_report(
         scope_3=scope_3_detail,
         total_emissions_kg=float(total_co2e),
         total_emissions_tonnes=round(float(total_co2e) / 1000, 2),
+        biogenic_co2_tonnes=(
+            round(float(biogenic_total) / 1000, 3) if biogenic_total > 0 else None
+        ),
         overall_data_quality_score=round(overall_quality, 1),
         data_quality_interpretation=quality_interpretation,
-        methodology=methodology,
+        methodology=methodology_section,
         base_year_comparison=base_year_comparison,
         verification=verification,
     )
@@ -2021,9 +2095,17 @@ async def export_cdp_format(
                     "quantity_kwh": Decimal(0),
                     "location_emissions": Decimal(0),
                     "market_emissions": Decimal(0),
+                    "has_market": False,
                 }
             scope2_by_country[country]["quantity_kwh"] += activity.quantity
             scope2_by_country[country]["location_emissions"] += emission.co2e_kg
+            # Market-based figure via the shared dual-reporting resolution
+            dual = _scope2_row_dual(activity, emission, factor)
+            if dual["market_co2e"] is not None:
+                scope2_by_country[country]["market_emissions"] += Decimal(
+                    str(dual["market_co2e"])
+                )
+                scope2_by_country[country]["has_market"] = True
 
         elif activity.scope == 3:
             cat = activity.category_code
@@ -2050,7 +2132,8 @@ async def export_cdp_format(
             )
         )
 
-    # Build Scope 2 breakdown
+    # Build Scope 2 breakdown (dual reporting: market column populated
+    # wherever a residual-mix or supplier factor exists for the country)
     scope2_breakdown = []
     for country, data in sorted(scope2_by_country.items()):
         scope2_breakdown.append(
@@ -2061,9 +2144,19 @@ async def export_cdp_format(
                 location_based_emissions_tonnes=round(
                     float(data["location_emissions"]) / 1000, 2
                 ),
-                market_based_emissions_tonnes=None,  # Would need market-based calculation
+                market_based_emissions_tonnes=(
+                    round(float(data["market_emissions"]) / 1000, 2)
+                    if data["has_market"]
+                    else None
+                ),
             )
         )
+
+    scope2_market_total = sum(
+        (data["market_emissions"] for data in scope2_by_country.values()),
+        Decimal(0),
+    )
+    scope2_any_market = any(d["has_market"] for d in scope2_by_country.values())
 
     # Build Scope 3 categories
     scope3_categories = []
@@ -2101,8 +2194,18 @@ async def export_cdp_format(
     # Calculate overall weighted quality score
     total_co2e = sum(scope_totals.values())
 
+    weighted_quality = (
+        round(
+            sum(score * count for score, count in quality_counts.items())
+            / total_activities,
+            1,
+        )
+        if total_activities > 0
+        else 5.0
+    )
+
     data_quality = CDPDataQuality(
-        overall_data_quality_score=3.0,  # Would need weighted calculation
+        overall_data_quality_score=weighted_quality,
         percentage_verified_data=round(verified_pct, 1),
         percentage_primary_data=round(primary_pct, 1),
         percentage_estimated_data=round(estimated_pct, 1),
@@ -2112,14 +2215,38 @@ async def export_cdp_format(
         ),
     )
 
-    # Targets (basic structure - would need org target data)
+    # Targets — from the org's real decarbonization targets and real
+    # base-year data; fields stay None when nothing is recorded.
+    base_tonnes = (
+        await _base_year_total_tonnes(
+            session, current_user.organization_id, org.base_year
+        )
+        if org and org.base_year
+        else None
+    )
+    org_targets = await _active_targets(session, current_user.organization_id)
+    target = org_targets[0] if org_targets else None
+
+    progress_pct = None
+    if target and target.base_year_emissions_tco2e and target.target_reduction_percent:
+        achieved_pct = (
+            (float(target.base_year_emissions_tco2e) - float(total_co2e) / 1000)
+            / float(target.base_year_emissions_tco2e)
+            * 100
+        )
+        progress_pct = round(
+            achieved_pct / float(target.target_reduction_percent) * 100, 1
+        )
+
     targets = CDPTargetsAndPerformance(
         base_year=org.base_year if org else None,
-        base_year_emissions_tonnes=None,
-        target_year=None,
-        target_reduction_percentage=None,
+        base_year_emissions_tonnes=base_tonnes,
+        target_year=target.target_year if target else None,
+        target_reduction_percentage=(
+            float(target.target_reduction_percent) if target else None
+        ),
         current_year_emissions_tonnes=round(float(total_co2e) / 1000, 2),
-        progress_percentage=None,
+        progress_percentage=progress_pct,
     )
 
     return CDPExportResponse(
@@ -2129,14 +2256,20 @@ async def export_cdp_format(
         organization_name=org.name if org else "Organization",
         country=org.country_code if org else None,
         primary_industry=org.industry_code if org else None,
-        reporting_boundary="Operational control",
+        reporting_boundary=methodology.consolidation_label(
+            org.consolidation_approach if org else None
+        ),
         targets=targets,
         emissions_totals=CDPEmissionsTotals(
             scope_1_metric_tonnes=round(float(scope_totals[1]) / 1000, 2),
             scope_2_location_based_metric_tonnes=round(
                 float(scope_totals[2]) / 1000, 2
             ),
-            scope_2_market_based_metric_tonnes=None,
+            scope_2_market_based_metric_tonnes=(
+                round(float(scope2_market_total) / 1000, 2)
+                if scope2_any_market
+                else None
+            ),
             scope_3_metric_tonnes=round(float(scope_totals[3]) / 1000, 2),
             total_metric_tonnes=round(float(total_co2e) / 1000, 2),
         ),
@@ -2145,7 +2278,7 @@ async def export_cdp_format(
         scope_3_categories=scope3_categories,
         data_quality=data_quality,
         emission_factor_sources=list(factor_sources),
-        global_warming_potential_source="IPCC AR6 (2021) - 100-year GWP values",
+        global_warming_potential_source=methodology.GWP_SOURCE,
     )
 
 
@@ -2311,6 +2444,8 @@ async def export_esrs_e1_format(
     factor_sources = set()
     estimated_count = 0
     total_count = 0
+    scope2_market_total = Decimal(0)
+    scope2_any_market = False
 
     for activity, emission, factor in rows:
         total_count += 1
@@ -2322,6 +2457,12 @@ async def export_esrs_e1_format(
 
         if (activity.data_quality_score or 5) >= 4:
             estimated_count += 1
+
+        if activity.scope == 2:
+            dual = _scope2_row_dual(activity, emission, factor)
+            if dual["market_co2e"] is not None:
+                scope2_market_total += Decimal(str(dual["market_co2e"]))
+                scope2_any_market = True
 
         if activity.scope == 3:
             cat = activity.category_code
@@ -2355,7 +2496,9 @@ async def export_esrs_e1_format(
     gross_emissions = ESRSE1GrossEmissions(
         scope_1_tonnes=round(float(scope_totals[1]) / 1000, 2),
         scope_2_location_based_tonnes=round(float(scope_totals[2]) / 1000, 2),
-        scope_2_market_based_tonnes=None,
+        scope_2_market_based_tonnes=(
+            round(float(scope2_market_total) / 1000, 2) if scope2_any_market else None
+        ),
         scope_3_tonnes=round(float(scope_totals[3]) / 1000, 2),
         total_ghg_emissions_tonnes=round(float(total_co2e) / 1000, 2),
     )
@@ -2368,18 +2511,28 @@ async def export_esrs_e1_format(
         locked_in_emissions_tonnes=None,
     )
 
-    # Climate targets (placeholder - would need actual target data)
+    # Climate targets — the org's real decarbonization targets; an empty
+    # list is honest when none are recorded (no fabricated placeholders).
     climate_targets = []
-    if org and org.base_year:
+    for target in await _active_targets(session, current_user.organization_id):
+        scopes_covered = [
+            label
+            for label, included in (
+                ("Scope 1", target.includes_scope1),
+                ("Scope 2", target.includes_scope2),
+                ("Scope 3", target.includes_scope3),
+            )
+            if included
+        ]
         climate_targets.append(
             ESRSE1TargetInfo(
-                target_type="absolute",
-                target_scope="All scopes",
-                base_year=org.base_year,
-                base_year_value=0,  # Would need historical data
-                target_year=2030,  # Placeholder
-                target_value=0,
-                target_reduction_percentage=0,
+                target_type=target.target_type.value,
+                target_scope=", ".join(scopes_covered) or "All scopes",
+                base_year=target.base_year,
+                base_year_value=float(target.base_year_emissions_tco2e),
+                target_year=target.target_year,
+                target_value=float(target.target_emissions_tco2e),
+                target_reduction_percentage=float(target.target_reduction_percent),
             )
         )
 
@@ -2402,9 +2555,9 @@ async def export_esrs_e1_format(
         percentage_estimated_scope_3=round(estimated_pct, 1),
         significant_assumptions=[
             "Emission factors from recognized databases (DEFRA, EPA, IPCC)",
-            "GWP values from IPCC AR6 (100-year horizon)",
-            "Operational control approach for organizational boundaries",
-        ],
+            f"GWP values: {methodology.GWP_SOURCE}",
+        ]
+        + methodology.build_assumptions(org.consolidation_approach if org else None),
         verification_statement=(
             period.verification_statement if period.verification_statement else None
         ),
@@ -2418,16 +2571,18 @@ async def export_esrs_e1_format(
         undertaking_name=org.name if org else "Organization",
         country_of_domicile=org.country_code if org else None,
         nace_sector=org.industry_code if org else None,
-        consolidation_scope="Operational control",
+        consolidation_scope=methodology.consolidation_label(
+            org.consolidation_approach if org else None
+        ),
         transition_plan=transition_plan,
         climate_targets=climate_targets,
         gross_emissions=gross_emissions,
         scope_3_breakdown=scope3_breakdown,
         intensity_metrics=intensity_metrics,
         data_quality=data_quality,
-        ghg_accounting_standard="GHG Protocol Corporate Standard",
+        ghg_accounting_standard=methodology.GHG_ACCOUNTING_STANDARD,
         emission_factor_sources=list(factor_sources),
-        gwp_values_source="IPCC AR6 (2021) - 100-year GWP values",
+        gwp_values_source=methodology.GWP_SOURCE,
     )
 
 

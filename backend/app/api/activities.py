@@ -379,6 +379,7 @@ async def create_activity(
         co2_kg=calc_result.co2_kg,
         ch4_kg=calc_result.ch4_kg,
         n2o_kg=calc_result.n2o_kg,
+        biogenic_co2_kg=calc_result.biogenic_co2_kg,
         wtt_co2e_kg=calc_result.wtt_co2e_kg,
         converted_quantity=calc_result.converted_quantity,
         converted_unit=calc_result.converted_unit,
@@ -584,6 +585,7 @@ async def update_activity(
         emission.co2_kg = calc_result.co2_kg
         emission.ch4_kg = calc_result.ch4_kg
         emission.n2o_kg = calc_result.n2o_kg
+        emission.biogenic_co2_kg = calc_result.biogenic_co2_kg
         emission.wtt_co2e_kg = calc_result.wtt_co2e_kg
         emission.converted_quantity = calc_result.converted_quantity
         emission.converted_unit = calc_result.converted_unit
@@ -604,6 +606,7 @@ async def update_activity(
             co2_kg=calc_result.co2_kg,
             ch4_kg=calc_result.ch4_kg,
             n2o_kg=calc_result.n2o_kg,
+            biogenic_co2_kg=calc_result.biogenic_co2_kg,
             wtt_co2e_kg=calc_result.wtt_co2e_kg,
             converted_quantity=calc_result.converted_quantity,
             converted_unit=calc_result.converted_unit,
@@ -780,6 +783,7 @@ async def recalculate_period_emissions(
                 emission.co2_kg = calc_result.co2_kg
                 emission.ch4_kg = calc_result.ch4_kg
                 emission.n2o_kg = calc_result.n2o_kg
+                emission.biogenic_co2_kg = calc_result.biogenic_co2_kg
                 emission.wtt_co2e_kg = calc_result.wtt_co2e_kg
                 emission.converted_quantity = calc_result.converted_quantity
                 emission.converted_unit = calc_result.converted_unit
@@ -802,6 +806,7 @@ async def recalculate_period_emissions(
                     co2_kg=calc_result.co2_kg,
                     ch4_kg=calc_result.ch4_kg,
                     n2o_kg=calc_result.n2o_kg,
+                    biogenic_co2_kg=calc_result.biogenic_co2_kg,
                     wtt_co2e_kg=calc_result.wtt_co2e_kg,
                     converted_quantity=calc_result.converted_quantity,
                     converted_unit=calc_result.converted_unit,
