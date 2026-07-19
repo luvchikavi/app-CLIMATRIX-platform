@@ -121,6 +121,52 @@ class CockpitRecentLead(BaseModel):
     created_at: datetime
 
 
+class CockpitClient(BaseModel):
+    """One managed client — everything is a live query, never a projection."""
+
+    id: str
+    name: str
+    contact_email: str | None
+    plan: str
+    status: str
+    trial_ends_at: datetime | None
+    users: int
+    activities: int
+    last_activity_at: datetime | None
+    total_co2e_tonnes: float
+    created_at: datetime
+
+
+class CockpitTrialExpiry(BaseModel):
+    organization_id: str
+    name: str
+    contact_email: str | None
+    trial_ends_at: datetime
+    days_left: int
+
+
+class CockpitStuckOrg(BaseModel):
+    organization_id: str
+    name: str
+    contact_email: str | None
+    days_since_signup: int
+
+
+class CockpitFailedIngest(BaseModel):
+    organization_name: str
+    filename: str
+    error: str | None
+    created_at: datetime
+
+
+class CockpitAttention(BaseModel):
+    """What actually needs the founder today — computed, not curated."""
+
+    trials_expiring_7d: list[CockpitTrialExpiry]
+    stuck_orgs: list[CockpitStuckOrg]
+    failed_ingests_7d: list[CockpitFailedIngest]
+
+
 class CockpitOut(BaseModel):
     """Everything the super-admin overview needs in one round-trip."""
 
@@ -130,6 +176,9 @@ class CockpitOut(BaseModel):
     activities_total: int
     total_co2e_tonnes: float
     mrr_usd: float
+    arr_usd: float
+    # Honesty label: list-price estimate until Stripe billing is connected.
+    revenue_note: str
     paying_orgs: int
     trialing_orgs: int
     leads_total: int
@@ -137,8 +186,11 @@ class CockpitOut(BaseModel):
     signups_14d: list[CockpitDay]
     plans: list[CockpitPlanSlice]
     lead_pipeline: list[CockpitLeadSlice]
+    lead_sources: list[CockpitLeadSlice]
     recent_signups: list[CockpitRecentSignup]
     recent_leads: list[CockpitRecentLead]
+    clients: list[CockpitClient]
+    attention: CockpitAttention
 
 
 class CreateUserRequest(BaseModel):
@@ -293,15 +345,24 @@ async def get_cockpit(
             by_day[key] += 1
     signups_14d = [CockpitDay(day=d, signups=n) for d, n in by_day.items()]
 
-    lead_rows = (await session.execute(select(Lead.status))).scalars().all()
+    lead_full_rows = (
+        await session.execute(select(Lead.status, Lead.source))
+    ).all()
     lead_counts: dict[str, int] = {}
-    for status in lead_rows:
+    source_counts: dict[str, int] = {}
+    for status, source in lead_full_rows:
         lead_counts[status] = lead_counts.get(status, 0) + 1
+        src = source or "unknown"
+        source_counts[src] = source_counts.get(src, 0) + 1
     lead_pipeline = [
         CockpitLeadSlice(status=s, count=lead_counts.get(s, 0))
         for s in ("new", "contacted", "trial", "customer", "lost")
     ]
-    leads_total = len(lead_rows)
+    lead_sources = [
+        CockpitLeadSlice(status=src, count=n)
+        for src, n in sorted(source_counts.items(), key=lambda kv: -kv[1])
+    ]
+    leads_total = len(lead_full_rows)
     leads_open = lead_counts.get("new", 0) + lead_counts.get("contacted", 0)
 
     recent_signup_rows = (
@@ -332,6 +393,118 @@ async def get_cockpit(
         for lead in recent_lead_rows
     ]
 
+    # ---- Client management: one live row per org, aggregated in Python
+    # (org counts are small; every number is a real query, never a projection).
+    from app.models.ingestion import IngestionSession as IngSession
+    from app.models.ingestion import IngestionStatus as IngStatus
+
+    orgs_full = (
+        (await session.execute(select(Organization).order_by(Organization.created_at.desc())))
+        .scalars()
+        .all()
+    )
+    user_rows = (
+        await session.execute(
+            select(User.organization_id, User.email, User.created_at)
+        )
+    ).all()
+    users_by_org: dict = {}
+    contact_by_org: dict = {}
+    for org_id, email, created in user_rows:
+        users_by_org[org_id] = users_by_org.get(org_id, 0) + 1
+        # Contact = the org's earliest user (its founder/registrant).
+        prev = contact_by_org.get(org_id)
+        if prev is None or created < prev[1]:
+            contact_by_org[org_id] = (email, created)
+
+    act_rows = (
+        await session.execute(
+            select(
+                Activity.organization_id,
+                func.count(Activity.id),
+                func.max(Activity.created_at),
+            ).group_by(Activity.organization_id)
+        )
+    ).all()
+    acts_by_org = {r[0]: (r[1], r[2]) for r in act_rows}
+
+    co2e_rows = (
+        await session.execute(
+            select(Activity.organization_id, func.sum(Emission.co2e_kg))
+            .join(Emission, Emission.activity_id == Activity.id)
+            .group_by(Activity.organization_id)
+        )
+    ).all()
+    co2e_by_org = {r[0]: float(r[1] or 0) for r in co2e_rows}
+
+    now = datetime.utcnow()
+    clients: list[CockpitClient] = []
+    trials_expiring: list[CockpitTrialExpiry] = []
+    stuck: list[CockpitStuckOrg] = []
+    for org in orgs_full:
+        acount, alast = acts_by_org.get(org.id, (0, None))
+        contact = contact_by_org.get(org.id)
+        clients.append(
+            CockpitClient(
+                id=str(org.id),
+                name=org.name,
+                contact_email=contact[0] if contact else None,
+                plan=(org.subscription_plan or "free").lower(),
+                status=(org.subscription_status or "—").lower(),
+                trial_ends_at=org.trial_ends_at,
+                users=users_by_org.get(org.id, 0),
+                activities=acount,
+                last_activity_at=alast,
+                total_co2e_tonnes=round(co2e_by_org.get(org.id, 0.0) / 1000, 2),
+                created_at=org.created_at,
+            )
+        )
+        if (
+            (org.subscription_status or "").lower() == "trialing"
+            and org.trial_ends_at is not None
+            and now <= org.trial_ends_at <= now + timedelta(days=7)
+        ):
+            trials_expiring.append(
+                CockpitTrialExpiry(
+                    organization_id=str(org.id),
+                    name=org.name,
+                    contact_email=contact[0] if contact else None,
+                    trial_ends_at=org.trial_ends_at,
+                    days_left=max((org.trial_ends_at - now).days, 0),
+                )
+            )
+        if acount == 0 and org.created_at is not None and (now - org.created_at).days >= 3:
+            stuck.append(
+                CockpitStuckOrg(
+                    organization_id=str(org.id),
+                    name=org.name,
+                    contact_email=contact[0] if contact else None,
+                    days_since_signup=(now - org.created_at).days,
+                )
+            )
+
+    failed_rows = (
+        await session.execute(
+            select(IngSession, Organization.name)
+            .join(Organization, IngSession.organization_id == Organization.id)
+            .where(
+                IngSession.status == IngStatus.FAILED.value,
+                IngSession.created_at >= now - timedelta(days=7),
+            )
+            .order_by(IngSession.created_at.desc())
+            .limit(10)
+        )
+    ).all()
+    failed_ingests = [
+        CockpitFailedIngest(
+            organization_name=org_name,
+            filename=ing.filename,
+            error=(ing.error_message or "")[:200] or None,
+            created_at=ing.created_at,
+        )
+        for ing, org_name in failed_rows
+    ]
+
     return CockpitOut(
         organizations_total=organizations_total,
         organizations_active=organizations_active,
@@ -339,6 +512,8 @@ async def get_cockpit(
         activities_total=activities_total,
         total_co2e_tonnes=float(total_co2e_kg) / 1000,
         mrr_usd=mrr_usd,
+        arr_usd=mrr_usd * 12,
+        revenue_note="List-price estimate — Stripe billing not yet connected.",
         paying_orgs=paying_orgs,
         trialing_orgs=trialing_orgs,
         leads_total=leads_total,
@@ -346,8 +521,15 @@ async def get_cockpit(
         signups_14d=signups_14d,
         plans=plans,
         lead_pipeline=lead_pipeline,
+        lead_sources=lead_sources,
         recent_signups=recent_signups,
         recent_leads=recent_leads,
+        clients=clients,
+        attention=CockpitAttention(
+            trials_expiring_7d=trials_expiring,
+            stuck_orgs=stuck,
+            failed_ingests_7d=failed_ingests,
+        ),
     )
 
 

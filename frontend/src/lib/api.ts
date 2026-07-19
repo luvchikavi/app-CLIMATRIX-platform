@@ -2801,6 +2801,20 @@ export interface AdminStats {
   activities_this_month: number;
 }
 
+export interface CockpitClient {
+  id: string;
+  name: string;
+  contact_email: string | null;
+  plan: string;
+  status: string;
+  trial_ends_at: string | null;
+  users: number;
+  activities: number;
+  last_activity_at: string | null;
+  total_co2e_tonnes: number;
+  created_at: string;
+}
+
 export interface CockpitData {
   organizations_total: number;
   organizations_active: number;
@@ -2808,6 +2822,8 @@ export interface CockpitData {
   activities_total: number;
   total_co2e_tonnes: number;
   mrr_usd: number;
+  arr_usd: number;
+  revenue_note: string;
   paying_orgs: number;
   trialing_orgs: number;
   leads_total: number;
@@ -2815,8 +2831,31 @@ export interface CockpitData {
   signups_14d: { day: string; signups: number }[];
   plans: { plan: string; orgs: number; mrr_usd: number }[];
   lead_pipeline: { status: string; count: number }[];
+  lead_sources: { status: string; count: number }[];
   recent_signups: { email: string; organization_name: string; created_at: string }[];
   recent_leads: { email: string; source: string; status: string; created_at: string }[];
+  clients: CockpitClient[];
+  attention: {
+    trials_expiring_7d: {
+      organization_id: string;
+      name: string;
+      contact_email: string | null;
+      trial_ends_at: string;
+      days_left: number;
+    }[];
+    stuck_orgs: {
+      organization_id: string;
+      name: string;
+      contact_email: string | null;
+      days_since_signup: number;
+    }[];
+    failed_ingests_7d: {
+      organization_name: string;
+      filename: string;
+      error: string | null;
+      created_at: string;
+    }[];
+  };
 }
 
 export interface AdminOrganization {
