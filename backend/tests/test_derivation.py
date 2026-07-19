@@ -241,6 +241,33 @@ def test_freight_missing_mass_asks_once_then_answer_completes():
     assert row.unit == "tonne-km"
 
 
+def test_freight_awaiting_mass_clears_defaulted_quantity():
+    # "Air freight Israel to Germany",1 with no unit column: the mapper
+    # defaults unit to tonne-km, but the bare 1 is NOT tonne-km. Until the
+    # mass answer arrives the row must hold NO quantity and read as a gap.
+    from app.services.ingestion.derivation import (
+        apply_derivation_to_mapped,
+        stamp_derived_verdict,
+    )
+
+    d = derive_freight(
+        TravelEntities(
+            kind="freight", origin_text="Israel", destination_text="Germany"
+        ),
+        "air_freight",
+    )
+    assert d.quantity is None
+    m = _mapped("air_freight", 1, "tonne-km", defaulted=True)
+    fake_cat = SimpleNamespace(is_real=lambda k: False, get=lambda k: None)
+    apply_derivation_to_mapped(m, d, fake_cat)
+    assert m.quantity is None and m.unit is None
+
+    verdict = SimpleNamespace(pcaf_data_quality=3, tier="calculated", reasons=[])
+    stamp_derived_verdict(verdict, d)
+    assert verdict.tier == "gap"
+    assert verdict.pcaf_data_quality == 4
+
+
 def test_freight_no_mass_answer_stays_gap():
     d = derive_freight(
         TravelEntities(kind="freight", origin_text="China", destination_text="Israel"),
@@ -593,6 +620,9 @@ async def test_derivation_end_to_end(
     assert hotel.quantity == 3.0
     assert hotel.region == "IL"
     assert hotel.measurement_tier == "estimated"
+    # Review-time grounding already uses the stay country, so the grid shows
+    # the factor that will actually be committed.
+    assert hotel.provenance["factor_region"] == "IL"
 
     questions = (
         (

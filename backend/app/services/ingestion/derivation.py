@@ -952,6 +952,12 @@ def apply_derivation_to_mapped(m, d: Derivation, cat) -> None:
     if d.quantity is not None:
         m.quantity = d.quantity
         m.unit = d.unit
+    elif getattr(m, "unit_defaulted", False):
+        # Derivation is pending an answer (e.g. freight mass) and the row's
+        # unit was only a factor default — the bare number is NOT a quantity
+        # in that unit, so clear it rather than stage a fabricated value.
+        m.quantity = None
+        m.unit = None
     if d.activity_key and cat.is_real(d.activity_key):
         entry = cat.get(d.activity_key)
         m.activity_key = d.activity_key
@@ -966,6 +972,10 @@ def stamp_derived_verdict(verdict, d: Derivation) -> None:
     verdict.pcaf_data_quality = max(verdict.pcaf_data_quality or 4, 4)
     if d.quantity is not None and verdict.tier not in ("gap",):
         verdict.tier = "estimated"
+    elif d.quantity is None:
+        # Awaiting an answer (freight mass) — until then this line is honestly
+        # a gap, not a number anyone can stand behind.
+        verdict.tier = "gap"
     verdict.reasons = list(verdict.reasons) + list(d.assumptions)
 
 

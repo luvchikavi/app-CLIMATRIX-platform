@@ -290,7 +290,14 @@ async def run_analysis(
             if m.activity_key:
                 mapped += 1
                 grounding = await ground_row(
-                    session, m.activity_key, m.unit or "", region=region, year=year
+                    session,
+                    m.activity_key,
+                    m.unit or "",
+                    # A derived row-level region (a hotel's stay country) beats
+                    # the org default at review time too — the grid must show
+                    # the factor that will actually be committed.
+                    region=(deriv.region if deriv is not None else None) or region,
+                    year=year,
                 )
                 violations = check_row(
                     cat, m.activity_key, m.scope or 0, m.category_code or ""
@@ -957,7 +964,11 @@ async def _reground_row(
             row.scope = entry.scope
             row.category_code = entry.category_code
         grounding = await ground_row(
-            session, row.activity_key, row.unit or "", region=region, year=year
+            session,
+            row.activity_key,
+            row.unit or "",
+            region=row.region or region,
+            year=year,
         )
         violations = check_row(
             cat, row.activity_key, row.scope or 0, row.category_code or ""
