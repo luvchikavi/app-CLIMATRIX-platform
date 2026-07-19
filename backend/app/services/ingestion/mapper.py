@@ -85,6 +85,10 @@ class MappedRow:
     llm_confidence: float
     question: str | None
     source: dict
+    # True when the unit did NOT come from the file but was defaulted to the
+    # factor's expected unit — a bare "2" on a flight row is then NOT 2 km, and
+    # the derived-quantity stage must treat the quantity's meaning as unknown.
+    unit_defaulted: bool = False
 
 
 def _is_empty_row(row: dict) -> bool:

@@ -124,6 +124,9 @@ class StagedRow(SQLModel, table=True):
     quantity: Optional[float] = Field(default=None)
     unit: Optional[str] = Field(default=None, max_length=50)
     description: str = Field(default="", max_length=500)
+    # Row-level factor region when it differs from the org default — e.g. a
+    # hotel stay's country, so commit selects that country's factor.
+    region: Optional[str] = Field(default=None, max_length=10)
 
     # Confidence + review state
     confidence: float = Field(default=0.0)

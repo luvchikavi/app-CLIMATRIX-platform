@@ -51,6 +51,12 @@ from app.services.ingestion.grounding import (
     classify_unit,
 )
 from app.services.ingestion.context import build_parsing_context
+from app.services.ingestion.derivation import (
+    apply_derivation_answer,
+    apply_derivation_to_mapped,
+    derive_for_rows,
+    stamp_derived_verdict,
+)
 from app.services.ingestion.plausibility import check_batch
 from app.services.ingestion.loader import load_with_skipped
 from app.services.ingestion.mapper import map_table
@@ -200,7 +206,8 @@ async def run_analysis(
     parse_mode = "template" if template_results is not None else "ai"
     skipped_sheets: list[str] = []
     if template_results is not None:
-        mapped_results = [(tbl, rows, 0, 0, None) for tbl, rows in template_results]
+        # Template rows carry explicit quantities/units — no derivation needed.
+        mapped_results = [(tbl, rows, 0, 0, None, {}) for tbl, rows in template_results]
     else:
         try:
             tables, skipped_sheets = load_with_skipped(content, filename)
@@ -243,18 +250,22 @@ async def run_analysis(
                     mr = await asyncio.to_thread(
                         map_table_fast, tbl, cat, None, client, context
                     )
-                    return (tbl, mr, fh, ih, None)
                 except Exception:
                     # Fall back to the slower but battle-tested row-level mapper.
                     try:
                         mr = await asyncio.to_thread(map_table, tbl, cat, None, client)
-                        return (tbl, mr, fh, ih, None)
                     except Exception as exc:  # a bad sheet shouldn't kill the file
-                        return (tbl, None, fh, ih, str(exc)[:200])
+                        return (tbl, None, fh, ih, str(exc)[:200], {})
+                # Derived-quantity stage: travel/freight rows whose quantity
+                # isn't usable in the factor's unit get one computed from the
+                # bundled gazetteers (entities via one fast LLM call, math
+                # deterministic). Failure falls back to the question flow.
+                derivs = await asyncio.to_thread(derive_for_rows, mr, client, context)
+                return (tbl, mr, fh, ih, None, derivs)
 
         mapped_results = await asyncio.gather(*[_map_sheet(t) for t in tables])
 
-    for table, mapped_rows, formula_hits, injection_hits, err in mapped_results:
+    for table, mapped_rows, formula_hits, injection_hits, err, derivs in mapped_results:
         security["formula_cells_sanitised"] += formula_hits
         security["injection_flags"] += injection_hits
         if err is not None or mapped_rows is None:
@@ -270,10 +281,23 @@ async def run_analysis(
         sheet_staged = 0
         for m in mapped_rows:
             total += 1
+            # Derived-quantity stage result for this row (flight km, hotel
+            # nights, freight tonne-km) — applied BEFORE grounding so the row
+            # grounds against a real quantity in the factor's own unit.
+            deriv = derivs.get(m.row_index)
+            if deriv is not None:
+                apply_derivation_to_mapped(m, deriv, cat)
             if m.activity_key:
                 mapped += 1
                 grounding = await ground_row(
-                    session, m.activity_key, m.unit or "", region=region, year=year
+                    session,
+                    m.activity_key,
+                    m.unit or "",
+                    # A derived row-level region (a hotel's stay country) beats
+                    # the org default at review time too — the grid must show
+                    # the factor that will actually be committed.
+                    region=(deriv.region if deriv is not None else None) or region,
+                    year=year,
                 )
                 violations = check_row(
                     cat, m.activity_key, m.scope or 0, m.category_code or ""
@@ -285,6 +309,12 @@ async def run_analysis(
                 violations = []
 
             verdict = score_row(grounding, violations, llm_self_score=m.llm_confidence)
+
+            # A derived quantity is honest but ESTIMATED — floor PCAF at 4 and
+            # put every assumption (route, ×2, defaults, upgrade path) on the
+            # row's audit trail.
+            if deriv is not None:
+                stamp_derived_verdict(verdict, deriv)
 
             # Grounded against an assumed (current-year) factor vintage because no
             # reporting period was selected — say so on the row's audit trail.
@@ -302,6 +332,11 @@ async def run_analysis(
                 if verdict.status == RowStatus.READY.value:
                     verdict.status = "needs_review"
 
+            prov = _provenance(grounding, m.unit)
+            if deriv is not None:
+                # Full derivation state → provenance, so the number is
+                # reproducible end-to-end and answers can recompute it.
+                prov["derivation"] = deriv.state
             staged = StagedRow(
                 session_id=ingestion.id,
                 sheet=table.sheet,
@@ -313,13 +348,14 @@ async def run_analysis(
                 quantity=_as_float(m.quantity),
                 unit=m.unit,
                 description=(m.description or "")[:500],
+                region=deriv.region if deriv is not None else None,
                 confidence=verdict.confidence,
                 band=verdict.band,
                 status=RowStatus(verdict.status),
                 pcaf_data_quality=verdict.pcaf_data_quality,
                 measurement_tier=verdict.tier,
                 reasons=verdict.reasons,
-                provenance=_provenance(grounding, m.unit),
+                provenance=prov,
             )
             session.add(staged)
             await session.flush()  # assign staged.id for question FK
@@ -355,6 +391,24 @@ async def run_analysis(
                     },
                 )
                 grp["row_ids"].append(staged.id)
+
+            # Derivation questions — only the materially-significant assumptions
+            # (round-trip ×2 grouped confirm, long-haul cabin class, missing
+            # freight mass). These bypass the no-quantity gate above: a freight
+            # row awaiting its mass HAS no quantity yet, that's the point.
+            if deriv is not None:
+                for dspec in deriv.questions:
+                    grp = question_groups.setdefault(
+                        dspec["group_key"],
+                        {
+                            "question": dspec["question"],
+                            "field": dspec["field"],
+                            "choices": dspec["choices"],
+                            "row_ids": [],
+                            "category_code": staged.category_code,
+                        },
+                    )
+                    grp["row_ids"].append(staged.id)
 
         sheets_summary.append(
             {
@@ -592,7 +646,10 @@ async def commit_session(
                     unit=row.unit,
                     scope=row.scope or 0,
                     category_code=row.category_code or "",
-                    region=region,
+                    # A row-level region (e.g. a hotel's stay country) beats the
+                    # org default — that's how "nights × the STAY country's
+                    # factor" actually selects the country factor.
+                    region=row.region or region,
                     year=year,
                 )
             )
@@ -604,6 +661,17 @@ async def commit_session(
             row.commit_error = f"Unexpected: {type(exc).__name__}: {exc}"[:500]
             failed += 1
             continue
+
+        # A derived quantity carries its assumptions onto the committed
+        # activity's quality justification — the validator-facing "why".
+        deriv_state = (
+            row.provenance.get("derivation")
+            if isinstance(row.provenance, dict)
+            else None
+        )
+        justification = None
+        if deriv_state and deriv_state.get("assumptions"):
+            justification = "; ".join(deriv_state["assumptions"])[:500]
 
         activity = Activity(
             organization_id=ingestion.organization_id,
@@ -619,6 +687,7 @@ async def commit_session(
             data_source=DataSource.IMPORT,
             import_batch_id=batch.id,
             data_quality_score=row.pcaf_data_quality or 4,
+            data_quality_justification=justification,
         )
         session.add(activity)
         await session.flush()
@@ -826,6 +895,14 @@ def _apply_answer_to_row(row: StagedRow, field: str | None, answer: str, cat) ->
     answer = (answer or "").strip()
     if not answer:
         return
+    # Derivation questions (round-trip confirm, freight mass) recompute the
+    # quantity deterministically from the stored derivation state.
+    deriv_state = (
+        row.provenance.get("derivation") if isinstance(row.provenance, dict) else None
+    )
+    if field == "quantity" and deriv_state:
+        if apply_derivation_answer(row, deriv_state, answer):
+            return
     if field == "unit":
         row.unit = answer[:50]
     elif field == "quantity":
@@ -887,7 +964,11 @@ async def _reground_row(
             row.scope = entry.scope
             row.category_code = entry.category_code
         grounding = await ground_row(
-            session, row.activity_key, row.unit or "", region=region, year=year
+            session,
+            row.activity_key,
+            row.unit or "",
+            region=row.region or region,
+            year=year,
         )
         violations = check_row(
             cat, row.activity_key, row.scope or 0, row.category_code or ""
@@ -896,15 +977,31 @@ async def _reground_row(
         grounding = _no_key_verdict("Still needs an activity type.")
         violations = []
 
+    # Derivation state must survive a re-ground: the rebuilt provenance below
+    # would otherwise drop it, and with it the ESTIMATED floor + audit trail.
+    deriv_state = (
+        row.provenance.get("derivation") if isinstance(row.provenance, dict) else None
+    )
+
     verdict = score_row(grounding, violations, llm_self_score=max(row.confidence, 0.6))
     if year_assumed and row.activity_key:
         verdict.reasons.append(_year_assumed_reason(year))
+    if deriv_state:
+        verdict.pcaf_data_quality = max(verdict.pcaf_data_quality or 4, 4)
+        if row.quantity is not None and verdict.tier != "gap":
+            verdict.tier = "estimated"
+        verdict.reasons = list(verdict.reasons) + list(
+            deriv_state.get("assumptions") or []
+        )
     row.confidence = verdict.confidence
     row.band = verdict.band
     row.pcaf_data_quality = verdict.pcaf_data_quality
     row.measurement_tier = verdict.tier
     row.reasons = verdict.reasons
-    row.provenance = _provenance(grounding, row.unit)
+    prov = _provenance(grounding, row.unit)
+    if deriv_state:
+        prov["derivation"] = deriv_state
+    row.provenance = prov
     # Once answered, a previously-blocked row moves to human review (not auto-ready).
     row.status = (
         RowStatus.NEEDS_REVIEW
