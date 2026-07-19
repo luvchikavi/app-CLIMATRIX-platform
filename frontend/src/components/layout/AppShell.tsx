@@ -57,10 +57,10 @@ export function AppShell({ children }: AppShellProps) {
     const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
     const isSuperAdmin = user?.role === 'super_admin';
 
-    // Flat, journey-ordered rail. Coming-soon modules (PCAF/LCA/EPD) are not
-    // rail entries at all — they live on /roadmap and the /modules catalog.
-    // CBAM is the one live module beyond the journey, so it stands alone
-    // rather than inside a collapsed drawer that used to hide it.
+    // Journey-ordered rail. Coming-soon modules (PCAF/LCA/EPD) are not rail
+    // entries at all — they live on /roadmap and the /modules catalog.
+    // Tools holds real, working tools only; Workspace holds org-level pages.
+    // Both groups render expanded so nothing hides behind a closed drawer.
     const cbam = MODULE_REGISTRY.find((m) => m.id === 'cbam');
 
     return [
@@ -69,22 +69,34 @@ export function AppShell({ children }: AppShellProps) {
       { label: 'Activities', href: '/activities', active: isActive('/activities') },
       { label: 'Plan', href: '/decarbonization', active: isActive('/decarbonization') },
       { label: 'Reports', href: '/reports', active: isActive('/reports') },
-      ...(cbam
-        ? [
-            {
-              label: cbam.name,
-              href: cbam.href,
-              active: isActive(cbam.href),
-              ...(cbam.status === 'beta' ? { badge: 'Beta' } : {}),
-              separatorBefore: true,
-            },
-          ]
-        : []),
-      // Workspace: org-level pages behind their own hairline.
-      { label: 'Sites', href: '/sites', active: isActive('/sites'), separatorBefore: true },
-      { label: 'Billing', href: '/billing', active: isActive('/billing') },
-      { label: 'Roadmap', href: '/roadmap', active: isActive('/roadmap') },
-      { label: 'Settings', href: '/settings', active: isActive('/settings') },
+      {
+        label: 'Tools',
+        separatorBefore: true,
+        defaultOpen: true,
+        items: cbam
+          ? [
+              {
+                label: cbam.name,
+                href: cbam.href,
+                active: isActive(cbam.href),
+                ...(cbam.status === 'beta' ? { badge: 'Beta' } : {}),
+              },
+            ]
+          : [],
+      },
+      {
+        label: 'Workspace',
+        separatorBefore: true,
+        defaultOpen: true,
+        items: [
+          { label: 'Sites', href: '/sites', active: isActive('/sites') },
+          { label: 'Billing', href: '/billing', active: isActive('/billing') },
+          { label: 'Roadmap', href: '/roadmap', active: isActive('/roadmap') },
+          ...(isSuperAdmin
+            ? [{ label: 'Audit trail', href: '/audit', active: isActive('/audit') }]
+            : []),
+        ],
+      },
       // The company cockpit (dashboard + CRM) — internal, super admins only.
       ...(isSuperAdmin
         ? [
@@ -94,9 +106,14 @@ export function AppShell({ children }: AppShellProps) {
               active: isActive('/admin') || isActive('/leads'),
               separatorBefore: true,
             },
-            { label: 'Audit trail', href: '/audit', active: isActive('/audit') },
           ]
         : []),
+      {
+        label: 'Settings',
+        href: '/settings',
+        active: isActive('/settings'),
+        separatorBefore: !isSuperAdmin,
+      },
     ];
   }, [pathname, user?.role]);
 

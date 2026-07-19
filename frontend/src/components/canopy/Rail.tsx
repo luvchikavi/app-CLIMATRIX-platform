@@ -38,6 +38,8 @@ export interface RailNavGroup {
   items: RailNavItem[];
   /** hairline above this group — separates nav sections */
   separatorBefore?: boolean;
+  /** start expanded — for groups used as always-visible sections */
+  defaultOpen?: boolean;
 }
 
 export interface RailProps {
@@ -154,7 +156,7 @@ function NavGroup({
   onNavigate?: () => void;
 }) {
   const hasActive = group.items.some((sub) => sub.active);
-  const [open, setOpen] = useState(hasActive);
+  const [open, setOpen] = useState(hasActive || group.defaultOpen === true);
 
   // Navigating into a child (e.g. via a deep link) reveals the group.
   useEffect(() => {
