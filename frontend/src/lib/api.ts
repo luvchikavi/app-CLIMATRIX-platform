@@ -1259,6 +1259,12 @@ class ApiClient {
     return this.fetch<FuelPrice>(`/reference/fuel-prices/${fuelType}${query}`);
   }
 
+  // Methodology — the rules every number is computed under (GWP set, ladder,
+  // method hierarchy, biogenic policy). Rendered on /methodology.
+  async getMethodology(): Promise<MethodologyReference> {
+    return this.fetch<MethodologyReference>('/reference/methodology');
+  }
+
   async convertSpendToQuantity(request: SpendConversionRequest): Promise<SpendConversionResult> {
     return this.fetch<SpendConversionResult>('/reference/convert-spend', {
       method: 'POST',
@@ -3250,6 +3256,17 @@ export interface StagedRow {
 
 export type MeasurementTier = 'measured' | 'calculated' | 'estimated' | 'gap';
 
+export interface MethodologyReference {
+  ghg_accounting_standard: string;
+  calculation_approach: string;
+  gwp_source: string;
+  gwp_statement: string;
+  consolidation_approaches: { value: string; label: string }[];
+  data_quality_tiers: { tier: string; scores: number[]; description: string }[];
+  method_hierarchy: { method: string; label: string; description: string }[];
+  biogenic_policy: string;
+}
+
 export interface StagedProvenance {
   factor_source?: string | null;
   factor_year?: number | null;
@@ -3258,6 +3275,32 @@ export interface StagedProvenance {
   method?: string | null;
   method_label?: string | null;
   unit_kind?: string | null;
+  /** Derived-quantity engine state — present when the quantity was computed
+   *  (flight km, hotel nights, freight tonne-km) rather than read from the file. */
+  derivation?: {
+    engine?: string;
+    gazetteer?: string;
+    origin?: string;
+    destination?: string;
+    gcd_km?: number;
+    uplift?: number;
+    one_way_km?: number;
+    round_trip?: boolean;
+    rt_assumed?: boolean;
+    trips?: number;
+    travelers?: number;
+    haul?: string;
+    cabin?: string;
+    cabin_assumed?: boolean;
+    nights?: number;
+    stay_country?: string | null;
+    origin_country?: string;
+    destination_country?: string;
+    mode?: string;
+    route_km?: number;
+    mass_tonnes?: number | null;
+    assumptions?: string[];
+  } | null;
 }
 
 export interface QuestionChoice {

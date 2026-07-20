@@ -8,7 +8,7 @@
  * few targeted questions, and the rows land in the ledger.
  */
 
-import { useCallback, useEffect, useRef, useState, Suspense } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/layout';
@@ -657,6 +657,76 @@ function QuestionRow({
   );
 }
 
+/** The full "why" behind one staged row — every assumption and, for derived
+ *  quantities (flight km, hotel nights, tonne-km), the computation itself. */
+function RowStory({ row }: { row: StagedRow }) {
+  const d = row.provenance?.derivation;
+  return (
+    <div className="rounded-[10px] bg-cy-row px-4 py-3">
+      {d && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {d.origin && d.destination && (
+            <span className="rounded-full bg-cy-accent-soft px-2.5 py-0.5 text-[11px] font-bold text-cy-accent">
+              {d.origin} → {d.destination}
+            </span>
+          )}
+          {d.gcd_km != null && d.uplift != null && (
+            <span className="rounded-full bg-cy-surface px-2.5 py-0.5 text-[11px] font-semibold text-cy-muted">
+              {Math.round(d.gcd_km).toLocaleString()} km great-circle × {d.uplift} uplift
+            </span>
+          )}
+          {d.round_trip != null && (
+            <span className="rounded-full bg-cy-surface px-2.5 py-0.5 text-[11px] font-semibold text-cy-muted">
+              {d.round_trip ? 'round trip ×2' : 'one-way'}
+              {d.rt_assumed ? ' (assumed)' : ''}
+            </span>
+          )}
+          {(d.travelers ?? 1) > 1 && (
+            <span className="rounded-full bg-cy-surface px-2.5 py-0.5 text-[11px] font-semibold text-cy-muted">
+              × {d.travelers} travelers
+            </span>
+          )}
+          {d.cabin && (
+            <span className="rounded-full bg-cy-surface px-2.5 py-0.5 text-[11px] font-semibold text-cy-muted">
+              {d.cabin}
+              {d.cabin_assumed ? ' (assumed)' : ''}
+            </span>
+          )}
+          {d.stay_country && (
+            <span className="rounded-full bg-cy-surface px-2.5 py-0.5 text-[11px] font-semibold text-cy-muted">
+              stay: {d.stay_country}
+            </span>
+          )}
+          {d.route_km != null && (
+            <span className="rounded-full bg-cy-surface px-2.5 py-0.5 text-[11px] font-semibold text-cy-muted">
+              route {Math.round(d.route_km).toLocaleString()} km ({d.mode})
+            </span>
+          )}
+          {d.gazetteer && (
+            <span className="rounded-full bg-cy-surface px-2.5 py-0.5 text-[11px] font-semibold text-cy-faint">
+              {d.gazetteer}
+            </span>
+          )}
+        </div>
+      )}
+      {row.reasons && row.reasons.length > 0 ? (
+        <ul className="flex flex-col gap-1">
+          {row.reasons.map((reason, i) => (
+            <li key={i} className="flex gap-2 text-[12px] leading-relaxed text-cy-muted">
+              <span aria-hidden="true" className="text-cy-faint">
+                ·
+              </span>
+              {reason}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-[12px] text-cy-faint">No notes on this row.</p>
+      )}
+    </div>
+  );
+}
+
 function ReviewGrid({
   session,
   onPatch,
@@ -666,6 +736,7 @@ function ReviewGrid({
   onPatch: (row: StagedRow, status: string) => void;
   readOnly: boolean;
 }) {
+  const [openRow, setOpenRow] = useState<string | null>(null);
   const th = 'py-2 pr-3 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-cy-faint';
   return (
     <div className="overflow-x-auto">
@@ -685,9 +756,12 @@ function ReviewGrid({
         <tbody>
           {session.rows.map((r) => {
             const b = BAND[r.band] ?? BAND.red;
+            const isOpen = openRow === r.id;
+            const hasStory =
+              (r.reasons && r.reasons.length > 0) || !!r.provenance?.derivation;
             return (
+              <Fragment key={r.id}>
               <tr
-                key={r.id}
                 className={cn(
                   'border-t border-cy-row align-top',
                   r.status === 'rejected' && 'opacity-40'
@@ -698,10 +772,23 @@ function ReviewGrid({
                 </td>
                 <td className="max-w-[16rem] py-2.5 pr-3 text-cy-ink">
                   <div className="truncate font-semibold">{r.description || '—'}</div>
-                  {r.reasons && r.reasons.length > 0 && (
-                    <div className="mt-0.5 truncate text-[11.5px] text-cy-faint" title={r.reasons.join(' · ')}>
-                      {r.reasons[0]}
-                    </div>
+                  {hasStory && (
+                    <button
+                      type="button"
+                      onClick={() => setOpenRow(isOpen ? null : r.id)}
+                      aria-expanded={isOpen}
+                      className="mt-0.5 block max-w-full cursor-pointer truncate text-left text-[11.5px] text-cy-faint hover:text-cy-ink"
+                      title={r.reasons?.join(' · ')}
+                    >
+                      <span aria-hidden="true" className="mr-1 inline-block text-[9px]">
+                        {isOpen ? '▾' : '▸'}
+                      </span>
+                      {r.provenance?.derivation
+                        ? isOpen
+                          ? 'How this number was derived'
+                          : `Derived quantity — how? · ${r.reasons?.[0] ?? ''}`
+                        : (r.reasons?.[0] ?? 'Why?')}
+                    </button>
                   )}
                 </td>
                 <td className="py-2.5 pr-3">
@@ -803,6 +890,15 @@ function ReviewGrid({
                   </td>
                 )}
               </tr>
+              {isOpen && (
+                <tr className="border-t border-cy-row/50">
+                  <td />
+                  <td colSpan={readOnly ? 6 : 7} className="pt-0 pb-3 pr-3">
+                    <RowStory row={r} />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             );
           })}
         </tbody>

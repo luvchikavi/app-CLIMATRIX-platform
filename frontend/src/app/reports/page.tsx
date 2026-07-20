@@ -13,6 +13,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
 import { usePeriods, useReportSummary, useActivities, useSites } from '@/hooks/useEmissions';
+import Link from 'next/link';
 import { AppShell } from '@/components/layout';
 import {
   CellValue,
@@ -256,6 +257,12 @@ export default function ReportsPage() {
         title={`Reports — ${activePeriod?.name || '…'}`}
         subtitle="Everything here updates live from your data. Verify when you're ready."
       />
+      <Link
+        href="/methodology"
+        className="-mt-3 mb-4 inline-block text-[12.5px] font-semibold text-cy-accent hover:underline"
+      >
+        How every number is calculated — methodology →
+      </Link>
 
       {isLoading && (
         <div className="flex items-center justify-center py-20" role="status" aria-live="polite">
