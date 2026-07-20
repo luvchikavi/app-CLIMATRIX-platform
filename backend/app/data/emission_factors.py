@@ -18,7 +18,7 @@ from decimal import Decimal
 # Source: https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2024
 # Units: kg CO2e per activity_unit
 # GWP basis: DEFRA 2024 uses AR5 (100-year) for fuel CH4/N2O components
-# Refrigerant GWPs: Currently labeled IPCC_AR6 (see notes on GWP consistency)
+# Refrigerant GWPs: IPCC AR5 100-year values (R-134a 1300, R-410A 1924, R-32 677)
 # Fuel factors: Use "100% mineral" variant (not biofuel blend) unless noted
 
 EMISSION_FACTORS = [
