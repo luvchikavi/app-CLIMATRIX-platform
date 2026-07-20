@@ -2323,12 +2323,29 @@ class ApiClient {
   async createCheckout(
     plan: SubscriptionPlan,
     successUrl: string,
-    cancelUrl: string
+    cancelUrl: string,
+    cadence: 'monthly' | 'annual' = 'annual'
   ): Promise<CheckoutResponse> {
     return this.fetch<CheckoutResponse>('/billing/checkout', {
       method: 'POST',
       body: JSON.stringify({
         plan,
+        cadence,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      }),
+    });
+  }
+
+  async createReportPassCheckout(
+    reportYear: number,
+    successUrl: string,
+    cancelUrl: string
+  ): Promise<CheckoutResponse> {
+    return this.fetch<CheckoutResponse>('/billing/report-pass/checkout', {
+      method: 'POST',
+      body: JSON.stringify({
+        report_year: reportYear,
         success_url: successUrl,
         cancel_url: cancelUrl,
       }),

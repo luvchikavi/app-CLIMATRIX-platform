@@ -144,9 +144,20 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""  # Set STRIPE_SECRET_KEY in environment
     stripe_publishable_key: str = ""  # Set STRIPE_PUBLISHABLE_KEY
     stripe_webhook_secret: str = ""  # Set STRIPE_WEBHOOK_SECRET for webhook validation
-    stripe_price_id_starter: str = ""  # Stripe Price ID for Starter plan
-    stripe_price_id_professional: str = ""  # Stripe Price ID for Professional plan
-    stripe_price_id_enterprise: str = ""  # Stripe Price ID for Enterprise plan
+    # Price IDs for the 2026-07-20 restructured catalog. Populate from the
+    # create_stripe_products.py script output. Empty => that purchase path is
+    # unavailable (checkout returns a clear 400/503).
+    stripe_price_starter_monthly: str = ""  # Starter $99/mo (recurring)
+    stripe_price_starter_annual: str = ""  # Starter $1,010/yr (recurring)
+    stripe_price_professional_annual: str = ""  # Professional $3,560/yr (recurring)
+    stripe_price_report_pass: str = ""  # Report Pass $1,790 (one-time)
+    stripe_price_site_pack: str = ""  # Site pack +5 sites $490/yr (recurring)
+    stripe_price_seat: str = ""  # Extra seat $190/yr (recurring)
+    # Deprecated single-price fields (pre-restructure). Kept so old env vars
+    # don't break boot; no longer used for checkout.
+    stripe_price_id_starter: str = ""
+    stripe_price_id_professional: str = ""
+    stripe_price_id_enterprise: str = ""
 
 
 @lru_cache()
