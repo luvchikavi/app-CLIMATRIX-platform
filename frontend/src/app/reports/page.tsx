@@ -35,6 +35,7 @@ import {
   AuditPackageView,
   ExportOptions,
   VerificationWorkflow,
+  VerifierInvitePanel,
 } from '@/components/reports';
 import { api, CategorySummary } from '@/lib/api';
 import { categoryNames, downloadFile } from '@/lib/utils';
@@ -465,20 +466,28 @@ export default function ReportsPage() {
           )}
 
           {activeTab === 'verification' && activePeriod && (
-            <VerificationWorkflow
-              period={activePeriod}
-              statusHistory={statusHistory}
-              userRole={user?.role as 'admin' | 'editor' | 'viewer' | undefined}
-              onTransition={async (newStatus) => {
-                await transitionMutation.mutateAsync(newStatus);
-              }}
-              onVerify={async (data) => {
-                await verifyMutation.mutateAsync(data);
-              }}
-              onLock={async () => {
-                await lockMutation.mutateAsync();
-              }}
-            />
+            <>
+              <VerificationWorkflow
+                period={activePeriod}
+                statusHistory={statusHistory}
+                userRole={user?.role as 'admin' | 'editor' | 'viewer' | undefined}
+                onTransition={async (newStatus) => {
+                  await transitionMutation.mutateAsync(newStatus);
+                }}
+                onVerify={async (data) => {
+                  await verifyMutation.mutateAsync(data);
+                }}
+                onLock={async () => {
+                  await lockMutation.mutateAsync();
+                }}
+              />
+              <VerifierInvitePanel
+                periodId={activePeriodId}
+                canManage={
+                  user?.role === 'admin' || user?.role === 'super_admin'
+                }
+              />
+            </>
           )}
 
           {/* The finish line — on every tab */}
