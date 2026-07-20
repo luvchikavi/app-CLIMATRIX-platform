@@ -38,9 +38,9 @@ PLAN_LIMITS = {
     },
     SubscriptionPlan.STARTER: {
         "activities_per_month": 500,
-        "users": 3,
+        "users": 2,
         "periods": 4,
-        "sites": 5,
+        "sites": 2,
         # Starter's concrete promise: the FULL AI parser for your own
         # operations — unlimited Smart Import for Scope 1 + 2. Scope 3 rows
         # are parsed and shown (the punch-list value) but commit-locked:
@@ -53,13 +53,30 @@ PLAN_LIMITS = {
         "import_rows": -1,
     },
     SubscriptionPlan.PROFESSIONAL: {
+        # Included caps are deliberately tight (2026-07-20 restructure) —
+        # growth is sold as add-ons: site packs and extra seats stack on top
+        # via Organization.extra_sites / extra_users.
         "smart_import_scopes": [1, 2, 3],
         "activities_per_month": 5000,
-        "users": 10,
+        "users": 2,
         "periods": 12,
-        "sites": 25,
+        "sites": 5,
         "ai_extractions": 100,
         "reports_per_month": -1,  # unlimited
+        "export_formats": ["csv", "json", "cdp", "esrs"],
+        "import_files": -1,
+        "import_rows": -1,
+    },
+    # The once-a-year reporter's product: Professional features for a 90-day
+    # window, exports licensed to ONE reporting year (enforced in entitlements).
+    SubscriptionPlan.REPORT_PASS: {
+        "smart_import_scopes": [1, 2, 3],
+        "activities_per_month": 5000,
+        "users": 2,
+        "periods": 12,
+        "sites": 5,
+        "ai_extractions": 100,
+        "reports_per_month": -1,
         "export_formats": ["csv", "json", "cdp", "esrs"],
         "import_files": -1,
         "import_rows": -1,
@@ -97,14 +114,35 @@ TRIAL_LIMITS = {
 }
 
 PLAN_PRICING = {
-    SubscriptionPlan.FREE: {"monthly": 0, "annual": 0},
-    SubscriptionPlan.STARTER: {"monthly": 99, "annual": 1010},
-    SubscriptionPlan.PROFESSIONAL: {"monthly": 349, "annual": 3560},
+    SubscriptionPlan.FREE: {"monthly": 0, "annual": 0, "one_time": None},
+    SubscriptionPlan.STARTER: {"monthly": 99, "annual": 1010, "one_time": None},
+    # Professional is ANNUAL-ONLY (2026-07-20): monthly existed only to be
+    # gamed by once-a-year reporters — they get the Report Pass instead.
+    SubscriptionPlan.PROFESSIONAL: {
+        "monthly": None,
+        "annual": 3560,
+        "one_time": None,
+    },
+    SubscriptionPlan.REPORT_PASS: {
+        "monthly": None,
+        "annual": None,
+        "one_time": 1790,  # one reporting year, 90-day access window
+    },
     SubscriptionPlan.ENTERPRISE: {
         "monthly": None,
         "annual": None,
+        "one_time": None,
     },  # custom / Book a Demo
 }
+
+# Expansion add-ons stacked on the plan's included caps (billed annually).
+ADDON_PRICING = {
+    "site_pack_5": {"annual": 490, "sites": 5},
+    "extra_seat": {"annual": 190, "users": 1},
+}
+
+# How long a Report Pass keeps the platform open after purchase.
+REPORT_PASS_DAYS = 90
 
 
 class BillingService:

@@ -26,7 +26,7 @@ from app.models.emission import Activity, Emission, EmissionFactor, ImportBatch
 from app.models.hub import GHG_CATEGORIES, CategoryProfile, CategoryRelevance
 from app.services import methodology
 from app.services.calculation.wtt import WTTService
-from app.services.entitlements import require_report_generation, require_report_view
+from app.services.entitlements import require_export_for_period, require_report_view
 from app.data.reference_data import GRID_EMISSION_FACTORS
 
 router = APIRouter()
@@ -1521,7 +1521,7 @@ async def get_audit_package(
     period_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
-    _gate: Annotated[None, Depends(require_report_generation)] = None,
+    _gate: Annotated[None, Depends(require_export_for_period)] = None,
 ):
     """
     Generate comprehensive audit package for third-party verification.
@@ -2025,7 +2025,7 @@ async def export_cdp_format(
     period_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
-    _gate: Annotated[None, Depends(require_report_generation)] = None,
+    _gate: Annotated[None, Depends(require_export_for_period)] = None,
 ):
     """
     Export emissions data in CDP Climate Change questionnaire format.
@@ -2406,7 +2406,7 @@ async def export_esrs_e1_format(
     period_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
-    _gate: Annotated[None, Depends(require_report_generation)] = None,
+    _gate: Annotated[None, Depends(require_export_for_period)] = None,
 ):
     """
     Export emissions data in ESRS E1 (Climate Change) format.
@@ -2649,7 +2649,7 @@ async def export_report_csv(
     site_id: UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    _gate: None = Depends(require_report_generation),
+    _gate: None = Depends(require_export_for_period),
 ):
     """
     Export a GHG report as CSV.
@@ -2753,7 +2753,7 @@ async def export_report_pdf(
     site_id: UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    _gate: None = Depends(require_report_generation),
+    _gate: None = Depends(require_export_for_period),
 ):
     """
     Export a GHG report as PDF.

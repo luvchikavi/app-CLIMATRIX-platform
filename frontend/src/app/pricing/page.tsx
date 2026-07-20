@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
-import { plans, addOns } from '@/lib/pricing';
+import { plans, addOns, reportPass, expansionAddOns } from '@/lib/pricing';
 import type { LucideIcon } from 'lucide-react';
 import {
   Check,
@@ -47,7 +47,7 @@ const comparisonFeatures: { category: string; features: PlanFeature[] }[] = [
       { name: 'AI Smart Import (drop any file)', starter: 'Scope 1+2 · unlimited', professional: 'All scopes', enterprise: 'All scopes' },
       { name: 'Derived quantities (flight km, tonne-km, hotel nights)', starter: false, professional: true, enterprise: true },
       { name: 'Scope 3 (All 15 categories)', starter: 'Parsed · preview only', professional: true, enterprise: true },
-      { name: 'Sites/Locations', starter: '5', professional: '25', enterprise: 'Unlimited' },
+      { name: 'Sites/Locations', starter: '2', professional: '5 incl. (+site packs)', enterprise: 'Unlimited' },
       { name: 'Emission Factors', starter: '200+', professional: '401+', enterprise: '401+ Custom' },
       { name: 'Custom Emission Factors', starter: false, professional: false, enterprise: true },
     ],
@@ -78,7 +78,7 @@ const comparisonFeatures: { category: string; features: PlanFeature[] }[] = [
   {
     category: 'Support & Security',
     features: [
-      { name: 'Users Included', starter: '3', professional: '10', enterprise: 'Unlimited' },
+      { name: 'Users Included', starter: '2', professional: '2 incl. (+seats)', enterprise: 'Unlimited' },
       { name: 'SSO/SAML', starter: false, professional: false, enterprise: true },
       { name: 'API Access', starter: false, professional: false, enterprise: true },
       { name: 'Email Support', starter: '48hr', professional: '24hr', enterprise: '4hr' },
@@ -112,7 +112,11 @@ const faqs = [
   },
   {
     question: 'What is included in the free trial?',
-    answer: 'The 14-day free trial includes full access to your selected plan features. No credit card required to start.',
+    answer: 'The 14-day trial runs the full platform on your own data — the AI parser, real calculations, results on screen. Downloads and exports unlock when you subscribe. No credit card required to start.',
+  },
+  {
+    question: 'We only report once a year — do we need a subscription?',
+    answer: 'No. The Report Pass is built for exactly that: a one-time purchase that opens everything in Professional for 90 days, licensed to the reporting year you are working on. Your data and audit trail stay afterwards, and auditors can be given access again with a new pass or a subscription.',
   },
 ];
 
@@ -151,10 +155,12 @@ export default function PricingPage() {
           </h1>
           <p className="text-xl text-foreground-muted mb-8 max-w-2xl mx-auto">
             The same regulatory-compliant calculations and audit-ready reports as $50K+ platforms,
-            starting at just $649/month.
+            starting at just $99/month.
           </p>
 
-          <p className="text-sm text-foreground-muted mb-12">Billed yearly. 14-day free trial included.</p>
+          <p className="text-sm text-foreground-muted mb-12">
+            Annual licenses. Reporting once a year? There&apos;s a one-time Report Pass. 14-day free trial included.
+          </p>
         </div>
       </section>
 
@@ -201,8 +207,15 @@ export default function PricingPage() {
                             <span className="text-foreground-muted">/month</span>
                           </div>
                           <p className="text-sm text-foreground-muted mt-1">
-                            Billed yearly (${(price * 12).toLocaleString()}/year)
+                            {plan.annualTotal
+                              ? `Billed yearly ($${plan.annualTotal.toLocaleString()}/year)`
+                              : 'Free forever'}
                           </p>
+                          {plan.monthlyPrice != null && plan.monthlyPrice > 0 && (
+                            <p className="text-xs text-foreground-muted mt-0.5">
+                              or ${plan.monthlyPrice}/month, month-to-month
+                            </p>
+                          )}
                         </>
                       ) : (
                         <div className="flex items-baseline justify-center gap-1">
@@ -244,6 +257,60 @@ export default function PricingPage() {
                 </Card>
               );
             })}
+          </div>
+
+          {/* Report Pass — the once-a-year reporter's product */}
+          <Card className="mt-10 border-2 border-primary/40">
+            <CardContent className="py-6">
+              <div className="flex flex-col md:flex-row md:items-center gap-6">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <FileText className="w-5 h-5 text-primary" />
+                    <h3 className="text-xl font-bold text-foreground">{reportPass.name}</h3>
+                    <Badge variant="secondary">One-time</Badge>
+                  </div>
+                  <p className="text-sm text-foreground-muted mb-3">
+                    Report once a year? Skip the subscription: everything in Professional for{' '}
+                    {reportPass.windowDays} days, licensed to one reporting year.
+                  </p>
+                  <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5">
+                    {reportPass.features.map((feature, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <Check className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
+                        <span className="text-sm text-foreground">{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="text-center md:text-right md:pl-6 md:border-l border-border">
+                  <div className="flex items-baseline justify-center md:justify-end gap-1">
+                    <span className="text-4xl font-bold text-foreground">
+                      ${reportPass.price.toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-sm text-foreground-muted mb-3">per reporting year</p>
+                  <Button
+                    onClick={() => {
+                      window.location.href =
+                        'mailto:sales@climatrix.co?subject=CLIMATRIX%20Report%20Pass';
+                    }}
+                  >
+                    Get a Report Pass
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Capacity add-ons */}
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-x-8 gap-y-1 text-sm text-foreground-muted">
+            <span className="font-medium text-foreground">Need more room?</span>
+            {expansionAddOns.map((addon) => (
+              <span key={addon.name}>
+                {addon.name} ({addon.detail}) — ${addon.price}
+                {addon.cadence}
+              </span>
+            ))}
           </div>
         </div>
       </section>

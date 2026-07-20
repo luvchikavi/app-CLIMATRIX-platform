@@ -11,6 +11,7 @@ import volume. Expired trial falls back to FREE — data preserved, read-only-is
 
 from datetime import datetime
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends, HTTPException
 from sqlalchemy import func, select
@@ -22,26 +23,41 @@ from app.models.core import Organization, User, SubscriptionPlan
 from app.services.billing import PLAN_LIMITS, TRIAL_LIMITS
 
 # Plans that unlock the workflow modules (CBAM register/declarations, decarbonization
-# management). Trial and Starter see the teaser only.
-_MODULE_PLANS = {SubscriptionPlan.PROFESSIONAL.value, SubscriptionPlan.ENTERPRISE.value}
+# management). Trial and Starter see the teaser only. A Report Pass is Professional
+# for its 90-day window.
+_MODULE_PLANS = {
+    SubscriptionPlan.PROFESSIONAL.value,
+    SubscriptionPlan.ENTERPRISE.value,
+    SubscriptionPlan.REPORT_PASS.value,
+}
+
+
+def _free_entitlement(*, expired: bool = False, org=None) -> dict:
+    return {
+        "effective_plan": SubscriptionPlan.FREE.value,
+        "is_trialing": False,
+        "is_expired": expired,
+        "limits": dict(PLAN_LIMITS[SubscriptionPlan.FREE]),
+        "trial_ends_at": (
+            org.trial_ends_at.isoformat() if org and org.trial_ends_at else None
+        ),
+        "licensed_report_year": None,
+        "plan_expires_at": None,
+    }
 
 
 def resolve_entitlement(org: Organization | None) -> dict:
-    """Resolve effective plan + limits for an org, applying lazy trial expiry.
+    """Resolve effective plan + limits for an org, applying lazy expiry.
 
     - Active trial  -> TEASER limits (no exports, 1 site/period/seat, capped import).
     - Expired trial with no active paid sub -> effective FREE (read-only-ish).
-    - Otherwise -> the org's own plan limits.
+    - Report Pass inside its window -> Professional-level limits, but exports
+      licensed to ONE reporting year; past the window -> FREE (data preserved).
+    - Otherwise -> the org's own plan limits, plus purchased add-ons
+      (extra_sites / extra_users) stacked on the included caps.
     """
     if org is None:
-        limits = dict(PLAN_LIMITS[SubscriptionPlan.FREE])
-        return {
-            "effective_plan": SubscriptionPlan.FREE.value,
-            "is_trialing": False,
-            "is_expired": False,
-            "limits": limits,
-            "trial_ends_at": None,
-        }
+        return _free_entitlement()
 
     try:
         plan = SubscriptionPlan(org.subscription_plan or "free")
@@ -62,15 +78,30 @@ def resolve_entitlement(org: Organization | None) -> dict:
     )
     has_active_paid = status == "active"
 
+    licensed_year = None
+    pass_expires = None
     if trialing:
         effective = SubscriptionPlan.PROFESSIONAL
         limits = dict(TRIAL_LIMITS)
     elif trial_expired and not has_active_paid:
-        effective = SubscriptionPlan.FREE
-        limits = dict(PLAN_LIMITS[SubscriptionPlan.FREE])
+        return _free_entitlement(expired=True, org=org)
+    elif plan == SubscriptionPlan.REPORT_PASS:
+        window_open = org.plan_expires_at is not None and org.plan_expires_at > now
+        if not window_open:
+            return _free_entitlement(expired=True, org=org)
+        effective = plan
+        limits = dict(PLAN_LIMITS[SubscriptionPlan.REPORT_PASS])
+        licensed_year = org.licensed_report_year
+        pass_expires = org.plan_expires_at
     else:
         effective = plan
         limits = dict(PLAN_LIMITS.get(plan, PLAN_LIMITS[SubscriptionPlan.FREE]))
+
+    # Purchased add-ons stack on the included caps of any paid tier.
+    if not trialing and effective not in (SubscriptionPlan.FREE,):
+        for key, extra in (("users", org.extra_users), ("sites", org.extra_sites)):
+            if extra and limits.get(key, -1) != -1:
+                limits[key] = limits[key] + extra
 
     return {
         "effective_plan": effective.value,
@@ -78,6 +109,8 @@ def resolve_entitlement(org: Organization | None) -> dict:
         "is_expired": trial_expired and not has_active_paid,
         "limits": limits,
         "trial_ends_at": org.trial_ends_at.isoformat() if org.trial_ends_at else None,
+        "licensed_report_year": licensed_year,
+        "plan_expires_at": pass_expires.isoformat() if pass_expires else None,
     }
 
 
@@ -127,6 +160,41 @@ async def require_report_generation(
             "Report generation isn't available on the Free plan. "
             "Start a trial or upgrade to generate audit-ready reports.",
         )
+
+
+def ensure_period_year_licensed(entitlement: dict, period) -> None:
+    """Report Pass orgs export only the reporting year their pass covers.
+
+    Full subscribers (licensed_report_year is None) are unaffected. Periods
+    without a start date can't be year-checked and pass through."""
+    year = entitlement.get("licensed_report_year")
+    if year is None or period is None or not getattr(period, "start_date", None):
+        return
+    if period.start_date.year != year:
+        raise _limit_error(
+            "report_pass_year",
+            f"Your Report Pass covers reporting year {year}. Exports for other "
+            "years need their own pass or an annual subscription.",
+        )
+
+
+async def require_export_for_period(
+    period_id: UUID,
+    entitlement: Annotated[dict, Depends(get_entitlement)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> None:
+    """Export gate for period-scoped report endpoints: the plan-level export
+    check plus the Report Pass year license. `period_id` binds from the
+    route's own path/query parameter."""
+    await require_report_generation(entitlement)
+    if entitlement.get("licensed_report_year") is None:
+        return
+    from app.models.core import ReportingPeriod
+
+    period = await session.get(ReportingPeriod, period_id)
+    if period is not None and period.organization_id == current_user.organization_id:
+        ensure_period_year_licensed(entitlement, period)
 
 
 async def require_report_view(

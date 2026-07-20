@@ -486,8 +486,13 @@ async def punch_list(
     from fastapi.responses import PlainTextResponse
 
     from app.models.core import Organization, ReportingPeriod
-    from app.services.entitlements import get_entitlement, require_report_generation
+    from app.services.entitlements import (
+        ensure_period_year_licensed,
+        get_entitlement,
+        require_report_generation,
+    )
 
+    entitlement = None
     if format == "csv":
         # The CSV download is an export — same teaser rule as report exports.
         entitlement = await get_entitlement(current_user, session)
@@ -498,6 +503,9 @@ async def punch_list(
     period = await session.get(ReportingPeriod, period_id) if period_id else None
     if period and period.organization_id != org_id:
         raise HTTPException(status_code=404, detail="Reporting period not found")
+    if entitlement is not None:
+        # Report Pass: the CSV export is licensed to the pass's reporting year.
+        ensure_period_year_licensed(entitlement, period)
 
     profiles = await _load_profiles(session, org_id, None)
 
