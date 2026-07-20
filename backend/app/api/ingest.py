@@ -461,9 +461,16 @@ async def commit(
         session, entitlement, current_user.organization_id, int(committable or 0)
     )
 
+    # Plan scope gate (Starter = full AI parser for Scope 1+2; Scope 3 rows
+    # stay visible in review but commit-locked until Professional).
+    allowed_scopes = set(entitlement["limits"].get("smart_import_scopes") or [1, 2, 3])
+
     try:
         await orchestrator.commit_session(
-            session, ingestion, reporting_period_id=period_id
+            session,
+            ingestion,
+            reporting_period_id=period_id,
+            allowed_scopes=allowed_scopes,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

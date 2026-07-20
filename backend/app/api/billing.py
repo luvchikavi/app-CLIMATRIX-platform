@@ -281,11 +281,12 @@ def _get_plan_features(plan: SubscriptionPlan) -> list[str]:
         ]
     elif plan == SubscriptionPlan.STARTER:
         return base_features + [
+            "Smart Import (AI parser) — unlimited, Scope 1 & 2",
+            "Scope 3 parsed & previewed (upgrade to commit)",
             "500 activities/month",
             "Up to 3 users",
             "5 sites",
-            "AI-powered data extraction",
-            "JSON export",
+            "PDF, CSV & JSON export",
         ]
     elif plan == SubscriptionPlan.PROFESSIONAL:
         return base_features + [

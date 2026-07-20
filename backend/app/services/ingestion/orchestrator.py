@@ -570,6 +570,7 @@ async def commit_session(
     ingestion: IngestionSession,
     *,
     reporting_period_id: UUID | None = None,
+    allowed_scopes: set[int] | None = None,
 ) -> IngestionSession:
     """Write approved/ready staged rows into real Activity + Emission records.
 
@@ -636,6 +637,15 @@ async def commit_session(
             # Never let a row with an invalid/absent scope reach the ledger — an
             # Activity with scope=0 would corrupt every downstream scope rollup.
             row.commit_error = "Invalid or missing scope/category."
+            failed += 1
+            continue
+        if allowed_scopes is not None and row.scope not in allowed_scopes:
+            # Plan gate (Starter = Scope 1+2): the row stays visible in review
+            # with an honest reason — the value-chain upsell, never a silent drop.
+            row.commit_error = (
+                f"Scope {row.scope} rows need the Professional plan — "
+                "your value chain is parsed and waiting, upgrade to commit it."
+            )
             failed += 1
             continue
         try:
