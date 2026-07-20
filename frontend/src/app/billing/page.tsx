@@ -32,6 +32,11 @@ function BillingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
+  const [showReportPass, setShowReportPass] = useState(false);
+  // Default the pass to the year that just ended (the report you'd be filing now).
+  const [passYear, setPassYear] = useState<number>(
+    () => new Date().getFullYear() - 1
+  );
 
   // Check for success/cancel from Stripe checkout
   const checkoutStatus = searchParams.get('checkout');
@@ -49,11 +54,29 @@ function BillingPageContent() {
     queryFn: () => api.getPlans(),
   });
 
-  // Create checkout session mutation
+  // Create checkout session mutation. Professional is annual-only; Starter
+  // defaults to annual here (the marketing pricing page carries the toggle).
   const createCheckout = useMutation({
     mutationFn: (plan: SubscriptionPlan) =>
       api.createCheckout(
         plan,
+        `${window.location.origin}/billing?checkout=success`,
+        `${window.location.origin}/billing?checkout=canceled`,
+        'annual'
+      ),
+    onSuccess: (data) => {
+      window.location.href = data.url;
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to create checkout session');
+    },
+  });
+
+  // Report Pass — one-time purchase for a specific reporting year.
+  const reportPassCheckout = useMutation({
+    mutationFn: (year: number) =>
+      api.createReportPassCheckout(
+        year,
         `${window.location.origin}/billing?checkout=success`,
         `${window.location.origin}/billing?checkout=canceled`
       ),
@@ -61,7 +84,7 @@ function BillingPageContent() {
       window.location.href = data.url;
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create checkout session');
+      toast.error(error.message || 'Failed to start Report Pass checkout');
     },
   });
 
@@ -107,6 +130,9 @@ function BillingPageContent() {
   const isLoading = subscriptionLoading || plansLoading;
   const plans = plansData?.plans || [];
   const currentPlan = subscription?.plan || 'free';
+  // Offer this year and the three prior — the realistic reporting-year span.
+  const thisYear = new Date().getFullYear();
+  const passYearOptions = [thisYear, thisYear - 1, thisYear - 2, thisYear - 3];
 
   // Compute trial info
   const trialEndsAt = subscription?.trial_ends_at ? new Date(subscription.trial_ends_at) : null;
@@ -148,13 +174,14 @@ function BillingPageContent() {
   };
 
   const handleUpgrade = (plan: SubscriptionPlan) => {
-    if (plan === 'enterprise' || plan === 'report_pass') {
-      // Report Pass is a one-time purchase — handled by sales until the Stripe
-      // one-time product is wired.
-      const subject =
-        plan === 'enterprise' ? 'Enterprise Plan Inquiry' : 'CLIMATRIX Report Pass';
+    if (plan === 'enterprise') {
       // eslint-disable-next-line react-hooks/immutability -- intentional navigation side effect inside an event handler
-      window.location.href = `mailto:sales@climatrix.co?subject=${encodeURIComponent(subject)}`;
+      window.location.href = 'mailto:sales@climatrix.co?subject=Enterprise%20Plan%20Inquiry';
+      return;
+    }
+    if (plan === 'report_pass') {
+      // Report Pass needs a reporting year — open the picker.
+      setShowReportPass(true);
       return;
     }
     createCheckout.mutate(plan);
@@ -465,6 +492,46 @@ function BillingPageContent() {
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* Report Pass — year picker before one-time checkout */}
+      {showReportPass && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Report Pass">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowReportPass(false)} />
+          <div className="relative w-full max-w-md rounded-xl bg-background-elevated p-6 shadow-xl">
+            <h2 className="text-[16px] font-bold text-foreground">Report Pass</h2>
+            <p className="mt-1 text-[13px] text-foreground-muted">
+              A one-time purchase — everything in Professional for 90 days, licensed to a single
+              reporting year. Exports for that year work throughout the window.
+            </p>
+            <label className="mt-5 block text-[12px] font-semibold text-cy-faint uppercase tracking-[0.06em]">
+              Reporting year
+            </label>
+            <select
+              value={passYear}
+              onChange={(e) => setPassYear(Number(e.target.value))}
+              className="mt-1.5 w-full cursor-pointer rounded-lg border-0 bg-cy-row px-3 py-2.5 text-[14px] font-semibold text-cy-ink focus:outline-none focus:ring-2 focus:ring-cy-accent"
+            >
+              {passYearOptions.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <div className="mt-6 flex items-center justify-between">
+              <span className="text-[18px] font-bold text-foreground">$1,790</span>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowReportPass(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => reportPassCheckout.mutate(passYear)}
+                  disabled={reportPassCheckout.isPending}
+                >
+                  {reportPassCheckout.isPending ? 'Starting…' : `Buy pass for ${passYear}`}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </AppShell>

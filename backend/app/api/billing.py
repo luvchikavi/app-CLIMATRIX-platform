@@ -23,6 +23,15 @@ class CreateCheckoutRequest(BaseModel):
     plan: SubscriptionPlan
     success_url: str
     cancel_url: str
+    cadence: str = "annual"  # 'monthly' | 'annual' (Professional is annual-only)
+
+
+class ReportPassCheckoutRequest(BaseModel):
+    """Request to buy a one-time Report Pass for a specific reporting year."""
+
+    report_year: int
+    success_url: str
+    cancel_url: str
 
 
 class CreatePortalRequest(BaseModel):
@@ -159,6 +168,13 @@ async def create_checkout(
     if not organization:
         raise HTTPException(status_code=404, detail="Organization not found")
 
+    # Reject non-subscription plans before touching Stripe.
+    if request.plan in (SubscriptionPlan.REPORT_PASS, SubscriptionPlan.ENTERPRISE):
+        raise HTTPException(
+            status_code=400,
+            detail=("Report Pass uses its own checkout; Enterprise is sales-assisted."),
+        )
+
     # Create Stripe customer if needed
     if not organization.stripe_customer_id:
         await BillingService.create_customer(session, organization, current_user.email)
@@ -168,6 +184,42 @@ async def create_checkout(
             session=session,
             organization=organization,
             plan=request.plan,
+            success_url=request.success_url,
+            cancel_url=request.cancel_url,
+            cadence=request.cadence,
+        )
+        return CheckoutResponse(url=url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/report-pass/checkout", response_model=CheckoutResponse)
+async def create_report_pass_checkout(
+    request: ReportPassCheckoutRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Create a one-time Stripe Checkout for a Report Pass (one reporting year)."""
+    if not settings.stripe_secret_key:
+        raise HTTPException(status_code=503, detail="Billing is not configured")
+
+    result = await session.execute(
+        select(Organization).where(Organization.id == current_user.organization_id)
+    )
+    organization = result.scalar_one_or_none()
+    if not organization:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    if not organization.stripe_customer_id:
+        await BillingService.create_customer(session, organization, current_user.email)
+
+    try:
+        url = await BillingService.create_report_pass_checkout(
+            session=session,
+            organization=organization,
+            report_year=request.report_year,
             success_url=request.success_url,
             cancel_url=request.cancel_url,
         )

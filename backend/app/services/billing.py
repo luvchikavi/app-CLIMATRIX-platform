@@ -149,14 +149,50 @@ class BillingService:
     """Service for managing Stripe subscriptions."""
 
     @staticmethod
-    def get_price_id_for_plan(plan: SubscriptionPlan) -> Optional[str]:
-        """Get Stripe Price ID for a subscription plan."""
-        price_map = {
-            SubscriptionPlan.STARTER: settings.stripe_price_id_starter,
-            SubscriptionPlan.PROFESSIONAL: settings.stripe_price_id_professional,
-            SubscriptionPlan.ENTERPRISE: settings.stripe_price_id_enterprise,
+    def _subscription_price_id(plan: SubscriptionPlan, cadence: str) -> Optional[str]:
+        """Stripe Price ID for a recurring subscription (plan + billing cadence).
+
+        Professional is annual-only by design — a 'monthly' request for it
+        returns None so the caller raises a clear error."""
+        table = {
+            (
+                SubscriptionPlan.STARTER,
+                "monthly",
+            ): settings.stripe_price_starter_monthly,
+            (SubscriptionPlan.STARTER, "annual"): settings.stripe_price_starter_annual,
+            (
+                SubscriptionPlan.PROFESSIONAL,
+                "annual",
+            ): settings.stripe_price_professional_annual,
         }
-        return price_map.get(plan)
+        return table.get((plan, cadence)) or None
+
+    @staticmethod
+    def price_to_plan() -> dict:
+        """Reverse map: Stripe recurring Price ID -> the plan it grants.
+
+        Built from settings each call (env may differ per environment); empty
+        price IDs are skipped so they never collide on ''."""
+        pairs = {
+            settings.stripe_price_starter_monthly: SubscriptionPlan.STARTER,
+            settings.stripe_price_starter_annual: SubscriptionPlan.STARTER,
+            settings.stripe_price_professional_annual: SubscriptionPlan.PROFESSIONAL,
+            # Deprecated pre-restructure IDs still map, so a legacy subscription
+            # keeps resolving to the right plan after deploy.
+            settings.stripe_price_id_starter: SubscriptionPlan.STARTER,
+            settings.stripe_price_id_professional: SubscriptionPlan.PROFESSIONAL,
+            settings.stripe_price_id_enterprise: SubscriptionPlan.ENTERPRISE,
+        }
+        return {pid: plan for pid, plan in pairs.items() if pid}
+
+    @staticmethod
+    def get_price_id_for_plan(plan: SubscriptionPlan) -> Optional[str]:
+        """Back-compat shim: the default (annual) price for a plan."""
+        if plan == SubscriptionPlan.STARTER:
+            return settings.stripe_price_starter_annual or None
+        if plan == SubscriptionPlan.PROFESSIONAL:
+            return settings.stripe_price_professional_annual or None
+        return None
 
     @staticmethod
     async def create_customer(
@@ -205,30 +241,75 @@ class BillingService:
         plan: SubscriptionPlan,
         success_url: str,
         cancel_url: str,
+        cadence: str = "annual",
     ) -> str:
-        """Create a Stripe Checkout session for subscription."""
+        """Create a Stripe Checkout session for a recurring subscription.
+
+        cadence is 'monthly' or 'annual'. Professional is annual-only, so a
+        monthly request for it raises ValueError. A 14-day trial is granted
+        only if the org hasn't already used its trial."""
         if not organization.stripe_customer_id:
             raise ValueError("Organization must have a Stripe customer ID")
+        if cadence not in ("monthly", "annual"):
+            raise ValueError(f"Unknown billing cadence: {cadence}")
 
-        price_id = BillingService.get_price_id_for_plan(plan)
+        price_id = BillingService._subscription_price_id(plan, cadence)
         if not price_id:
-            raise ValueError(f"No price configured for plan: {plan}")
+            raise ValueError(
+                f"No Stripe price configured for {plan.value} ({cadence}). "
+                "Professional is annual-only; Report Pass uses its own checkout."
+            )
+
+        # Only offer the trial once — a returning customer subscribes immediately.
+        subscription_data = {}
+        if organization.trial_ends_at is None:
+            subscription_data["trial_period_days"] = 14
 
         checkout_session = stripe.checkout.Session.create(
             customer=organization.stripe_customer_id,
             mode="subscription",
-            line_items=[
-                {
-                    "price": price_id,
-                    "quantity": 1,
-                }
-            ],
-            subscription_data={"trial_period_days": 14},
+            line_items=[{"price": price_id, "quantity": 1}],
+            subscription_data=subscription_data or None,
             success_url=success_url,
             cancel_url=cancel_url,
             metadata={
                 "organization_id": str(organization.id),
                 "plan": plan.value,
+                "cadence": cadence,
+            },
+        )
+
+        return checkout_session.url
+
+    @staticmethod
+    async def create_report_pass_checkout(
+        session: AsyncSession,
+        organization: Organization,
+        report_year: int,
+        success_url: str,
+        cancel_url: str,
+    ) -> str:
+        """Create a one-time Stripe Checkout (mode=payment) for a Report Pass.
+
+        The licensed reporting year rides in metadata; the webhook stamps it
+        onto the org along with the 90-day access window when payment
+        completes."""
+        if not organization.stripe_customer_id:
+            raise ValueError("Organization must have a Stripe customer ID")
+        price_id = settings.stripe_price_report_pass
+        if not price_id:
+            raise ValueError("No Stripe price configured for the Report Pass.")
+
+        checkout_session = stripe.checkout.Session.create(
+            customer=organization.stripe_customer_id,
+            mode="payment",
+            line_items=[{"price": price_id, "quantity": 1}],
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={
+                "organization_id": str(organization.id),
+                "purchase": "report_pass",
+                "report_year": str(report_year),
             },
         )
 
@@ -290,15 +371,12 @@ class BillingService:
             subscription.current_period_end
         )
 
-        # Determine plan from price
+        # Determine plan from the subscription's price (restructured catalog).
         if subscription.items.data:
             price_id = subscription.items.data[0].price.id
-            if price_id == settings.stripe_price_id_starter:
-                organization.subscription_plan = SubscriptionPlan.STARTER.value
-            elif price_id == settings.stripe_price_id_professional:
-                organization.subscription_plan = SubscriptionPlan.PROFESSIONAL.value
-            elif price_id == settings.stripe_price_id_enterprise:
-                organization.subscription_plan = SubscriptionPlan.ENTERPRISE.value
+            plan = BillingService.price_to_plan().get(price_id)
+            if plan is not None:
+                organization.subscription_plan = plan.value
 
         session.add(organization)
         await session.commit()
@@ -332,8 +410,16 @@ class BillingService:
         session: AsyncSession,
         checkout_session: stripe.checkout.Session,
     ) -> None:
-        """Handle checkout session completed webhook event."""
-        org_id = checkout_session.metadata.get("organization_id")
+        """Handle checkout session completed webhook event.
+
+        Two shapes:
+        - subscription checkout: just record the customer id; the
+          subscription.updated event sets plan/status/period end.
+        - Report Pass (mode=payment): stamp the pass onto the org here — plan,
+          active status, licensed reporting year, and the 90-day window — since
+          a one-time payment fires no subscription events."""
+        metadata = checkout_session.metadata or {}
+        org_id = metadata.get("organization_id")
         if not org_id:
             return
 
@@ -341,12 +427,27 @@ class BillingService:
             select(Organization).where(Organization.id == UUID(org_id))
         )
         organization = result.scalar_one_or_none()
-
         if not organization:
             return
 
-        # The subscription_updated event will handle the rest
-        organization.stripe_customer_id = checkout_session.customer
+        if checkout_session.customer:
+            organization.stripe_customer_id = checkout_session.customer
+
+        if metadata.get("purchase") == "report_pass":
+            try:
+                year = int(metadata.get("report_year"))
+            except (TypeError, ValueError):
+                year = datetime.utcnow().year
+            organization.subscription_plan = SubscriptionPlan.REPORT_PASS.value
+            organization.subscription_status = SubscriptionStatus.ACTIVE.value
+            organization.licensed_report_year = year
+            organization.plan_expires_at = datetime.utcnow() + timedelta(
+                days=REPORT_PASS_DAYS
+            )
+            # A pass is not a trial — clear any leftover trial marker so
+            # entitlement resolution treats it as the paid pass it is.
+            organization.trial_ends_at = None
+
         session.add(organization)
         await session.commit()
 
