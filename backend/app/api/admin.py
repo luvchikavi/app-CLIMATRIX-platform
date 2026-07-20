@@ -345,9 +345,7 @@ async def get_cockpit(
             by_day[key] += 1
     signups_14d = [CockpitDay(day=d, signups=n) for d, n in by_day.items()]
 
-    lead_full_rows = (
-        await session.execute(select(Lead.status, Lead.source))
-    ).all()
+    lead_full_rows = (await session.execute(select(Lead.status, Lead.source))).all()
     lead_counts: dict[str, int] = {}
     source_counts: dict[str, int] = {}
     for status, source in lead_full_rows:
@@ -399,14 +397,16 @@ async def get_cockpit(
     from app.models.ingestion import IngestionStatus as IngStatus
 
     orgs_full = (
-        (await session.execute(select(Organization).order_by(Organization.created_at.desc())))
+        (
+            await session.execute(
+                select(Organization).order_by(Organization.created_at.desc())
+            )
+        )
         .scalars()
         .all()
     )
     user_rows = (
-        await session.execute(
-            select(User.organization_id, User.email, User.created_at)
-        )
+        await session.execute(select(User.organization_id, User.email, User.created_at))
     ).all()
     users_by_org: dict = {}
     contact_by_org: dict = {}
@@ -473,7 +473,11 @@ async def get_cockpit(
                     days_left=max((org.trial_ends_at - now).days, 0),
                 )
             )
-        if acount == 0 and org.created_at is not None and (now - org.created_at).days >= 3:
+        if (
+            acount == 0
+            and org.created_at is not None
+            and (now - org.created_at).days >= 3
+        ):
             stuck.append(
                 CockpitStuckOrg(
                     organization_id=str(org.id),
