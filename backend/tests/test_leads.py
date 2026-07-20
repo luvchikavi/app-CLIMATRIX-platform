@@ -7,9 +7,16 @@ Covers public lead capture (no auth), admin listing, and status updates.
 import pytest
 
 
+async def _lead_by_email(client, admin_headers, email: str) -> dict:
+    listing = await client.get("/api/leads", headers=admin_headers)
+    assert listing.status_code == 200
+    return next(lead for lead in listing.json() if lead["email"] == email)
+
+
 @pytest.mark.asyncio
-async def test_public_capture_creates_lead(client):
-    """Anonymous users can capture a lead without auth."""
+async def test_public_capture_creates_lead(client, admin_headers):
+    """Anonymous users can capture a lead — and get NOTHING back but an ack:
+    reflecting the stored lead would leak internal notes/pipeline status."""
     resp = await client.post(
         "/api/leads",
         json={
@@ -21,23 +28,24 @@ async def test_public_capture_creates_lead(client):
         },
     )
     assert resp.status_code == 200, resp.text
-    data = resp.json()
-    assert data["email"] == "jane@example.com"
-    assert data["name"] == "Jane Doe"
-    assert data["source"] == "website_tryit"
-    assert data["status"] == "new"
-    assert data["what_tried"] == "emissions.xlsx"
+    assert resp.json() == {"ok": True}
+
+    stored = await _lead_by_email(client, admin_headers, "jane@example.com")
+    assert stored["name"] == "Jane Doe"
+    assert stored["source"] == "website_tryit"
+    assert stored["status"] == "new"
+    assert stored["what_tried"] == "emissions.xlsx"
 
 
 @pytest.mark.asyncio
-async def test_public_capture_upserts_by_email(client):
-    """Capturing the same email twice updates rather than duplicating."""
+async def test_public_capture_upserts_by_email(client, admin_headers):
+    """Capturing the same email twice fills gaps rather than duplicating —
+    and an anonymous POST can never OVERWRITE what the pipeline knows."""
     first = await client.post(
         "/api/leads",
         json={"email": "dup@example.com", "source": "conference"},
     )
     assert first.status_code == 200
-    lead_id = first.json()["id"]
 
     second = await client.post(
         "/api/leads",
@@ -48,11 +56,12 @@ async def test_public_capture_upserts_by_email(client):
         },
     )
     assert second.status_code == 200
-    body = second.json()
-    # Same underlying record, updated details.
-    assert body["id"] == lead_id
-    assert body["name"] == "Now Named"
-    assert body["source"] == "forum"
+
+    listing = await client.get("/api/leads", headers=admin_headers)
+    dups = [lead for lead in listing.json() if lead["email"] == "dup@example.com"]
+    assert len(dups) == 1
+    assert dups[0]["name"] == "Now Named"  # empty field got filled
+    assert dups[0]["source"] == "conference"  # existing value NOT overwritten
 
 
 @pytest.mark.asyncio
@@ -102,11 +111,11 @@ async def test_admin_list_and_filters(client, admin_headers):
 @pytest.mark.asyncio
 async def test_admin_update_status_and_notes(client, admin_headers):
     """Admin can update a lead's status and notes."""
-    created = await client.post(
+    await client.post(
         "/api/leads",
         json={"email": "follow@example.com", "source": "signup"},
     )
-    lead_id = created.json()["id"]
+    lead_id = (await _lead_by_email(client, admin_headers, "follow@example.com"))["id"]
 
     resp = await client.patch(
         f"/api/leads/{lead_id}",
@@ -126,11 +135,13 @@ async def test_admin_update_status_and_notes(client, admin_headers):
 
 @pytest.mark.asyncio
 async def test_admin_update_rejects_invalid_status(client, admin_headers):
-    created = await client.post(
+    await client.post(
         "/api/leads",
         json={"email": "invalid-status@example.com", "source": "manual"},
     )
-    lead_id = created.json()["id"]
+    lead_id = (
+        await _lead_by_email(client, admin_headers, "invalid-status@example.com")
+    )["id"]
 
     resp = await client.patch(
         f"/api/leads/{lead_id}",
@@ -149,11 +160,11 @@ async def test_list_leads_forbidden_for_org_admin(client, auth_headers):
 
 @pytest.mark.asyncio
 async def test_update_lead_forbidden_for_org_admin(client, auth_headers, admin_headers):
-    created = await client.post(
+    await client.post(
         "/api/leads",
         json={"email": "gated@example.com", "source": "manual"},
     )
-    lead_id = created.json()["id"]
+    lead_id = (await _lead_by_email(client, admin_headers, "gated@example.com"))["id"]
 
     resp = await client.patch(
         f"/api/leads/{lead_id}",

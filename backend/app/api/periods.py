@@ -13,7 +13,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import select, func
 
 from app.api.auth import get_current_user
 from app.database import get_session
@@ -207,6 +207,26 @@ async def delete_period(
             detail=f"Cannot delete period in '{period.status.value}' status. Only draft periods can be deleted.",
         )
 
+    # Never silently take committed data down with the period — the user must
+    # empty it first (or use the explicit bulk-delete endpoint).
+    from app.models.emission import Activity
+
+    activity_count = (
+        await session.execute(
+            select(func.count(Activity.id)).where(
+                Activity.reporting_period_id == period_id
+            )
+        )
+    ).scalar() or 0
+    if activity_count:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"This period still holds {activity_count} activities — "
+                "delete them first, then delete the period."
+            ),
+        )
+
     await session.delete(period)
     await session.commit()
 
@@ -216,6 +236,27 @@ async def delete_period(
 # ============================================================================
 # Verification Workflow Endpoints
 # ============================================================================
+
+
+async def _audit_status_change(
+    session, current_user, period, old_status: str, new_status: str
+):
+    """Verification-workflow transitions are audit-trail material; a logging
+    failure must never block the transition itself."""
+    try:
+        from app.services.audit import AuditService
+
+        await AuditService.log_status_change(
+            session=session,
+            organization_id=current_user.organization_id,
+            user=current_user,
+            resource_type="reporting_period",
+            resource_id=str(period.id),
+            old_status=old_status,
+            new_status=new_status,
+        )
+    except Exception:
+        pass
 
 
 @router.post("/{period_id}/transition", response_model=ReportingPeriodResponse)
@@ -295,6 +336,9 @@ async def transition_status(
         period.is_locked = True
 
     session.add(period)
+    await _audit_status_change(
+        session, current_user, period, current_status.value, new_status.value
+    )
     await session.commit()
     await session.refresh(period)
 
@@ -342,6 +386,7 @@ async def verify_period(
         )
 
     # Update verification details
+    old_status = period.status.value
     period.status = PeriodStatus.VERIFIED
     period.assurance_level = assurance
     period.verified_at = datetime.utcnow()
@@ -349,6 +394,7 @@ async def verify_period(
     period.verification_statement = data.verification_statement
 
     session.add(period)
+    await _audit_status_change(session, current_user, period, old_status, "verified")
     await session.commit()
     await session.refresh(period)
 
@@ -389,6 +435,7 @@ async def lock_period(
     period.is_locked = True
 
     session.add(period)
+    await _audit_status_change(session, current_user, period, "verified", "locked")
     await session.commit()
     await session.refresh(period)
 

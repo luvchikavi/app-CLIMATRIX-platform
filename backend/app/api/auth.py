@@ -120,6 +120,11 @@ async def get_current_user(
         payload = jwt.decode(
             token, settings.secret_key, algorithms=[settings.algorithm]
         )
+        # Only ACCESS tokens may authenticate requests — a refresh token
+        # (7-day) or password-reset token presented as Bearer must fail,
+        # otherwise the short access-token lifetime is meaningless.
+        if payload.get("type") != "access":
+            raise credentials_exception
         user_id_str: str = payload.get("sub")
         if user_id_str is None:
             raise credentials_exception
@@ -180,6 +185,18 @@ async def login(
     # Update last login
     user.last_login = datetime.utcnow()
     session.add(user)
+    try:
+        from app.services.audit import AuditService
+
+        await AuditService.log_login(
+            session=session,
+            organization_id=user.organization_id,
+            user=user,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except Exception:
+        pass
     await session.commit()
 
     # Create tokens with org_id for multi-tenancy

@@ -113,11 +113,11 @@ async def _seed_default_value(
     return row
 
 
-async def _set_ets_price(client, auth_headers, price=80.0, price_date="2026-07-01"):
+async def _set_ets_price(client, admin_headers, price=80.0, price_date="2026-07-01"):
     resp = await client.put(
         "/api/cbam/ets-price",
         json={"price_date": price_date, "price_eur": price},
-        headers=auth_headers,
+        headers=admin_headers,
     )
     assert resp.status_code == 200, resp.text
 
@@ -319,7 +319,7 @@ async def test_expired_link_returns_410(client, auth_headers, test_session):
 
 
 async def test_declaration_prefers_supplier_actuals_over_defaults(
-    client, auth_headers, test_session
+    client, auth_headers, test_session, admin_headers
 ):
     """
     Import: 100 t of CN 72081000 from installation in TR.
@@ -331,7 +331,7 @@ async def test_declaration_prefers_supplier_actuals_over_defaults(
       1.8 x 100 t = 180 tCO2e, NO markup, cost 180 x €80 = €14,400.
     """
     await _seed_default_value(test_session)
-    await _set_ets_price(client, auth_headers)
+    await _set_ets_price(client, admin_headers)
 
     installation = await _create_installation(client, auth_headers)
     resp = await client.post(

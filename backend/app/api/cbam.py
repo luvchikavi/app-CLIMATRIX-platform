@@ -1401,9 +1401,11 @@ async def refresh_ets_price(
     app/services/ets_price.py), so this reports that manual entry via
     PUT /api/cbam/ets-price is the supported path until a feed is wired.
     """
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+    if current_user.role != UserRole.SUPER_ADMIN:
+        # The ETS price is a PLATFORM-wide table feeding every tenant's
+        # CBAM numbers — org admins (any self-signup) must not set it.
         raise HTTPException(
-            status_code=403, detail="Admin role required to refresh the ETS price"
+            status_code=403, detail="Platform admin required to refresh the ETS price"
         )
 
     row = await ets_price_service.fetch_latest(session)
@@ -1435,9 +1437,10 @@ async def upsert_ets_price(
     This is the supported admin path while no automated feed exists;
     upserts on price_date.
     """
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+    if current_user.role != UserRole.SUPER_ADMIN:
+        # Platform-wide table — see refresh_ets_price.
         raise HTTPException(
-            status_code=403, detail="Admin role required to set the ETS price"
+            status_code=403, detail="Platform admin required to set the ETS price"
         )
 
     row = await ets_price_service.upsert_price(

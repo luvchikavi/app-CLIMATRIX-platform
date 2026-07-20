@@ -65,16 +65,16 @@ async def _seed_default_value(
     return row
 
 
-async def _set_ets_price(client, auth_headers, price=80.0, price_date="2026-07-01"):
+async def _set_ets_price(client, admin_headers, price=80.0, price_date="2026-07-01"):
     resp = await client.put(
         "/api/cbam/ets-price",
         json={"price_date": price_date, "price_eur": price},
-        headers=auth_headers,
+        headers=admin_headers,
     )
     assert resp.status_code == 200, resp.text
 
 
-async def _seed_mixed_imports(client, auth_headers, test_session):
+async def _seed_mixed_imports(client, auth_headers, admin_headers, test_session):
     """Two 2026 imports: one on defaults, one actual with a carbon price paid.
 
     Expected declaration arithmetic at ETS €80:
@@ -86,7 +86,7 @@ async def _seed_mixed_imports(client, auth_headers, test_session):
       cost 329.375 x 80 = €26,350.00
     """
     await _seed_default_value(test_session)
-    await _set_ets_price(client, auth_headers)
+    await _set_ets_price(client, admin_headers)
 
     default_line = await _create_import(client, auth_headers, mass_tonnes=100)
     actual_line = await _create_import(
@@ -106,9 +106,9 @@ async def _seed_mixed_imports(client, auth_headers, test_session):
 
 
 async def test_generate_declaration_totals_and_data_quality(
-    client, auth_headers, test_session
+    client, auth_headers, admin_headers, test_session
 ):
-    await _seed_mixed_imports(client, auth_headers, test_session)
+    await _seed_mixed_imports(client, auth_headers, admin_headers, test_session)
 
     resp = await client.post("/api/cbam/reports/annual/2026", headers=auth_headers)
     assert resp.status_code == 200, resp.text
@@ -190,9 +190,9 @@ async def test_generate_falls_back_to_import_time_default(client, auth_headers):
 
 
 async def test_regenerate_replaces_draft_not_duplicates(
-    client, auth_headers, test_session
+    client, auth_headers, admin_headers, test_session
 ):
-    await _seed_mixed_imports(client, auth_headers, test_session)
+    await _seed_mixed_imports(client, auth_headers, admin_headers, test_session)
 
     resp1 = await client.post("/api/cbam/reports/annual/2026", headers=auth_headers)
     assert resp1.status_code == 200, resp1.text
@@ -229,8 +229,10 @@ async def test_declaration_detail_404_before_generation(client, auth_headers):
     assert "generate" in resp.json()["detail"].lower()
 
 
-async def test_declaration_detail_and_stale_flag(client, auth_headers, test_session):
-    await _seed_mixed_imports(client, auth_headers, test_session)
+async def test_declaration_detail_and_stale_flag(
+    client, auth_headers, admin_headers, test_session
+):
+    await _seed_mixed_imports(client, auth_headers, admin_headers, test_session)
     resp = await client.post("/api/cbam/reports/annual/2026", headers=auth_headers)
     assert resp.status_code == 200, resp.text
 
@@ -254,8 +256,10 @@ async def test_declaration_detail_and_stale_flag(client, auth_headers, test_sess
 # ============================================================================
 
 
-async def test_declaration_status_flow_draft_ready(client, auth_headers, test_session):
-    await _seed_mixed_imports(client, auth_headers, test_session)
+async def test_declaration_status_flow_draft_ready(
+    client, auth_headers, admin_headers, test_session
+):
+    await _seed_mixed_imports(client, auth_headers, admin_headers, test_session)
     resp = await client.post("/api/cbam/reports/annual/2026", headers=auth_headers)
     assert resp.status_code == 200, resp.text
 
@@ -305,8 +309,10 @@ async def test_declaration_status_404_before_generation(client, auth_headers):
 # ============================================================================
 
 
-async def test_annual_declaration_csv_export(client, auth_headers, test_session):
-    await _seed_mixed_imports(client, auth_headers, test_session)
+async def test_annual_declaration_csv_export(
+    client, auth_headers, admin_headers, test_session
+):
+    await _seed_mixed_imports(client, auth_headers, admin_headers, test_session)
     resp = await client.post("/api/cbam/reports/annual/2026", headers=auth_headers)
     assert resp.status_code == 200, resp.text
 
