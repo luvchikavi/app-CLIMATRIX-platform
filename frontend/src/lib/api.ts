@@ -832,6 +832,11 @@ export interface Region {
   description: string;
 }
 
+export interface FactorRegion {
+  code: string;
+  name: string;
+}
+
 export interface Site {
   id: string;
   name: string;
@@ -1418,6 +1423,12 @@ class ApiClient {
     return this.fetch<Region[]>('/organization/regions');
   }
 
+  // Every region the factor library actually covers — richer than the 5 org-level
+  // regions; feeds the site grid-region picker.
+  async getFactorRegions(): Promise<FactorRegion[]> {
+    return this.fetch<FactorRegion[]>('/reference/factor-regions');
+  }
+
   async getSites(): Promise<Site[]> {
     return this.fetch<Site[]>('/organization/sites');
   }
@@ -1425,6 +1436,16 @@ class ApiClient {
   async createSite(data: { name: string; country_code?: string; address?: string; grid_region?: string }): Promise<Site> {
     return this.fetch<Site>('/organization/sites', {
       method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateSite(
+    siteId: string,
+    data: { name?: string; country_code?: string; address?: string; grid_region?: string; is_active?: boolean }
+  ): Promise<Site> {
+    return this.fetch<Site>(`/organization/sites/${siteId}`, {
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
@@ -1899,10 +1920,11 @@ class ApiClient {
   // AI Ingestion Funnel ("drop any file" → staged rows → review → commit)
   // ============================================================================
 
-  async ingestUpload(file: File, reportingPeriodId?: string): Promise<IngestionSessionDetail> {
+  async ingestUpload(file: File, reportingPeriodId?: string, siteId?: string): Promise<IngestionSessionDetail> {
     const formData = new FormData();
     formData.append('file', file);
     if (reportingPeriodId) formData.append('reporting_period_id', reportingPeriodId);
+    if (siteId) formData.append('site_id', siteId);
 
     const token = this.getToken();
     // Parsing can take a while (per-sheet LLM mapping) — allow up to 5 minutes.
@@ -1959,11 +1981,15 @@ class ApiClient {
 
   async commitIngestSession(
     sessionId: string,
-    reportingPeriodId?: string
+    reportingPeriodId?: string,
+    siteId?: string
   ): Promise<IngestionSessionDetail> {
     return this.fetch<IngestionSessionDetail>(`/ingest/${sessionId}/commit`, {
       method: 'POST',
-      body: JSON.stringify({ reporting_period_id: reportingPeriodId ?? null }),
+      body: JSON.stringify({
+        reporting_period_id: reportingPeriodId ?? null,
+        site_id: siteId ?? null,
+      }),
     });
   }
 
@@ -3380,6 +3406,7 @@ export interface IngestionSession {
   } | null;
   error_message: string | null;
   reporting_period_id: string | null;
+  site_id: string | null;
   import_batch_id: string | null;
   created_at: string;
 }

@@ -52,6 +52,9 @@ class IngestionSession(SQLModel, table=True):
     reporting_period_id: Optional[UUID] = Field(
         default=None, foreign_key="reporting_periods.id", index=True
     )
+    # Which site this upload belongs to (optional). Grounding + commit resolve
+    # factors in the site's grid_region, and committed activities carry it.
+    site_id: Optional[UUID] = Field(default=None, foreign_key="sites.id", index=True)
     created_by: UUID = Field(foreign_key="users.id")
 
     # File info

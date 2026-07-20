@@ -24,9 +24,10 @@ from sqlmodel import select
 from app.config import settings
 from app.models.jobs import ImportJob, JobStatus
 from app.models.emission import Activity, Emission, DataSource
-from app.models.core import ReportingPeriod
+from app.models.core import Organization, ReportingPeriod, Site
 from app.models.ingestion import IngestionSession, IngestionStatus
 from app.services.calculation import CalculationPipeline, ActivityInput
+from app.services.calculation.resolver import base_factor_region
 from app.services.ai import ColumnMapper, DataExtractor, DataValidator
 from app.services.ingestion import orchestrator as ingest_orchestrator
 
@@ -100,6 +101,9 @@ async def process_import_job(ctx: dict, job_id: str) -> dict:
                 await session.commit()
                 return {"error": "Reporting period not found"}
 
+            org = await session.get(Organization, job.organization_id)
+            region = base_factor_region(org)
+
             # Process rows
             pipeline = CalculationPipeline(session)
             successful = 0
@@ -140,11 +144,7 @@ async def process_import_job(ctx: dict, job_id: str) -> dict:
                             unit=activity.unit,
                             scope=activity.scope,
                             category_code=activity.category_code,
-                            region=(
-                                period.organization.default_region
-                                if hasattr(period, "organization")
-                                else "Global"
-                            ),
+                            region=region,
                             year=settings.default_emission_factor_year,
                         )
                     )
@@ -401,6 +401,9 @@ async def smart_import_job(ctx: dict, job_id: str) -> dict:
                 await session.commit()
                 return {"error": "Reporting period not found"}
 
+            org = await session.get(Organization, job.organization_id)
+            region = base_factor_region(org)
+
             # Phase 2: Process rows using AI mapping
             pipeline = CalculationPipeline(session)
             successful = 0
@@ -518,7 +521,7 @@ async def smart_import_job(ctx: dict, job_id: str) -> dict:
                                 unit=activity.unit,
                                 scope=activity.scope,
                                 category_code=activity.category_code,
-                                region="Global",
+                                region=region,
                                 year=settings.default_emission_factor_year,
                             )
                         )
@@ -621,6 +624,17 @@ async def recalculate_period_job(ctx: dict, period_id: str, user_id: str) -> dic
         if not activities:
             return {"message": "No activities to recalculate"}
 
+        # Same precedence as the API recalc: the activity's own region context,
+        # then its site's grid_region, then the org default.
+        org = await session.get(Organization, activities[0].organization_id)
+        org_region = base_factor_region(org)
+        sites_result = await session.execute(
+            select(Site).where(Site.organization_id == activities[0].organization_id)
+        )
+        site_region = {
+            s.id: s.grid_region for s in sites_result.scalars().all() if s.grid_region
+        }
+
         pipeline = CalculationPipeline(session)
         recalculated = 0
         errors = []
@@ -639,7 +653,11 @@ async def recalculate_period_job(ctx: dict, period_id: str, user_id: str) -> dic
                         unit=activity.unit,
                         scope=activity.scope,
                         category_code=activity.category_code,
-                        region="Global",
+                        region=(
+                            activity.region
+                            or site_region.get(activity.site_id)
+                            or org_region
+                        ),
                         year=settings.default_emission_factor_year,
                     )
                 )

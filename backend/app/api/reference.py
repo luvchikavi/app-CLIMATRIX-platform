@@ -146,6 +146,68 @@ async def list_emission_factors(
     ]
 
 
+_REGION_LABELS = {
+    "Global": "Global Average",
+    "EU": "European Union",
+    "UK": "United Kingdom",
+    "US": "United States",
+    "US-CA": "United States — California",
+    "US-TX": "United States — Texas",
+    "US-NY": "United States — New York",
+    "US-MW": "United States — Midwest",
+    "IL": "Israel",
+    "DE": "Germany",
+    "FR": "France",
+    "ES": "Spain",
+    "IT": "Italy",
+    "NL": "Netherlands",
+    "PL": "Poland",
+    "CA": "Canada",
+    "AU": "Australia",
+    "CN": "China",
+    "IN": "India",
+    "JP": "Japan",
+    "KR": "South Korea",
+    "SG": "Singapore",
+    "TW": "Taiwan",
+    "TR": "Turkey",
+    "VN": "Vietnam",
+    "ZA": "South Africa",
+    "BR": "Brazil",
+    "MX": "Mexico",
+}
+
+
+class FactorRegionResponse(BaseModel):
+    code: str
+    name: str
+
+
+@router.get("/factor-regions", response_model=list[FactorRegionResponse])
+async def list_factor_regions(
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Regions the factor library actually covers — feeds the site grid-region
+    picker so users choose values that resolve to real factors instead of
+    free-typing strings that silently fall back to Global."""
+    rows = (
+        (
+            await session.execute(
+                select(EmissionFactor.region)
+                .where(EmissionFactor.is_active == True)  # noqa: E712
+                .distinct()
+            )
+        )
+        .scalars()
+        .all()
+    )
+    codes = sorted(
+        {r for r in rows if r},
+        key=lambda c: (c != "Global", _REGION_LABELS.get(c, c)),
+    )
+    return [FactorRegionResponse(code=c, name=_REGION_LABELS.get(c, c)) for c in codes]
+
+
 @router.get("/emission-factors/{activity_key}", response_model=EmissionFactorResponse)
 async def get_emission_factor(
     activity_key: str,

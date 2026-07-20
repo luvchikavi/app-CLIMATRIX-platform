@@ -41,6 +41,7 @@ export const queryKeys = {
   scope2Comparison: (periodId: string) => ['scope-2-comparison', periodId] as const,
   organization: ['organization'] as const,
   regions: ['regions'] as const,
+  factorRegions: ['factor-regions'] as const,
   sites: ['sites'] as const,
   siteDetail: (siteId: string, periodId?: string) => ['site-detail', siteId, periodId] as const,
   sitesBreakdown: (periodId?: string) => ['sites-breakdown', periodId] as const,
@@ -296,6 +297,17 @@ export function useSupportedRegions() {
 }
 
 /**
+ * Every region the factor library covers — feeds the site grid-region picker
+ */
+export function useFactorRegions() {
+  return useQuery({
+    queryKey: queryKeys.factorRegions,
+    queryFn: () => api.getFactorRegions(),
+    staleTime: Infinity, // Static data
+  });
+}
+
+/**
  * Fetch organization sites
  */
 export function useSites() {
@@ -315,6 +327,26 @@ export function useCreateSite() {
   return useMutation({
     mutationFn: (data: { name: string; country_code?: string; address?: string; grid_region?: string }) =>
       api.createSite(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.sites });
+    },
+  });
+}
+
+/**
+ * Update a site (name, location, grid region)
+ */
+export function useUpdateSite() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      siteId,
+      data,
+    }: {
+      siteId: string;
+      data: { name?: string; country_code?: string; address?: string; grid_region?: string };
+    }) => api.updateSite(siteId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.sites });
     },

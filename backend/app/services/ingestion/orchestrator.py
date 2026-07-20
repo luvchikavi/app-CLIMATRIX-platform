@@ -22,7 +22,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.core import Organization, ReportingPeriod
+from app.models.core import Organization, ReportingPeriod, Site
 from app.models.emission import (
     Activity,
     DataSource,
@@ -40,7 +40,7 @@ from app.models.ingestion import (
 )
 from app.services.calculation import CalculationPipeline, ActivityInput
 from app.services.calculation.pipeline import CalculationError
-from app.services.calculation.resolver import FactorNotFoundError
+from app.services.calculation.resolver import FactorNotFoundError, base_factor_region
 from app.services.calculation.normalizer import UnitConversionError
 from app.services.ingestion import catalog as catalog_mod
 from app.services.ingestion.confidence import score_row
@@ -587,7 +587,10 @@ async def commit_session(
     if period is None or org is None:
         raise ValueError("Reporting period or organization not found.")
 
-    region = org.default_region or "Global"
+    site = await session.get(Site, ingestion.site_id) if ingestion.site_id else None
+    if site is not None and site.organization_id != ingestion.organization_id:
+        site = None
+    region = base_factor_region(org, site)
     year = period.start_date.year if period.start_date else datetime.utcnow().year
     activity_date: date = period.start_date or date(year, 1, 1)
 
@@ -693,6 +696,11 @@ async def commit_session(
             quantity=Decimal(str(row.quantity)),
             unit=row.unit,
             activity_date=activity_date,
+            site_id=site.id if site is not None else None,
+            # A row-level region (hotel stay country) is the activity's own
+            # context; the site's region is reconstructable from site_id, so
+            # only the row override is persisted here.
+            region=row.region or None,
             created_by=ingestion.created_by,
             data_source=DataSource.IMPORT,
             import_batch_id=batch.id,

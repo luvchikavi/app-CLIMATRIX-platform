@@ -18,6 +18,21 @@ from sqlmodel import select
 from app.models.emission import EmissionFactor, EmissionFactorStatus
 
 
+def base_factor_region(org, site=None) -> str:
+    """The factor-resolution region for an activity's physical context.
+
+    A site's grid_region (where the meter actually is) beats the org's
+    default_region — a UK plant in an Israeli org must get the UK grid
+    factor. Row-level overrides (e.g. a hotel stay's country) are applied
+    by callers ON TOP of this base.
+    """
+    if site is not None and site.grid_region:
+        return site.grid_region
+    if org is not None and org.default_region:
+        return org.default_region
+    return "Global"
+
+
 class ResolutionStrategy(str, Enum):
     """How the factor was resolved."""
 

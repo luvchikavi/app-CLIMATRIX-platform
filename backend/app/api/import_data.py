@@ -27,7 +27,7 @@ from app.api.auth import get_current_user
 from app.config import settings
 from app.database import get_session
 from app.rate_limit import limiter
-from app.models.core import User, ReportingPeriod, Organization
+from app.models.core import User, ReportingPeriod, Organization, Site
 from app.models.emission import (
     Activity,
     Emission,
@@ -40,7 +40,7 @@ from app.models.emission import (
 from app.models.jobs import ImportJob, JobStatus, JobType
 from app.services.calculation import CalculationPipeline, ActivityInput
 from app.services.calculation.pipeline import CalculationError
-from app.services.calculation.resolver import FactorNotFoundError
+from app.services.calculation.resolver import FactorNotFoundError, base_factor_region
 from app.services.calculation.normalizer import UnitConversionError
 from app.services.ai import ColumnMapper, DataValidator
 from app.services.storage import storage
@@ -438,13 +438,19 @@ async def import_activities(
     if period.is_locked:
         raise HTTPException(status_code=400, detail="Cannot import to locked period")
 
-    # Get organization region
+    # Region for factor resolution: the target site's grid_region (validated
+    # to this org) beats the org default.
     org_query = select(Organization).where(
         Organization.id == current_user.organization_id
     )
     org_result = await session.execute(org_query)
     org = org_result.scalar_one_or_none()
-    org_region = org.default_region if org and org.default_region else "Global"
+    site = None
+    if site_id:
+        site = await session.get(Site, site_id)
+        if site is None or site.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=404, detail="Site not found")
+    org_region = base_factor_region(org, site)
 
     # Check file type
     if not file.filename:
@@ -1736,13 +1742,19 @@ async def import_template(
     if period.is_locked:
         raise HTTPException(status_code=400, detail="Cannot import to locked period")
 
-    # Get organization region
+    # Region for factor resolution: the target site's grid_region (validated
+    # to this org) beats the org default.
     org_query = select(Organization).where(
         Organization.id == current_user.organization_id
     )
     org_result = await session.execute(org_query)
     org = org_result.scalar_one_or_none()
-    org_region = org.default_region if org and org.default_region else "Global"
+    site = None
+    if site_id:
+        site = await session.get(Site, site_id)
+        if site is None or site.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=404, detail="Site not found")
+    org_region = base_factor_region(org, site)
 
     # Check file type
     if not file.filename:
@@ -2126,9 +2138,15 @@ async def unified_import_activities(
             errors=[{"error": "No activities found in file"}],
         )
 
-    # Get organization for region
+    # Region for factor resolution: the target site's grid_region beats the
+    # org default.
     org = await session.get(Organization, current_user.organization_id)
-    region = org.default_region if org else "Global"
+    site = None
+    if site_id:
+        site = await session.get(Site, site_id)
+        if site is None or site.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=404, detail="Site not found")
+    region = base_factor_region(org, site)
 
     # Create ImportBatch to track this import
     file_type = "xlsx" if filename.lower().endswith((".xlsx", ".xls")) else "csv"

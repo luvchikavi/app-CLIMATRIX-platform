@@ -30,7 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.auth import get_current_user
 from app.config import settings
 from app.database import get_session
-from app.models.core import Organization, ReportingPeriod, User
+from app.models.core import Organization, ReportingPeriod, Site, User
 from app.models.ingestion import (
     ClarificationQuestion,
     IngestionSession,
@@ -43,6 +43,7 @@ from app.services.entitlements import (
     ensure_import_row_capacity,
     get_entitlement,
 )
+from app.services.calculation.resolver import base_factor_region
 from app.services.ingestion import orchestrator
 from app.services.ingestion.file_guard import FileRejected, check_upload
 
@@ -126,6 +127,7 @@ class SessionOut(BaseModel):
     summary: Optional[dict]
     error_message: Optional[str]
     reporting_period_id: Optional[UUID]
+    site_id: Optional[UUID]
     import_batch_id: Optional[UUID]
     created_at: datetime
 
@@ -148,6 +150,7 @@ def _session_out(s: IngestionSession) -> SessionOut:
         summary=s.summary,
         error_message=s.error_message,
         reporting_period_id=s.reporting_period_id,
+        site_id=s.site_id,
         import_batch_id=s.import_batch_id,
         created_at=s.created_at,
     )
@@ -199,6 +202,20 @@ async def _get_owned_session(
     return obj
 
 
+async def _get_owned_site(site_id: UUID, session: AsyncSession, user: User) -> Site:
+    site = await session.get(Site, site_id)
+    if site is None or site.organization_id != user.organization_id:
+        raise HTTPException(status_code=404, detail="Site not found.")
+    return site
+
+
+async def _session_region(session: AsyncSession, ingestion: IngestionSession) -> str:
+    """Factor region for this upload: the session's site beats the org default."""
+    org = await session.get(Organization, ingestion.organization_id)
+    site = await session.get(Site, ingestion.site_id) if ingestion.site_id else None
+    return base_factor_region(org, site)
+
+
 async def _period_year(
     session: AsyncSession, ingestion: IngestionSession
 ) -> Optional[int]:
@@ -238,6 +255,7 @@ class RowPatchBody(BaseModel):
 
 class CommitBody(BaseModel):
     reporting_period_id: Optional[UUID] = None
+    site_id: Optional[UUID] = None
 
 
 # ---------------------------------------------------------------------------
@@ -250,6 +268,7 @@ async def upload_and_analyze(
     request: Request,
     file: UploadFile = File(...),
     reporting_period_id: Optional[UUID] = Form(default=None),
+    site_id: Optional[UUID] = Form(default=None),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
     current_user: Annotated[User, Depends(get_current_user)] = None,
     entitlement: Annotated[dict, Depends(get_entitlement)] = None,
@@ -276,7 +295,8 @@ async def upload_and_analyze(
     # No period -> year stays None; the orchestrator falls back to the current
     # year and marks the assumption (never a silently-hardcoded vintage).
     org = await session.get(Organization, current_user.organization_id)
-    region = (org.default_region if org else None) or "Global"
+    site = await _get_owned_site(site_id, session, current_user) if site_id else None
+    region = base_factor_region(org, site)
     year: Optional[int] = None
     if reporting_period_id:
         period = await session.get(ReportingPeriod, reporting_period_id)
@@ -289,6 +309,7 @@ async def upload_and_analyze(
         organization_id=current_user.organization_id,
         created_by=current_user.id,
         reporting_period_id=reporting_period_id,
+        site_id=site.id if site else None,
         filename=report.filename,
         file_size_bytes=report.size_bytes,
         content_hash=content_hash,
@@ -365,8 +386,7 @@ async def answer_questions(
     current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
     ingestion = await _get_owned_session(session_id, session, current_user)
-    org = await session.get(Organization, current_user.organization_id)
-    region = (org.default_region if org else None) or "Global"
+    region = await _session_region(session, ingestion)
     year = await _period_year(session, ingestion)
     answers = {a.question_id: a.answer for a in body.answers}
     await orchestrator.apply_answers(
@@ -406,8 +426,7 @@ async def patch_row(
     # A hand-edit to activity/unit/quantity must re-ground + re-score — otherwise the
     # grid keeps a stale confidence band that no longer reflects the edited values.
     if data_edited:
-        org = await session.get(Organization, current_user.organization_id)
-        region = (org.default_region if org else None) or "Global"
+        region = await _session_region(session, ingestion)
         year = await _period_year(session, ingestion)
         await orchestrator.reground_row(session, row, region=region, year=year)
 
@@ -445,6 +464,12 @@ async def commit(
     period = await session.get(ReportingPeriod, period_id)
     if period is None or period.organization_id != current_user.organization_id:
         raise HTTPException(status_code=404, detail="Reporting period not found.")
+
+    # A commit-time site choice overrides (or supplies) the upload-time one;
+    # committed activities carry it and factors resolve in its grid_region.
+    if body and body.site_id:
+        site = await _get_owned_site(body.site_id, session, current_user)
+        ingestion.site_id = site.id
 
     # Plan committed-row allowance (trial: 500 rows total) — 402 before writing
     committable = (
