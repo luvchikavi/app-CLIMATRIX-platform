@@ -66,11 +66,14 @@ WTT_MAPPING = {
     ("car_diesel_km", "km"): "wtt_car_diesel_km",
     ("van_diesel_km", "km"): "wtt_van_diesel_km",
     ("hgv_diesel_km", "km"): "wtt_hgv_diesel_km",
-    # Aviation fuel (Scope 3.6)
+    # Aviation fuel (Scope 3.6) — every cabin-class key the catalog (and the
+    # derived-quantity engine) can produce, or premium cabins silently lose
+    # their fuel-upstream component.
     ("flight_short_economy", "km"): "wtt_aviation_km",
+    ("flight_short_business", "km"): "wtt_aviation_km",
     ("flight_long_economy", "km"): "wtt_aviation_km",
-    ("flight_domestic", "km"): "wtt_aviation_km",
-    ("flight_international", "km"): "wtt_aviation_km",
+    ("flight_long_business", "km"): "wtt_aviation_km",
+    ("flight_long_first", "km"): "wtt_aviation_km",
     # Rail fuel (Scope 3.6, 3.7)
     ("rail_national", "km"): "wtt_rail_km",
     ("rail_international", "km"): "wtt_rail_km",

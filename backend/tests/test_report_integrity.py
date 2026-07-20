@@ -360,3 +360,27 @@ async def test_methodology_reference_endpoint(client: AsyncClient):
         "estimated",
     }
     assert body["biogenic_policy"]
+
+
+def test_scope2_dual_uses_normalized_kwh_not_raw_quantity():
+    """A Scope 2 row entered in MWh must not make the location-based figure
+    1000x too small — the dual-disclosure helper reads the kWh-normalized
+    Emission.converted_quantity, never the raw file value."""
+    from decimal import Decimal
+    from types import SimpleNamespace
+
+    from app.api.reports import _scope2_row_dual
+
+    activity = SimpleNamespace(activity_key="electricity_il", quantity=Decimal("118.4"))
+    emission = SimpleNamespace(
+        converted_quantity=Decimal("118400"),  # 118.4 MWh normalized to kWh
+        co2e_kg=Decimal("50201.6"),
+        resolution_strategy="exact",
+    )
+    factor = SimpleNamespace(region="IL", co2e_factor=Decimal("0.424"))
+
+    row = _scope2_row_dual(activity, emission, factor)
+    assert row["quantity_kwh"] == 118400.0
+    # location factor for IL is 0.424 -> ~50.2 t, not ~50 kg
+    assert row["location_co2e"] == 118400.0 * float(row["location_factor"])
+    assert row["location_co2e"] > 40000

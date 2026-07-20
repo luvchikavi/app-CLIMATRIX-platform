@@ -592,7 +592,14 @@ def _scope2_row_dual(activity, emission, factor) -> dict:
     )
     market_factor_val = grid_factor.get("market_factor")
 
-    quantity_kwh = float(activity.quantity)
+    # Activity.quantity is the RAW file value in the ORIGINAL unit (MWh, GJ…);
+    # only Emission.converted_quantity is kWh. Using the raw value made the
+    # location-based figure 1000×/3.6× off for MWh/GJ inputs.
+    quantity_kwh = float(
+        emission.converted_quantity
+        if emission.converted_quantity is not None
+        else activity.quantity
+    )
     location_co2e = quantity_kwh * float(location_factor_val)
 
     is_supplier_provided = emission.resolution_strategy in (
@@ -2805,7 +2812,12 @@ async def export_report_pdf(
             "location_factor", factor.co2e_factor if factor else Decimal("0.436")
         )
         mkt_f = grid_factor.get("market_factor")
-        qty = float(activity.quantity)
+        # kWh-normalized quantity, never the raw file value (MWh/GJ inputs).
+        qty = float(
+            emission.converted_quantity
+            if emission.converted_quantity is not None
+            else activity.quantity
+        )
         scope2_location_total += Decimal(str(qty * float(loc_f)))
         is_supplier = (
             emission.resolution_strategy == "market_based_supplier"
