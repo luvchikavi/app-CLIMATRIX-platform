@@ -41,6 +41,11 @@ class SubscriptionResponse(BaseModel):
     is_trialing: bool
     is_expired: bool = False
     plan_limits: dict
+    # Report Pass window + purchased add-ons (0 when none)
+    licensed_report_year: int | None = None
+    plan_expires_at: str | None = None
+    extra_users: int = 0
+    extra_sites: int = 0
 
 
 class CheckoutResponse(BaseModel):
@@ -104,6 +109,10 @@ async def get_subscription(
         is_trialing=entitlement["is_trialing"],
         is_expired=entitlement["is_expired"],
         plan_limits=entitlement["limits"],
+        licensed_report_year=entitlement.get("licensed_report_year"),
+        plan_expires_at=entitlement.get("plan_expires_at"),
+        extra_users=organization.extra_users or 0,
+        extra_sites=organization.extra_sites or 0,
     )
 
 
@@ -121,6 +130,7 @@ async def get_plans():
                 "limits": limits,
                 "price_monthly": PLAN_PRICING[plan]["monthly"],
                 "price_annual": PLAN_PRICING[plan]["annual"],
+                "price_one_time": PLAN_PRICING[plan].get("one_time"),
                 "features": _get_plan_features(plan),
             }
         )
@@ -284,19 +294,27 @@ def _get_plan_features(plan: SubscriptionPlan) -> list[str]:
             "Smart Import (AI parser) — unlimited, Scope 1 & 2",
             "Scope 3 parsed & previewed (upgrade to commit)",
             "500 activities/month",
-            "Up to 3 users",
-            "5 sites",
+            "2 users",
+            "2 sites",
             "PDF, CSV & JSON export",
         ]
     elif plan == SubscriptionPlan.PROFESSIONAL:
         return base_features + [
             "5,000 activities/month",
-            "Up to 10 users",
-            "25 sites",
+            "2 users included (add seats anytime)",
+            "5 sites included (add site packs anytime)",
             "100 AI extractions/month",
             "CDP & ESRS export",
+            "CBAM workflow & decarbonization planning",
             "Verification workflow",
             "Priority support",
+        ]
+    elif plan == SubscriptionPlan.REPORT_PASS:
+        return base_features + [
+            "Everything in Professional for 90 days",
+            "Licensed to one reporting year",
+            "All exports for that year (ISO 14064-1, CDP, ESRS, PDF)",
+            "Your data stays after the window closes",
         ]
     elif plan == SubscriptionPlan.ENTERPRISE:
         return base_features + [

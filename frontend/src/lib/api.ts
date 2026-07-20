@@ -2934,7 +2934,7 @@ export interface AdminOrgReportActivity {
 // Billing Types
 // ============================================================================
 
-export type SubscriptionPlan = 'free' | 'starter' | 'professional' | 'enterprise';
+export type SubscriptionPlan = 'free' | 'starter' | 'professional' | 'enterprise' | 'report_pass';
 export type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete' | 'unpaid';
 
 export interface PlanLimits {
@@ -2953,6 +2953,11 @@ export interface SubscriptionInfo {
   trial_ends_at: string | null;
   is_trialing: boolean;
   plan_limits: PlanLimits;
+  // Report Pass window + purchased add-ons
+  licensed_report_year?: number | null;
+  plan_expires_at?: string | null;
+  extra_users?: number;
+  extra_sites?: number;
 }
 
 export interface PlanInfo {
@@ -2960,6 +2965,8 @@ export interface PlanInfo {
   name: string;
   limits: PlanLimits;
   price_monthly: number | null;
+  price_annual?: number | null;
+  price_one_time?: number | null;
   features: string[];
 }
 

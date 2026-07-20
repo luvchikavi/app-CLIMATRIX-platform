@@ -43,12 +43,18 @@ class AssuranceLevel(str, Enum):
 
 
 class SubscriptionPlan(str, Enum):
-    """Subscription plans for billing."""
+    """Subscription plans for billing.
+
+    REPORT_PASS is the one-time product for once-a-year GHG reporters:
+    Professional-level features for a 90-day window, licensed to a single
+    reporting year (exports work only for periods of that year).
+    """
 
     FREE = "free"
     STARTER = "starter"
     PROFESSIONAL = "professional"
     ENTERPRISE = "enterprise"
+    REPORT_PASS = "report_pass"
 
 
 class SubscriptionStatus(str, Enum):
@@ -108,6 +114,16 @@ class Organization(OrganizationBase, table=True):
     )
     subscription_current_period_end: Optional[datetime] = Field(default=None)
     trial_ends_at: Optional[datetime] = Field(default=None)
+
+    # Purchased add-ons on top of the plan's included caps (site packs / seats).
+    # Stripe wiring updates these; super admin can grant them manually.
+    extra_users: int = Field(default=0)
+    extra_sites: int = Field(default=0)
+
+    # Report Pass fields: which reporting year the pass covers, and when the
+    # access window closes. Only meaningful when subscription_plan=report_pass.
+    licensed_report_year: Optional[int] = Field(default=None)
+    plan_expires_at: Optional[datetime] = Field(default=None)
 
     # Org setup gate: everything else in the app is locked until this is True
     # (server-validated via PATCH /organization/complete-setup).

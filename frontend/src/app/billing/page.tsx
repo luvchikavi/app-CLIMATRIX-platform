@@ -123,6 +123,8 @@ function BillingPageContent() {
         return Sparkles;
       case 'professional':
         return Building2;
+      case 'report_pass':
+        return Sparkles;
       case 'enterprise':
         return Crown;
       default:
@@ -146,9 +148,13 @@ function BillingPageContent() {
   };
 
   const handleUpgrade = (plan: SubscriptionPlan) => {
-    if (plan === 'enterprise') {
+    if (plan === 'enterprise' || plan === 'report_pass') {
+      // Report Pass is a one-time purchase — handled by sales until the Stripe
+      // one-time product is wired.
+      const subject =
+        plan === 'enterprise' ? 'Enterprise Plan Inquiry' : 'CLIMATRIX Report Pass';
       // eslint-disable-next-line react-hooks/immutability -- intentional navigation side effect inside an event handler
-      window.location.href = 'mailto:sales@climatrix.co?subject=Enterprise Plan Inquiry';
+      window.location.href = `mailto:sales@climatrix.co?subject=${encodeURIComponent(subject)}`;
       return;
     }
     createCheckout.mutate(plan);
@@ -269,6 +275,13 @@ function BillingPageContent() {
                           Trial ends {subscription.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : 'soon'}
                         </span>
                       )}
+                      {subscription?.licensed_report_year && (
+                        <span className="text-sm text-foreground-muted">
+                          Covers reporting year {subscription.licensed_report_year}
+                          {subscription.plan_expires_at &&
+                            ` · access until ${new Date(subscription.plan_expires_at).toLocaleDateString()}`}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -355,6 +368,20 @@ function BillingPageContent() {
                             <span className="text-[20px] font-[650] tabular-nums text-foreground">${plan.price_monthly}</span>
                             <span className="text-[12.5px] text-cy-muted"> /month</span>
                           </>
+                        ) : plan.price_annual ? (
+                          <>
+                            <span className="text-[20px] font-[650] tabular-nums text-foreground">
+                              ${plan.price_annual.toLocaleString()}
+                            </span>
+                            <span className="text-[12.5px] text-cy-muted"> /year</span>
+                          </>
+                        ) : plan.price_one_time ? (
+                          <>
+                            <span className="text-[20px] font-[650] tabular-nums text-foreground">
+                              ${plan.price_one_time.toLocaleString()}
+                            </span>
+                            <span className="text-[12.5px] text-cy-muted"> one-time</span>
+                          </>
                         ) : (
                           <span className="text-[14px] font-semibold text-foreground">Custom pricing</span>
                         )}
@@ -384,6 +411,8 @@ function BillingPageContent() {
                         >
                           {plan.id === 'enterprise'
                             ? 'Contact Sales'
+                            : plan.id === 'report_pass'
+                            ? 'Get a Report Pass'
                             : plan.id === 'free'
                             ? 'Downgrade'
                             : 'Upgrade'}
@@ -418,7 +447,13 @@ function BillingPageContent() {
                 <div>
                   <h4 className="font-semibold text-foreground mb-2">Is there a free trial?</h4>
                   <p className="text-foreground-muted">
-                    Yes! All paid plans come with a 14-day free trial. You won&apos;t be charged until the trial ends, and you can cancel anytime.
+                    Yes — 14 days, no credit card. The trial runs the full platform on your own data with results on screen; downloads and exports unlock when you subscribe.
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-foreground mb-2">We only report once a year — what should we buy?</h4>
+                  <p className="text-foreground-muted">
+                    The Report Pass: a one-time purchase that opens everything in Professional for 90 days, licensed to the reporting year you&apos;re working on. Your data stays afterwards.
                   </p>
                 </div>
                 <div>

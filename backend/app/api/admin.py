@@ -13,7 +13,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, func
 
 from app.database import get_session
-from app.models.core import User, Organization, UserRole, ReportingPeriod
+from app.models.core import (
+    User,
+    Organization,
+    UserRole,
+    ReportingPeriod,
+    SubscriptionPlan,
+    SubscriptionStatus,
+)
 from app.models.emission import Activity, Emission
 from app.api.auth import get_current_user, get_password_hash
 
@@ -89,7 +96,9 @@ class AdminStats(BaseModel):
 
 
 # Self-serve list prices until Stripe webhooks land (cockpit phase 3).
-PLAN_PRICES_USD = {"starter": 99, "professional": 349}
+# List-price MRR equivalents. Professional is annual-only ($3,560/yr ≈ $297/mo);
+# report_pass is one-time revenue, not MRR, so it's deliberately absent.
+PLAN_PRICES_USD = {"starter": 99, "professional": 297}
 
 
 class CockpitDay(BaseModel):
@@ -741,6 +750,123 @@ async def get_organization_details(
         period_count=period_count.scalar() or 0,
         activity_count=activity_count.scalar() or 0,
         total_co2e_kg=emission_sum.scalar() or 0,
+    )
+
+
+class SubscriptionPatch(BaseModel):
+    """Super-admin subscription management — the manual lever until Stripe
+    wiring lands (plan flips, site packs, seats, Report Pass grants)."""
+
+    plan: Optional[str] = None
+    status: Optional[str] = None
+    trial_ends_at: Optional[datetime] = None
+    extra_users: Optional[int] = None
+    extra_sites: Optional[int] = None
+    licensed_report_year: Optional[int] = None
+    plan_expires_at: Optional[datetime] = None
+
+
+class SubscriptionPatchResponse(BaseModel):
+    id: str
+    plan: str
+    status: Optional[str]
+    trial_ends_at: Optional[datetime]
+    extra_users: int
+    extra_sites: int
+    licensed_report_year: Optional[int]
+    plan_expires_at: Optional[datetime]
+
+
+@router.patch(
+    "/organizations/{org_id}/subscription", response_model=SubscriptionPatchResponse
+)
+async def update_organization_subscription(
+    org_id: UUID,
+    data: SubscriptionPatch,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    admin: Annotated[User, Depends(require_super_admin)],
+):
+    """Set an org's plan/status, grant add-on capacity, or issue a Report Pass —
+    no more piped psql for plan flips. Every change lands in the audit trail."""
+    org = await session.get(Organization, org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    changes: dict = {}
+    if data.plan is not None:
+        try:
+            plan = SubscriptionPlan(data.plan)
+        except ValueError:
+            valid = ", ".join(p.value for p in SubscriptionPlan)
+            raise HTTPException(
+                status_code=400, detail=f"Invalid plan. Valid plans: {valid}"
+            )
+        changes["plan"] = (org.subscription_plan, plan.value)
+        org.subscription_plan = plan.value
+    if data.status is not None:
+        try:
+            status = SubscriptionStatus(data.status)
+        except ValueError:
+            valid = ", ".join(s.value for s in SubscriptionStatus)
+            raise HTTPException(
+                status_code=400, detail=f"Invalid status. Valid statuses: {valid}"
+            )
+        changes["status"] = (org.subscription_status, status.value)
+        org.subscription_status = status.value
+    if data.trial_ends_at is not None:
+        changes["trial_ends_at"] = (str(org.trial_ends_at), str(data.trial_ends_at))
+        org.trial_ends_at = data.trial_ends_at
+    if data.extra_users is not None:
+        if data.extra_users < 0:
+            raise HTTPException(status_code=400, detail="extra_users must be >= 0")
+        changes["extra_users"] = (org.extra_users, data.extra_users)
+        org.extra_users = data.extra_users
+    if data.extra_sites is not None:
+        if data.extra_sites < 0:
+            raise HTTPException(status_code=400, detail="extra_sites must be >= 0")
+        changes["extra_sites"] = (org.extra_sites, data.extra_sites)
+        org.extra_sites = data.extra_sites
+    if data.licensed_report_year is not None:
+        changes["licensed_report_year"] = (
+            org.licensed_report_year,
+            data.licensed_report_year,
+        )
+        org.licensed_report_year = data.licensed_report_year
+    if data.plan_expires_at is not None:
+        changes["plan_expires_at"] = (
+            str(org.plan_expires_at),
+            str(data.plan_expires_at),
+        )
+        org.plan_expires_at = data.plan_expires_at
+
+    if changes:
+        from app.models.core import AuditAction
+        from app.services.audit import AuditService
+
+        org.updated_at = datetime.utcnow()
+        await AuditService.log(
+            session,
+            organization_id=org.id,
+            action=AuditAction.UPDATE,
+            resource_type="subscription",
+            resource_id=str(org.id),
+            description=f"Super admin updated subscription for {org.name}",
+            user=admin,
+            details={k: {"from": v[0], "to": v[1]} for k, v in changes.items()},
+        )
+    else:
+        await session.commit()
+    await session.refresh(org)
+
+    return SubscriptionPatchResponse(
+        id=str(org.id),
+        plan=org.subscription_plan,
+        status=org.subscription_status,
+        trial_ends_at=org.trial_ends_at,
+        extra_users=org.extra_users,
+        extra_sites=org.extra_sites,
+        licensed_report_year=org.licensed_report_year,
+        plan_expires_at=org.plan_expires_at,
     )
 
 
