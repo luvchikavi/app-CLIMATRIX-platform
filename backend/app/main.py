@@ -116,13 +116,49 @@ async def global_exception_handler(request: Request, exc: Exception):
     if settings.sentry_dsn:
         sentry_sdk.capture_exception(exc)
 
+    # Never reflect internal error details (SQL, file paths, stack info) to
+    # the client — they live in the logs/Sentry only.
     return JSONResponse(
         status_code=500,
-        content={
-            "detail": error_detail,
-            "type": type(exc).__name__,
-        },
+        content={"detail": "Internal server error"},
     )
+
+
+# Baseline security headers on every response. The API serves JSON only, so a
+# deny-all CSP is safe and stops any accidental HTML rendering of responses.
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("Content-Security-Policy", "default-src 'none'")
+    if settings.environment == "production":
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=63072000; includeSubDomains"
+        )
+    return response
+
+
+# Reject oversized request bodies BEFORE they are read into memory — the
+# upload endpoints check their caps only after `await file.read()`, and one
+# of them (demo screening) is unauthenticated.
+_MAX_BODY_BYTES = 60 * 1024 * 1024
+
+
+@app.middleware("http")
+async def body_size_limit_middleware(request: Request, call_next):
+    length = request.headers.get("content-length")
+    if length is not None:
+        try:
+            if int(length) > _MAX_BODY_BYTES:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "Request body too large (60 MB limit)."},
+                )
+        except ValueError:
+            pass
+    return await call_next(request)
 
 
 # Include API routers

@@ -94,7 +94,7 @@ class LeadResponse(BaseModel):
 # ============================================================================
 
 
-@router.post("/leads", response_model=LeadResponse)
+@router.post("/leads")
 @limiter.limit(settings.rate_limit_default)
 async def capture_lead(
     request: Request,
@@ -120,14 +120,14 @@ async def capture_lead(
     lead = existing_result.scalar_one_or_none()
 
     if lead:
-        # Update with any freshly supplied details (don't wipe existing data).
-        if payload.name:
+        # PUBLIC endpoint: only FILL empty fields — never let an anonymous
+        # POST overwrite what the pipeline already knows about a prospect.
+        if payload.name and not lead.name:
             lead.name = payload.name
-        if payload.organization_name:
+        if payload.organization_name and not lead.organization_name:
             lead.organization_name = payload.organization_name
-        if payload.what_tried:
+        if payload.what_tried and not lead.what_tried:
             lead.what_tried = payload.what_tried
-        lead.source = payload.source
         lead.updated_at = datetime.utcnow()
     else:
         lead = Lead(
@@ -140,9 +140,10 @@ async def capture_lead(
         session.add(lead)
 
     await session.commit()
-    await session.refresh(lead)
 
-    return LeadResponse.from_lead(lead)
+    # Write-only for the public: reflecting the stored lead would leak the
+    # founder's internal notes and pipeline status to anyone posting an email.
+    return {"ok": True}
 
 
 @router.get("/leads", response_model=list[LeadResponse])

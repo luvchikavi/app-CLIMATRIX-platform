@@ -296,11 +296,11 @@ async def test_ets_price_latest_falls_back_when_empty(client):
     assert "placeholder" in data["assumption"]
 
 
-async def test_ets_price_manual_upsert_and_latest(client, auth_headers):
+async def test_ets_price_manual_upsert_and_latest(client, admin_headers):
     resp = await client.put(
         "/api/cbam/ets-price",
         json={"price_date": "2026-07-01", "price_eur": 82.4},
-        headers=auth_headers,
+        headers=admin_headers,
     )
     assert resp.status_code == 200, resp.text
 
@@ -308,7 +308,7 @@ async def test_ets_price_manual_upsert_and_latest(client, auth_headers):
     resp = await client.put(
         "/api/cbam/ets-price",
         json={"price_date": "2026-07-01", "price_eur": 83.1},
-        headers=auth_headers,
+        headers=admin_headers,
     )
     assert resp.status_code == 200, resp.text
 
@@ -319,7 +319,7 @@ async def test_ets_price_manual_upsert_and_latest(client, auth_headers):
     assert data["price_date"] == "2026-07-01"
 
 
-async def test_ets_price_endpoints_require_admin(client, viewer_headers):
+async def test_ets_price_endpoints_require_admin(client, viewer_headers, auth_headers):
     resp = await client.put(
         "/api/cbam/ets-price",
         json={"price_date": "2026-07-01", "price_eur": 82.4},
@@ -330,9 +330,17 @@ async def test_ets_price_endpoints_require_admin(client, viewer_headers):
     resp = await client.post("/api/cbam/ets-price/refresh", headers=viewer_headers)
     assert resp.status_code == 403
 
+    # The ETS price is PLATFORM data: an org admin (any self-signup) is 403 too.
+    resp = await client.put(
+        "/api/cbam/ets-price",
+        json={"price_date": "2026-07-01", "price_eur": 82.4},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 403
 
-async def test_ets_price_refresh_reports_no_live_source(client, auth_headers):
-    resp = await client.post("/api/cbam/ets-price/refresh", headers=auth_headers)
+
+async def test_ets_price_refresh_reports_no_live_source(client, admin_headers):
+    resp = await client.post("/api/cbam/ets-price/refresh", headers=admin_headers)
     assert resp.status_code == 200, resp.text
     data = resp.json()
     assert data["updated"] is False

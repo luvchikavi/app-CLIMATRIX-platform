@@ -451,3 +451,65 @@ async def test_subscription_endpoint_trial_shows_teaser_limits(
     assert body["is_trialing"] is True
     assert body["plan_limits"]["reports_per_month"] == 0
     assert body["plan_limits"]["import_files"] == 3
+
+
+# ============================================================================
+# Global reference data must be super-admin-only (any self-signup gets org
+# ADMIN, so an org-admin gate on a PLATFORM table is effectively public).
+# ============================================================================
+
+
+async def test_factor_writes_forbidden_for_org_admin(client, auth_headers):
+    resp = await client.post(
+        "/api/emission-factors",
+        headers=auth_headers,
+        json={
+            "scope": 1,
+            "category_code": "1.1",
+            "activity_key": "evil_factor",
+            "display_name": "Evil",
+            "co2e_factor": "0.0",
+            "activity_unit": "kWh",
+            "factor_unit": "kg CO2e/kWh",
+            "source": "attacker",
+            "region": "Global",
+            "year": 2024,
+        },
+    )
+    assert resp.status_code == 403
+
+
+async def test_factor_update_forbidden_for_org_admin(
+    client, auth_headers, test_session
+):
+    from uuid import uuid4
+    from decimal import Decimal
+    from app.models.emission import EmissionFactor
+
+    f = EmissionFactor(
+        id=uuid4(),
+        activity_key="gate_test_factor",
+        display_name="Gate test",
+        scope=1,
+        category_code="1.1",
+        co2e_factor=Decimal("1.0"),
+        activity_unit="kWh",
+        factor_unit="kg CO2e/kWh",
+        source="TEST",
+        region="Global",
+        year=2024,
+        status="approved",
+    )
+    test_session.add(f)
+    await test_session.commit()
+
+    resp = await client.put(
+        f"/api/emission-factors/{f.id}",
+        headers=auth_headers,
+        json={"co2e_factor": "0.0", "change_reason": "attack"},
+    )
+    assert resp.status_code == 403
+
+    # And the approved factor is untouched.
+    await test_session.refresh(f)
+    assert f.status == "approved" and float(f.co2e_factor) == 1.0

@@ -482,6 +482,22 @@ async def delete_activity(
         await session.delete(emission)
 
     await session.delete(activity)
+
+    # Destructive actions land on the audit trail (non-repudiation) — but a
+    # logging failure must never block the user's delete.
+    try:
+        from app.services.audit import AuditService
+
+        await AuditService.log_activity_delete(
+            session=session,
+            organization_id=current_user.organization_id,
+            user=current_user,
+            activity_id=str(activity_id),
+            activity_description=activity.description or activity.activity_key or "",
+        )
+    except Exception:
+        pass
+
     await session.commit()
 
     return {"status": "deleted", "id": str(activity_id)}
@@ -925,6 +941,25 @@ async def delete_period_activities(
         )
     )
 
+    try:
+        from app.services.audit import AuditService
+        from app.models.core import AuditAction
+
+        await AuditService.log(
+            session=session,
+            organization_id=current_user.organization_id,
+            action=AuditAction.DELETE,
+            resource_type="period_activities",
+            resource_id=str(period_id),
+            description=(
+                f"Bulk-deleted {deleted_activities} activities "
+                f"({deleted_emissions} emissions) from period {period.name}"
+            ),
+            user=current_user,
+        )
+    except Exception:
+        pass
+
     await session.commit()
 
     return BulkDeleteResponse(
@@ -990,6 +1025,24 @@ async def delete_organization_activities(
             ImportBatch.organization_id == current_user.organization_id,
         )
     )
+
+    try:
+        from app.services.audit import AuditService
+        from app.models.core import AuditAction
+
+        await AuditService.log(
+            session=session,
+            organization_id=current_user.organization_id,
+            action=AuditAction.DELETE,
+            resource_type="organization_activities",
+            description=(
+                f"Org-wide wipe: {deleted_activities} activities "
+                f"({deleted_emissions} emissions) deleted"
+            ),
+            user=current_user,
+        )
+    except Exception:
+        pass
 
     await session.commit()
 

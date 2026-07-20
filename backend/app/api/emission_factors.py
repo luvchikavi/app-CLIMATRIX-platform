@@ -251,11 +251,26 @@ async def get_emission_factor_history(
     return history
 
 
+async def require_factor_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Writes to the emission-factor library are PLATFORM-wide — factors are
+    shared reference data used by every tenant's calculations. Self-service
+    org admins must never reach them (any signup gets ADMIN of its own org),
+    so all writes require the platform super admin."""
+    if current_user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=403,
+            detail="Emission factors are platform reference data — contact support to propose a factor change.",
+        )
+    return current_user
+
+
 @router.post("", response_model=EmissionFactorResponse)
 async def create_emission_factor(
     data: EmissionFactorCreate,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_factor_admin),
 ):
     """
     Create a new emission factor (as draft).
@@ -316,7 +331,7 @@ async def update_emission_factor(
     factor_id: UUID,
     data: EmissionFactorUpdate,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_factor_admin),
 ):
     """
     Update an emission factor.
@@ -398,7 +413,7 @@ async def update_emission_factor(
 async def submit_for_approval(
     factor_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_factor_admin),
 ):
     """
     Submit a draft emission factor for approval.
@@ -431,7 +446,7 @@ async def approve_emission_factor(
     factor_id: UUID,
     action: ApprovalAction,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_factor_admin),
 ):
     """
     Approve a pending emission factor.
@@ -485,7 +500,7 @@ async def reject_emission_factor(
     factor_id: UUID,
     action: ApprovalAction,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_factor_admin),
 ):
     """
     Reject a pending emission factor.
@@ -524,7 +539,7 @@ async def reject_emission_factor(
 async def archive_emission_factor(
     factor_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_factor_admin),
 ):
     """
     Archive (soft delete) an emission factor.
