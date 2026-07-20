@@ -276,6 +276,38 @@ class ReportingPeriod(ReportingPeriodBase, table=True):
     )
 
 
+class VerifierAccess(SQLModel, table=True):
+    """A scoped, read-only grant for an external verifier (VVB/auditor).
+
+    The token IS the credential — no login. It unlocks exactly ONE reporting
+    period's verification surface (inventory + per-line provenance + audit log
+    + evidence package) for ONE organization, read-only, and nothing else.
+    This isolation is why the verifier portal is a separate token-gated surface
+    rather than a role inside the main app: there is no path from the token to
+    another org, another period, or any write.
+    """
+
+    __tablename__ = "verifier_access"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+    reporting_period_id: UUID = Field(foreign_key="reporting_periods.id", index=True)
+    # Opaque URL-safe token, the sole credential for the portal.
+    token: str = Field(max_length=64, unique=True, index=True)
+
+    verifier_email: str = Field(max_length=255)
+    verifier_name: Optional[str] = Field(default=None, max_length=255)  # person/firm
+
+    # 'active' | 'revoked' — revocation is immediate (checked on every request).
+    status: str = Field(default="active", max_length=20)
+
+    created_by: UUID = Field(foreign_key="users.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: Optional[datetime] = Field(default=None)
+    last_accessed_at: Optional[datetime] = Field(default=None)
+    revoked_at: Optional[datetime] = Field(default=None)
+
+
 class AuditAction(str, Enum):
     """Types of auditable actions."""
 

@@ -2167,6 +2167,48 @@ class ApiClient {
     );
   }
 
+  // ============================================================================
+  // Verifier read-only portal
+  // ============================================================================
+
+  // Org-side (authed admin): invite / list / revoke verifier access for a period.
+  async inviteVerifier(
+    periodId: string,
+    data: { verifier_email: string; verifier_name?: string; expires_in_days?: number }
+  ): Promise<VerifierAccess> {
+    return this.fetch<VerifierAccess>(`/periods/${periodId}/verifier-access`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listVerifierAccess(periodId: string): Promise<VerifierAccess[]> {
+    return this.fetch<VerifierAccess[]>(`/periods/${periodId}/verifier-access`);
+  }
+
+  async revokeVerifierAccess(accessId: string): Promise<void> {
+    await this.fetch(`/verifier-access/${accessId}`, { method: 'DELETE' });
+  }
+
+  // Verifier-side (public, token-gated): the read-only portal payloads.
+  async getVerifierPeriod(token: string): Promise<VerifierPeriod> {
+    return publicJsonFetch<VerifierPeriod>(
+      `${API_BASE}/verify/${encodeURIComponent(token)}`
+    );
+  }
+
+  async getVerifierInventory(token: string): Promise<VerifierLine[]> {
+    return publicJsonFetch<VerifierLine[]>(
+      `${API_BASE}/verify/${encodeURIComponent(token)}/inventory`
+    );
+  }
+
+  async getVerifierAuditLog(token: string): Promise<VerifierAuditEntry[]> {
+    return publicJsonFetch<VerifierAuditEntry[]>(
+      `${API_BASE}/verify/${encodeURIComponent(token)}/audit-log`
+    );
+  }
+
   // CBAM CN Code Search
   async searchCBAMCNCodes(
     query: string,
@@ -3018,6 +3060,65 @@ export interface PlanInfo {
 
 export interface PlansResponse {
   plans: PlanInfo[];
+}
+
+// Verifier read-only portal
+export interface VerifierAccess {
+  id: string;
+  reporting_period_id: string;
+  verifier_email: string;
+  verifier_name: string | null;
+  status: string;
+  portal_url: string;
+  created_at: string;
+  expires_at: string | null;
+  last_accessed_at: string | null;
+}
+
+export interface VerifierPeriod {
+  organization_name: string;
+  period_name: string;
+  period_start: string | null;
+  period_end: string | null;
+  status: string;
+  assurance_level: string | null;
+  verified_by: string | null;
+  verifier_name: string | null;
+  total_co2e_kg: number;
+  scope_1_co2e_kg: number;
+  scope_2_co2e_kg: number;
+  scope_3_co2e_kg: number;
+  line_count: number;
+  read_only: boolean;
+}
+
+export interface VerifierLine {
+  id: string;
+  scope: number;
+  category_code: string;
+  activity_key: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  activity_date: string | null;
+  site: string | null;
+  region: string | null;
+  co2e_kg: number | null;
+  factor_source_year: number | null;
+  factor_region: string | null;
+  method: string | null;
+  formula: string | null;
+  confidence: string | null;
+  data_quality_score: number | null;
+  data_quality_justification: string | null;
+}
+
+export interface VerifierAuditEntry {
+  action: string;
+  resource_type: string;
+  description: string;
+  user_email: string | null;
+  created_at: string;
 }
 
 export interface CheckoutResponse {

@@ -11,6 +11,7 @@ from app.models.core import (
     UserRole,
     PeriodStatus,
     AssuranceLevel,
+    VerifierAccess,
 )
 from app.models.emission import (
     EmissionFactor,
@@ -90,6 +91,7 @@ __all__ = [
     "UserRole",
     "PeriodStatus",
     "AssuranceLevel",
+    "VerifierAccess",
     # Emission
     "EmissionFactor",
     "EmissionFactorStatus",
