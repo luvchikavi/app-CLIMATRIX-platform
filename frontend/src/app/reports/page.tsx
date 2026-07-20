@@ -15,6 +15,7 @@ import { usePeriodStore } from '@/stores/period';
 import { usePeriods, useReportSummary, useActivities, useSites } from '@/hooks/useEmissions';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout';
+import { ReportTeaserGate } from '@/components/layout/TeaserGate';
 import {
   CellValue,
   DataTable,
@@ -302,6 +303,9 @@ export default function ReportsPage() {
             />
           )}
 
+          {/* Data views are the teaser surface: watermarked during a trial,
+              paywalled once it expires. Paid plans render untouched. */}
+          <ReportTeaserGate>
           {activeTab === 'summary' && hasData && summary && (
             <>
               <Surface className="mb-4">
@@ -436,6 +440,7 @@ export default function ReportsPage() {
                 </p>
               </Surface>
             ))}
+          </ReportTeaserGate>
 
           {activeTab === 'audit' &&
             (auditLoading ? (

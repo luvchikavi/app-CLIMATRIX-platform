@@ -15,6 +15,7 @@ import { AppShell } from '@/components/layout';
 import { Surface, PanelLabel, PageHead } from '@/components/canopy';
 import { Button, ScopeBadge, toast } from '@/components/ui';
 import { usePeriods, useSites } from '@/hooks/useEmissions';
+import { useEntitlementFlags } from '@/components/layout/TeaserGate';
 import { usePeriodStore } from '@/stores/period';
 import {
   api,
@@ -23,7 +24,7 @@ import {
   ClarificationQuestion,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Lock } from 'lucide-react';
 
 const BAND: Record<string, { dot: string; text: string; label: string }> = {
   green: { dot: 'bg-cy-accent', text: 'text-cy-accent', label: 'High confidence' },
@@ -97,6 +98,10 @@ function IngestContent() {
   const { data: periods } = usePeriods();
   const { data: sites } = useSites();
   const [siteId, setSiteId] = useState<string>('');
+  // Which scopes this plan can COMMIT via Smart Import (Starter = 1 & 2; Scope 3
+  // is parsed and shown but commit-locked — the value-chain upsell).
+  const { limits } = useEntitlementFlags();
+  const allowedScopes = (limits?.smart_import_scopes as number[] | undefined) ?? [1, 2, 3];
   const searchParams = useSearchParams();
   const { selectedPeriodId } = usePeriodStore();
   const [session, setSession] = useState<IngestionSessionDetail | null>(null);
@@ -486,7 +491,12 @@ function IngestContent() {
                 </div>
               )}
             </div>
-            <ReviewGrid session={session} onPatch={patchRow} readOnly={isCommitted} />
+            <ReviewGrid
+              session={session}
+              onPatch={patchRow}
+              readOnly={isCommitted}
+              allowedScopes={allowedScopes}
+            />
           </Surface>
         )}
 
@@ -758,15 +768,31 @@ function ReviewGrid({
   session,
   onPatch,
   readOnly,
+  allowedScopes = [1, 2, 3],
 }: {
   session: IngestionSessionDetail;
   onPatch: (row: StagedRow, status: string) => void;
   readOnly: boolean;
+  allowedScopes?: number[];
 }) {
+  const lockedCount = session.rows.filter(
+    (r) => r.scope != null && !allowedScopes.includes(r.scope)
+  ).length;
   const [openRow, setOpenRow] = useState<string | null>(null);
   const th = 'py-2 pr-3 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-cy-faint';
   return (
     <div className="overflow-x-auto">
+      {!readOnly && lockedCount > 0 && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-cy border border-cy-warn/25 bg-cy-warn-soft px-4 py-2.5">
+          <span className="flex items-center gap-2 text-[12.5px] font-semibold text-cy-warn">
+            <Lock className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            {lockedCount} value-chain (Scope 3) {lockedCount === 1 ? 'row is' : 'rows are'} parsed and ready — commit them on Professional
+          </span>
+          <Link href="/pricing">
+            <Button size="sm">Upgrade to commit Scope 3</Button>
+          </Link>
+        </div>
+      )}
       <table className="w-full border-collapse text-[13px]">
         <thead>
           <tr>
@@ -888,6 +914,17 @@ function ReviewGrid({
                   <td className="py-2.5 pr-3">
                     {r.status === 'committed' ? (
                       <span className="text-[11.5px] font-semibold text-cy-accent">added</span>
+                    ) : r.scope != null && !allowedScopes.includes(r.scope) ? (
+                      // Plan-gated scope (Starter can't commit Scope 3): parsed
+                      // and shown, but the commit is the Professional upsell.
+                      <Link
+                        href="/pricing"
+                        title="Scope 3 is parsed and ready — upgrade to Professional to commit value-chain rows"
+                        className="inline-flex items-center gap-1 rounded-full bg-cy-warn-soft px-2.5 py-1 text-[11px] font-semibold text-cy-warn hover:brightness-95"
+                      >
+                        <Lock className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+                        Upgrade to commit
+                      </Link>
                     ) : (
                       <div className="flex gap-1">
                         <button
