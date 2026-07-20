@@ -2987,6 +2987,8 @@ export interface PlanLimits {
   sites: number;
   ai_extractions: number;
   export_formats: string[];
+  // Scopes committable via Smart Import (Starter = [1,2]); undefined => all.
+  smart_import_scopes?: number[];
 }
 
 export interface SubscriptionInfo {
@@ -2995,6 +2997,7 @@ export interface SubscriptionInfo {
   current_period_end: string | null;
   trial_ends_at: string | null;
   is_trialing: boolean;
+  is_expired?: boolean;
   plan_limits: PlanLimits;
   // Report Pass window + purchased add-ons
   licensed_report_year?: number | null;
