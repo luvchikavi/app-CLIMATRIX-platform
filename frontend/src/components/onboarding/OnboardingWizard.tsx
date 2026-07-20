@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
-import { useSupportedRegions, useCreatePeriod, useCreateSite } from '@/hooks/useEmissions';
+import { useSupportedRegions, useFactorRegions, useCreatePeriod, useCreateSite } from '@/hooks/useEmissions';
 import { Button, Card, Input, Badge, toast } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { COUNTRY_OPTIONS } from '@/lib/countries';
@@ -78,6 +78,9 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
   const [createdSites, setCreatedSites] = useState<string[]>([]);
 
   const { data: regions } = useSupportedRegions();
+  // Sites can sit on any grid the factor library covers — a longer list than
+  // the org-level default regions.
+  const { data: factorRegions } = useFactorRegions();
   const createPeriod = useCreatePeriod();
   const createSite = useCreateSite();
 
@@ -614,14 +617,14 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Grid Region
                   </label>
-                  {regions && regions.length > 0 ? (
+                  {factorRegions && factorRegions.length > 0 ? (
                     <select
                       value={siteDetails.grid_region}
                       onChange={(e) => setSiteDetails({ ...siteDetails, grid_region: e.target.value })}
                       className="w-full rounded-[10px] border-0 bg-cy-row px-4 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
                     >
-                      <option value="">Select grid region...</option>
-                      {regions.map((r) => (
+                      <option value="">Use organization default</option>
+                      {factorRegions.map((r) => (
                         <option key={r.code} value={r.code}>
                           {r.name}
                         </option>

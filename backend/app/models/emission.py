@@ -361,6 +361,10 @@ class Activity(ActivityBase, table=True):
     organization_id: UUID = Field(foreign_key="organizations.id", index=True)
     reporting_period_id: UUID = Field(foreign_key="reporting_periods.id", index=True)
     site_id: Optional[UUID] = Field(default=None, foreign_key="sites.id")
+    # Row-level factor-region context (e.g. a hotel stay's country, or the
+    # site's grid region at import). Recalculation resolves factors in THIS
+    # region when set — never flattened back to the org default.
+    region: Optional[str] = Field(default=None, max_length=50)
 
     # Source Tracking
     data_source: DataSource = Field(default=DataSource.MANUAL)

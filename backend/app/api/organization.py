@@ -90,6 +90,16 @@ class SiteCreate(BaseModel):
     grid_region: str | None = None
 
 
+class SiteUpdate(BaseModel):
+    """Update site request — only provided fields change; empty string clears."""
+
+    name: str | None = None
+    country_code: str | None = None
+    address: str | None = None
+    grid_region: str | None = None
+    is_active: bool | None = None
+
+
 # Supported regions for emission factors
 SUPPORTED_REGIONS = [
     {
@@ -317,6 +327,52 @@ async def delete_site(
     await session.commit()
 
     return {"status": "deleted", "id": str(site_id)}
+
+
+@router.patch("/organization/sites/{site_id}", response_model=SiteResponse)
+async def update_site(
+    site_id: UUID,
+    data: SiteUpdate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Update a site — notably grid_region, which drives per-site factor
+    resolution (a UK site resolves UK grid factors regardless of the org's
+    default region)."""
+    query = select(Site).where(
+        Site.id == site_id,
+        Site.organization_id == current_user.organization_id,
+    )
+    result = await session.execute(query)
+    site = result.scalar_one_or_none()
+
+    if not site:
+        raise HTTPException(status_code=404, detail="Site not found")
+
+    if data.name is not None:
+        if not data.name.strip():
+            raise HTTPException(status_code=400, detail="Site name cannot be empty")
+        site.name = data.name.strip()
+    if data.country_code is not None:
+        site.country_code = data.country_code or None
+    if data.address is not None:
+        site.address = data.address or None
+    if data.grid_region is not None:
+        site.grid_region = data.grid_region or None
+    if data.is_active is not None:
+        site.is_active = data.is_active
+
+    await session.commit()
+    await session.refresh(site)
+
+    return SiteResponse(
+        id=str(site.id),
+        name=site.name,
+        country_code=site.country_code,
+        address=site.address,
+        grid_region=site.grid_region,
+        is_active=site.is_active,
+    )
 
 
 class SiteDetailResponse(BaseModel):

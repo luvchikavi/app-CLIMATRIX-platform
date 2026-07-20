@@ -22,7 +22,7 @@ from sqlmodel import select
 
 from app.api.auth import get_current_user
 from app.database import get_session
-from app.models.core import User, ReportingPeriod, Organization
+from app.models.core import User, ReportingPeriod, Organization, Site
 from app.models.emission import (
     Activity,
     Emission,
@@ -32,7 +32,7 @@ from app.models.emission import (
 )
 from app.services.calculation import CalculationPipeline, ActivityInput
 from app.services.calculation.pipeline import CalculationError
-from app.services.calculation.resolver import FactorNotFoundError
+from app.services.calculation.resolver import FactorNotFoundError, base_factor_region
 from app.services.calculation.normalizer import UnitConversionError
 
 router = APIRouter()
@@ -313,13 +313,19 @@ async def create_activity(
             status_code=400, detail="Cannot add activities to locked period"
         )
 
-    # Get organization's region for factor resolution
+    # Region for factor resolution: the activity's site (its grid_region)
+    # beats the org default — a UK site in an IL org gets the UK grid factor.
     org_query = select(Organization).where(
         Organization.id == current_user.organization_id
     )
     org_result = await session.execute(org_query)
     org = org_result.scalar_one_or_none()
-    org_region = org.default_region if org and org.default_region else "Global"
+    site = None
+    if data.site_id:
+        site = await session.get(Site, UUID(data.site_id))
+        if site is None or site.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=404, detail="Site not found")
+    region = base_factor_region(org, site)
 
     # --- BUSINESS LOGIC: Delegated to CalculationPipeline ---
     pipeline = CalculationPipeline(session)
@@ -332,7 +338,7 @@ async def create_activity(
                 unit=data.unit,
                 scope=data.scope,
                 category_code=data.category_code,
-                region=org_region,  # Use organization's configured region
+                region=region,
                 year=_factor_year(period),
                 supplier_ef=data.supplier_ef,  # For Supplier-Specific method
             )
@@ -537,7 +543,10 @@ async def update_activity(
     if data.activity_key is not None:
         activity.activity_key = data.activity_key
     if data.site_id is not None:
-        activity.site_id = UUID(data.site_id)
+        new_site = await session.get(Site, UUID(data.site_id))
+        if new_site is None or new_site.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=404, detail="Site not found")
+        activity.site_id = new_site.id
     if data.data_quality_score is not None:
         activity.data_quality_score = data.data_quality_score
     if data.data_quality_justification is not None:
@@ -546,13 +555,16 @@ async def update_activity(
         activity.supporting_document_url = data.supporting_document_url
 
     # --- BUSINESS LOGIC: Recalculate emissions ---
-    # Get organization's region for factor resolution
+    # Region precedence: the activity's own region context (e.g. a hotel
+    # stay's country persisted at import), then its site's grid_region,
+    # then the org default.
     org_query = select(Organization).where(
         Organization.id == current_user.organization_id
     )
     org_result = await session.execute(org_query)
     org = org_result.scalar_one_or_none()
-    org_region = org.default_region if org and org.default_region else "Global"
+    site = await session.get(Site, activity.site_id) if activity.site_id else None
+    region = activity.region or base_factor_region(org, site)
 
     # Recalculate with the activity's own reporting-period year, not a hardcoded one.
     period = await session.get(ReportingPeriod, activity.reporting_period_id)
@@ -567,7 +579,7 @@ async def update_activity(
                 unit=activity.unit,
                 scope=activity.scope,
                 category_code=activity.category_code,
-                region=org_region,
+                region=region,
                 year=_factor_year(period),
                 supplier_ef=(
                     activity.supplier_ef if hasattr(activity, "supplier_ef") else None
@@ -741,13 +753,21 @@ async def recalculate_period_emissions(
     if not period:
         raise HTTPException(status_code=404, detail="Reporting period not found")
 
-    # Get organization's region for factor resolution
+    # Region per activity: its own persisted region context, then its site's
+    # grid_region, then the org default — a bulk recalc must not flatten
+    # multi-site inventories onto one grid factor.
     org_query = select(Organization).where(
         Organization.id == current_user.organization_id
     )
     org_result = await session.execute(org_query)
     org = org_result.scalar_one_or_none()
-    org_region = org.default_region if org and org.default_region else "Global"
+    org_region = base_factor_region(org)
+    sites_result = await session.execute(
+        select(Site).where(Site.organization_id == current_user.organization_id)
+    )
+    site_region = {
+        s.id: s.grid_region for s in sites_result.scalars().all() if s.grid_region
+    }
 
     # Get all activities for this period
     activities_query = select(Activity).where(
@@ -772,7 +792,11 @@ async def recalculate_period_emissions(
                     unit=activity.unit,
                     scope=activity.scope,
                     category_code=activity.category_code,
-                    region=org_region,  # Use organization's configured region
+                    region=(
+                        activity.region
+                        or site_region.get(activity.site_id)
+                        or org_region
+                    ),
                     year=_factor_year(period),
                     supplier_ef=(
                         activity.supplier_ef

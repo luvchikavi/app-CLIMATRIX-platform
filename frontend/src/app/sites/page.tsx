@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
-import { useSites, useCreateSite, useDeleteSite, useSupportedRegions, usePeriods, useSitesBreakdown } from '@/hooks/useEmissions';
+import { useSites, useCreateSite, useUpdateSite, useDeleteSite, useFactorRegions, usePeriods, useSitesBreakdown } from '@/hooks/useEmissions';
 import { Site } from '@/lib/api';
 import { AppShell } from '@/components/layout';
 import { Surface, PanelLabel, PageHead } from '@/components/canopy';
@@ -32,7 +32,7 @@ function SitesPageContent() {
 
   // All data fetching hooks (must be before any conditional returns)
   const { data: sites, isLoading } = useSites();
-  const { data: regions } = useSupportedRegions();
+  const { data: regions } = useFactorRegions();
   const { data: periods } = usePeriods();
   const { selectedPeriodId } = usePeriodStore();
   // Only trust the persisted period if it belongs to THIS org's list — a stale
@@ -40,6 +40,7 @@ function SitesPageContent() {
   const activePeriodId = periods?.find((p) => p.id === selectedPeriodId)?.id ?? periods?.[0]?.id;
   const { data: sitesBreakdown } = useSitesBreakdown(activePeriodId);
   const createSite = useCreateSite();
+  const updateSite = useUpdateSite();
   const deleteSite = useDeleteSite();
 
   // All useEffect hooks
@@ -67,11 +68,16 @@ function SitesPageContent() {
     if (!formData.name.trim()) return;
 
     try {
-      await createSite.mutateAsync(formData);
+      if (editingSite) {
+        await updateSite.mutateAsync({ siteId: editingSite.id, data: formData });
+      } else {
+        await createSite.mutateAsync(formData);
+      }
       setShowAddModal(false);
+      setEditingSite(null);
       setFormData({ name: '', country_code: '', address: '', grid_region: '' });
     } catch (error) {
-      console.error('Failed to create site:', error);
+      console.error('Failed to save site:', error);
     }
   };
 
@@ -278,10 +284,10 @@ function SitesPageContent() {
                 value={formData.grid_region}
                 onChange={(e) => setFormData({ ...formData, grid_region: e.target.value })}
                 options={[
-                  { value: '', label: 'Auto-detect from country…' },
+                  { value: '', label: 'Use organization default' },
                   ...(regions?.map((r) => ({ value: r.code, label: r.name })) || []),
                 ]}
-                hint="Used for Scope 2 electricity emission factors"
+                hint="Activities at this site resolve emission factors (grid electricity above all) in this region"
               />
             </div>
 
@@ -293,8 +299,8 @@ function SitesPageContent() {
               <Button
                 variant="primary"
                 onClick={handleSubmit}
-                disabled={!formData.name.trim() || createSite.isPending}
-                isLoading={createSite.isPending}
+                disabled={!formData.name.trim() || createSite.isPending || updateSite.isPending}
+                isLoading={createSite.isPending || updateSite.isPending}
               >
                 {editingSite ? 'Save changes' : 'Add site'}
               </Button>

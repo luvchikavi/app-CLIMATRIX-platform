@@ -14,7 +14,7 @@ import { useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/layout';
 import { Surface, PanelLabel, PageHead } from '@/components/canopy';
 import { Button, ScopeBadge, toast } from '@/components/ui';
-import { usePeriods } from '@/hooks/useEmissions';
+import { usePeriods, useSites } from '@/hooks/useEmissions';
 import { usePeriodStore } from '@/stores/period';
 import {
   api,
@@ -95,6 +95,8 @@ const CATEGORY_NAMES: Record<string, string> = {
 
 function IngestContent() {
   const { data: periods } = usePeriods();
+  const { data: sites } = useSites();
+  const [siteId, setSiteId] = useState<string>('');
   const searchParams = useSearchParams();
   const { selectedPeriodId } = usePeriodStore();
   const [session, setSession] = useState<IngestionSessionDetail | null>(null);
@@ -111,7 +113,10 @@ function IngestContent() {
     api
       .getIngestSession(linkedSessionId)
       .then((s) => {
-        if (!cancelled) setSession(s);
+        if (!cancelled) {
+          setSession(s);
+          setSiteId(s.site_id ?? '');
+        }
       })
       .catch(() => {
         if (!cancelled) toast.error('Could not load that upload session.');
@@ -131,7 +136,7 @@ function IngestContent() {
       setBusy(true);
       setSession(null);
       try {
-        let result = await api.ingestUpload(file, periodId || undefined);
+        let result = await api.ingestUpload(file, periodId || undefined, siteId || undefined);
         setSession(result);
         // In production the parse runs on the worker — poll until it's ready.
         let tries = 0;
@@ -153,7 +158,7 @@ function IngestContent() {
         setBusy(false);
       }
     },
-    [periodId]
+    [periodId, siteId]
   );
 
   const onDrop = useCallback(
@@ -234,7 +239,7 @@ function IngestContent() {
     }
     setBusy(true);
     try {
-      const done = await api.commitIngestSession(session.id, periodId);
+      const done = await api.commitIngestSession(session.id, periodId, siteId || undefined);
       setSession(done);
       toast.success(`${done.committed_count} rows added to your inventory`);
     } catch (e) {
@@ -284,12 +289,34 @@ function IngestContent() {
           />
         </div>
 
-        {/* The period is chosen once, in the top bar — pages only display it. */}
-        <p className="text-[12.5px] text-cy-muted">
+        {/* The period is chosen once, in the top bar — pages only display it.
+            The site is chosen here: it decides which country's factors apply. */}
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-cy-muted">
           Reporting period:{' '}
           <span className="font-semibold text-cy-ink">
             {periods?.find((p) => p.id === periodId)?.name || '…'}
           </span>
+          {(sites?.length ?? 0) > 0 && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>Site:</span>
+              <select
+                value={siteId}
+                onChange={(e) => setSiteId(e.target.value)}
+                disabled={busy || isCommitted}
+                className="cursor-pointer rounded-full border-0 bg-cy-row px-2.5 py-1 text-[12px] font-semibold text-cy-ink focus:outline-none focus:ring-2 focus:ring-cy-accent disabled:cursor-default disabled:opacity-60"
+                title="Which site this upload belongs to — its grid region drives factor choice"
+              >
+                <option value="">No specific site</option>
+                {(sites ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                    {s.grid_region ? ` (${s.grid_region})` : ''}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
         </p>
 
         {/* Dropzone */}

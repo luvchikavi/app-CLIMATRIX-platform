@@ -263,7 +263,9 @@ export default function HubPage() {
     for (let i = 0; i < list.length; i++) {
       setUploading(`${list[i].name} (${i + 1}/${list.length})`);
       try {
-        await api.ingestUpload(list[i], periodId);
+        // Files dropped while a site is selected belong to that site — factors
+        // resolve in its grid region and committed rows carry the site.
+        await api.ingestUpload(list[i], periodId, siteId || undefined);
       } catch (e) {
         toast.error(`${list[i].name}: ${e instanceof Error ? e.message : 'upload failed'}`);
       }
@@ -334,7 +336,7 @@ export default function HubPage() {
                 value={siteId}
                 onChange={(e) => setSiteId(e.target.value)}
                 className="cursor-pointer rounded-full border-0 bg-cy-row px-3 py-1.5 text-[12px] font-semibold text-cy-ink focus:outline-none focus:ring-2 focus:ring-cy-accent"
-                title="Which profile layer to view/edit — coverage is org-wide"
+                title="Which site you're working in — uploads attach to it and its grid region drives factor choice; profile edits apply to this layer"
               >
                 <option value="">All sites (org profile)</option>
                 {(sites ?? []).map((s) => (
