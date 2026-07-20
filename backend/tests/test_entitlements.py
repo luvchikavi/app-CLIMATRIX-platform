@@ -513,3 +513,77 @@ async def test_factor_update_forbidden_for_org_admin(
     # And the approved factor is untouched.
     await test_session.refresh(f)
     assert f.status == "approved" and float(f.co2e_factor) == 1.0
+
+
+# ============================================================================
+# Starter plan: full AI parser for Scope 1+2, Scope 3 commit-locked
+# ============================================================================
+
+
+async def test_starter_scope_gate_on_commit(
+    test_session, test_org, test_user, test_period, seed_emission_factors
+):
+    from app.models.ingestion import IngestionSession, RowStatus, StagedRow
+    from app.services.ingestion import orchestrator
+
+    ing = IngestionSession(
+        organization_id=test_org.id,
+        created_by=test_user.id,
+        reporting_period_id=test_period.id,
+        filename="mixed.csv",
+        file_size_bytes=10,
+    )
+    test_session.add(ing)
+    await test_session.commit()
+    await test_session.refresh(ing)
+
+    s1 = StagedRow(
+        session_id=ing.id,
+        row_index=0,
+        activity_key="electricity_kwh",
+        scope=2,
+        category_code="2",
+        quantity=1000,
+        unit="kWh",
+        description="Electricity",
+        status=RowStatus.APPROVED,
+    )
+    s3 = StagedRow(
+        session_id=ing.id,
+        row_index=1,
+        activity_key="electricity_kwh",
+        scope=3,
+        category_code="3.6",
+        quantity=500,
+        unit="kWh",
+        description="Value-chain row",
+        status=RowStatus.APPROVED,
+    )
+    test_session.add(s1)
+    test_session.add(s3)
+    await test_session.commit()
+
+    await orchestrator.commit_session(
+        test_session, ing, reporting_period_id=test_period.id, allowed_scopes={1, 2}
+    )
+    await test_session.refresh(s1)
+    await test_session.refresh(s3)
+
+    assert s1.committed_activity_id is not None
+    assert s3.committed_activity_id is None
+    assert "Professional" in (s3.commit_error or "")
+
+
+def test_starter_plan_promises_scope12_parser():
+    from app.services.billing import PLAN_LIMITS
+    from app.models.core import SubscriptionPlan
+
+    starter = PLAN_LIMITS[SubscriptionPlan.STARTER]
+    assert starter["smart_import_scopes"] == [1, 2]
+    assert starter["ai_extractions"] == -1  # unlimited within its scopes
+    assert "pdf" in starter["export_formats"]
+    assert PLAN_LIMITS[SubscriptionPlan.PROFESSIONAL]["smart_import_scopes"] == [
+        1,
+        2,
+        3,
+    ]

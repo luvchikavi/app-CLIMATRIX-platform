@@ -41,13 +41,19 @@ PLAN_LIMITS = {
         "users": 3,
         "periods": 4,
         "sites": 5,
-        "ai_extractions": 10,
+        # Starter's concrete promise: the FULL AI parser for your own
+        # operations — unlimited Smart Import for Scope 1 + 2. Scope 3 rows
+        # are parsed and shown (the punch-list value) but commit-locked:
+        # that's the Professional upsell, visible instead of vague.
+        "ai_extractions": -1,
+        "smart_import_scopes": [1, 2],
         "reports_per_month": 5,
-        "export_formats": ["csv", "json"],
+        "export_formats": ["csv", "json", "pdf"],
         "import_files": -1,
         "import_rows": -1,
     },
     SubscriptionPlan.PROFESSIONAL: {
+        "smart_import_scopes": [1, 2, 3],
         "activities_per_month": 5000,
         "users": 10,
         "periods": 12,
