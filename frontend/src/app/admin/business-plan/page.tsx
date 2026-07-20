@@ -543,11 +543,16 @@ export default function BusinessPlanPage() {
     <AppShell>
       <div className="space-y-6">
         {/* ── Header ────────────────────────────────────────────────────── */}
+        <div className="rounded-lg bg-cy-warn-soft px-4 py-2.5 text-[12.5px] font-semibold text-cy-warn">
+          This page is a WHAT-IF MODEL — every number below comes from editable assumptions,
+          not live platform data. Real client, revenue and pipeline numbers live in the
+          cockpit Overview and Clients tabs.
+        </div>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground flex items-center gap-2">
               <Briefcase className="w-6 h-6 text-primary" />
-              Business Plan — Israel Market
+              Business Plan — Israel Market (model)
             </h1>
             <p className="text-foreground-muted mt-1">
               Interactive projections for {assumptions.totalAddressableMarket} addressable companies

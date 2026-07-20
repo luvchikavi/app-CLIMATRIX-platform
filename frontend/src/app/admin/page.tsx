@@ -44,7 +44,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 
-type TabType = 'overview' | 'leads' | 'organizations' | 'users' | 'activities';
+type TabType = 'overview' | 'clients' | 'leads' | 'organizations' | 'users' | 'activities';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -318,6 +318,7 @@ export default function AdminDashboard() {
           <div className="flex gap-2 mb-6 border-b border-cy-row pb-2">
             {[
               { key: 'overview', label: 'Overview', icon: BarChart3 },
+              { key: 'clients', label: 'Clients', icon: Building2 },
               { key: 'leads', label: 'Leads', icon: Users },
               { key: 'organizations', label: 'Organizations', icon: Building2 },
               { key: 'users', label: 'Users', icon: Users },
@@ -340,6 +341,65 @@ export default function AdminDashboard() {
 
           {/* Tab Content */}
           {activeTab === 'overview' && cockpit && (
+            <>
+            {(cockpit.attention.trials_expiring_7d.length > 0 ||
+              cockpit.attention.stuck_orgs.length > 0 ||
+              cockpit.attention.failed_ingests_7d.length > 0) && (
+              <Surface tint="warn" className="mb-6">
+                <PanelLabel>Needs you</PanelLabel>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div>
+                    <p className="mb-1.5 text-[11.5px] font-bold text-cy-warn">
+                      Trials expiring · 7 days
+                    </p>
+                    {cockpit.attention.trials_expiring_7d.length === 0 ? (
+                      <p className="text-[12px] text-cy-muted">None.</p>
+                    ) : (
+                      cockpit.attention.trials_expiring_7d.map((t) => (
+                        <p key={t.organization_id} className="text-[12.5px] text-cy-ink">
+                          {t.name}{' '}
+                          <span className="text-cy-muted">
+                            · {t.days_left}d left · {t.contact_email ?? '—'}
+                          </span>
+                        </p>
+                      ))
+                    )}
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-[11.5px] font-bold text-cy-warn">
+                      Signed up, no data yet
+                    </p>
+                    {cockpit.attention.stuck_orgs.length === 0 ? (
+                      <p className="text-[12px] text-cy-muted">None.</p>
+                    ) : (
+                      cockpit.attention.stuck_orgs.slice(0, 5).map((s) => (
+                        <p key={s.organization_id} className="text-[12.5px] text-cy-ink">
+                          {s.name}{' '}
+                          <span className="text-cy-muted">
+                            · {s.days_since_signup}d · {s.contact_email ?? '—'}
+                          </span>
+                        </p>
+                      ))
+                    )}
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-[11.5px] font-bold text-cy-warn">
+                      Failed imports · 7 days
+                    </p>
+                    {cockpit.attention.failed_ingests_7d.length === 0 ? (
+                      <p className="text-[12px] text-cy-muted">None.</p>
+                    ) : (
+                      cockpit.attention.failed_ingests_7d.slice(0, 5).map((f, i) => (
+                        <p key={i} className="text-[12.5px] text-cy-ink">
+                          {f.organization_name}{' '}
+                          <span className="text-cy-muted">· {f.filename}</span>
+                        </p>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </Surface>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               {/* Signups — last 14 days */}
               <Surface>
@@ -447,6 +507,124 @@ export default function AdminDashboard() {
                   </div>
                 )}
               </Surface>
+            </div>
+            </>
+          )}
+
+          {activeTab === 'clients' && cockpit && (
+            <div className="space-y-6">
+              <Surface>
+                <PanelLabel>
+                  Clients · {cockpit.clients.length} — every number is live data
+                </PanelLabel>
+                <p className="mb-3 text-[11.5px] text-cy-muted">{cockpit.revenue_note}</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-[12.5px]">
+                    <thead>
+                      <tr>
+                        {['Organization', 'Contact', 'Plan', 'Status', 'Trial ends', 'Users', 'Rows', 'Last active', 't CO₂e'].map(
+                          (h) => (
+                            <th
+                              key={h}
+                              className="py-2 pr-3 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-cy-faint"
+                            >
+                              {h}
+                            </th>
+                          )
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cockpit.clients.map((c) => (
+                        <tr key={c.id} className="border-t border-cy-row align-top">
+                          <td className="py-2.5 pr-3 font-semibold text-cy-ink">
+                            {c.name}
+                            <div className="text-[11px] font-normal text-cy-faint">
+                              since{' '}
+                              {new Date(c.created_at).toLocaleDateString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                year: '2-digit',
+                              })}
+                            </div>
+                          </td>
+                          <td className="py-2.5 pr-3 text-cy-muted">{c.contact_email ?? '—'}</td>
+                          <td className="py-2.5 pr-3">
+                            <span
+                              className={
+                                c.plan === 'professional' || c.plan === 'starter'
+                                  ? 'rounded-full bg-cy-accent-soft px-2 py-0.5 text-[11px] font-bold text-cy-accent'
+                                  : 'rounded-full bg-cy-row px-2 py-0.5 text-[11px] font-semibold text-cy-muted'
+                              }
+                            >
+                              {c.plan}
+                            </span>
+                          </td>
+                          <td className="py-2.5 pr-3 text-cy-muted">{c.status}</td>
+                          <td className="py-2.5 pr-3 text-cy-muted">
+                            {c.trial_ends_at
+                              ? new Date(c.trial_ends_at).toLocaleDateString(undefined, {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })
+                              : '—'}
+                          </td>
+                          <td className="py-2.5 pr-3 tabular-nums text-cy-muted">{c.users}</td>
+                          <td className="py-2.5 pr-3 tabular-nums text-cy-muted">
+                            {c.activities.toLocaleString()}
+                          </td>
+                          <td className="py-2.5 pr-3 text-cy-muted">
+                            {c.last_activity_at
+                              ? new Date(c.last_activity_at).toLocaleDateString(undefined, {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })
+                              : 'never'}
+                          </td>
+                          <td className="py-2.5 pr-3 tabular-nums text-cy-ink">
+                            {c.total_co2e_tonnes.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Surface>
+
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <Surface>
+                  <PanelLabel>Finance — live</PanelLabel>
+                  <StatCells
+                    cells={[
+                      {
+                        label: 'MRR (list-price est.)',
+                        value: `$${cockpit.mrr_usd.toLocaleString()}`,
+                      },
+                      { label: 'ARR run-rate', value: `$${cockpit.arr_usd.toLocaleString()}` },
+                      { label: 'Paying orgs', value: String(cockpit.paying_orgs) },
+                      { label: 'Trialing', value: String(cockpit.trialing_orgs) },
+                    ]}
+                  />
+                  <p className="mt-3 text-[11.5px] text-cy-muted">{cockpit.revenue_note}</p>
+                </Surface>
+                <Surface>
+                  <PanelLabel>Lead sources — live</PanelLabel>
+                  {cockpit.lead_sources.length === 0 ? (
+                    <p className="text-[12.5px] text-cy-muted">No leads captured yet.</p>
+                  ) : (
+                    <BarList
+                      items={(() => {
+                        const max = Math.max(1, ...cockpit.lead_sources.map((s) => s.count));
+                        return cockpit.lead_sources.map((s) => ({
+                          label: s.status,
+                          value: String(s.count),
+                          pct: (s.count / max) * 100,
+                        }));
+                      })()}
+                    />
+                  )}
+                </Surface>
+              </div>
             </div>
           )}
 
