@@ -62,6 +62,7 @@ export function AppShell({ children }: AppShellProps) {
     // Tools holds real, working tools only; Workspace holds org-level pages.
     // Both groups render expanded so nothing hides behind a closed drawer.
     const cbam = MODULE_REGISTRY.find((m) => m.id === 'cbam');
+    const pcf = MODULE_REGISTRY.find((m) => m.id === 'pcf');
 
     return [
       { label: 'Dashboard', href: '/dashboard', active: isActive('/dashboard') },
@@ -73,16 +74,28 @@ export function AppShell({ children }: AppShellProps) {
         label: 'Tools',
         separatorBefore: true,
         defaultOpen: true,
-        items: cbam
-          ? [
-              {
-                label: cbam.name,
-                href: cbam.href,
-                active: isActive(cbam.href),
-                ...(cbam.status === 'beta' ? { badge: 'Beta' } : {}),
-              },
-            ]
-          : [],
+        items: [
+          ...(cbam
+            ? [
+                {
+                  label: cbam.name,
+                  href: cbam.href,
+                  active: isActive(cbam.href),
+                  ...(cbam.status === 'beta' ? { badge: 'Beta' } : {}),
+                },
+              ]
+            : []),
+          ...(pcf
+            ? [
+                {
+                  label: pcf.name,
+                  href: pcf.href,
+                  active: isActive('/products'),
+                  ...(pcf.status === 'beta' ? { badge: 'Beta' } : {}),
+                },
+              ]
+            : []),
+        ],
       },
       {
         label: 'Workspace',
@@ -92,6 +105,7 @@ export function AppShell({ children }: AppShellProps) {
           { label: 'Sites', href: '/sites', active: isActive('/sites') },
           { label: 'Billing', href: '/billing', active: isActive('/billing') },
           { label: 'Roadmap', href: '/roadmap', active: isActive('/roadmap') },
+          { label: 'Help', href: '/help', active: isActive('/help') },
           ...(isSuperAdmin
             ? [{ label: 'Audit trail', href: '/audit', active: isActive('/audit') }]
             : []),

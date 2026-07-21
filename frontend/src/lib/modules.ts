@@ -67,11 +67,11 @@ export const MODULE_REGISTRY: ModuleDef[] = [
   {
     id: 'pcf',
     name: 'PCF',
-    href: '/modules/pcf',
+    href: '/products',
     icon: Package,
-    status: 'coming-soon',
+    status: 'beta',
     blurb: 'Product Carbon Footprint per ISO 14067 with PACT-conformant data exchange.',
-    features: ['Cradle-to-gate per product', 'BOM modeling', 'PACT v3 exchange format', 'Supplier PCF ingestion'],
+    features: ['Cradle-to-gate per product', 'BOM modeling', 'PACT v3 exchange format', 'Supplier PCF ingestion', 'Primary-data share'],
   },
   {
     id: 'lca',

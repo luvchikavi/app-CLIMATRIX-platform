@@ -2706,6 +2706,118 @@ class ApiClient {
   async sendLeadFollowUp(leadId: string): Promise<Lead> {
     return this.fetch<Lead>(`/leads/${leadId}/follow-up`, { method: 'POST' });
   }
+
+  // ==========================================================================
+  // PCF (Product Carbon Footprint) module
+  // ==========================================================================
+
+  async getProducts(): Promise<PcfProduct[]> {
+    return this.fetch<PcfProduct[]>('/products');
+  }
+
+  async createProduct(data: PcfProductCreate): Promise<PcfProduct> {
+    return this.fetch<PcfProduct>('/products', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getProduct(productId: string): Promise<PcfProductDetail> {
+    return this.fetch<PcfProductDetail>(`/products/${productId}`);
+  }
+
+  async updateProduct(
+    productId: string,
+    data: Partial<PcfProductCreate> & { is_active?: boolean }
+  ): Promise<PcfProduct> {
+    return this.fetch<PcfProduct>(`/products/${productId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteProduct(productId: string): Promise<{ ok: boolean }> {
+    return this.fetch<{ ok: boolean }>(`/products/${productId}`, { method: 'DELETE' });
+  }
+
+  async createProductInput(productId: string, data: PcfInputCreate): Promise<PcfInput> {
+    return this.fetch<PcfInput>(`/products/${productId}/inputs`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateProductInput(
+    productId: string,
+    inputId: string,
+    data: Partial<PcfInputCreate>
+  ): Promise<PcfInput> {
+    return this.fetch<PcfInput>(`/products/${productId}/inputs/${inputId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteProductInput(productId: string, inputId: string): Promise<{ ok: boolean }> {
+    return this.fetch<{ ok: boolean }>(`/products/${productId}/inputs/${inputId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async computeProductFootprint(productId: string, periodId: string): Promise<PcfFootprint> {
+    return this.fetch<PcfFootprint>(
+      `/products/${productId}/footprint?period_id=${periodId}`,
+      { method: 'POST' },
+      60000
+    );
+  }
+
+  async finalizeProductFootprint(productId: string, footprintId: string): Promise<PcfFootprint> {
+    return this.fetch<PcfFootprint>(
+      `/products/${productId}/footprints/${footprintId}/finalize`,
+      { method: 'POST' }
+    );
+  }
+
+  /** PACT Data Exchange JSON — export-gated (402 on trial). Triggers a download. */
+  async downloadPactExport(productId: string, footprintId: string, filename: string): Promise<void> {
+    const doc = await this.fetch<Record<string, unknown>>(
+      `/products/${productId}/footprints/${footprintId}/export/pact`
+    );
+    const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  }
+
+  async getSupplierPcfs(): Promise<SupplierPcf[]> {
+    return this.fetch<SupplierPcf[]>('/supplier-pcfs');
+  }
+
+  async createSupplierPcf(data: SupplierPcfCreate): Promise<SupplierPcf> {
+    return this.fetch<SupplierPcf>('/supplier-pcfs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async uploadSupplierPactJson(payload: Record<string, unknown>): Promise<SupplierPcf> {
+    return this.fetch<SupplierPcf>('/supplier-pcfs/upload', {
+      method: 'POST',
+      body: JSON.stringify({ payload }),
+    });
+  }
+
+  async deleteSupplierPcf(supplierPcfId: string): Promise<{ ok: boolean }> {
+    return this.fetch<{ ok: boolean }>(`/supplier-pcfs/${supplierPcfId}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 // CBAM Types for API
@@ -3683,6 +3795,150 @@ export async function demoAnalyze(file: File): Promise<DemoResult> {
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+// ============================================================================
+// PCF (Product Carbon Footprint) types
+// ============================================================================
+
+export type PcfInputType =
+  | 'purchased_material'
+  | 'energy'
+  | 'transport'
+  | 'process'
+  | 'supplier_pcf';
+
+export interface PcfProductCreate {
+  name: string;
+  sku?: string | null;
+  description?: string | null;
+  declared_unit: string;
+  declared_unit_amount?: ApiDecimal;
+  cn_code?: string | null;
+  category?: string | null;
+}
+
+export interface PcfInputCreate {
+  input_type: PcfInputType;
+  name: string;
+  quantity_per_unit: ApiDecimal;
+  unit: string;
+  activity_key?: string | null;
+  supplier_pcf_id?: string | null;
+  category_code?: string | null;
+  scope?: number | null;
+  region?: string | null;
+  en15804_module?: string | null;
+  notes?: string | null;
+  sort_order?: number;
+}
+
+export interface PcfInput {
+  id: string;
+  input_type: PcfInputType;
+  name: string;
+  quantity_per_unit: ApiDecimal;
+  unit: string;
+  activity_key: string | null;
+  supplier_pcf_id: string | null;
+  category_code: string | null;
+  scope: number | null;
+  region: string | null;
+  en15804_module: string;
+  notes: string | null;
+  sort_order: number;
+}
+
+export interface PcfLineItem {
+  input_id: string;
+  name: string;
+  input_type: PcfInputType;
+  en15804_module: string;
+  quantity_per_unit: number;
+  unit: string;
+  co2e_kg: number;
+  biogenic_co2_kg: number | null;
+  is_primary_data: boolean;
+  status: 'ok' | 'gap';
+  warnings: string[];
+  factor?: {
+    source: string;
+    display_name: string;
+    value: number;
+    unit: string;
+    region?: string;
+    year?: number | null;
+    resolution_strategy?: string;
+    confidence?: string;
+    boundary?: string;
+    pact_pf_id?: string | null;
+  };
+  formula?: string;
+}
+
+export interface PcfFootprint {
+  id: string;
+  product_id: string;
+  reporting_period_id: string;
+  declared_unit: string;
+  declared_unit_amount: ApiDecimal;
+  boundary: string;
+  total_kgco2e_per_unit: ApiDecimal;
+  fossil_kgco2e_per_unit: ApiDecimal | null;
+  biogenic_kgco2e_per_unit: ApiDecimal | null;
+  primary_data_share: number | null;
+  stage_breakdown: Record<string, number> | null;
+  line_items: PcfLineItem[] | null;
+  warnings: string[] | null;
+  methodology: Record<string, unknown> | null;
+  status: 'draft' | 'final';
+  finalized_at: string | null;
+  created_at: string;
+}
+
+export interface PcfProduct {
+  id: string;
+  name: string;
+  sku: string | null;
+  description: string | null;
+  declared_unit: string;
+  declared_unit_amount: ApiDecimal;
+  cn_code: string | null;
+  category: string | null;
+  is_active: boolean;
+  created_at: string;
+  input_count: number;
+  latest_footprint: PcfFootprint | null;
+}
+
+export interface PcfProductDetail extends PcfProduct {
+  inputs: PcfInput[];
+  footprints: PcfFootprint[];
+}
+
+export interface SupplierPcfCreate {
+  supplier_name: string;
+  product_name: string;
+  pcf_value: ApiDecimal;
+  unit: string;
+  boundary?: string;
+  primary_data_share?: number | null;
+  valid_until?: string | null;
+}
+
+export interface SupplierPcf {
+  id: string;
+  supplier_name: string;
+  product_name: string;
+  pcf_value: ApiDecimal;
+  unit: string;
+  boundary: string;
+  primary_data_share: number | null;
+  valid_until: string | null;
+  pact_pf_id: string | null;
+  source: 'manual' | 'pact_json';
+  status: string;
+  created_at: string;
 }
 
 export const api = new ApiClient();

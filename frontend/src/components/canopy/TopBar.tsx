@@ -7,6 +7,7 @@ import { usePeriodStore } from '@/stores/period';
 import { usePeriods } from '@/hooks/useEmissions';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { HelpCircle } from 'lucide-react';
 
 /**
  * The quiet top-right cluster: period selector + theme toggle + user menu.
@@ -100,6 +101,17 @@ export function TopBar({ className }: { className?: string }) {
           </div>
         )}
       </div>
+
+      {/* Help center */}
+      <button
+        type="button"
+        onClick={() => router.push('/help')}
+        className={pillCls}
+        title="Help & support"
+      >
+        <HelpCircle className="h-4 w-4" strokeWidth={1.75} />
+        <span className="hidden sm:inline">Help</span>
+      </button>
 
       <ThemeToggle />
 
