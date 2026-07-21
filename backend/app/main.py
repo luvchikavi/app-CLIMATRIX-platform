@@ -39,6 +39,7 @@ from app.api import (
     hub,
     sample_data,
     verifier,
+    products,
 )
 
 # Initialize Sentry for error tracking (only if DSN is configured)
@@ -184,6 +185,7 @@ app.include_router(leads.router, prefix="/api", tags=["Leads"])
 app.include_router(hub.router, prefix="/api", tags=["Data Hub"])
 app.include_router(sample_data.router, prefix="/api", tags=["Sample Data"])
 app.include_router(verifier.router, prefix="/api", tags=["Verifier Portal"])
+app.include_router(products.router, prefix="/api", tags=["PCF"])
 
 
 @app.get("/")
