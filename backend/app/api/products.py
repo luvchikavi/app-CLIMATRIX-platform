@@ -13,6 +13,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field as PydField
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -407,10 +408,16 @@ async def delete_product(
             detail="Product has finalized footprints — deactivate it instead "
             "(PATCH is_active=false) to preserve the audit trail",
         )
-    for f in footprints:
-        await session.delete(f)
-    for i in await _get_inputs(session, product.id):
-        await session.delete(i)
+    # Explicit ordered bulk deletes: children before parent. ORM-level
+    # session.delete() in one flush has no relationship metadata here, so
+    # PostgreSQL saw DELETE products before product_inputs → FK violation
+    # (SQLite tests don't enforce FKs, which is how this shipped).
+    await session.execute(
+        sa_delete(ProductFootprint).where(ProductFootprint.product_id == product.id)
+    )
+    await session.execute(
+        sa_delete(ProductInput).where(ProductInput.product_id == product.id)
+    )
     await session.delete(product)
     await session.commit()
     return {"ok": True}
