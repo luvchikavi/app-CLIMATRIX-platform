@@ -5,6 +5,7 @@ Uses SQLModel with async SQLAlchemy.
 
 import logging
 import os
+from datetime import datetime
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlmodel import SQLModel, select
@@ -155,6 +156,55 @@ async def add_missing_emission_factors(session) -> None:
         logger.info("All emission factors already exist")
 
 
+async def sync_impact_factors(session) -> None:
+    """Seed/refresh the LCA-lite impact factor library (idempotent).
+
+    Identity is (dataset_key, region, indicator_code, method_version) —
+    the same never-collapse-variants lesson as the emission factor sync.
+    Existing rows get value/notes updates when the curated data changes.
+    """
+    from app.models.emission import ImpactFactor
+    from app.data import IMPACT_FACTORS
+
+    result = await session.execute(select(ImpactFactor))
+    db_rows = result.scalars().all()
+    existing = {
+        (r.dataset_key, r.region, r.indicator_code, r.method_version): r
+        for r in db_rows
+    }
+
+    added = updated = 0
+    for row in IMPACT_FACTORS:
+        key = (
+            row["dataset_key"],
+            row["region"],
+            row["indicator_code"],
+            row["method_version"],
+        )
+        current = existing.get(key)
+        if current is None:
+            session.add(ImpactFactor(**row))
+            added += 1
+        elif (
+            current.value != row["value"]
+            or current.notes != row["notes"]
+            or current.activity_unit != row["activity_unit"]
+        ):
+            current.value = row["value"]
+            current.unit = row["unit"]
+            current.activity_unit = row["activity_unit"]
+            current.display_name = row["display_name"]
+            current.source = row["source"]
+            current.year = row["year"]
+            current.notes = row["notes"]
+            current.updated_at = datetime.utcnow()
+            updated += 1
+
+    if added or updated:
+        await session.commit()
+        logger.info(f"Impact factors synced: {added} added, {updated} updated")
+
+
 async def update_existing_emission_factors(session) -> None:
     """Update existing emission factors when code values have changed."""
     from app.models.emission import EmissionFactor
@@ -274,6 +324,8 @@ async def seed_if_needed() -> None:
             await update_existing_emission_factors(session)
             # Seed/update power producers
             await seed_power_producers(session)
+            # Seed/update LCA-lite impact factors
+            await sync_impact_factors(session)
             return
 
         logger.info("Seeding emission factors...")
@@ -296,6 +348,9 @@ async def seed_if_needed() -> None:
 
         # Seed power producers (after initial seed commit)
         await seed_power_producers(session)
+
+        # Seed LCA-lite impact factors
+        await sync_impact_factors(session)
 
 
 async def close_db() -> None:

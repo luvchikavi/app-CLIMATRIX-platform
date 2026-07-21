@@ -18,8 +18,15 @@ import {
 import { useEmissionFactors, usePeriods } from '@/hooks/useEmissions';
 import { usePeriodStore } from '@/stores/period';
 import { num, cn } from '@/lib/utils';
-import { INPUT_TYPES, INPUT_TYPE_LABEL, STAGE_META, UNIT_SHORT } from '@/lib/pcf';
-import type { PcfFootprint, PcfInputType, PcfLineItem } from '@/lib/api';
+import {
+  CRADLE_TO_GATE_MODULES,
+  EN15804_MODULE_OPTIONS,
+  INPUT_TYPES,
+  INPUT_TYPE_LABEL,
+  STAGE_META,
+  UNIT_SHORT,
+} from '@/lib/pcf';
+import type { LcaResults, PcfFootprint, PcfInputType, PcfLineItem } from '@/lib/api';
 import {
   ArrowLeft,
   Calculator,
@@ -39,7 +46,17 @@ const EMPTY_LINE = {
   activity_key: '',
   supplier_pcf_id: '',
   region: '',
+  en15804_module: '',
 };
+
+/** Values span 12 orders of magnitude (kg CO2 eq … CTUh) — format smart. */
+function fmtLcaValue(v: number): string {
+  if (v === 0) return '—';
+  const a = Math.abs(v);
+  if (a >= 100) return v.toFixed(1);
+  if (a >= 0.01) return v.toFixed(3);
+  return v.toExponential(2);
+}
 
 /** Stacked single-bar breakdown of the footprint by EN 15804 stage —
  * same idiom as the ingest page's InventoryQuality bar. */
@@ -103,6 +120,137 @@ function LineStory({ line }: { line: PcfLineItem }) {
         </ul>
       )}
     </div>
+  );
+}
+
+/** LCA-lite results — EF 3.1 indicator × EN 15804 module matrix (the EN
+ * 15804 results table an EPD needs, screening-grade). */
+function LcaMatrix({ lca }: { lca: LcaResults }) {
+  const [showCoverage, setShowCoverage] = useState(false);
+  const fullCoverage = lca.rows.every((r) => r.covered_lines === r.total_lines);
+
+  return (
+    <Surface padding="panel" className="mt-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <PanelLabel>LCA-lite — environmental profile</PanelLabel>
+          <p className="mt-0.5 text-[12px] text-cy-muted">
+            EF 3.1 impact categories × EN 15804 lifecycle modules
+            <span className="ml-2 rounded-full bg-cy-row px-2 py-0.5 text-[10.5px] font-semibold text-cy-muted">
+              screening-grade
+            </span>
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowCoverage(!showCoverage)}
+          className="cursor-pointer text-[12px] font-semibold text-cy-accent hover:underline"
+        >
+          {showCoverage ? 'Hide data coverage' : 'Data coverage'}
+        </button>
+      </div>
+
+      {lca.warnings.length > 0 && (
+        <ul className="mb-3 list-disc pl-4 text-[12px] text-cy-warn">
+          {lca.warnings.map((w, i) => (
+            <li key={i}>{w}</li>
+          ))}
+        </ul>
+      )}
+
+      {showCoverage && (
+        <div className="mb-3 rounded-[10px] bg-cy-row/60 px-3 py-2.5 text-[12px] text-cy-muted">
+          {lca.line_coverage.map((c) => (
+            <div key={c.input_id} className="flex flex-wrap gap-x-2 py-0.5">
+              <span className="font-semibold text-cy-ink">{c.name}</span>
+              <span>· {c.en15804_module}</span>
+              {c.dataset ? (
+                <span>
+                  · {c.dataset}
+                  {c.dataset_region ? ` (${c.dataset_region})` : ''} ·{' '}
+                  {c.indicators_covered}/16 indicators
+                </span>
+              ) : (
+                <span className="text-cy-warn">· {c.note ?? 'climate only'}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] text-[12.5px]">
+          <thead>
+            <tr>
+              <th className="py-2 pr-3 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-cy-faint">
+                Impact category
+              </th>
+              {lca.modules.map((m) => (
+                <th
+                  key={m}
+                  className="py-2 pr-3 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-cy-faint"
+                  title={
+                    (STAGE_META[m]?.label ?? m) +
+                    (CRADLE_TO_GATE_MODULES.has(m) ? ' (cradle-to-gate)' : ' (beyond gate)')
+                  }
+                >
+                  {m}
+                </th>
+              ))}
+              <th className="py-2 pr-3 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-cy-faint">
+                Total
+              </th>
+              <th className="py-2 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-cy-faint">
+                Unit
+              </th>
+              {!fullCoverage && (
+                <th className="py-2 pl-3 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-cy-faint">
+                  Coverage
+                </th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {lca.rows.map((row) => {
+              const partial = row.covered_lines < row.total_lines;
+              return (
+                <tr key={row.code} className="border-t border-cy-row">
+                  <td className="max-w-[15rem] py-2 pr-3 font-semibold text-cy-ink">
+                    {row.name}
+                  </td>
+                  {lca.modules.map((m) => (
+                    <td key={m} className="py-2 pr-3 text-right tabular-nums text-cy-muted">
+                      {fmtLcaValue(row.by_module[m] ?? 0)}
+                    </td>
+                  ))}
+                  <td className="py-2 pr-3 text-right tabular-nums font-semibold text-cy-ink">
+                    {fmtLcaValue(row.total)}
+                  </td>
+                  <td className="py-2 text-[11.5px] text-cy-faint">{row.unit}</td>
+                  {!fullCoverage && (
+                    <td
+                      className={cn(
+                        'py-2 pl-3 text-right tabular-nums text-[11.5px]',
+                        partial ? 'text-cy-warn' : 'text-cy-accent'
+                      )}
+                      title={
+                        partial
+                          ? `No EF 3.1 data for: ${row.gap_lines.join(', ')}`
+                          : 'All BOM lines covered'
+                      }
+                    >
+                      {row.covered_lines}/{row.total_lines}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="mt-3 text-[11.5px] text-cy-faint">{lca.note}</p>
+    </Surface>
   );
 }
 
@@ -302,6 +450,7 @@ function ProductDetailContent() {
       activity_key: line.input_type === 'supplier_pcf' ? null : line.activity_key.trim() || null,
       supplier_pcf_id: line.input_type === 'supplier_pcf' ? line.supplier_pcf_id || null : null,
       region: line.region.trim() || null,
+      en15804_module: line.en15804_module || null,
     });
     setLine(EMPTY_LINE);
   };
@@ -421,7 +570,7 @@ function ProductDetailContent() {
 
         {/* Add-line row */}
         <div className="rounded-[10px] bg-cy-row/60 p-3">
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-7">
             <Select
               value={line.input_type}
               onChange={(e) => setLine({ ...line, input_type: e.target.value as PcfInputType })}
@@ -472,6 +621,12 @@ function ProductDetailContent() {
                 </datalist>
               </>
             )}
+            <Select
+              value={line.en15804_module}
+              onChange={(e) => setLine({ ...line, en15804_module: e.target.value })}
+              options={[{ value: '', label: 'Stage: auto' }, ...EN15804_MODULE_OPTIONS]}
+              title="EN 15804 lifecycle module — auto picks by input type; A1-A3 = cradle-to-gate"
+            />
             <Button
               size="sm"
               onClick={addLine}
@@ -497,15 +652,18 @@ function ProductDetailContent() {
 
       {/* Results */}
       {latest ? (
-        <FootprintResults
-          footprint={latest}
-          declaredUnit={product.declared_unit}
-          onFinalize={() => finalize.mutate(latest.id)}
-          onExport={runExport}
-          finalizing={finalize.isPending}
-          exporting={exporting}
-          isTrialing={isTrialing}
-        />
+        <>
+          <FootprintResults
+            footprint={latest}
+            declaredUnit={product.declared_unit}
+            onFinalize={() => finalize.mutate(latest.id)}
+            onExport={runExport}
+            finalizing={finalize.isPending}
+            exporting={exporting}
+            isTrialing={isTrialing}
+          />
+          {latest.lca_results && <LcaMatrix lca={latest.lca_results} />}
+        </>
       ) : (
         <Surface padding="panel">
           <p className="text-[13px] text-cy-muted">

@@ -32,6 +32,7 @@ from app.services.entitlements import (
     get_entitlement,
     require_report_generation,
 )
+from app.services import lca as lca_service
 from app.services.pcf import (
     build_pact_json,
     compute_footprint,
@@ -53,7 +54,9 @@ DECLARED_UNITS = {
 }
 
 INPUT_TYPES = {t.value for t in ProductInputType}
-EN15804_MODULES = {"A1", "A2", "A3", "A4", "A5"}
+# Full EN 15804 module vocabulary (LCA-lite). Only A1-A3 lines enter the
+# cradle-to-gate PCF total; the rest live in the LCA matrix.
+EN15804_MODULES = set(lca_service.EN15804_MODULES)
 
 
 # ---------------------------------------------------------------- schemas
@@ -155,6 +158,7 @@ class FootprintResponse(BaseModel):
     line_items: Optional[List[dict]]
     warnings: Optional[List[str]]
     methodology: Optional[dict]
+    lca_results: Optional[dict] = None
     status: str
     finalized_at: Optional[datetime]
     created_at: datetime

@@ -3876,6 +3876,36 @@ export interface PcfLineItem {
   formula?: string;
 }
 
+export interface LcaMatrixRow {
+  code: string;
+  name: string;
+  unit: string;
+  total: number;
+  by_module: Record<string, number>;
+  covered_lines: number;
+  total_lines: number;
+  gap_lines: string[];
+}
+
+export interface LcaLineCoverage {
+  input_id: string;
+  name: string;
+  en15804_module: string;
+  dataset: string | null;
+  dataset_region: string | null;
+  indicators_covered: number;
+  note: string | null;
+}
+
+export interface LcaResults {
+  method: string;
+  note: string;
+  modules: string[];
+  rows: LcaMatrixRow[];
+  line_coverage: LcaLineCoverage[];
+  warnings: string[];
+}
+
 export interface PcfFootprint {
   id: string;
   product_id: string;
@@ -3891,6 +3921,7 @@ export interface PcfFootprint {
   line_items: PcfLineItem[] | null;
   warnings: string[] | null;
   methodology: Record<string, unknown> | null;
+  lca_results: LcaResults | null;
   status: 'draft' | 'final';
   finalized_at: string | null;
   created_at: string;

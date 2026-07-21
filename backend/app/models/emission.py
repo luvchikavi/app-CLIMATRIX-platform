@@ -9,6 +9,7 @@ from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from sqlalchemy import Numeric
 from sqlalchemy import String as SAString
 from sqlmodel import SQLModel, Field, Relationship, Column, JSON
 
@@ -925,5 +926,47 @@ class PowerProducer(SQLModel, table=True):
     is_active: bool = Field(default=True)
 
     # Audit
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(default=None)
+
+
+# ============================================================================
+# IMPACT FACTOR (LCA-lite — EF 3.1 multi-indicator reference data)
+# ============================================================================
+
+
+class ImpactFactor(SQLModel, table=True):
+    """One LCIA characterized value: dataset × indicator × region.
+
+    The multi-indicator sibling of EmissionFactor — same "explicit key,
+    no fuzzy matching" culture. dataset_key aligns with the emission
+    factor library's activity_key so a PCF BOM line resolves its full
+    EF 3.1 indicator vector with no extra user input. ~16 rows per
+    dataset (EF 3.1 impact categories), curated in app/data/impact_factors.py
+    and synced at startup keyed by (dataset_key, region, indicator_code,
+    method_version).
+    """
+
+    __tablename__ = "impact_factors"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+
+    dataset_key: str = Field(max_length=100, index=True)  # == activity_key
+    display_name: str = Field(max_length=255)
+    region: str = Field(default="Global", max_length=50, index=True)
+    indicator_code: str = Field(max_length=50, index=True)  # e.g. "acidification"
+    # Characterized amount per activity_unit. Explicit scale: LCIA values span
+    # e-13 (ODP, CTUh) to e+2 — an unscaled Numeric truncates to 10 decimal
+    # places on SQLite and silently zeroes the toxicity/ozone indicators.
+    value: Decimal = Field(sa_column=Column("value", Numeric(38, 24), nullable=False))
+    unit: str = Field(max_length=50)  # e.g. "mol H+ eq"
+    activity_unit: str = Field(max_length=50)  # denominator: "kg", "kWh", "tkm"
+    method_version: str = Field(default="EF 3.1", max_length=30, index=True)
+
+    source: str = Field(max_length=100)  # provenance label
+    year: int = Field(index=True)
+    notes: Optional[str] = Field(default=None, max_length=1000)
+    is_active: bool = Field(default=True)
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default=None)
