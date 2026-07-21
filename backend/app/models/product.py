@@ -149,6 +149,9 @@ class ProductFootprint(SQLModel, table=True):
     line_items: Optional[List[dict]] = Field(default=None, sa_column=Column(JSON))
     warnings: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
     methodology: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    # LCA-lite: EF 3.1 indicator × EN 15804 module matrix, frozen with the
+    # snapshot (the results table a future EPD version pins to).
+    lca_results: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     status: str = Field(
         default="draft",
         sa_column=SAColumn("status", SAString(20), default="draft", nullable=False),

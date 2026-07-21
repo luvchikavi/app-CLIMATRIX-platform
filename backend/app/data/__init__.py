@@ -2,6 +2,7 @@
 
 from app.data.emission_factors import EMISSION_FACTORS as BASE_EMISSION_FACTORS
 from app.data.emission_factors_expanded import EXPANDED_EMISSION_FACTORS
+from app.data.impact_factors import EF31_INDICATORS, IMPACT_FACTORS
 from app.data.unit_conversions import UNIT_CONVERSIONS
 from app.data.fuel_prices import FUEL_PRICES
 from app.data.airports import (
@@ -59,6 +60,8 @@ EMISSION_FACTORS = BASE_EMISSION_FACTORS + _unique_expanded
 __all__ = [
     # Emission factors
     "EMISSION_FACTORS",
+    "EF31_INDICATORS",
+    "IMPACT_FACTORS",
     "UNIT_CONVERSIONS",
     "FUEL_PRICES",
     "BASE_EMISSION_FACTORS",

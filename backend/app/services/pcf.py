@@ -34,6 +34,7 @@ from app.services.calculation.pipeline import (
     CalculationPipeline,
 )
 from app.services.calculation.resolver import FactorNotFoundError, base_factor_region
+from app.services.lca import CRADLE_TO_GATE_MODULES, compute_lca_matrix
 
 # Default GHGP category per BOM input type — picks the calculator strategy.
 # Energy lines refine to 2.1 for electricity keys (grid factors) vs 1.1 fuels.
@@ -92,20 +93,24 @@ async def compute_footprint(
     warnings: list[str] = []
 
     for line in sorted(inputs, key=lambda i: (i.sort_order, i.created_at)):
+        module = (line.en15804_module or TYPE_MODULE.get(line.input_type, "A1")).upper()
         entry = {
             "input_id": str(line.id),
             "name": line.name,
             "input_type": line.input_type,
-            "en15804_module": line.en15804_module
-            or TYPE_MODULE.get(line.input_type, "A1"),
+            "en15804_module": module,
             "quantity_per_unit": float(line.quantity_per_unit),
             "unit": line.unit,
             "co2e_kg": 0.0,
             "biogenic_co2_kg": None,
             "is_primary_data": False,
+            "in_pcf_total": module in CRADLE_TO_GATE_MODULES,
             "status": "ok",
             "warnings": [],
         }
+        line_co2e = Decimal("0")
+        line_biogenic = Decimal("0")
+        line_primary = Decimal("0")
 
         if line.input_type == ProductInputType.SUPPLIER_PCF.value:
             spcf: Optional[SupplierPCF] = supplier_pcfs.get(line.supplier_pcf_id)
@@ -136,8 +141,8 @@ async def compute_footprint(
                     f"{fmt(spcf.pcf_value)} kg CO2e/{spcf.unit} = "
                     f"{fmt(co2e)} kg CO2e"
                 )
-                total += co2e
-                primary += co2e
+                line_co2e = co2e
+                line_primary = co2e
         elif not line.activity_key:
             entry["status"] = "gap"
             entry["warnings"].append("No emission factor selected for this input")
@@ -180,15 +185,29 @@ async def compute_footprint(
                 }
                 entry["formula"] = result.formula
                 entry["warnings"].extend(result.warnings)
-                total += result.co2e_kg
+                line_co2e = result.co2e_kg
                 if result.biogenic_co2_kg:
-                    biogenic_total += result.biogenic_co2_kg
+                    line_biogenic = result.biogenic_co2_kg
+
+        # Only A1-A3 lines enter the cradle-to-gate ISO 14067/PACT total;
+        # beyond-gate modules still show in the stage breakdown + LCA matrix.
+        if entry["in_pcf_total"]:
+            total += line_co2e
+            primary += line_primary
+            biogenic_total += line_biogenic
+        elif entry["status"] == "ok" and line_co2e:
+            entry["warnings"].append(
+                f"Module {module} is beyond cradle-to-gate — excluded from "
+                "the ISO 14067/PACT total, included in the LCA matrix"
+            )
 
         stage = entry["en15804_module"]
         stages[stage] = stages.get(stage, Decimal("0")) + Decimal(str(entry["co2e_kg"]))
         lines.append(entry)
 
     primary_share = float(primary / total * 100) if total else None
+
+    lca_results = await compute_lca_matrix(session, inputs, lines, default_region)
 
     return {
         "total_kgco2e_per_unit": total,
@@ -198,11 +217,13 @@ async def compute_footprint(
         "stage_breakdown": {k: float(v) for k, v in sorted(stages.items())},
         "line_items": lines,
         "warnings": warnings,
+        "lca_results": lca_results,
         "methodology": {
             "standard": "ISO 14067:2018",
             "exchange": "PACT Methodology v3",
             "boundary": "cradle_to_gate",
             "gwp": "IPCC AR5 (100-year)",
+            "lcia_method": "EF 3.1 (screening) — EN 15804 module matrix",
             "allocation": "physical (per declared unit BOM)",
             "offsets_included": False,
             "factor_year": year,
