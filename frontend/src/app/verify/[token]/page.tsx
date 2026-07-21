@@ -119,7 +119,7 @@ function EpdPortal({ payload }: { payload: VerifierEpdPayload }) {
   const declRows: [string, string][] = [
     ['PCR', epd.pcr],
     ['Program operator', epd.program_operator ?? '— to be selected'],
-    ['Declared unit', `${epd.declared_unit_amount} ${epd.declared_unit}`],
+    ['Declared unit', `${Number(epd.declared_unit_amount)} ${epd.declared_unit}`],
     ['Functional unit', epd.functional_unit ?? 'n/a (declared unit basis)'],
     ['Reference service life', epd.rsl_years ? `${epd.rsl_years} years` : 'Not declared'],
     ['Declared modules', epd.scope_modules.join(', ')],

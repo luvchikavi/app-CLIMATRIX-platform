@@ -31,7 +31,7 @@ import type { EpdDetail, EpdResults, EpdStatus } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import { EPD_STATUS_ORDER, EPD_STATUS_META, TRANSITION_LABEL, PROGRAM_OPERATORS } from '@/lib/epd';
 import { EN15804_MODULE_OPTIONS, STAGE_META, UNIT_SHORT } from '@/lib/pcf';
-import { cn } from '@/lib/utils';
+import { cn, num } from '@/lib/utils';
 import {
   ArrowLeft,
   Check,
@@ -400,7 +400,7 @@ function EpdDetailContent() {
       </Link>
       <PageHead
         title={epd.name}
-        subtitle={`${epd.product_name} · ${epd.pcr} · per ${epd.declared_unit_amount} ${UNIT_SHORT[epd.declared_unit] ?? epd.declared_unit} · version ${epd.version}`}
+        subtitle={`${epd.product_name} · ${epd.pcr} · per ${num(epd.declared_unit_amount)} ${UNIT_SHORT[epd.declared_unit] ?? epd.declared_unit} · version ${epd.version}`}
       />
 
       {/* Workflow strip + transitions */}
