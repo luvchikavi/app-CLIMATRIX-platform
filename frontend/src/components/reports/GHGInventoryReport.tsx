@@ -13,7 +13,10 @@ import {
 import { Badge, DataQualityBadge } from '@/components/ui';
 import { cn, formatNumber, categoryNames } from '@/lib/utils';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import type { GHGInventoryReport as GHGInventoryReportType } from '@/lib/api';
+import type {
+  GHGInventoryReport as GHGInventoryReportType,
+  Scope3ScreeningRow,
+} from '@/lib/api';
 
 interface GHGInventoryReportProps {
   report: GHGInventoryReportType;
@@ -80,6 +83,58 @@ const sourceColumns: CanopyColumn<ScopeSource>[] = [
         size="sm"
         showLabel={false}
       />
+    ),
+  },
+];
+
+const screeningColumns: CanopyColumn<Scope3ScreeningRow>[] = [
+  {
+    key: 'category',
+    header: 'Scope 3 category',
+    render: (row) => (
+      <span>
+        <span className="text-cy-faint">{row.category_code}</span>{' '}
+        <span className="font-semibold">{row.category_name}</span>
+      </span>
+    ),
+  },
+  {
+    key: 'relevance',
+    header: 'Screening decision',
+    render: (row) =>
+      row.relevance === 'relevant' ? (
+        <Badge variant="success" size="sm">Relevant</Badge>
+      ) : row.relevance === 'not_relevant' ? (
+        <Badge variant="default" size="sm">Excluded</Badge>
+      ) : (
+        <Badge variant="warning" size="sm">Not assessed</Badge>
+      ),
+  },
+  {
+    key: 'measured',
+    header: 'Measured this period',
+    render: (row) =>
+      row.measured_this_period ? (
+        <span className="text-cy-ink">{row.activity_count} activities</span>
+      ) : (
+        <span className="text-cy-faint">—</span>
+      ),
+  },
+  {
+    key: 'co2e',
+    header: 't CO₂e',
+    align: 'right',
+    render: (row) => (
+      <CellValue>
+        {row.measured_this_period ? formatNumber(row.co2e_tonnes, 2) : '—'}
+      </CellValue>
+    ),
+  },
+  {
+    key: 'reason',
+    header: 'Exclusion reason',
+    render: (row) => (
+      <span className="text-cy-muted">{row.exclusion_reason || ''}</span>
     ),
   },
 ];
@@ -220,6 +275,23 @@ export function GHGInventoryReport({ report }: GHGInventoryReportProps) {
         </Surface>
       ))}
 
+      {/* Scope 3 screening — all 15 categories (GHG Protocol completeness) */}
+      {report.scope3_screening && report.scope3_screening.length > 0 && (
+        <Surface>
+          <PanelLabel>Scope 3 screening</PanelLabel>
+          <p className="mb-3 text-[12px] text-cy-muted">
+            All 15 value-chain categories screened per the GHG Protocol — the
+            organization&apos;s relevance decision next to what this period
+            actually measured.
+          </p>
+          <DataTable
+            columns={screeningColumns}
+            rows={report.scope3_screening}
+            rowKey={(row) => row.category_code}
+          />
+        </Surface>
+      )}
+
       {/* Methodology, base year & verification */}
       <Surface>
         <PanelLabel>Methodology &amp; base year</PanelLabel>
@@ -250,6 +322,9 @@ export function GHGInventoryReport({ report }: GHGInventoryReportProps) {
               </>
             )}
           </Kv>
+        )}
+        {report.recalculation_policy && (
+          <Kv label="Recalculation">{report.recalculation_policy}</Kv>
         )}
         <div className="mt-2 flex flex-wrap items-center gap-2 text-[12.5px] text-cy-muted">
           <Badge

@@ -424,6 +424,16 @@ export interface VerificationInfo {
   verification_statement?: string;
 }
 
+export interface Scope3ScreeningRow {
+  category_code: string;
+  category_name: string;
+  relevance: string; // relevant | not_relevant | not_sure
+  exclusion_reason?: string | null;
+  measured_this_period: boolean;
+  activity_count: number;
+  co2e_tonnes: number;
+}
+
 export interface GHGInventoryReport {
   report_title: string;
   report_date: string;
@@ -451,6 +461,8 @@ export interface GHGInventoryReport {
   data_quality_interpretation: string;
   methodology: MethodologySection;
   base_year_comparison?: BaseYearComparison;
+  recalculation_policy: string;
+  scope3_screening: Scope3ScreeningRow[];
   verification: VerificationInfo;
 }
 
@@ -709,6 +721,32 @@ export interface ESRSE1Export {
   gwp_values_source: string;
 }
 
+export interface VSMEExport {
+  export_version: string;
+  export_date: string;
+  standard: string;
+  organization_name: string;
+  country: string | null;
+  reporting_period_start: string;
+  reporting_period_end: string;
+  energy: {
+    electricity_consumption_mwh: number | null;
+    note: string;
+  };
+  ghg_emissions: {
+    scope_1_tonnes: number;
+    scope_2_location_based_tonnes: number;
+    scope_2_market_based_tonnes: number | null;
+    scope_1_and_2_tonnes: number;
+    scope_3_tonnes: number | null;
+    total_tonnes: number;
+  };
+  ghg_intensity_note: string;
+  methodology: string;
+  gwp_values_source: string;
+  emission_factor_sources: string[];
+}
+
 export interface ScopeSummary {
   scope: number;
   total_co2e_kg: number;
@@ -761,6 +799,7 @@ export interface OrganizationSettings {
   currency?: string | null;
   unit_system?: string;
   consolidation_approach?: string;
+  recalculation_threshold_pct?: number;
 }
 
 // ============================================================================
@@ -1328,6 +1367,10 @@ class ApiClient {
 
   async exportCDP(periodId: string): Promise<CDPExport> {
     return this.fetch<CDPExport>(`/periods/${periodId}/export/cdp`);
+  }
+
+  async exportVSME(periodId: string): Promise<VSMEExport> {
+    return this.fetch<VSMEExport>(`/periods/${periodId}/export/vsme`);
   }
 
   async exportESRSE1(periodId: string): Promise<ESRSE1Export> {

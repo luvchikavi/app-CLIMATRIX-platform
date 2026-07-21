@@ -117,6 +117,12 @@ export default function ReportsPage() {
     enabled: !!activePeriodId && activeTab === 'export',
   });
 
+  const { data: vsmeExport, isLoading: vsmeLoading } = useQuery({
+    queryKey: ['vsme-export', activePeriodId],
+    queryFn: () => api.exportVSME(activePeriodId),
+    enabled: !!activePeriodId && activeTab === 'export',
+  });
+
   const { data: statusHistory } = useQuery({
     queryKey: ['status-history', activePeriodId],
     queryFn: () => api.getPeriodStatusHistory(activePeriodId),
@@ -191,6 +197,16 @@ export default function ReportsPage() {
       downloadFile(
         JSON.stringify(esrsExport, null, 2),
         `esrs-e1-export-${activePeriod?.name?.replace(/\s+/g, '-') || 'report'}.json`,
+        'application/json'
+      );
+    }
+  };
+
+  const handleExportVSME = async () => {
+    if (vsmeExport) {
+      downloadFile(
+        JSON.stringify(vsmeExport, null, 2),
+        `vsme-export-${activePeriod?.name?.replace(/\s+/g, '-') || 'report'}.json`,
         'application/json'
       );
     }
@@ -467,6 +483,9 @@ export default function ReportsPage() {
               esrsLoading={esrsLoading}
               onExportCDP={handleExportCDP}
               onExportESRS={handleExportESRS}
+              vsmeData={vsmeExport}
+              vsmeLoading={vsmeLoading}
+              onExportVSME={handleExportVSME}
             />
           )}
 

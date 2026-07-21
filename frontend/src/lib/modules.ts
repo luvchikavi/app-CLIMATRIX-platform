@@ -10,6 +10,8 @@ import {
   Coins,
   Microscope,
   FileStack,
+  Building2,
+  Package,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -26,6 +28,15 @@ export interface ModuleDef {
 }
 
 export const MODULE_REGISTRY: ModuleDef[] = [
+  {
+    id: 'ccf',
+    name: 'CCF',
+    href: '/reports',
+    icon: Building2,
+    status: 'active',
+    blurb: 'Corporate Carbon Footprint — full Scope 1-3 inventory per GHG Protocol & ISO 14064-1.',
+    features: ['Scopes 1-3', 'ISO 14064-1 report', 'Scope-3 screening', 'VSME / ESRS / CDP exports', 'Verifier portal'],
+  },
   {
     id: 'decarbonization',
     name: 'Decarbonization',
@@ -54,22 +65,31 @@ export const MODULE_REGISTRY: ModuleDef[] = [
     features: ['Asset-class attribution', 'Portfolio footprint', 'PCAF data quality', 'TCFD-aligned'],
   },
   {
+    id: 'pcf',
+    name: 'PCF',
+    href: '/modules/pcf',
+    icon: Package,
+    status: 'coming-soon',
+    blurb: 'Product Carbon Footprint per ISO 14067 with PACT-conformant data exchange.',
+    features: ['Cradle-to-gate per product', 'BOM modeling', 'PACT v3 exchange format', 'Supplier PCF ingestion'],
+  },
+  {
     id: 'lca',
     name: 'LCA',
     href: '/modules/lca',
     icon: Microscope,
     status: 'coming-soon',
-    blurb: 'Cradle-to-gate life-cycle assessment for product footprints.',
-    features: ['Cradle-to-gate', 'Product footprinting', 'Impact categories', 'ISO 14040/44'],
+    blurb: 'Streamlined life-cycle assessment on the EF 3.1 impact method.',
+    features: ['ISO 14040/44', 'EF 3.1 impact categories', 'Lifecycle modules A1-D', 'Feeds EPD generation'],
   },
   {
     id: 'epd',
-    name: 'EPD / Reports',
+    name: 'EPD',
     href: '/modules/epd',
     icon: FileStack,
     status: 'coming-soon',
-    blurb: 'Automated Environmental Product Declarations from your LCA data.',
-    features: ['EPD generation', 'Third-party verification', 'Multiple PCR standards'],
+    blurb: 'EN 15804+A2 Environmental Product Declarations, verification-ready.',
+    features: ['EN 15804+A2 results matrix', 'Digital EPD (ILCD+EPD)', 'Verification workflow', 'Program-operator submission'],
   },
 ];
 
@@ -101,10 +121,11 @@ export function recommendedModules(org?: {
   const industry = (org?.industry_code || '').toLowerCase();
   const region = (org?.default_region || '').toLowerCase();
   const score = (m: ModuleDef): number => {
+    if (m.id === 'ccf') return 95; // measuring is where everyone starts
     if (m.id === 'decarbonization') return 90; // the natural next step after measuring
     if (m.id === 'cbam' && (industry.includes('manufactur') || industry.includes('steel') || industry.includes('cement') || region === 'eu' || region === 'il')) return 80;
     if (m.id === 'pcaf' && (industry.includes('financ') || industry.includes('bank') || industry.includes('insur'))) return 70;
-    if ((m.id === 'lca' || m.id === 'epd') && industry.includes('manufactur')) return 60;
+    if ((m.id === 'pcf' || m.id === 'lca' || m.id === 'epd') && industry.includes('manufactur')) return 60;
     if (m.status === 'active' || m.status === 'beta') return 40;
     return 20;
   };

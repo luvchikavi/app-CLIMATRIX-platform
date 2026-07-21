@@ -122,6 +122,37 @@ BIOGENIC_POLICY = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Base-year recalculation policy (GHG Protocol Corporate Standard ch. 5)
+# ---------------------------------------------------------------------------
+
+DEFAULT_RECALCULATION_THRESHOLD_PCT = 5.0
+
+
+def recalculation_policy_statement(
+    base_year: Optional[int], threshold_pct: Optional[float]
+) -> str:
+    """The org's base-year recalculation policy as report-ready prose."""
+    threshold = (
+        threshold_pct
+        if threshold_pct is not None
+        else DEFAULT_RECALCULATION_THRESHOLD_PCT
+    )
+    policy = (
+        "Base-year emissions are recalculated when structural changes "
+        "(acquisitions, divestments, mergers), methodology changes, or the "
+        "discovery of significant errors alter base-year emissions by more "
+        f"than {threshold:g}% (significance threshold), per the GHG Protocol "
+        "Corporate Standard."
+    )
+    if base_year:
+        return f"Base year: {base_year}. {policy}"
+    return (
+        "No base year has been set; the first complete reporting year will "
+        f"be adopted as the base year. {policy}"
+    )
+
+
 def build_assumptions(consolidation_approach: Optional[str]) -> list[str]:
     """Standard methodology assumptions, reflecting the org's real settings."""
     return [

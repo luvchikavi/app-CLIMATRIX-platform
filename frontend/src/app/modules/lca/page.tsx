@@ -21,11 +21,11 @@ export default function LCAModulePage() {
       icon={Microscope}
       color="bg-purple-600"
       features={[
-        'Cradle-to-Gate Analysis - Full product lifecycle environmental impact',
-        'Product Footprinting - Calculate carbon footprint per product unit',
-        'Multiple Impact Categories - GWP, acidification, eutrophication, and more',
-        'Database Integration - Connect to ecoinvent, GaBi, and other LCA databases',
         'ISO 14040/14044 Compliant - Methodology aligned with international standards',
+        'EF 3.1 Impact Method - 16 impact categories beyond carbon (acidification, water, resources)',
+        'Lifecycle Modules A1-D - Production through end-of-life per EN 15804 structure',
+        'Builds on PCF - Your product models extend into full life-cycle assessment',
+        'Feeds EPD Generation - Results matrix ready for EN 15804+A2 declarations',
       ]}
       expectedDate="Q4 2026"
     />
