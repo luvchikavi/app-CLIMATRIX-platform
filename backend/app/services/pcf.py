@@ -120,6 +120,7 @@ async def compute_footprint(
                         f"PCF is per {spcf.unit} — quantities multiplied as-is"
                     )
                 co2e = line.quantity_per_unit * spcf.pcf_value
+                fmt = lambda d: format(Decimal(str(d)).normalize(), "f")  # noqa: E731
                 entry["co2e_kg"] = float(co2e)
                 entry["is_primary_data"] = True
                 entry["factor"] = {
@@ -131,8 +132,9 @@ async def compute_footprint(
                     "pact_pf_id": spcf.pact_pf_id,
                 }
                 entry["formula"] = (
-                    f"{line.quantity_per_unit} {line.unit} × "
-                    f"{spcf.pcf_value} kg CO2e/{spcf.unit} = {co2e} kg CO2e"
+                    f"{fmt(line.quantity_per_unit)} {line.unit} × "
+                    f"{fmt(spcf.pcf_value)} kg CO2e/{spcf.unit} = "
+                    f"{fmt(co2e)} kg CO2e"
                 )
                 total += co2e
                 primary += co2e
@@ -224,8 +226,8 @@ _PACT_UNITS = {
 
 
 def _dec(value) -> str:
-    """PACT serializes decimals as strings."""
-    return str(Decimal(str(value)).normalize())
+    """PACT serializes decimals as plain strings (no exponent notation)."""
+    return format(Decimal(str(value)).normalize(), "f")
 
 
 def build_pact_json(

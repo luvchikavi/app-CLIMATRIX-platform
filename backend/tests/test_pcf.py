@@ -582,7 +582,8 @@ async def test_pact_export_tonne_scales_to_kilogram(
         )
     ).json()
     assert doc["pcf"]["declaredUnitOfMeasurement"] == "kilogram"
-    assert Decimal(doc["pcf"]["declaredUnitAmount"]) == 1000
+    # plain decimal string, never exponent notation ("1E+3")
+    assert doc["pcf"]["declaredUnitAmount"] == "1000"
     # 183 kg CO2e per tonne -> 0.183 per kg
     assert Decimal(doc["pcf"]["pcfExcludingBiogenic"]) == Decimal("0.183")
 
