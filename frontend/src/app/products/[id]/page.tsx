@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout';
 import { useEntitlementFlags } from '@/components/layout/TeaserGate';
@@ -16,6 +16,8 @@ import {
   useSupplierPcfs,
 } from '@/hooks/useProducts';
 import { useEmissionFactors, usePeriods } from '@/hooks/useEmissions';
+import { useEpds, useCreateEpd } from '@/hooks/useEpd';
+import { EPD_STATUS_META } from '@/lib/epd';
 import { usePeriodStore } from '@/stores/period';
 import { num, cn } from '@/lib/utils';
 import {
@@ -32,6 +34,7 @@ import {
   Calculator,
   Download,
   FileCheck2,
+  FileStack,
   Loader2,
   Lock,
   Plus,
@@ -407,6 +410,80 @@ function FootprintResults({
   );
 }
 
+/** EPD panel — this product's declarations + the "Prepare EPD" entry point.
+ * The new draft pins the latest FINAL footprint when one exists. */
+function EpdPanel({
+  productId,
+  latestFinalFootprintId,
+}: {
+  productId: string;
+  latestFinalFootprintId: string | null;
+}) {
+  const router = useRouter();
+  const { data: epds } = useEpds();
+  const createEpd = useCreateEpd();
+  const mine = (epds ?? []).filter((e) => e.product_id === productId);
+
+  const prepare = async () => {
+    const epd = await createEpd.mutateAsync({
+      productId,
+      data: latestFinalFootprintId ? { footprint_id: latestFinalFootprintId } : {},
+    });
+    router.push(`/epd/${epd.id}`);
+  };
+
+  return (
+    <Surface padding="panel" className="mt-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <PanelLabel>Environmental Product Declarations</PanelLabel>
+          <p className="mt-0.5 text-[12px] text-cy-muted">
+            ISO 14025 / EN 15804+A2 — prepared here, verified through the verifier portal, published by your
+            program operator.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          onClick={prepare}
+          isLoading={createEpd.isPending}
+          leftIcon={<FileStack className="h-3.5 w-3.5" />}
+          title={
+            latestFinalFootprintId
+              ? 'Creates a draft EPD pinned to the latest final footprint'
+              : 'Creates a draft EPD — finalize a footprint to pin it'
+          }
+        >
+          Prepare EPD
+        </Button>
+      </div>
+      {mine.length > 0 && (
+        <ul className="divide-y divide-cy-row">
+          {mine.map((e) => {
+            const meta = EPD_STATUS_META[e.status];
+            return (
+              <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-[12.5px]">
+                <Link href={`/epd/${e.id}`} className="font-semibold text-cy-ink hover:text-cy-accent">
+                  {e.name}
+                </Link>
+                <div className="flex items-center gap-3">
+                  {e.valid_until && (
+                    <span className="text-[11.5px] tabular-nums text-cy-faint">
+                      valid until {e.valid_until.slice(0, 10)}
+                    </span>
+                  )}
+                  <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', meta.className)}>
+                    {meta.label}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Surface>
+  );
+}
+
 function ProductDetailContent() {
   const params = useParams<{ id: string }>();
   const productId = params.id;
@@ -672,6 +749,12 @@ function ProductDetailContent() {
           </p>
         </Surface>
       )}
+
+      {/* EPD lane */}
+      <EpdPanel
+        productId={product.id}
+        latestFinalFootprintId={product.footprints.find((f) => f.status === 'final')?.id ?? null}
+      />
 
       {/* History */}
       {product.footprints.length > 1 && (

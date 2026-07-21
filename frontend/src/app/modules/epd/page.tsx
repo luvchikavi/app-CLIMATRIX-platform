@@ -1,33 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { useAuthStore } from '@/stores/auth';
-import { ComingSoonModule } from '@/components/modules/ComingSoonModule';
-import { LockedModule } from '@/components/modules/LockedModule';
-import { FileStack } from 'lucide-react';
-
-const PLAN_LEVELS: Record<string, number> = {
-  free: 0,
-  starter: 1,
-  professional: 2,
-  enterprise: 3,
-};
-
+/** EPD graduated from the coming-soon catalog to a real tool at /epd. */
 export default function EPDModulePage() {
-  return (
-    <ComingSoonModule
-      moduleId="epd"
-      name="EPD Reports"
-      description="Environmental Product Declarations"
-      icon={FileStack}
-      color="bg-cy-scope3"
-      features={[
-        'Automated EPD Generation - Create declarations from LCA data',
-        'Third-party Verification Support - Streamlined verification workflow',
-        'Multiple PCR Standards - Support for various Product Category Rules',
-        'Product Category Management - Organize products by environmental category',
-        'Public Registry Ready - Export formats compatible with major EPD registries',
-      ]}
-      expectedDate="Q4 2026"
-    />
-  );
+  redirect('/epd');
 }

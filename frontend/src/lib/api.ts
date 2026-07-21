@@ -2818,6 +2818,107 @@ class ApiClient {
       method: 'DELETE',
     });
   }
+
+  // ============================================
+  // EPD generator (ISO 14025 / EN 15804+A2)
+  // ============================================
+
+  async getEpds(): Promise<EpdProject[]> {
+    return this.fetch<EpdProject[]>('/epd');
+  }
+
+  async createEpd(productId: string, data: EpdCreate = {}): Promise<EpdProject> {
+    return this.fetch<EpdProject>(`/products/${productId}/epd`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getEpd(epdId: string): Promise<EpdDetail> {
+    return this.fetch<EpdDetail>(`/epd/${epdId}`);
+  }
+
+  async updateEpd(epdId: string, data: Partial<EpdCreate> & {
+    registration_number?: string | null;
+    verifier_statement?: string | null;
+    notes?: string | null;
+  }): Promise<EpdProject> {
+    return this.fetch<EpdProject>(`/epd/${epdId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteEpd(epdId: string): Promise<{ ok: boolean }> {
+    return this.fetch<{ ok: boolean }>(`/epd/${epdId}`, { method: 'DELETE' });
+  }
+
+  async transitionEpd(epdId: string, status: string): Promise<EpdProject> {
+    return this.fetch<EpdProject>(`/epd/${epdId}/transition`, {
+      method: 'POST',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  /** EN 15804 PDF / ILCD+EPD XML — export-gated (402 on trial). Triggers a download. */
+  async downloadEpdExport(epdId: string, format: 'pdf' | 'ilcd', fallbackName: string): Promise<void> {
+    const token = this.getToken();
+    const response = await fetch(`${API_BASE}/epd/${epdId}/export/${format}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Export failed' }));
+      if (response.status === 402) {
+        const d = error.detail && typeof error.detail === 'object' ? error.detail : {};
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('climatrix:limit-reached', { detail: d }));
+        }
+        throw new Error(d.message || 'Upgrade required to export documents.');
+      }
+      const message =
+        typeof error.detail === 'string' ? error.detail : error.detail?.message || `Export failed: ${response.status}`;
+      throw new Error(message);
+    }
+    const blob = await response.blob();
+    const disposition = response.headers.get('Content-Disposition');
+    const filename = disposition?.match(/filename="?([^"]+)"?/)?.[1] || fallbackName;
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  }
+
+  async inviteEpdVerifier(
+    epdId: string,
+    data: { verifier_email: string; verifier_name?: string; expires_in_days?: number }
+  ): Promise<VerifierAccess> {
+    return this.fetch<VerifierAccess>(`/epd/${epdId}/verifier-access`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listEpdVerifierAccess(epdId: string): Promise<VerifierAccess[]> {
+    return this.fetch<VerifierAccess[]>(`/epd/${epdId}/verifier-access`);
+  }
+
+  // PUBLIC verifier portal endpoints (token is the credential, no auth).
+
+  async getVerifierContext(token: string): Promise<{ kind: 'period' | 'epd' }> {
+    return publicJsonFetch<{ kind: 'period' | 'epd' }>(
+      `${API_BASE}/verify/${encodeURIComponent(token)}/context`
+    );
+  }
+
+  async getVerifierEpd(token: string): Promise<VerifierEpdPayload> {
+    return publicJsonFetch<VerifierEpdPayload>(
+      `${API_BASE}/verify/${encodeURIComponent(token)}/epd`
+    );
+  }
 }
 
 // CBAM Types for API
@@ -3970,6 +4071,98 @@ export interface SupplierPcf {
   source: 'manual' | 'pact_json';
   status: string;
   created_at: string;
+}
+
+// ============================================
+// EPD generator types
+// ============================================
+
+export type EpdStatus =
+  | 'draft'
+  | 'internal_review'
+  | 'verification'
+  | 'registered'
+  | 'published'
+  | 'expired';
+
+export interface EpdCreate {
+  name?: string;
+  pcr?: string;
+  program_operator?: string | null;
+  functional_unit?: string | null;
+  rsl_years?: number | null;
+  scope_modules?: string[];
+  footprint_id?: string | null;
+}
+
+export interface EpdProject {
+  id: string;
+  product_id: string;
+  product_name: string;
+  footprint_id: string | null;
+  name: string;
+  pcr: string;
+  program_operator: string | null;
+  declared_unit: string;
+  declared_unit_amount: ApiDecimal;
+  functional_unit: string | null;
+  rsl_years: number | null;
+  scope_modules: string[];
+  status: EpdStatus;
+  version: number;
+  results_frozen_at: string | null;
+  registration_number: string | null;
+  registered_at: string | null;
+  published_at: string | null;
+  valid_until: string | null;
+  days_until_expiry: number | null;
+  verifier_statement: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface EpdChecklistItem {
+  key: string;
+  label: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface EpdResults {
+  footprint_id: string;
+  product_name: string;
+  declared_unit: string;
+  declared_unit_amount: number;
+  boundary: string;
+  pcf: {
+    total_kgco2e_per_unit: number;
+    fossil_kgco2e_per_unit: number | null;
+    biogenic_kgco2e_per_unit: number | null;
+    primary_data_share: number | null;
+    stage_breakdown: Record<string, number> | null;
+  };
+  lca: LcaResults | null;
+  line_items: PcfLineItem[] | null;
+  methodology: Record<string, unknown> | null;
+  warnings: string[];
+}
+
+export interface EpdDetail extends EpdProject {
+  results: EpdResults | null;
+  results_are_frozen: boolean;
+  checklist: EpdChecklistItem[];
+  allowed_transitions: string[];
+}
+
+export interface VerifierEpdPayload {
+  organization_name: string;
+  verifier_name: string | null;
+  epd: EpdProject;
+  results: EpdResults | null;
+  results_are_frozen: boolean;
+  checklist: EpdChecklistItem[];
+  read_only: boolean;
 }
 
 export const api = new ApiClient();

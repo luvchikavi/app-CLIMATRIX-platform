@@ -63,6 +63,7 @@ export function AppShell({ children }: AppShellProps) {
     // Both groups render expanded so nothing hides behind a closed drawer.
     const cbam = MODULE_REGISTRY.find((m) => m.id === 'cbam');
     const pcf = MODULE_REGISTRY.find((m) => m.id === 'pcf');
+    const epd = MODULE_REGISTRY.find((m) => m.id === 'epd');
 
     return [
       { label: 'Dashboard', href: '/dashboard', active: isActive('/dashboard') },
@@ -92,6 +93,16 @@ export function AppShell({ children }: AppShellProps) {
                   href: pcf.href,
                   active: isActive('/products'),
                   ...(pcf.status === 'beta' ? { badge: 'Beta' } : {}),
+                },
+              ]
+            : []),
+          ...(epd && epd.status !== 'coming-soon'
+            ? [
+                {
+                  label: epd.name,
+                  href: epd.href,
+                  active: isActive('/epd'),
+                  ...(epd.status === 'beta' ? { badge: 'Beta' } : {}),
                 },
               ]
             : []),
