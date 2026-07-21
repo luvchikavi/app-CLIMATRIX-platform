@@ -143,7 +143,7 @@ export default function DecarbonizationPage() {
                 {topSources && <> — top: {topSources}</>}
               </>
             ) : (
-              'No emissions data for this period yet — bring data in through the Data hub.'
+              'No emissions data for this period yet — bring data in through Measure.'
             )
           }
           action={
@@ -151,7 +151,7 @@ export default function DecarbonizationPage() {
               <StepDoneText />
             ) : (
               <CanopyButton href="/hub" className="px-3.5 py-2">
-                Open Data hub
+                Open Measure
               </CanopyButton>
             )
           }

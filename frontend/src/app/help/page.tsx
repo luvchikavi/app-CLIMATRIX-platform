@@ -26,9 +26,9 @@ const GUIDES = [
   {
     icon: Upload,
     title: 'Import your data',
-    body: 'Drop any file — invoices, fuel cards, travel exports — on the Data hub. The AI parser maps every row to an emission factor and asks only the questions that matter.',
+    body: 'Drop any file — invoices, fuel cards, travel exports — in Measure. The AI parser maps every row to an emission factor and asks only the questions that matter.',
     href: '/hub',
-    cta: 'Open Data hub',
+    cta: 'Open Measure',
   },
   {
     icon: Sparkles,

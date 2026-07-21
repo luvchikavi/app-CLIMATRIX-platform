@@ -119,7 +119,7 @@ export default function ModulesPage() {
         <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-foreground">Modules</h1>
         <p className="text-foreground-muted mt-1">
           Find the right service for your organization. Every module builds on the emissions
-          inventory you assemble in the Data Hub.
+          inventory you assemble in Measure.
         </p>
       </div>
 

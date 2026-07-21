@@ -47,7 +47,7 @@ function railFor(active: string): RailProps {
     steps: journeySteps,
     nav: [
       { label: 'Dashboard', href: '#', active: active === 'Dashboard' },
-      { label: 'Data hub', href: '#', active: active === 'Data hub' },
+      { label: 'Measure', href: '#', active: active === 'Measure' },
       { label: 'Plan', href: '#', active: active === 'Plan' },
       { label: 'Reports', href: '#', active: active === 'Reports' },
       {

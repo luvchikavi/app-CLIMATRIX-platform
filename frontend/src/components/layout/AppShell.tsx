@@ -67,7 +67,7 @@ export function AppShell({ children }: AppShellProps) {
 
     return [
       { label: 'Dashboard', href: '/dashboard', active: isActive('/dashboard') },
-      { label: 'Data hub', href: '/hub', active: isActive('/hub') || isActive('/ingest') || isActive('/import') },
+      { label: 'Measure', href: '/hub', active: isActive('/hub') || isActive('/ingest') || isActive('/import') },
       { label: 'Activities', href: '/activities', active: isActive('/activities') },
       { label: 'Plan', href: '/decarbonization', active: isActive('/decarbonization') },
       { label: 'Reports', href: '/reports', active: isActive('/reports') },

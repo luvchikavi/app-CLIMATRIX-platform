@@ -739,13 +739,13 @@ export function OnboardingWizard({ onComplete, organizationName }: OnboardingWiz
                 You&apos;re All Set!
               </h2>
               <p className="text-lg text-foreground-muted mb-8 max-w-md mx-auto">
-                Your organization is ready. Next: map your inventory in the Data Hub —
+                Your organization is ready. Next: map your inventory in Measure —
                 mark what&apos;s relevant, then start dropping in your data.
               </p>
 
               <div className="flex justify-center">
                 <Button variant="primary" onClick={handleComplete}>
-                  Open the Data Hub
+                  Open Measure
                   <ChevronRight className="w-4 h-4 ml-2" />
                 </Button>
               </div>

@@ -315,7 +315,7 @@ export default function ReportsPage() {
               kicker="Reports"
               title="No data to report yet"
               body="Your reports build themselves from your activity data. Bring data in and this page comes alive."
-              action={{ label: 'Open the Data hub', href: '/hub' }}
+              action={{ label: 'Open Measure', href: '/hub' }}
               skip={{ label: 'or add one activity', href: '/activities?add=1' }}
             />
           )}

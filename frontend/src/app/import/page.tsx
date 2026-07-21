@@ -21,7 +21,7 @@ export default function ImportRedirect() {
   return (
     <div className="flex min-h-screen items-center justify-center gap-2 text-cy-faint">
       <Loader2 className="h-5 w-5 animate-spin" />
-      Taking you to the Data Hub…
+      Taking you to Measure…
     </div>
   );
 }

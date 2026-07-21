@@ -313,7 +313,7 @@ export default function HubPage() {
       <div className="mx-auto max-w-5xl space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <PageHead
-            title="Data hub"
+            title="Measure"
             subtitle="Everything Climatrix knows comes through here — files in, verified numbers out."
           />
           <div className="mb-[22px] flex flex-wrap items-center gap-2">

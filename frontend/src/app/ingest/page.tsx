@@ -269,7 +269,7 @@ function IngestContent() {
               href="/hub"
               className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-cy-muted hover:text-cy-ink"
             >
-              ← Data hub
+              ← Measure
             </Link>
             {session && !busy && (
               <Button
@@ -514,7 +514,7 @@ function IngestContent() {
             </p>
             <div className="mt-2 flex flex-wrap justify-center gap-2">
               <Link href="/hub">
-                <Button>Back to Data hub →</Button>
+                <Button>Back to Measure →</Button>
               </Link>
               <Link href="/dashboard">
                 <Button variant="secondary">View dashboard</Button>

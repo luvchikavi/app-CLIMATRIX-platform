@@ -120,14 +120,14 @@ export function useJourney(): JourneyState {
           step: 'Measure',
           title: 'Set up your data profile',
           body: 'Tell Climatrix which activity categories apply to you — about five minutes, and it shapes everything that follows.',
-          action: { label: 'Open the Data hub', href: '/hub' },
+          action: { label: 'Open Measure', href: '/hub' },
         }
       : !hasData
         ? {
             step: 'Measure',
             title: 'Bring your first data in',
             body: 'Upload a spreadsheet or your energy records — Smart Import reads them and only asks what it can’t infer.',
-            action: { label: 'Open the Data hub', href: '/hub' },
+            action: { label: 'Open Measure', href: '/hub' },
           }
         : openQuestions > 0
           ? {
@@ -141,7 +141,7 @@ export function useJourney(): JourneyState {
                 step: 'Measure',
                 title: `Bring data for ${gaps} more categor${gaps === 1 ? 'y' : 'ies'}`,
                 body: 'A few relevant categories still have no data. Close them and your inventory is complete.',
-                action: { label: 'Open the Data hub', href: '/hub' },
+                action: { label: 'Open Measure', href: '/hub' },
               }
             : !activeTarget
               ? {
@@ -184,7 +184,7 @@ export function useJourney(): JourneyState {
     tasks.push({
       state: 'open',
       text: `Bring data for ${gaps} categor${gaps === 1 ? 'y' : 'ies'}`,
-      action: { label: 'Data hub →', href: '/hub' },
+      action: { label: 'Measure →', href: '/hub' },
     });
   if (hasData && !activeTarget)
     tasks.push({
