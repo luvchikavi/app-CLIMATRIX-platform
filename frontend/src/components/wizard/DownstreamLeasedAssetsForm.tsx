@@ -15,7 +15,7 @@ import { useState, useMemo } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e } from '@/lib/utils';
+import { formatCO2e, formatQty } from '@/lib/utils';
 import { calculateSpendEmissions } from '@/lib/currency';
 import {
   Calculator,
@@ -133,7 +133,7 @@ export function DownstreamLeasedAssetsForm({ periodId, onSuccess }: DownstreamLe
           quantity: area,
           unit: 'm2',
           co2e,
-          formula: `${area.toLocaleString()} m2 x ${ef} kg CO2e/m2 = ${co2e.toFixed(2)} kg CO2e`,
+          formula: `${formatQty(area)} m2 x ${formatQty(ef)} kg CO2e/m2 = ${co2e.toFixed(2)} kg CO2e`,
           efSource: 'DEFRA 2024',
         };
       } else {
@@ -147,7 +147,7 @@ export function DownstreamLeasedAssetsForm({ periodId, onSuccess }: DownstreamLe
           quantity: units,
           unit: 'unit',
           co2e,
-          formula: `${units} units x ${ef.toLocaleString()} kg CO2e/unit = ${co2e.toLocaleString()} kg CO2e`,
+          formula: `${formatQty(units)} units x ${formatQty(ef)} kg CO2e/unit = ${formatQty(co2e)} kg CO2e`,
           efSource: 'DEFRA 2024',
         };
       }
@@ -167,7 +167,7 @@ export function DownstreamLeasedAssetsForm({ periodId, onSuccess }: DownstreamLe
         quantity: energy,
         unit: 'kWh',
         co2e,
-        formula: `${energy.toLocaleString()} kWh x ${ef.toFixed(3)} kg CO2e/kWh = ${co2e.toFixed(2)} kg CO2e`,
+        formula: `${formatQty(energy)} kWh x ${formatQty(ef)} kg CO2e/kWh = ${co2e.toFixed(2)} kg CO2e`,
         efSource: energyType === 'gas' ? 'DEFRA 2024' : 'IEA 2024',
       };
     }
@@ -196,7 +196,7 @@ export function DownstreamLeasedAssetsForm({ periodId, onSuccess }: DownstreamLe
         quantity: total,
         unit: 'kg CO2e',
         co2e: total,
-        formula: `Scope 1: ${s1.toLocaleString()} kg + Scope 2: ${s2.toLocaleString()} kg = ${total.toLocaleString()} kg CO2e`,
+        formula: `Scope 1: ${formatQty(s1)} kg + Scope 2: ${formatQty(s2)} kg = ${formatQty(total)} kg CO2e`,
         efSource: 'Tenant reported (direct)',
       };
     }

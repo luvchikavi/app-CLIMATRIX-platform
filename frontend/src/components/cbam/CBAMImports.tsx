@@ -17,6 +17,7 @@ import {
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui';
 import { api } from '@/lib/api';
+import { formatQty } from '@/lib/utils';
 import type {
   CBAMImport,
   CBAMInstallation,
@@ -512,13 +513,13 @@ export function CBAMImports() {
                         </Badge>
                       </TableCell>
                       <TableCell>{imp.origin_country || '—'}</TableCell>
-                      <TableCell>{imp.mass_kg.toLocaleString()}</TableCell>
+                      <TableCell>{formatQty(imp.mass_kg)}</TableCell>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{imp.total_emissions_tco2e.toFixed(3)} tCO2e</p>
+                          <p className="font-medium">{formatQty(imp.total_emissions_tco2e)} tCO2e</p>
                           <p className="text-xs text-foreground-muted">
-                            D: {imp.direct_emissions_tco2e.toFixed(3)} / I:{' '}
-                            {imp.indirect_emissions_tco2e.toFixed(3)}
+                            D: {formatQty(imp.direct_emissions_tco2e)} / I:{' '}
+                            {formatQty(imp.indirect_emissions_tco2e)}
                           </p>
                         </div>
                       </TableCell>
@@ -551,10 +552,10 @@ export function CBAMImports() {
                       Total
                     </TableCell>
                     <TableCell className="font-semibold">
-                      {totalMassKg.toLocaleString()}
+                      {formatQty(totalMassKg)}
                     </TableCell>
                     <TableCell className="font-semibold">
-                      {totalEmissions.toFixed(3)} tCO2e
+                      {formatQty(totalEmissions)} tCO2e
                     </TableCell>
                     <TableCell />
                     <TableCell className="font-semibold">{eur.format(totalCost)}</TableCell>

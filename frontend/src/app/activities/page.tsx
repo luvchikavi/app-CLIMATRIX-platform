@@ -27,7 +27,7 @@ import {
   ConfirmDialog,
   toast,
 } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { cn, formatQty } from '@/lib/utils';
 import { Loader2, Trash2, Pencil, ChevronDown, X } from 'lucide-react';
 import { SiteSelector } from '@/components/SiteSelector';
 import { AddActivityModal } from '@/components/wizard/AddActivityModal';
@@ -323,11 +323,11 @@ function ActivitiesContent() {
                         {item.activity.activity_key}
                       </TableCell>
                       <TableCell className="text-foreground-muted">
-                        {item.activity.quantity.toLocaleString()} {item.activity.unit}
+                        {formatQty(item.activity.quantity)} {item.activity.unit}
                       </TableCell>
                       <TableCell className="text-right text-xs text-foreground-muted">
                         {item.emission?.factor_value
-                          ? `${item.emission.factor_value.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${item.emission.factor_unit || ''}`
+                          ? `${formatQty(item.emission.factor_value)} ${item.emission.factor_unit || ''}`
                           : '-'}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-foreground">

@@ -14,7 +14,7 @@ import { useWizardStore } from '@/stores/wizard';
 import type { ActivityCreate } from '@/lib/api';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e } from '@/lib/utils';
+import { formatCO2e, formatQty } from '@/lib/utils';
 import {
   Calculator,
   Save,
@@ -510,11 +510,11 @@ export function LeasedAssetsForm({ periodId, onSuccess }: LeasedAssetsFormProps)
             <div className="p-3 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-700">
                 <span className="font-medium">Estimated emissions:</span>{' '}
-                {((parseFloat(tenantScope1) || 0) + (parseFloat(tenantScope2) || 0)).toLocaleString()} kg CO2e
+                {formatQty((parseFloat(tenantScope1) || 0) + (parseFloat(tenantScope2) || 0))} kg CO2e
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Scope 1: {parseFloat(tenantScope1 || '0').toLocaleString()} kg +
-                Scope 2: {parseFloat(tenantScope2 || '0').toLocaleString()} kg
+                Scope 1: {formatQty(parseFloat(tenantScope1 || '0'))} kg +
+                Scope 2: {formatQty(parseFloat(tenantScope2 || '0'))} kg
               </p>
             </div>
           )}
@@ -569,25 +569,25 @@ export function LeasedAssetsForm({ periodId, onSuccess }: LeasedAssetsFormProps)
               <p className="text-xs text-foreground-muted mt-1">
                 {method === 'area' && floorArea && (
                   <>
-                    {floorArea.toLocaleString()} m² × ~{BUILDING_TYPES.find(b => b.key === buildingType)?.ef || 100} kg CO2e/m²/year
+                    {formatQty(floorArea)} m² × ~{formatQty(BUILDING_TYPES.find(b => b.key === buildingType)?.ef || 100)} kg CO2e/m²/year
                   </>
                 )}
                 {method === 'energy' && (
                   <>
-                    {electricityKwh ? `${electricityKwh.toLocaleString()} kWh electricity` : ''}
+                    {electricityKwh ? `${formatQty(electricityKwh)} kWh electricity` : ''}
                     {electricityKwh && gasKwh ? ' + ' : ''}
-                    {gasKwh ? `${gasKwh.toLocaleString()} kWh gas` : ''}
+                    {gasKwh ? `${formatQty(gasKwh)} kWh gas` : ''}
                   </>
                 )}
                 {method === 'spend' && spendAmount && (
                   <>
-                    {currency} {spendAmount.toLocaleString()} × EEIO factor
+                    {currency} {formatQty(spendAmount)} × EEIO factor
                   </>
                 )}
                 {method === 'tenant' && (
                   <>
-                    Scope 1: {parseFloat(tenantScope1 || '0').toLocaleString()} kg +
-                    Scope 2: {parseFloat(tenantScope2 || '0').toLocaleString()} kg (tenant reported)
+                    Scope 1: {formatQty(parseFloat(tenantScope1 || '0'))} kg +
+                    Scope 2: {formatQty(parseFloat(tenantScope2 || '0'))} kg (tenant reported)
                   </>
                 )}
               </p>

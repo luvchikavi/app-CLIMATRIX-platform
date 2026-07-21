@@ -15,7 +15,7 @@ import { useState, useMemo } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e } from '@/lib/utils';
+import { formatCO2e, formatQty } from '@/lib/utils';
 import { calculateSpendEmissions } from '@/lib/currency';
 import {
   Calculator,
@@ -145,7 +145,7 @@ export function FranchisesForm({ periodId, onSuccess }: FranchisesFormProps) {
         quantity,
         unit: unitLabel,
         co2e,
-        formula: `${quantity.toLocaleString()} ${unitLabel}${quantity !== 1 ? 's' : ''} x ${ef.toLocaleString()} kg CO2e/${unitLabel} = ${co2e.toLocaleString()} kg CO2e`,
+        formula: `${formatQty(quantity)} ${unitLabel}${quantity !== 1 ? 's' : ''} x ${formatQty(ef)} kg CO2e/${unitLabel} = ${formatQty(co2e)} kg CO2e`,
         efSource: 'EPA/DEFRA 2024',
       };
     }
@@ -171,7 +171,7 @@ export function FranchisesForm({ periodId, onSuccess }: FranchisesFormProps) {
         quantity: energy,
         unit: energyData.unit,
         co2e,
-        formula: `${energy.toLocaleString()} ${energyData.unit} x ${ef.toFixed(3)} kg CO2e/${energyData.unit} = ${co2e.toFixed(2)} kg CO2e`,
+        formula: `${formatQty(energy)} ${energyData.unit} x ${formatQty(ef)} kg CO2e/${energyData.unit} = ${co2e.toFixed(2)} kg CO2e`,
         efSource: energyType === 'fuel' ? 'DEFRA 2024' : 'IEA 2024',
       };
     }
@@ -201,7 +201,7 @@ export function FranchisesForm({ periodId, onSuccess }: FranchisesFormProps) {
         quantity: total,
         unit: 'kg CO2e',
         co2e: total,
-        formula: `Scope 1: ${s1.toLocaleString()} kg + Scope 2: ${s2.toLocaleString()} kg = ${total.toLocaleString()} kg CO2e`,
+        formula: `Scope 1: ${formatQty(s1)} kg + Scope 2: ${formatQty(s2)} kg = ${formatQty(total)} kg CO2e`,
         efSource: 'Franchisee reported (direct)',
       };
     }

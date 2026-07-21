@@ -15,7 +15,7 @@ import { useState, useEffect } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity, useActivityOptions } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e, num } from '@/lib/utils';
+import { formatCO2e, formatQty, num } from '@/lib/utils';
 import {
   Calculator,
   Save,
@@ -436,7 +436,7 @@ export function MobileCombustionForm({ periodId, onSuccess }: MobileCombustionFo
             <div className="flex items-center gap-2 text-info">
               <Info className="w-4 h-4" />
               <span>
-                Emission Factor: <strong>{selectedFactor.co2e_factor}</strong> kg CO2e/{selectedFactor.activity_unit}
+                Emission Factor: <strong>{formatQty(selectedFactor.co2e_factor)}</strong> kg CO2e/{selectedFactor.activity_unit}
               </span>
             </div>
             <div className="mt-1 text-info/80">
@@ -578,7 +578,7 @@ export function MobileCombustionForm({ periodId, onSuccess }: MobileCombustionFo
                     Calculated Quantity
                   </h4>
                   <p className="text-2xl font-bold text-success mt-1">
-                    {quantity.toLocaleString()} {selectedFactor.activity_unit}
+                    {formatQty(quantity)} {selectedFactor.activity_unit}
                   </p>
                   {(() => {
                     const isCustomPrice = systemPrice !== null && unitPrice !== systemPrice;
@@ -589,13 +589,13 @@ export function MobileCombustionForm({ periodId, onSuccess }: MobileCombustionFo
                       const rate = convertCurrency(1, currency, effectivePriceCurrency);
                       return (
                         <p className="text-xs text-success/80 mt-1">
-                          {spendAmount} {currency} × {rate.toFixed(4)} = {convertedSpend.toFixed(2)} {effectivePriceCurrency} ÷ {unitPrice} = {quantity} {selectedFactor.activity_unit}
+                          {formatQty(spendAmount)} {currency} × {formatQty(rate)} = {convertedSpend.toFixed(2)} {effectivePriceCurrency} ÷ {formatQty(unitPrice)} = {formatQty(quantity)} {selectedFactor.activity_unit}
                         </p>
                       );
                     }
                     return (
                       <p className="text-xs text-success/80 mt-1">
-                        {spendAmount} {currency} ÷ {unitPrice} {effectivePriceCurrency}/{selectedFactor.activity_unit} = {quantity} {selectedFactor.activity_unit}
+                        {formatQty(spendAmount)} {currency} ÷ {formatQty(unitPrice)} {effectivePriceCurrency}/{selectedFactor.activity_unit} = {formatQty(quantity)} {selectedFactor.activity_unit}
                       </p>
                     );
                   })()}
@@ -610,7 +610,7 @@ export function MobileCombustionForm({ periodId, onSuccess }: MobileCombustionFo
               <h4 className="font-medium text-primary">Estimated Emissions</h4>
               <p className="text-2xl font-bold text-primary">{formatCO2e(previewCO2e)}</p>
               <p className="text-xs text-primary/80 mt-1">
-                {quantity} {selectedFactor.activity_unit} × {selectedFactor.co2e_factor} kg CO2e/{selectedFactor.activity_unit}
+                {formatQty(quantity)} {selectedFactor.activity_unit} × {formatQty(selectedFactor.co2e_factor)} kg CO2e/{selectedFactor.activity_unit}
               </p>
             </div>
           )}

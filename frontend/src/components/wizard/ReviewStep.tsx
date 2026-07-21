@@ -5,7 +5,7 @@ import { useCreateActivity } from '@/hooks/useEmissions';
 import { Check, Loader2, AlertCircle, Plus, Trash2, Info, Package } from 'lucide-react';
 import { useState } from 'react';
 import { Button, Card, ScopeBadge } from '@/components/ui';
-import { formatCO2e, num } from '@/lib/utils';
+import { formatCO2e, formatQty, num } from '@/lib/utils';
 
 interface ReviewStepProps {
   periodId: string;
@@ -177,13 +177,13 @@ export function ReviewStep({ periodId, onSuccess }: ReviewStepProps) {
           <div>
             <span className="text-sm text-foreground-muted">Quantity</span>
             <p className="font-semibold text-foreground">
-              {entry.quantity?.toLocaleString()} {entry.unit}
+              {formatQty(entry.quantity)} {entry.unit}
             </p>
           </div>
           <div>
             <span className="text-sm text-foreground-muted">Emission Factor</span>
             <p className="font-semibold text-foreground">
-              {selectedFactor?.co2e_factor} {selectedFactor?.factor_unit || `kg CO2e/${entry.unit}`}
+              {formatQty(selectedFactor?.co2e_factor)} {selectedFactor?.factor_unit || `kg CO2e/${entry.unit}`}
             </p>
           </div>
         </div>
@@ -209,7 +209,7 @@ export function ReviewStep({ periodId, onSuccess }: ReviewStepProps) {
             <span className="text-xl font-bold text-primary">{formatCO2e(previewCO2e)}</span>
           </div>
           <p className="text-xs text-foreground-muted mt-1 font-mono">
-            {entry.quantity} {entry.unit} x {selectedFactor?.co2e_factor} = {previewCO2e.toFixed(2)} kg CO2e
+            {formatQty(entry.quantity)} {entry.unit} x {formatQty(selectedFactor?.co2e_factor)} = {previewCO2e.toFixed(2)} kg CO2e
           </p>
         </div>
       </Card>
@@ -239,7 +239,7 @@ export function ReviewStep({ periodId, onSuccess }: ReviewStepProps) {
                   <ScopeBadge scope={e.scope} size="sm" />
                   <span className="font-medium">{e.display_name || e.activity_key}</span>
                   <span className="text-foreground-muted">
-                    {e.quantity?.toLocaleString()} {e.unit}
+                    {formatQty(e.quantity)} {e.unit}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">

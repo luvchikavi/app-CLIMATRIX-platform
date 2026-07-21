@@ -13,7 +13,7 @@ import { useState, useMemo } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input, toast } from '@/components/ui';
-import { formatCO2e } from '@/lib/utils';
+import { formatCO2e, formatQty } from '@/lib/utils';
 import { calculateSpendEmissions } from '@/lib/currency';
 import {
   Calculator,
@@ -162,7 +162,7 @@ export function TransportForm({ periodId, onSuccess }: TransportFormProps) {
         quantity: tonneKm,
         unit: 'tonne-km',
         co2e,
-        formula: `${tonneKm.toFixed(2)} tonne-km × ${mode.efEstimate.toFixed(5)} kg/tonne-km = ${co2e.toFixed(2)} kg CO2e`,
+        formula: `${tonneKm.toFixed(2)} tonne-km × ${formatQty(mode.efEstimate)} kg/tonne-km = ${co2e.toFixed(2)} kg CO2e`,
         efSource: 'DEFRA 2024',
       };
     }
@@ -192,7 +192,7 @@ export function TransportForm({ periodId, onSuccess }: TransportFormProps) {
         quantity: tonneKm,
         unit: 'tonne-km',
         co2e,
-        formula: `${tonneKm.toFixed(2)} tonne-km × ${ef.toFixed(5)} kg/tonne-km = ${co2e.toFixed(2)} kg CO2e`,
+        formula: `${tonneKm.toFixed(2)} tonne-km × ${formatQty(ef)} kg/tonne-km = ${co2e.toFixed(2)} kg CO2e`,
         efSource: 'User-provided (Supplier)',
         supplierEf: ef,
       };
@@ -316,28 +316,28 @@ export function TransportForm({ periodId, onSuccess }: TransportFormProps) {
               <optgroup label="Road">
                 {DISTANCE_MODES.filter(m => m.key.startsWith('road')).map((mode) => (
                   <option key={mode.key} value={mode.key}>
-                    {mode.label} (~{mode.efEstimate.toFixed(4)} kg/t-km)
+                    {mode.label} (~{formatQty(mode.efEstimate)} kg/t-km)
                   </option>
                 ))}
               </optgroup>
               <optgroup label="Rail">
                 {DISTANCE_MODES.filter(m => m.key === 'rail').map((mode) => (
                   <option key={mode.key} value={mode.key}>
-                    {mode.label} (~{mode.efEstimate.toFixed(4)} kg/t-km)
+                    {mode.label} (~{formatQty(mode.efEstimate)} kg/t-km)
                   </option>
                 ))}
               </optgroup>
               <optgroup label="Sea">
                 {DISTANCE_MODES.filter(m => m.key.startsWith('sea')).map((mode) => (
                   <option key={mode.key} value={mode.key}>
-                    {mode.label} (~{mode.efEstimate.toFixed(4)} kg/t-km)
+                    {mode.label} (~{formatQty(mode.efEstimate)} kg/t-km)
                   </option>
                 ))}
               </optgroup>
               <optgroup label="Air">
                 {DISTANCE_MODES.filter(m => m.key.startsWith('air')).map((mode) => (
                   <option key={mode.key} value={mode.key}>
-                    {mode.label} (~{mode.efEstimate.toFixed(4)} kg/t-km)
+                    {mode.label} (~{formatQty(mode.efEstimate)} kg/t-km)
                   </option>
                 ))}
               </optgroup>
@@ -464,7 +464,7 @@ export function TransportForm({ periodId, onSuccess }: TransportFormProps) {
           {tonneKm > 0 && (
             <div className="p-3 bg-white rounded-lg border">
               <span className="text-sm text-foreground-muted">Calculated: </span>
-              <span className="font-medium">{tonneKm.toLocaleString()} tonne-km</span>
+              <span className="font-medium">{formatQty(tonneKm)} tonne-km</span>
               <span className="text-xs text-foreground-muted ml-2">
                 ({weightTonnes} tonnes × {distanceKm} km)
               </span>
@@ -566,7 +566,7 @@ export function TransportForm({ periodId, onSuccess }: TransportFormProps) {
           {tonneKm > 0 && (
             <div className="p-3 bg-white rounded-lg border">
               <span className="text-sm text-foreground-muted">Calculated: </span>
-              <span className="font-medium">{tonneKm.toLocaleString()} tonne-km</span>
+              <span className="font-medium">{formatQty(tonneKm)} tonne-km</span>
             </div>
           )}
         </div>

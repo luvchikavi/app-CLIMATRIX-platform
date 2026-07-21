@@ -23,7 +23,7 @@ import {
   StagedRow,
   ClarificationQuestion,
 } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, formatQty } from '@/lib/utils';
 import { Loader2, Lock } from 'lucide-react';
 
 const BAND: Record<string, { dot: string; text: string; label: string }> = {
@@ -709,7 +709,7 @@ function RowStory({ row }: { row: StagedRow }) {
           )}
           {d.gcd_km != null && d.uplift != null && (
             <span className="rounded-full bg-cy-surface px-2.5 py-0.5 text-[11px] font-semibold text-cy-muted">
-              {Math.round(d.gcd_km).toLocaleString()} km great-circle × {d.uplift} uplift
+              {Math.round(d.gcd_km).toLocaleString()} km great-circle × {formatQty(d.uplift)} uplift
             </span>
           )}
           {d.round_trip != null && (
@@ -880,7 +880,7 @@ function ReviewGrid({
                   )}
                 </td>
                 <td className="py-2.5 pr-3 tabular-nums text-cy-muted">
-                  {r.quantity != null ? `${r.quantity} ${r.unit ?? ''}` : '—'}
+                  {r.quantity != null ? `${formatQty(r.quantity)} ${r.unit ?? ''}` : '—'}
                 </td>
                 <td className="py-2.5 pr-3">
                   <span className={cn('text-[12px] font-semibold tabular-nums', b.text)}>

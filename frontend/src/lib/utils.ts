@@ -88,6 +88,26 @@ export function formatNumber(value: number, decimals: number = 0): string {
 }
 
 /**
+ * Display-format a quantity/measurement: thousands separator, at most 2
+ * decimal places, no forced trailing zeros. Accepts API decimal strings.
+ * Use for any raw value shown to the user (quantities, kg, factors) so
+ * float noise like 58009.844000000005 never reaches the UI.
+ */
+export function formatQty(value: number | string | null | undefined): string {
+  const n = num(value);
+  const abs = Math.abs(n);
+  if (abs > 0 && abs < 0.01) {
+    // tiny factors (0.0042 kg CO2e/unit) must not collapse to "0"
+    return new Intl.NumberFormat("en-US", {
+      maximumSignificantDigits: 2,
+    }).format(n);
+  }
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+  }).format(n);
+}
+
+/**
  * Compact money: $850 · $18K · $17.6M (never $17600K). Accepts API decimal
  * strings.
  */

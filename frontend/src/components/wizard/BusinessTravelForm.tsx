@@ -14,7 +14,7 @@ import { useWizardStore } from '@/stores/wizard';
 import type { ActivityCreate } from '@/lib/api';
 import { useCreateActivity, useFlightDistance } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e } from '@/lib/utils';
+import { formatCO2e, formatQty } from '@/lib/utils';
 import {
   Calculator,
   Save,
@@ -545,7 +545,7 @@ export function BusinessTravelForm({ periodId, onSuccess }: BusinessTravelFormPr
                         → {distanceCalcResult.destName}
                       </p>
                       <p className="mt-2">
-                        <span className="text-lg font-bold text-primary">{distanceCalcResult.distance.toLocaleString()} km</span>
+                        <span className="text-lg font-bold text-primary">{formatQty(distanceCalcResult.distance)} km</span>
                         <span className="text-xs text-foreground-muted ml-2">
                           {distanceCalcResult.haulType === 'domestic' ? (
                             <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">Domestic</span>

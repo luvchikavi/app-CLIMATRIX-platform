@@ -11,7 +11,7 @@ import {
   type StatCell,
 } from '@/components/canopy';
 import { Badge, ScopeBadge, DataQualityBadge, Button } from '@/components/ui';
-import { formatCO2e, formatNumber, formatDate, categoryNames } from '@/lib/utils';
+import { formatCO2e, formatNumber, formatDate, formatQty, categoryNames } from '@/lib/utils';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { AuditPackage } from '@/lib/api';
 
@@ -73,7 +73,7 @@ const factorColumns: CanopyColumn<EmissionFactorRow>[] = [
     key: 'value',
     header: 'Value',
     align: 'right',
-    render: (factor) => `${factor.co2e_factor.toFixed(4)} ${factor.factor_unit}`,
+    render: (factor) => `${formatQty(factor.co2e_factor)} ${factor.factor_unit}`,
   },
   {
     key: 'uses',
@@ -286,7 +286,7 @@ export function AuditPackageView({ auditPackage, onDownload }: AuditPackageViewP
                           </div>
                           <div className="space-y-1.5">
                             <DetailKv label="Emission factor">
-                              {activity.emission_factor_value} {activity.emission_factor_unit}
+                              {formatQty(activity.emission_factor_value)} {activity.emission_factor_unit}
                             </DetailKv>
                             {activity.calculation_formula && (
                               <DetailKv label="Formula">

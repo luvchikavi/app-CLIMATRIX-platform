@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/Table';
 import { toast } from '@/components/ui';
 import { api } from '@/lib/api';
+import { formatQty } from '@/lib/utils';
 import type { CBAMDataRequest, CBAMInstallation } from '@/lib/types';
 import { Factory, Globe, Mail, Send, X, CheckCircle2, ShieldCheck } from 'lucide-react';
 
@@ -116,9 +117,9 @@ export function CBAMSuppliers() {
           <div key={row.id} className="flex items-center gap-1.5 text-xs">
             <span className="font-mono">{row.cn_code}</span>
             <span>
-              {Number(row.direct_see_tco2e_per_t).toFixed(3)}
+              {formatQty(row.direct_see_tco2e_per_t)}
               {row.indirect_see_tco2e_per_t != null &&
-                ` + ${Number(row.indirect_see_tco2e_per_t).toFixed(3)}`}{' '}
+                ` + ${formatQty(row.indirect_see_tco2e_per_t)}`}{' '}
               tCO₂e/t
             </span>
             {row.verified && (

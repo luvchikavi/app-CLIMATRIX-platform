@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ImportBatch } from '@/lib/api';
 import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmDialog } from '@/components/ui';
 import { FileSpreadsheet, CheckCircle, AlertCircle, Clock, Trash2, ChevronDown, ChevronUp, Eye } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatQty } from '@/lib/utils';
 
 // Simple relative time formatter (no external dependency)
 function formatRelativeTime(dateString: string): string {
@@ -239,7 +239,7 @@ export function ImportHistory({ periodId, limit = 10 }: ImportHistoryProps) {
                           >
                             <span className="font-medium">{activity.description || activity.activity_key}</span>
                             <span className="text-foreground-muted">
-                              {activity.quantity} {activity.unit}
+                              {formatQty(activity.quantity)} {activity.unit}
                             </span>
                           </div>
                         ))}

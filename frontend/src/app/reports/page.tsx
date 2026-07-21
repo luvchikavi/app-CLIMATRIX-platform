@@ -39,7 +39,7 @@ import {
   VerifierInvitePanel,
 } from '@/components/reports';
 import { api, CategorySummary } from '@/lib/api';
-import { categoryNames, downloadFile } from '@/lib/utils';
+import { categoryNames, downloadFile, formatQty } from '@/lib/utils';
 import type { PeriodStatus, AssuranceLevel } from '@/lib/api';
 import { Loader2 } from 'lucide-react';
 
@@ -259,7 +259,7 @@ export default function ReportsPage() {
       key: 'quantity',
       header: 'Quantity',
       align: 'right',
-      render: (i) => `${i.activity.quantity.toLocaleString()} ${i.activity.unit}`,
+      render: (i) => `${formatQty(i.activity.quantity)} ${i.activity.unit}`,
     },
     {
       key: 'co2e',

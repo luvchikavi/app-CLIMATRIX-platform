@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { api } from '@/lib/api';
+import { formatQty } from '@/lib/utils';
 import type { CBAMEmissionCalculationResult, CBAMCNCode } from '@/lib/types';
 import { Calculator, AlertTriangle, CheckCircle, Info, Search } from 'lucide-react';
 
@@ -267,7 +268,7 @@ export function CBAMCalculator() {
                     <div>
                       <p className="text-sm text-foreground-muted">Total Emissions</p>
                       <p className="text-xl font-bold text-primary">
-                        {result.summary.total_emissions_tco2e.toFixed(3)} tCO2e
+                        {formatQty(result.summary.total_emissions_tco2e)} tCO2e
                       </p>
                     </div>
                   </div>
@@ -279,15 +280,15 @@ export function CBAMCalculator() {
                   <div className="grid grid-cols-3 gap-4 text-sm">
                     <div className="bg-background-muted rounded p-3">
                       <p className="text-foreground-muted">Direct</p>
-                      <p className="font-semibold">{result.embedded_emissions.direct_see.toFixed(4)} tCO2e/t</p>
+                      <p className="font-semibold">{formatQty(result.embedded_emissions.direct_see)} tCO2e/t</p>
                     </div>
                     <div className="bg-background-muted rounded p-3">
                       <p className="text-foreground-muted">Indirect</p>
-                      <p className="font-semibold">{result.embedded_emissions.indirect_see.toFixed(4)} tCO2e/t</p>
+                      <p className="font-semibold">{formatQty(result.embedded_emissions.indirect_see)} tCO2e/t</p>
                     </div>
                     <div className="bg-primary/10 rounded p-3">
                       <p className="text-foreground-muted">Total</p>
-                      <p className="font-semibold">{result.embedded_emissions.total_see.toFixed(4)} tCO2e/t</p>
+                      <p className="font-semibold">{formatQty(result.embedded_emissions.total_see)} tCO2e/t</p>
                     </div>
                   </div>
                 </div>
@@ -299,19 +300,19 @@ export function CBAMCalculator() {
                     <div className="flex justify-between items-center">
                       <span className="text-foreground-muted">Direct Emissions</span>
                       <span className="font-medium">
-                        {result.embedded_emissions.direct_emissions_tco2e.toFixed(3)} tCO2e
+                        {formatQty(result.embedded_emissions.direct_emissions_tco2e)} tCO2e
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-foreground-muted">Indirect Emissions</span>
                       <span className="font-medium">
-                        {result.embedded_emissions.indirect_emissions_tco2e.toFixed(3)} tCO2e
+                        {formatQty(result.embedded_emissions.indirect_emissions_tco2e)} tCO2e
                       </span>
                     </div>
                     <div className="flex justify-between items-center pt-2 border-t">
                       <span className="font-medium">Total Embedded Emissions</span>
                       <span className="font-bold text-primary">
-                        {result.embedded_emissions.total_emissions_tco2e.toFixed(3)} tCO2e
+                        {formatQty(result.embedded_emissions.total_emissions_tco2e)} tCO2e
                       </span>
                     </div>
                   </div>
@@ -329,12 +330,12 @@ export function CBAMCalculator() {
                       <div className="flex justify-between">
                         <span className="text-foreground-muted">Deduction</span>
                         <span className="text-success">
-                          -{result.carbon_price_deduction.deduction_tco2e.toFixed(3)} tCO2e
+                          -{formatQty(result.carbon_price_deduction.deduction_tco2e)} tCO2e
                         </span>
                       </div>
                       <div className="flex justify-between font-medium pt-2 border-t">
                         <span>Net Emissions</span>
-                        <span>{result.carbon_price_deduction.net_emissions_tco2e.toFixed(3)} tCO2e</span>
+                        <span>{formatQty(result.carbon_price_deduction.net_emissions_tco2e)} tCO2e</span>
                       </div>
                     </div>
                   </div>

@@ -31,7 +31,7 @@ import type { EpdDetail, EpdResults, EpdStatus } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import { EPD_STATUS_ORDER, EPD_STATUS_META, TRANSITION_LABEL, PROGRAM_OPERATORS } from '@/lib/epd';
 import { EN15804_MODULE_OPTIONS, STAGE_META, UNIT_SHORT } from '@/lib/pcf';
-import { cn, num } from '@/lib/utils';
+import { cn, num, formatQty } from '@/lib/utils';
 import {
   ArrowLeft,
   Check,
@@ -51,7 +51,7 @@ function fmtVal(v: number): string {
   if (v === 0) return '—';
   const a = Math.abs(v);
   if (a >= 100) return v.toFixed(1);
-  if (a >= 0.01) return v.toFixed(3);
+  if (a >= 0.01) return formatQty(v);
   return v.toExponential(2);
 }
 
