@@ -54,7 +54,8 @@ class VerifierInviteBody(BaseModel):
 
 class VerifierAccessOut(BaseModel):
     id: UUID
-    reporting_period_id: UUID
+    reporting_period_id: Optional[UUID] = None
+    epd_project_id: Optional[UUID] = None
     verifier_email: str
     verifier_name: Optional[str]
     status: str
@@ -126,6 +127,7 @@ def _access_out(a: VerifierAccess) -> VerifierAccessOut:
     return VerifierAccessOut(
         id=a.id,
         reporting_period_id=a.reporting_period_id,
+        epd_project_id=a.epd_project_id,
         verifier_email=a.verifier_email,
         verifier_name=a.verifier_name,
         status=a.status,
@@ -271,6 +273,15 @@ async def _resolve_token(
     return access
 
 
+def _require_period_scope(access: VerifierAccess) -> None:
+    """EPD-scoped tokens (epd_project_id set) must not open the period
+    surface — /verify/{token}/epd serves them instead."""
+    if access.reporting_period_id is None:
+        raise HTTPException(
+            status_code=404, detail="This link is not a period verification link."
+        )
+
+
 @router.get("/verify/{token}", response_model=VerifierPeriodOut)
 async def verifier_period(
     token: str,
@@ -278,6 +289,7 @@ async def verifier_period(
 ):
     """Landing summary for the verifier: org, period, assurance, totals."""
     access = await _resolve_token(token, session, touch=True)
+    _require_period_scope(access)
     org = await session.get(Organization, access.organization_id)
     period = await session.get(ReportingPeriod, access.reporting_period_id)
     if org is None or period is None:
@@ -333,6 +345,7 @@ async def verifier_inventory(
     """Every inventory line with its full traceability (source → factor →
     method → result). This per-line derivation trail is the differentiator."""
     access = await _resolve_token(token, session)
+    _require_period_scope(access)
     from app.models.core import Site
 
     result = await session.execute(
@@ -390,6 +403,7 @@ async def verifier_audit_log(
 ):
     """The org's audit trail — the immutable record of who changed what."""
     access = await _resolve_token(token, session)
+    _require_period_scope(access)
     rows = (
         (
             await session.execute(

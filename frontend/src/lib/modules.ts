@@ -85,11 +85,11 @@ export const MODULE_REGISTRY: ModuleDef[] = [
   {
     id: 'epd',
     name: 'EPD',
-    href: '/modules/epd',
+    href: '/epd',
     icon: FileStack,
-    status: 'coming-soon',
+    status: 'beta',
     blurb: 'EN 15804+A2 Environmental Product Declarations, verification-ready.',
-    features: ['EN 15804+A2 results matrix', 'Digital EPD (ILCD+EPD)', 'Verification workflow', 'Program-operator submission'],
+    features: ['EN 15804+A2 results matrix', 'Digital EPD (ILCD+EPD)', 'Verification workflow', '5-year validity tracking'],
   },
 ];
 

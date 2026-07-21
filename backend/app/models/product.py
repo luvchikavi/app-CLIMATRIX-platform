@@ -36,6 +36,18 @@ class FootprintStatus(str, Enum):
     FINAL = "final"
 
 
+class EPDStatus(str, Enum):
+    """ISO 14025 declaration lifecycle. Transitions move one step at a time
+    (enforced in services/epd.py); published EPDs expire after 5 years."""
+
+    DRAFT = "draft"
+    INTERNAL_REVIEW = "internal_review"
+    VERIFICATION = "verification"
+    REGISTERED = "registered"
+    PUBLISHED = "published"
+    EXPIRED = "expired"
+
+
 class Product(SQLModel, table=True):
     """An org's product/SKU whose footprint is modeled per declared unit."""
 
@@ -159,3 +171,59 @@ class ProductFootprint(SQLModel, table=True):
     finalized_at: Optional[datetime] = Field(default=None)
     created_by: Optional[UUID] = Field(default=None, foreign_key="users.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class EPDProject(SQLModel, table=True):
+    """An Environmental Product Declaration in preparation (ISO 14025).
+
+    Climatrix prepares the EPD — models the product, computes the EN 15804
+    results matrix, generates the declaration documents, runs the
+    verification workflow. Issuing/publishing stays with the program
+    operator + third-party verifier (same insight as the verifier portal:
+    we don't replace the auditor, we make the audit frictionless).
+
+    `results` is a frozen copy of the pinned footprint's PCF totals +
+    lca_results, captured when the project leaves draft — from that moment
+    the declaration content is version-stable regardless of later
+    recomputes on the product.
+    """
+
+    __tablename__ = "epd_projects"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+    product_id: UUID = Field(foreign_key="products.id", index=True)
+    # The finalized footprint snapshot this EPD version pins to.
+    footprint_id: Optional[UUID] = Field(
+        default=None, foreign_key="product_footprints.id"
+    )
+    name: str = Field(max_length=255)
+    # Product Category Rules — EN 15804+A2 first; PCR registry table later.
+    pcr: str = Field(default="EN 15804+A2", max_length=100)
+    program_operator: Optional[str] = Field(default=None, max_length=255)
+    declared_unit: str = Field(default="kilogram", max_length=30)
+    declared_unit_amount: Decimal = Field(default=Decimal("1"))
+    # Optional functional unit (declared unit suffices for cradle-to-gate).
+    functional_unit: Optional[str] = Field(default=None, max_length=255)
+    # Reference service life — required when B modules are declared.
+    rsl_years: Optional[int] = Field(default=None, ge=1, le=200)
+    # EN 15804 modules declared in scope (JSON list, e.g. A1-A3 + C + D).
+    scope_modules: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
+    status: str = Field(
+        default="draft",
+        sa_column=SAColumn("status", SAString(30), default="draft", nullable=False),
+    )
+    version: int = Field(default=1)
+    # Frozen results (PCF totals + LCA matrix) — set when leaving draft.
+    results: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    results_frozen_at: Optional[datetime] = Field(default=None)
+    registration_number: Optional[str] = Field(default=None, max_length=100)
+    registered_at: Optional[datetime] = Field(default=None)
+    published_at: Optional[datetime] = Field(default=None)
+    # ISO 14025 / EN 15804: 5-year validity from publication.
+    valid_until: Optional[date] = Field(default=None)
+    verifier_statement: Optional[str] = Field(default=None, max_length=2000)
+    notes: Optional[str] = Field(default=None, max_length=2000)
+    created_by: Optional[UUID] = Field(default=None, foreign_key="users.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(default=None)

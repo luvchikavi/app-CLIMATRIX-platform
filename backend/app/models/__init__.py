@@ -82,6 +82,8 @@ from app.models.ingestion import (
 from app.models.crm import Lead
 from app.models.hub import CategoryProfile, CategoryRelevance, ExpectedDataForm
 from app.models.product import (
+    EPDProject,
+    EPDStatus,
     Product,
     ProductInput,
     ProductInputType,
@@ -172,6 +174,8 @@ __all__ = [
     "CategoryRelevance",
     "ExpectedDataForm",
     # PCF (product carbon footprint)
+    "EPDProject",
+    "EPDStatus",
     "Product",
     "ProductInput",
     "ProductInputType",
