@@ -284,19 +284,27 @@ class ReportingPeriod(ReportingPeriodBase, table=True):
 class VerifierAccess(SQLModel, table=True):
     """A scoped, read-only grant for an external verifier (VVB/auditor).
 
-    The token IS the credential — no login. It unlocks exactly ONE reporting
-    period's verification surface (inventory + per-line provenance + audit log
-    + evidence package) for ONE organization, read-only, and nothing else.
-    This isolation is why the verifier portal is a separate token-gated surface
-    rather than a role inside the main app: there is no path from the token to
-    another org, another period, or any write.
+    The token IS the credential — no login. It unlocks exactly ONE scope —
+    a reporting period's verification surface (inventory + per-line provenance
+    + audit log + evidence package) OR one EPD project (the same play one
+    level down: product instead of org) — for ONE organization, read-only,
+    and nothing else. This isolation is why the verifier portal is a separate
+    token-gated surface rather than a role inside the main app: there is no
+    path from the token to another org, another scope, or any write.
     """
 
     __tablename__ = "verifier_access"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     organization_id: UUID = Field(foreign_key="organizations.id", index=True)
-    reporting_period_id: UUID = Field(foreign_key="reporting_periods.id", index=True)
+    # Exactly one of the two scopes is set: a reporting period (corporate
+    # verification) or an EPD project (product declaration verification).
+    reporting_period_id: Optional[UUID] = Field(
+        default=None, foreign_key="reporting_periods.id", index=True
+    )
+    epd_project_id: Optional[UUID] = Field(
+        default=None, foreign_key="epd_projects.id", index=True
+    )
     # Opaque URL-safe token, the sole credential for the portal.
     token: str = Field(max_length=64, unique=True, index=True)
 
