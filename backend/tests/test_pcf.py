@@ -641,3 +641,123 @@ async def test_trial_can_compute_but_not_export(
 async def test_products_require_auth(client: AsyncClient):
     resp = await client.get("/api/products")
     assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_delete_product_with_bom_and_footprint_under_fk_enforcement():
+    """Prod-parity regression: PostgreSQL enforces FKs, the default test
+    SQLite doesn't — deleting a product with BOM lines + footprints 500'd
+    on prod while tests stayed green. This test turns PRAGMA foreign_keys
+    ON so the delete order is actually exercised."""
+    from decimal import Decimal as D
+
+    from httpx import ASGITransport
+    from sqlalchemy import event
+    from sqlalchemy.ext.asyncio import (
+        AsyncSession,
+        async_sessionmaker,
+        create_async_engine,
+    )
+    from sqlmodel import SQLModel
+
+    from app.api.auth import create_access_token, get_password_hash
+    from app.database import get_session
+    from app.main import app
+    from app.models.core import Organization, ReportingPeriod, User, UserRole
+    from app.models.emission import EmissionFactor
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _fk_on(dbapi_conn, _):
+        dbapi_conn.execute("PRAGMA foreign_keys=ON")
+
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+
+    maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with maker() as session:
+        org = Organization(
+            id=uuid4(),
+            name="FK Org",
+            country_code="US",
+            default_region="US",
+            subscription_plan="professional",
+            subscription_status="active",
+        )
+        user = User(
+            id=uuid4(),
+            email="fk@example.com",
+            hashed_password=get_password_hash("fk-password-123"),
+            full_name="FK User",
+            organization_id=org.id,
+            role=UserRole.ADMIN,
+            is_active=True,
+        )
+        period = ReportingPeriod(
+            id=uuid4(),
+            organization_id=org.id,
+            name="FY2025",
+            start_date=datetime(2025, 1, 1),
+            end_date=datetime(2025, 12, 31),
+        )
+        factor = EmissionFactor(
+            id=uuid4(),
+            activity_key="natural_gas_kwh",
+            display_name="Natural Gas (kWh)",
+            scope=1,
+            category_code="1.1",
+            co2e_factor=D("0.183"),
+            activity_unit="kWh",
+            factor_unit="kg CO2e/kWh",
+            source="DEFRA_2024",
+            region="Global",
+            year=2024,
+            status="approved",
+        )
+        session.add_all([org, user, period, factor])
+        await session.commit()
+
+        async def override_get_session():
+            yield session
+
+        app.dependency_overrides[get_session] = override_get_session
+        try:
+            token = create_access_token(
+                data={
+                    "sub": str(user.id),
+                    "org_id": str(org.id),
+                    "role": user.role.value,
+                },
+                expires_delta=timedelta(hours=1),
+            )
+            headers = {"Authorization": f"Bearer {token}"}
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as ac:
+                product = await _make_product(ac, headers)
+                r = await ac.post(
+                    f"/api/products/{product['id']}/inputs",
+                    headers=headers,
+                    json={
+                        "input_type": "energy",
+                        "name": "Gas",
+                        "quantity_per_unit": "2",
+                        "unit": "kWh",
+                        "activity_key": "natural_gas_kwh",
+                    },
+                )
+                assert r.status_code == 200, r.text
+                r = await ac.post(
+                    f"/api/products/{product['id']}/footprint",
+                    headers=headers,
+                    params={"period_id": str(period.id)},
+                )
+                assert r.status_code == 200, r.text
+
+                r = await ac.delete(f"/api/products/{product['id']}", headers=headers)
+                assert r.status_code == 200, r.text
+                r = await ac.get(f"/api/products/{product['id']}", headers=headers)
+                assert r.status_code == 404
+        finally:
+            app.dependency_overrides.clear()
+    await engine.dispose()
