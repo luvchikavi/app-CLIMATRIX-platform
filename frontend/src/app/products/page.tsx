@@ -14,7 +14,7 @@ import {
   useUploadSupplierPact,
   useDeleteSupplierPcf,
 } from '@/hooks/useProducts';
-import { num, cn } from '@/lib/utils';
+import { num, cn, formatQty } from '@/lib/utils';
 import { DECLARED_UNITS, UNIT_SHORT } from '@/lib/pcf';
 import { Package, Plus, Loader2, Upload, Trash2, X, FileCheck2 } from 'lucide-react';
 
@@ -202,7 +202,7 @@ function SupplierPcfPanel() {
                 <td className="py-2.5 pr-3 font-semibold text-cy-ink">{s.supplier_name}</td>
                 <td className="py-2.5 pr-3 text-cy-muted">{s.product_name}</td>
                 <td className="py-2.5 pr-3 tabular-nums text-cy-muted">
-                  {num(s.pcf_value).toFixed(3)} kg CO2e/{s.unit}
+                  {formatQty(s.pcf_value)} kg CO2e/{s.unit}
                 </td>
                 <td className="py-2.5 pr-3">
                   <span className={cn(
@@ -282,7 +282,7 @@ export default function ProductsPage() {
                       {p.sku && <div className="text-[11.5px] text-cy-faint">{p.sku}</div>}
                     </td>
                     <td className="px-3 py-3 text-cy-muted">
-                      {num(p.declared_unit_amount)} {UNIT_SHORT[p.declared_unit] ?? p.declared_unit}
+                      {formatQty(p.declared_unit_amount)} {UNIT_SHORT[p.declared_unit] ?? p.declared_unit}
                     </td>
                     <td className="px-3 py-3 tabular-nums text-cy-muted">{p.input_count}</td>
                     <td className="px-3 py-3 tabular-nums text-cy-ink">

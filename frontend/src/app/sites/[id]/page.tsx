@@ -30,7 +30,7 @@ import {
 import { Surface, PanelLabel, StatCells } from '@/components/canopy';
 import { ScopePieChart } from '@/components/dashboard/ScopePieChart';
 import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown';
-import { formatCO2e } from '@/lib/utils';
+import { formatCO2e, formatQty } from '@/lib/utils';
 import { api } from '@/lib/api';
 import {
   ArrowLeft,
@@ -241,7 +241,7 @@ function SiteDetailContent() {
                           {item.activity.description}
                         </TableCell>
                         <TableCell className="text-foreground-muted">
-                          {item.activity.quantity.toLocaleString()} {item.activity.unit}
+                          {formatQty(item.activity.quantity)} {item.activity.unit}
                         </TableCell>
                         <TableCell className="text-right font-semibold text-foreground">
                           {item.emission?.co2e_kg.toLocaleString(undefined, { maximumFractionDigits: 2 })}

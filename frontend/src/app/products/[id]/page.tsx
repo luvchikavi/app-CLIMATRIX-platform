@@ -19,7 +19,7 @@ import { useEmissionFactors, usePeriods } from '@/hooks/useEmissions';
 import { useEpds, useCreateEpd } from '@/hooks/useEpd';
 import { EPD_STATUS_META } from '@/lib/epd';
 import { usePeriodStore } from '@/stores/period';
-import { num, cn } from '@/lib/utils';
+import { num, cn, formatQty } from '@/lib/utils';
 import {
   CRADLE_TO_GATE_MODULES,
   EN15804_MODULE_OPTIONS,
@@ -57,7 +57,7 @@ function fmtLcaValue(v: number): string {
   if (v === 0) return '—';
   const a = Math.abs(v);
   if (a >= 100) return v.toFixed(1);
-  if (a >= 0.01) return v.toFixed(3);
+  if (a >= 0.01) return formatQty(v);
   return v.toExponential(2);
 }
 
@@ -310,7 +310,7 @@ function FootprintResults({
               </span>
             )}
             {footprint.biogenic_kgco2e_per_unit != null && (
-              <span>Biogenic (reported separately): {num(footprint.biogenic_kgco2e_per_unit).toFixed(3)} kg</span>
+              <span>Biogenic (reported separately): {formatQty(footprint.biogenic_kgco2e_per_unit)} kg</span>
             )}
           </div>
         </div>
@@ -376,7 +376,7 @@ function FootprintResults({
                     </td>
                     <td className="py-2.5 pr-3 text-cy-muted">{line.en15804_module}</td>
                     <td className="py-2.5 pr-3 tabular-nums text-cy-muted">
-                      {line.quantity_per_unit} {line.unit}
+                      {formatQty(line.quantity_per_unit)} {line.unit}
                     </td>
                     <td className="py-2.5 pr-3 text-[12px] text-cy-muted">
                       {line.factor ? (
@@ -389,7 +389,7 @@ function FootprintResults({
                       )}
                     </td>
                     <td className="py-2.5 tabular-nums font-semibold text-cy-ink">
-                      {line.co2e_kg.toFixed(3)}
+                      {formatQty(line.co2e_kg)}
                     </td>
                   </tr>
                   {isOpen && (
@@ -616,11 +616,11 @@ function ProductDetailContent() {
                     <td className="py-2.5 pr-3 text-cy-muted">{INPUT_TYPE_LABEL[i.input_type]}</td>
                     <td className="py-2.5 pr-3 font-semibold text-cy-ink">{i.name}</td>
                     <td className="py-2.5 pr-3 tabular-nums text-cy-muted">
-                      {num(i.quantity_per_unit)} {i.unit}
+                      {formatQty(i.quantity_per_unit)} {i.unit}
                     </td>
                     <td className="py-2.5 pr-3 text-[12px] text-cy-muted">
                       {i.input_type === 'supplier_pcf' ? (
-                        spcf ? `${spcf.supplier_name} · ${num(spcf.pcf_value).toFixed(3)} kg CO2e/${spcf.unit}` : 'Supplier PCF'
+                        spcf ? `${spcf.supplier_name} · ${formatQty(spcf.pcf_value)} kg CO2e/${spcf.unit}` : 'Supplier PCF'
                       ) : i.activity_key ? (
                         <span className="font-mono text-[11.5px]">{i.activity_key}</span>
                       ) : (

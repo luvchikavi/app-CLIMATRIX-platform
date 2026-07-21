@@ -4,7 +4,7 @@ import { useWizardStore } from '@/stores/wizard';
 import { Calculator, Eye, Info, Database, Save, Plus, Loader2, DollarSign, Scale } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e, num } from '@/lib/utils';
+import { formatCO2e, formatQty, num } from '@/lib/utils';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { api, SpendConversionResult } from '@/lib/api';
 
@@ -220,7 +220,7 @@ export function DetailsForm({ periodId, onSuccess }: DetailsFormProps) {
       price_source: isCustomPrice ? 'Custom price (user provided)' : priceSource,
       calculated_quantity: Math.round(calculatedQty * 100) / 100,
       quantity_unit: unit,
-      formula: `${spendAmount} ${currency} ÷ ${unitPrice} ${currency}/${unit} = ${(calculatedQty).toFixed(2)} ${unit}`,
+      formula: `${formatQty(spendAmount)} ${currency} ÷ ${formatQty(unitPrice)} ${currency}/${unit} = ${(calculatedQty).toFixed(2)} ${unit}`,
     });
     setEntryField('quantity', Math.round(calculatedQty * 100) / 100);
     setConversionError(null);
@@ -236,7 +236,7 @@ export function DetailsForm({ periodId, onSuccess }: DetailsFormProps) {
 
       setPreview({
         co2e_kg: co2e,
-        formula: `${entry.quantity} ${selectedFactor.activity_unit} x ${factorValue} ${selectedFactor.factor_unit || 'kg CO2e/' + selectedFactor.activity_unit} = ${co2e.toFixed(2)} kg CO2e`,
+        formula: `${formatQty(entry.quantity)} ${selectedFactor.activity_unit} x ${formatQty(factorValue)} ${selectedFactor.factor_unit || 'kg CO2e/' + selectedFactor.activity_unit} = ${co2e.toFixed(2)} kg CO2e`,
         factor_value: factorValue,
         factor_source: selectedFactor.source || 'Unknown',
         factor_unit: selectedFactor.factor_unit || `kg CO2e/${selectedFactor.activity_unit}`,
@@ -385,7 +385,7 @@ export function DetailsForm({ periodId, onSuccess }: DetailsFormProps) {
         <div className="flex items-center gap-2">
           <Database className="w-4 h-4 text-info/70" />
           <span className="text-sm text-info/80">
-            Emission Factor: <strong>{selectedFactor.co2e_factor}</strong> {selectedFactor.factor_unit || `kg CO2e/${selectedFactor.activity_unit}`}
+            Emission Factor: <strong>{formatQty(selectedFactor.co2e_factor)}</strong> {selectedFactor.factor_unit || `kg CO2e/${selectedFactor.activity_unit}`}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -544,7 +544,7 @@ export function DetailsForm({ periodId, onSuccess }: DetailsFormProps) {
                     <span>System price from: {priceSource}</span>
                   ) : (
                     <span>
-                      System price: {systemPrice} {currency}/{selectedFactor?.activity_unit}
+                      System price: {formatQty(systemPrice)} {currency}/{selectedFactor?.activity_unit}
                       <button
                         onClick={() => setUnitPrice(systemPrice)}
                         className="ml-2 text-primary hover:underline"
@@ -585,11 +585,11 @@ export function DetailsForm({ periodId, onSuccess }: DetailsFormProps) {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-foreground-muted">Fuel Price:</span>
-                    <p className="font-semibold">{spendConversion.fuel_price} {spendConversion.price_unit}</p>
+                    <p className="font-semibold">{formatQty(spendConversion.fuel_price)} {spendConversion.price_unit}</p>
                   </div>
                   <div>
                     <span className="text-foreground-muted">Calculated Quantity:</span>
-                    <p className="font-semibold text-lg">{spendConversion.calculated_quantity.toLocaleString()} {spendConversion.quantity_unit}</p>
+                    <p className="font-semibold text-lg">{formatQty(spendConversion.calculated_quantity)} {spendConversion.quantity_unit}</p>
                   </div>
                 </div>
                 <p className="text-xs text-success/80 font-mono">{spendConversion.formula}</p>
@@ -614,7 +614,7 @@ export function DetailsForm({ periodId, onSuccess }: DetailsFormProps) {
           <p className="text-sm text-success/80 font-mono">{preview.formula}</p>
           <div className="pt-2 border-t border-success/20 mt-2">
             <p className="text-xs text-success/70">
-              Factor: {preview.factor_value} {preview.factor_unit} | Source: {preview.factor_source}
+              Factor: {formatQty(preview.factor_value)} {preview.factor_unit} | Source: {preview.factor_source}
             </p>
           </div>
         </div>

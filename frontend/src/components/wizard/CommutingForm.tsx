@@ -14,7 +14,7 @@ import { useWizardStore } from '@/stores/wizard';
 import type { ActivityCreate } from '@/lib/api';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e } from '@/lib/utils';
+import { formatCO2e, formatQty } from '@/lib/utils';
 import {
   Calculator,
   Save,
@@ -562,7 +562,7 @@ export function CommutingForm({ periodId, onSuccess }: CommutingFormProps) {
             >
               {COUNTRIES.map(c => (
                 <option key={c.code} value={c.code}>
-                  {c.name} (~{c.avgKmPerEmployee.toLocaleString()} km/employee/year)
+                  {c.name} (~{formatQty(c.avgKmPerEmployee)} km/employee/year)
                 </option>
               ))}
             </select>
@@ -664,12 +664,12 @@ export function CommutingForm({ periodId, onSuccess }: CommutingFormProps) {
                 )}
                 {method === 'average' && avgNumEmployees && (
                   <>
-                    {avgNumEmployees} employees × ~{(COUNTRIES.find(c => c.code === country)?.avgKmPerEmployee || 5500).toLocaleString()} km/year
+                    {avgNumEmployees} employees × ~{formatQty(COUNTRIES.find(c => c.code === country)?.avgKmPerEmployee || 5500)} km/year
                   </>
                 )}
                 {method === 'spend' && spendAmount && (
                   <>
-                    Based on {currency} {spendAmount.toLocaleString()} annual spend
+                    Based on {currency} {formatQty(spendAmount)} annual spend
                   </>
                 )}
               </p>

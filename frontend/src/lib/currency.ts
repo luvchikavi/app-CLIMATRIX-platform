@@ -5,6 +5,8 @@
  * When user enters non-USD amounts, we must convert to USD before applying factors.
  */
 
+import { formatQty } from './utils';
+
 // Currency conversion rates to USD (2024 annual averages)
 // Source: ECB, OECD, Bank of Israel
 export const CURRENCY_RATES_TO_USD: Record<string, number> = {
@@ -69,9 +71,9 @@ export function calculateSpendEmissions(
 
   let formula: string;
   if (currency === 'USD') {
-    formula = `${amount.toLocaleString()} USD × ${efPerUSD.toFixed(2)} kg CO2e/USD = ${co2e.toFixed(2)} kg CO2e`;
+    formula = `${formatQty(amount)} USD × ${efPerUSD.toFixed(2)} kg CO2e/USD = ${co2e.toFixed(2)} kg CO2e`;
   } else {
-    formula = `${amount.toLocaleString()} ${currency} → ${amountUSD.toLocaleString(undefined, { maximumFractionDigits: 0 })} USD × ${efPerUSD.toFixed(2)} kg CO2e/USD = ${co2e.toFixed(2)} kg CO2e`;
+    formula = `${formatQty(amount)} ${currency} → ${amountUSD.toLocaleString(undefined, { maximumFractionDigits: 0 })} USD × ${efPerUSD.toFixed(2)} kg CO2e/USD = ${co2e.toFixed(2)} kg CO2e`;
   }
 
   return { amountUSD, co2e, formula };

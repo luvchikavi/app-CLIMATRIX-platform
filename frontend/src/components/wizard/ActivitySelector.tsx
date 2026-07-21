@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useActivityOptions } from '@/hooks/useEmissions';
 import { Loader2, AlertCircle, AlertTriangle, DollarSign, Activity, Search, ChevronDown, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatQty } from '@/lib/utils';
 import { EmissionFactor } from '@/lib/api';
 
 // FIX-4: Helper to determine if an option is spend-based
@@ -168,7 +168,7 @@ export function ActivitySelector() {
                           <span className="font-medium text-foreground truncate block">{factor.display_name}</span>
                           <span className="text-xs text-foreground-muted">
                             {factor.unit || factor.activity_unit}
-                            {factor.co2e_factor && ` • ${factor.co2e_factor} kg CO2e`}
+                            {factor.co2e_factor && ` • ${formatQty(factor.co2e_factor)} kg CO2e`}
                           </span>
                         </div>
                         {selectedFactor?.activity_key === factor.activity_key && (
@@ -202,7 +202,7 @@ export function ActivitySelector() {
                           <span className="font-medium text-foreground truncate block">{factor.display_name}</span>
                           <span className="text-xs text-foreground-muted">
                             {factor.unit || factor.activity_unit}
-                            {factor.co2e_factor && ` • ${factor.co2e_factor} kg CO2e`}
+                            {factor.co2e_factor && ` • ${formatQty(factor.co2e_factor)} kg CO2e`}
                           </span>
                         </div>
                         {selectedFactor?.activity_key === factor.activity_key && (
@@ -247,7 +247,7 @@ export function ActivitySelector() {
                 </span>
                 {selectedFactor.co2e_factor && (
                   <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                    EF: {selectedFactor.co2e_factor} kg CO2e/{selectedFactor.unit || selectedFactor.activity_unit}
+                    EF: {formatQty(selectedFactor.co2e_factor)} kg CO2e/{selectedFactor.unit || selectedFactor.activity_unit}
                   </span>
                 )}
                 {selectedFactor.source && (

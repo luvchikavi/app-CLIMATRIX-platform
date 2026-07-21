@@ -29,7 +29,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui';
-import { formatCO2e } from '@/lib/utils';
+import { formatCO2e, formatQty } from '@/lib/utils';
 import {
   Loader2,
   Building2,
@@ -226,7 +226,7 @@ export default function AdminDashboard() {
                     </TableCell>
                     <TableCell className="text-foreground-muted">{act.category_code}</TableCell>
                     <TableCell className="font-medium">{act.description}</TableCell>
-                    <TableCell>{act.quantity} {act.unit}</TableCell>
+                    <TableCell>{formatQty(act.quantity)} {act.unit}</TableCell>
                     <TableCell className="text-right font-semibold">
                       {act.co2e_kg?.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg
                     </TableCell>
@@ -293,7 +293,7 @@ export default function AdminDashboard() {
                 { label: 'Users', value: String(stats.total_users) },
                 {
                   label: 'MRR (list-price est.)',
-                  value: `$${(cockpit?.mrr_usd ?? 0).toLocaleString()}`,
+                  value: `$${formatQty(cockpit?.mrr_usd ?? 0)}`,
                   sub: `${cockpit?.paying_orgs ?? 0} paying`,
                 },
                 { label: 'Active trials', value: String(cockpit?.trialing_orgs ?? 0) },
@@ -446,7 +446,7 @@ export default function AdminDashboard() {
                     cells={cockpit.plans.map((p) => ({
                       label: p.plan,
                       value: String(p.orgs),
-                      sub: p.mrr_usd > 0 ? `$${p.mrr_usd.toLocaleString()}/mo` : undefined,
+                      sub: p.mrr_usd > 0 ? `$${formatQty(p.mrr_usd)}/mo` : undefined,
                     }))}
                   />
                 </div>
@@ -582,7 +582,7 @@ export default function AdminDashboard() {
                               : 'never'}
                           </td>
                           <td className="py-2.5 pr-3 tabular-nums text-cy-ink">
-                            {c.total_co2e_tonnes.toLocaleString()}
+                            {formatQty(c.total_co2e_tonnes)}
                           </td>
                         </tr>
                       ))}
@@ -598,9 +598,9 @@ export default function AdminDashboard() {
                     cells={[
                       {
                         label: 'MRR (list-price est.)',
-                        value: `$${cockpit.mrr_usd.toLocaleString()}`,
+                        value: `$${formatQty(cockpit.mrr_usd)}`,
                       },
-                      { label: 'ARR run-rate', value: `$${cockpit.arr_usd.toLocaleString()}` },
+                      { label: 'ARR run-rate', value: `$${formatQty(cockpit.arr_usd)}` },
                       { label: 'Paying orgs', value: String(cockpit.paying_orgs) },
                       { label: 'Trialing', value: String(cockpit.trialing_orgs) },
                     ]}
@@ -684,7 +684,7 @@ export default function AdminDashboard() {
                         </div>
                         <p className="font-medium text-sm truncate">{act.description}</p>
                         <p className="text-xs text-foreground-muted mt-1">
-                          {act.quantity} {act.unit} • {act.co2e_kg?.toFixed(2)} kg CO2e
+                          {formatQty(act.quantity)} {act.unit} • {act.co2e_kg?.toFixed(2)} kg CO2e
                         </p>
                       </div>
                     ))}
@@ -818,7 +818,7 @@ export default function AdminDashboard() {
                         </TableCell>
                         <TableCell className="max-w-xs truncate">{act.description}</TableCell>
                         <TableCell className="text-foreground-muted">
-                          {act.quantity} {act.unit}
+                          {formatQty(act.quantity)} {act.unit}
                         </TableCell>
                         <TableCell className="text-right font-semibold">
                           {act.co2e_kg?.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg

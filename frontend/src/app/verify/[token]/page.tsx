@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { api, PublicApiError } from '@/lib/api';
+import { formatQty } from '@/lib/utils';
 import type {
   VerifierPeriod,
   VerifierLine,
@@ -55,7 +56,7 @@ function fmtVal(v: number): string {
   if (v === 0) return '—';
   const a = Math.abs(v);
   if (a >= 100) return v.toFixed(1);
-  if (a >= 0.01) return v.toFixed(3);
+  if (a >= 0.01) return formatQty(v);
   return v.toExponential(2);
 }
 
@@ -262,7 +263,7 @@ function EpdPortal({ payload }: { payload: VerifierEpdPayload }) {
                   <td className="px-4 py-3 font-medium">{l.name}</td>
                   <td className="px-4 py-3 text-[#67716B]">{l.en15804_module}</td>
                   <td className="px-4 py-3 tabular-nums text-[#67716B]">
-                    {l.quantity_per_unit} {l.unit}
+                    {formatQty(l.quantity_per_unit)} {l.unit}
                   </td>
                   <td className="px-4 py-3 text-[#67716B]">
                     {l.factor ? (
@@ -282,7 +283,7 @@ function EpdPortal({ payload }: { payload: VerifierEpdPayload }) {
                       </div>
                     ))}
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold tabular-nums">{l.co2e_kg.toFixed(3)}</td>
+                  <td className="px-4 py-3 text-right font-semibold tabular-nums">{formatQty(l.co2e_kg)}</td>
                 </tr>
               ))}
             </tbody>
@@ -403,7 +404,7 @@ function PeriodPortal({
                     {l.site && <div className="text-[11px] text-[#939C96]">{l.site}</div>}
                   </td>
                   <td className="px-4 py-3 tabular-nums text-[#67716B]">
-                    {l.quantity.toLocaleString()} {l.unit}
+                    {formatQty(l.quantity)} {l.unit}
                   </td>
                   <td className="px-4 py-3 text-[#67716B]">
                     {l.factor_region || '—'}
