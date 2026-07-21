@@ -47,6 +47,7 @@ class OrganizationResponse(BaseModel):
     currency: str | None = None
     unit_system: str = "metric"
     consolidation_approach: str = "operational_control"
+    recalculation_threshold_pct: float = 5.0
 
 
 class OrganizationUpdate(BaseModel):
@@ -60,6 +61,7 @@ class OrganizationUpdate(BaseModel):
     currency: str | None = None
     unit_system: str | None = None
     consolidation_approach: str | None = None
+    recalculation_threshold_pct: float | None = None
 
 
 UNIT_SYSTEMS = ["metric", "imperial"]
@@ -147,6 +149,11 @@ def _org_response(org: Organization) -> OrganizationResponse:
         currency=org.currency,
         unit_system=org.unit_system or "metric",
         consolidation_approach=org.consolidation_approach or "operational_control",
+        recalculation_threshold_pct=(
+            org.recalculation_threshold_pct
+            if org.recalculation_threshold_pct is not None
+            else 5.0
+        ),
     )
 
 
@@ -216,6 +223,14 @@ async def update_organization(
             ),
         )
 
+    if data.recalculation_threshold_pct is not None and not (
+        0 < data.recalculation_threshold_pct <= 100
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Recalculation threshold must be between 0 and 100 percent",
+        )
+
     # Update fields
     if data.name is not None:
         org.name = data.name
@@ -233,6 +248,8 @@ async def update_organization(
         org.unit_system = data.unit_system
     if data.consolidation_approach is not None:
         org.consolidation_approach = data.consolidation_approach
+    if data.recalculation_threshold_pct is not None:
+        org.recalculation_threshold_pct = data.recalculation_threshold_pct
 
     await session.commit()
     await session.refresh(org)

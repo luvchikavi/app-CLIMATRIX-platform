@@ -47,6 +47,13 @@ import {
 
 type SettingsTab = 'organization' | 'region' | 'periods' | 'users';
 
+// GHG Protocol organizational-boundary options (same set the backend validates).
+const CONSOLIDATION_OPTIONS = [
+  { value: 'operational_control', label: 'Operational control' },
+  { value: 'financial_control', label: 'Financial control' },
+  { value: 'equity_share', label: 'Equity share' },
+];
+
 function SettingsPageContent() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const router = useRouter();
@@ -71,6 +78,15 @@ function SettingsPageContent() {
     industry_code: '',
   });
   const [orgSaving, setOrgSaving] = useState(false);
+
+  // GHG accounting policy edit state (CCF completion)
+  const [isEditingPolicy, setIsEditingPolicy] = useState(false);
+  const [policyForm, setPolicyForm] = useState({
+    base_year: '',
+    consolidation_approach: 'operational_control',
+    recalculation_threshold_pct: '5',
+  });
+  const [policySaving, setPolicySaving] = useState(false);
 
   // Invitation state (Task 2.3)
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -199,6 +215,38 @@ function SettingsPageContent() {
       toast.error('Failed to update organization');
     } finally {
       setOrgSaving(false);
+    }
+  };
+
+  // --- GHG Accounting Policy Handlers (CCF completion) ---
+  const handleStartEditPolicy = () => {
+    setPolicyForm({
+      base_year: org?.base_year ? String(org.base_year) : '',
+      consolidation_approach: org?.consolidation_approach || 'operational_control',
+      recalculation_threshold_pct: String(org?.recalculation_threshold_pct ?? 5),
+    });
+    setIsEditingPolicy(true);
+  };
+
+  const handleSavePolicy = async () => {
+    const threshold = Number(policyForm.recalculation_threshold_pct);
+    if (!(threshold > 0 && threshold <= 100)) {
+      toast.error('Recalculation threshold must be between 0 and 100%');
+      return;
+    }
+    setPolicySaving(true);
+    try {
+      await updateOrg.mutateAsync({
+        base_year: policyForm.base_year ? Number(policyForm.base_year) : null,
+        consolidation_approach: policyForm.consolidation_approach,
+        recalculation_threshold_pct: threshold,
+      });
+      setIsEditingPolicy(false);
+      toast.success('GHG accounting policy updated');
+    } catch {
+      toast.error('Failed to update policy');
+    } finally {
+      setPolicySaving(false);
     }
   };
 
@@ -410,6 +458,113 @@ function SettingsPageContent() {
                             <p className="text-foreground">{org.industry_code}</p>
                           </div>
                         )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* GHG Accounting Policy Card (CCF completion) */}
+                <Card padding="lg">
+                  <CardHeader>
+                    <div className="flex items-center justify-between w-full">
+                      <CardTitle className="flex items-center gap-2">
+                        <Globe className="w-5 h-5 text-foreground-muted" />
+                        GHG Accounting Policy
+                      </CardTitle>
+                      {!isEditingPolicy && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleStartEditPolicy}
+                          leftIcon={<Edit2 className="w-4 h-4" />}
+                        >
+                          Edit
+                        </Button>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {isEditingPolicy ? (
+                      <div className="space-y-4">
+                        <Select
+                          label="Base year"
+                          options={[
+                            { value: '', label: 'Not set' },
+                            ...yearOptions.map((y) => ({ value: String(y), label: String(y) })),
+                          ]}
+                          value={policyForm.base_year}
+                          onChange={(e) => setPolicyForm({ ...policyForm, base_year: e.target.value })}
+                        />
+                        <Select
+                          label="Consolidation approach"
+                          options={CONSOLIDATION_OPTIONS}
+                          value={policyForm.consolidation_approach}
+                          onChange={(e) =>
+                            setPolicyForm({ ...policyForm, consolidation_approach: e.target.value })
+                          }
+                        />
+                        <Input
+                          label="Base-year recalculation threshold (%)"
+                          type="number"
+                          min={0.1}
+                          max={100}
+                          step={0.5}
+                          value={policyForm.recalculation_threshold_pct}
+                          onChange={(e) =>
+                            setPolicyForm({ ...policyForm, recalculation_threshold_pct: e.target.value })
+                          }
+                        />
+                        <p className="text-sm text-foreground-muted">
+                          Structural changes (acquisitions, divestments, methodology changes) that shift
+                          base-year emissions by more than this percentage trigger a base-year
+                          recalculation. Disclosed in every GHG inventory report.
+                        </p>
+                        <div className="flex items-center gap-3 pt-2">
+                          <Button
+                            variant="primary"
+                            onClick={handleSavePolicy}
+                            disabled={policySaving}
+                            isLoading={policySaving}
+                          >
+                            Save Policy
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => setIsEditingPolicy(false)}
+                            disabled={policySaving}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <div>
+                          <label className="block text-sm font-medium text-foreground-muted mb-1">
+                            Base year
+                          </label>
+                          <p className="text-foreground font-semibold">
+                            {org?.base_year || 'Not set'}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-foreground-muted mb-1">
+                            Consolidation approach
+                          </label>
+                          <p className="text-foreground font-semibold">
+                            {CONSOLIDATION_OPTIONS.find(
+                              (o) => o.value === (org?.consolidation_approach || 'operational_control')
+                            )?.label || 'Operational control'}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-foreground-muted mb-1">
+                            Recalculation threshold
+                          </label>
+                          <p className="text-foreground font-semibold">
+                            {org?.recalculation_threshold_pct ?? 5}%
+                          </p>
+                        </div>
                       </div>
                     )}
                   </CardContent>

@@ -5,15 +5,18 @@ import { Surface, PanelLabel, Chip } from '@/components/canopy';
 import { Button, Badge } from '@/components/ui';
 import { formatNumber } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
-import type { CDPExport, ESRSE1Export } from '@/lib/api';
+import type { CDPExport, ESRSE1Export, VSMEExport } from '@/lib/api';
 
 interface ExportOptionsProps {
   cdpData?: CDPExport | null;
   esrsData?: ESRSE1Export | null;
+  vsmeData?: VSMEExport | null;
   cdpLoading?: boolean;
   esrsLoading?: boolean;
+  vsmeLoading?: boolean;
   onExportCDP: () => Promise<void>;
   onExportESRS: () => Promise<void>;
+  onExportVSME: () => Promise<void>;
 }
 
 /** One label/value pair inside a compact preview line. */
@@ -29,13 +32,17 @@ function Kv({ label, value }: { label: string; value: React.ReactNode }) {
 export function ExportOptions({
   cdpData,
   esrsData,
+  vsmeData,
   cdpLoading,
   esrsLoading,
+  vsmeLoading,
   onExportCDP,
   onExportESRS,
+  onExportVSME,
 }: ExportOptionsProps) {
   const [cdpExporting, setCdpExporting] = useState(false);
   const [esrsExporting, setEsrsExporting] = useState(false);
+  const [vsmeExporting, setVsmeExporting] = useState(false);
 
   const handleCDPExport = async () => {
     setCdpExporting(true);
@@ -52,6 +59,15 @@ export function ExportOptions({
       await onExportESRS();
     } finally {
       setEsrsExporting(false);
+    }
+  };
+
+  const handleVSMEExport = async () => {
+    setVsmeExporting(true);
+    try {
+      await onExportVSME();
+    } finally {
+      setVsmeExporting(false);
     }
   };
 
@@ -175,6 +191,55 @@ export function ExportOptions({
               disabled={esrsExporting}
             >
               {esrsExporting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Export JSON
+            </Button>
+          </div>
+
+          {/* VSME */}
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0">
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-2 text-[13px] font-semibold text-cy-ink">
+                VSME Basic Module <Chip>SME</Chip>
+              </p>
+              <p className="mt-0.5 max-w-[58ch] text-[12px] text-cy-muted">
+                EFRAG voluntary standard for SMEs (disclosure B3) — the format banks and
+                large customers request from companies outside the CSRD scope.
+              </p>
+              {vsmeLoading ? (
+                <p className="mt-2.5 flex items-center gap-1.5 text-[12px] text-cy-muted">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Building preview…
+                </p>
+              ) : vsmeData ? (
+                <div className="mt-2.5 flex flex-wrap gap-x-6 gap-y-1">
+                  <Kv label="Org" value={vsmeData.organization_name} />
+                  <Kv
+                    label="Scope 1"
+                    value={`${formatNumber(vsmeData.ghg_emissions.scope_1_tonnes, 1)} t`}
+                  />
+                  <Kv
+                    label="Scope 2"
+                    value={`${formatNumber(vsmeData.ghg_emissions.scope_2_location_based_tonnes, 1)} t`}
+                  />
+                  <Kv
+                    label="Scope 1+2"
+                    value={`${formatNumber(vsmeData.ghg_emissions.scope_1_and_2_tonnes, 1)} t`}
+                  />
+                  {vsmeData.energy.electricity_consumption_mwh !== null && (
+                    <Kv
+                      label="Electricity"
+                      value={`${formatNumber(vsmeData.energy.electricity_consumption_mwh, 1)} MWh`}
+                    />
+                  )}
+                </div>
+              ) : null}
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleVSMEExport}
+              disabled={vsmeExporting}
+            >
+              {vsmeExporting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Export JSON
             </Button>
           </div>

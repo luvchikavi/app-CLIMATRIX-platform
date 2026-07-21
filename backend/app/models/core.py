@@ -139,6 +139,11 @@ class Organization(OrganizationBase, table=True):
         default="operational_control", max_length=30
     )  # operational_control | financial_control | equity_share
 
+    # Base-year recalculation policy (GHG Protocol Corporate Standard ch. 5):
+    # structural changes that shift the base-year total by more than this
+    # percentage trigger a recalculation. Disclosed in every GHG report.
+    recalculation_threshold_pct: float = Field(default=5.0)
+
     # Relationships
     users: list["User"] = Relationship(back_populates="organization")
     sites: list["Site"] = Relationship(back_populates="organization")

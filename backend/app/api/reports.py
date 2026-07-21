@@ -23,7 +23,12 @@ from app.database import get_session
 from app.models.core import User, ReportingPeriod, Organization
 from app.models.decarbonization import DecarbonizationTarget
 from app.models.emission import Activity, Emission, EmissionFactor, ImportBatch
-from app.models.hub import GHG_CATEGORIES, CategoryProfile, CategoryRelevance
+from app.models.hub import (
+    GHG_CATEGORIES,
+    HUB_CODE_FOR,
+    CategoryProfile,
+    CategoryRelevance,
+)
 from app.services import methodology
 from app.services.calculation.wtt import WTTService
 from app.services.entitlements import require_export_for_period, require_report_view
@@ -149,6 +154,24 @@ class BaseYearComparison(BaseModel):
     percentage_change: float
 
 
+class Scope3ScreeningRow(BaseModel):
+    """One Scope-3 category's screening decision + measured coverage.
+
+    The GHG Protocol requires screening all 15 value-chain categories, not
+    measuring all 15 — this table is the auditor-facing evidence that the
+    screening happened: the org's relevance decision (hub CategoryProfile)
+    side by side with what the period actually measured.
+    """
+
+    category_code: str
+    category_name: str
+    relevance: str  # relevant | not_relevant | not_sure (not yet assessed)
+    exclusion_reason: Optional[str] = None
+    measured_this_period: bool
+    activity_count: int
+    co2e_tonnes: float
+
+
 class VerificationInfo(BaseModel):
     """Verification/assurance information."""
 
@@ -203,8 +226,13 @@ class ISO14064Report(BaseModel):
     # 6. Methodology
     methodology: MethodologySection
 
-    # 7. Base Year Comparison (optional)
+    # 7. Base Year Comparison (optional) + recalculation policy
     base_year_comparison: Optional[BaseYearComparison]
+    recalculation_policy: str = ""
+
+    # 7b. Scope 3 screening — all 15 categories, always (GHG Protocol
+    # completeness disclosure; relevance decisions come from the data hub).
+    scope3_screening: list[Scope3ScreeningRow] = []
 
     # 8. Verification
     verification: VerificationInfo
@@ -666,6 +694,65 @@ async def _documented_exclusions(
         reason = profile.exclusion_reason or "No reason recorded"
         exclusions.append(f"Category {profile.category_code} ({name}): {reason}")
     return exclusions
+
+
+async def _scope3_screening(
+    session: AsyncSession, organization_id: UUID, period_id: UUID
+) -> list[Scope3ScreeningRow]:
+    """All 15 Scope-3 categories: hub relevance decision × period coverage."""
+    profile_query = select(CategoryProfile).where(
+        CategoryProfile.organization_id == organization_id,
+        CategoryProfile.site_id.is_(None),
+        CategoryProfile.scope == 3,
+    )
+    profiles = {
+        p.category_code: p
+        for p in (await session.execute(profile_query)).scalars().all()
+    }
+
+    # Measured coverage: ledger category codes roll up into hub rows.
+    coverage_query = (
+        select(
+            Activity.category_code,
+            func.count(Activity.id),
+            func.sum(Emission.co2e_kg),
+        )
+        .join(Emission, Emission.activity_id == Activity.id)
+        .where(
+            Activity.organization_id == organization_id,
+            Activity.reporting_period_id == period_id,
+            Activity.scope == 3,
+        )
+        .group_by(Activity.category_code)
+    )
+    coverage: dict[str, dict] = {}
+    for code, count, co2e in (await session.execute(coverage_query)).all():
+        hub_code = HUB_CODE_FOR.get(code, code)
+        entry = coverage.setdefault(hub_code, {"count": 0, "co2e": Decimal(0)})
+        entry["count"] += count
+        entry["co2e"] += co2e or Decimal(0)
+
+    rows = []
+    for category in GHG_CATEGORIES:
+        if category["scope"] != 3:
+            continue
+        code = category["code"]
+        profile = profiles.get(code)
+        measured = coverage.get(code, {"count": 0, "co2e": Decimal(0)})
+        rows.append(
+            Scope3ScreeningRow(
+                category_code=code,
+                category_name=category["name"],
+                relevance=(
+                    profile.relevance if profile else CategoryRelevance.NOT_SURE.value
+                ),
+                exclusion_reason=profile.exclusion_reason if profile else None,
+                measured_this_period=measured["count"] > 0,
+                activity_count=measured["count"],
+                co2e_tonnes=round(float(measured["co2e"]) / 1000, 2),
+            )
+        )
+    return rows
 
 
 async def _active_targets(
@@ -1235,6 +1322,15 @@ async def get_ghg_inventory_report(
                 percentage_change=round(change / base_tonnes * 100, 1),
             )
 
+    recalculation_policy = methodology.recalculation_policy_statement(
+        org.base_year if org else None,
+        org.recalculation_threshold_pct if org else None,
+    )
+
+    scope3_screening = await _scope3_screening(
+        session, current_user.organization_id, period_id
+    )
+
     # Verification info
     verification = VerificationInfo(
         status=period.status.value if period.status else "draft",
@@ -1304,6 +1400,8 @@ async def get_ghg_inventory_report(
         data_quality_interpretation=quality_interpretation,
         methodology=methodology_section,
         base_year_comparison=base_year_comparison,
+        recalculation_policy=recalculation_policy,
+        scope3_screening=scope3_screening,
         verification=verification,
     )
 
@@ -2590,6 +2688,170 @@ async def export_esrs_e1_format(
         ghg_accounting_standard=methodology.GHG_ACCOUNTING_STANDARD,
         emission_factor_sources=list(factor_sources),
         gwp_values_source=methodology.GWP_SOURCE,
+    )
+
+
+# ============================================================================
+# VSME Export (EFRAG voluntary SME standard — Basic Module B3)
+# ============================================================================
+
+
+class VSMEEnergy(BaseModel):
+    """B3 energy consumption. Only electricity is reported: fuel quantities
+    are recorded in native units (litres, kg) and converting them to MWh
+    would be an invented number — the note says so instead."""
+
+    electricity_consumption_mwh: Optional[float]
+    note: str
+
+
+class VSMEGHGEmissions(BaseModel):
+    """B3 gross GHG emissions (tCO2e). Scope 1+2 are the Basic Module
+    datapoints; Scope 3 is the Comprehensive Module (C) extra, included
+    when measured."""
+
+    scope_1_tonnes: float
+    scope_2_location_based_tonnes: float
+    scope_2_market_based_tonnes: Optional[float]
+    scope_1_and_2_tonnes: float
+    scope_3_tonnes: Optional[float]
+    total_tonnes: float
+
+
+class VSMEExportResponse(BaseModel):
+    """EFRAG VSME Basic Module export — disclosure B3 (Energy & GHG).
+
+    The voluntary standard for non-listed SMEs below the post-Omnibus CSRD
+    threshold; what value-chain partners request instead of full ESRS.
+    """
+
+    export_version: str
+    export_date: str
+    standard: str
+    organization_name: str
+    country: Optional[str]
+    reporting_period_start: str
+    reporting_period_end: str
+    energy: VSMEEnergy
+    ghg_emissions: VSMEGHGEmissions
+    ghg_intensity_note: str
+    methodology: str
+    gwp_values_source: str
+    emission_factor_sources: list[str]
+
+
+_ELECTRICITY_CODES = {"2", "2.1", "2.2"}
+_KWH_PER_UNIT = {"kwh": 1.0, "mwh": 1000.0, "gwh": 1_000_000.0}
+
+
+@router.get("/periods/{period_id}/export/vsme", response_model=VSMEExportResponse)
+async def export_vsme_format(
+    period_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    _gate: Annotated[None, Depends(require_export_for_period)] = None,
+):
+    """
+    Export emissions data in EFRAG VSME format (Basic Module, disclosure B3).
+
+    The voluntary reporting standard for SMEs outside the post-Omnibus CSRD
+    scope — the format banks and large customers ask smaller suppliers for.
+    """
+    period_query = select(ReportingPeriod).where(
+        ReportingPeriod.id == period_id,
+        ReportingPeriod.organization_id == current_user.organization_id,
+    )
+    period = (await session.execute(period_query)).scalar_one_or_none()
+    if not period:
+        raise HTTPException(status_code=404, detail="Reporting period not found")
+
+    org = (
+        await session.execute(
+            select(Organization).where(Organization.id == current_user.organization_id)
+        )
+    ).scalar_one_or_none()
+
+    activities_query = (
+        select(Activity, Emission, EmissionFactor)
+        .join(Emission, Activity.id == Emission.activity_id)
+        .outerjoin(EmissionFactor, Emission.emission_factor_id == EmissionFactor.id)
+        .where(
+            Activity.reporting_period_id == period_id,
+            Activity.organization_id == current_user.organization_id,
+        )
+    )
+    rows = (await session.execute(activities_query)).all()
+
+    scope_totals = {1: Decimal(0), 2: Decimal(0), 3: Decimal(0)}
+    scope2_market_total = Decimal(0)
+    scope2_any_market = False
+    electricity_kwh = Decimal(0)
+    any_electricity = False
+    factor_sources = set()
+
+    for activity, emission, factor in rows:
+        scope_totals[activity.scope] += emission.co2e_kg
+        factor_sources.add(factor.source if factor else "Supplier-Provided")
+
+        if activity.scope == 2:
+            dual = _scope2_row_dual(activity, emission, factor)
+            if dual["market_co2e"] is not None:
+                scope2_market_total += Decimal(str(dual["market_co2e"]))
+                scope2_any_market = True
+            if activity.category_code in _ELECTRICITY_CODES:
+                kwh_factor = _KWH_PER_UNIT.get((activity.unit or "").lower())
+                if kwh_factor is not None:
+                    electricity_kwh += Decimal(str(activity.quantity)) * Decimal(
+                        str(kwh_factor)
+                    )
+                    any_electricity = True
+
+    scope1_t = round(float(scope_totals[1]) / 1000, 2)
+    scope2_t = round(float(scope_totals[2]) / 1000, 2)
+    scope3_t = round(float(scope_totals[3]) / 1000, 2)
+    total_t = round(float(sum(scope_totals.values())) / 1000, 2)
+
+    return VSMEExportResponse(
+        export_version="VSME-Basic-2026-v1",
+        export_date=datetime.utcnow().strftime("%Y-%m-%d"),
+        standard=(
+            "EFRAG VSME (Voluntary sustainability reporting standard for "
+            "non-listed SMEs) — Basic Module, disclosure B3"
+        ),
+        organization_name=org.name if org else "Organization",
+        country=org.country_code if org else None,
+        reporting_period_start=period.start_date.isoformat(),
+        reporting_period_end=period.end_date.isoformat(),
+        energy=VSMEEnergy(
+            electricity_consumption_mwh=(
+                round(float(electricity_kwh) / 1000, 2) if any_electricity else None
+            ),
+            note=(
+                "Electricity from metered/invoiced activity data. Fuel "
+                "consumption is recorded in native units (litres, kg) and is "
+                "not converted to MWh."
+            ),
+        ),
+        ghg_emissions=VSMEGHGEmissions(
+            scope_1_tonnes=scope1_t,
+            scope_2_location_based_tonnes=scope2_t,
+            scope_2_market_based_tonnes=(
+                round(float(scope2_market_total) / 1000, 2)
+                if scope2_any_market
+                else None
+            ),
+            scope_1_and_2_tonnes=round(scope1_t + scope2_t, 2),
+            scope_3_tonnes=scope3_t if scope_totals[3] > 0 else None,
+            total_tonnes=total_t,
+        ),
+        ghg_intensity_note=(
+            "GHG intensity per turnover (B3) requires annual turnover, which "
+            "is not recorded in CLIMATRIX — divide scope 1+2 tonnes by "
+            "turnover in EUR millions."
+        ),
+        methodology=methodology.CALCULATION_APPROACH,
+        gwp_values_source=methodology.GWP_SOURCE,
+        emission_factor_sources=sorted(factor_sources),
     )
 
 
