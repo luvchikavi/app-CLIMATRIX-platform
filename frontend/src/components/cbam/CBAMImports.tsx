@@ -17,7 +17,7 @@ import {
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui';
 import { api } from '@/lib/api';
-import { formatQty } from '@/lib/utils';
+import { formatQty, num } from '@/lib/utils';
 import { LoadSampleDataButton } from '@/components/LoadSampleDataButton';
 import { useSampleDataStatus } from '@/hooks/useSampleData';
 import type {
@@ -72,7 +72,7 @@ function estimateCost(imp: CBAMImport, defaults: CBAMScreenDefaults | null): num
   if (!defaults) return null;
   const markup =
     imp.calculation_method === 'actual' ? 1 : 1 + defaults.default_value_markup_pct / 100;
-  return imp.total_emissions_tco2e * markup * defaults.ets_price_eur;
+  return num(imp.total_emissions_tco2e) * markup * defaults.ets_price_eur;
 }
 
 export function CBAMImports() {
@@ -223,8 +223,10 @@ export function CBAMImports() {
     setCnSearchResults([]);
   };
 
-  const totalEmissions = imports.reduce((sum, imp) => sum + imp.total_emissions_tco2e, 0);
-  const totalMassKg = imports.reduce((sum, imp) => sum + imp.mass_kg, 0);
+  // API decimals arrive as strings — sum via num() or the strip crashes
+  // with imports present (only ever "worked" against an empty register).
+  const totalEmissions = imports.reduce((sum, imp) => sum + num(imp.total_emissions_tco2e), 0);
+  const totalMassKg = imports.reduce((sum, imp) => sum + num(imp.mass_kg), 0);
   const totalCost = screenDefaults
     ? imports.reduce((sum, imp) => sum + (estimateCost(imp, screenDefaults) ?? 0), 0)
     : null;
