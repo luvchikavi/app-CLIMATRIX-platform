@@ -182,6 +182,9 @@ class CBAMInstallation(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default=None)
 
+    # Seeded by "Load sample data"; removed wholesale by DELETE /sample-data
+    is_demo: bool = Field(default=False)
+
     # Relationships
     imports: List["CBAMImport"] = Relationship(back_populates="installation")
 
@@ -271,6 +274,9 @@ class CBAMImport(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: Optional[UUID] = Field(default=None, foreign_key="users.id")
     updated_at: Optional[datetime] = Field(default=None)
+
+    # Seeded by "Load sample data"; removed wholesale by DELETE /sample-data
+    is_demo: bool = Field(default=False)
 
     # Relationships
     installation: Optional[CBAMInstallation] = Relationship(back_populates="imports")

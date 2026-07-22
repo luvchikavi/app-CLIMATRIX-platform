@@ -18,6 +18,8 @@ import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui';
 import { api } from '@/lib/api';
 import { formatQty } from '@/lib/utils';
+import { LoadSampleDataButton } from '@/components/LoadSampleDataButton';
+import { useSampleDataStatus } from '@/hooks/useSampleData';
 import type {
   CBAMImport,
   CBAMInstallation,
@@ -118,9 +120,12 @@ export function CBAMImports() {
     }
   }, [filterYear, filterQuarter]);
 
+  // Sample data loads/removes outside this component's manual fetch lane —
+  // re-pull whenever that flag flips (also covers the initial load).
+  const { data: sampleStatus } = useSampleDataStatus();
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [loadData, sampleStatus?.loaded]);
 
   useEffect(() => {
     // Reference values for the estimated certificate cost column
@@ -483,11 +488,14 @@ export function CBAMImports() {
                 colSpan={9}
                 icon={<Package className="w-12 h-12" />}
                 title="No imports yet"
-                description="Record your first CBAM import to start tracking embedded emissions and certificate cost"
+                description="Record your first CBAM import to start tracking embedded emissions and certificate cost — or load sample data for three worked imports (steel, cement, aluminium) with default-value emissions"
                 action={
-                  <Button size="sm" onClick={() => setShowForm(true)}>
-                    Add Import
-                  </Button>
+                  <div className="flex flex-col items-center gap-2">
+                    <Button size="sm" onClick={() => setShowForm(true)}>
+                      Add Import
+                    </Button>
+                    <LoadSampleDataButton />
+                  </div>
                 }
               />
             ) : (

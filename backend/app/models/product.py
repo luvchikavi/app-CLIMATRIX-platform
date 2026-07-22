@@ -128,6 +128,8 @@ class SupplierPCF(SQLModel, table=True):
     pact_pf_id: Optional[str] = Field(default=None, max_length=64)
     source: str = Field(default="manual", max_length=20)  # manual | pact_json
     raw_payload: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    # Seeded by "Load sample data"; removed wholesale by DELETE /sample-data
+    is_demo: bool = Field(default=False)
     status: str = Field(
         default="active",
         sa_column=SAColumn("status", SAString(20), default="active", nullable=False),

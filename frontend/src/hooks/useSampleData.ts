@@ -36,7 +36,7 @@ export function useLoadSampleData() {
     mutationFn: () => api.loadSampleData(),
     onSuccess: async (result) => {
       toast.success(
-        `Sample data loaded — ${result.activities_created} activities, a full report and ${result.scenarios_created} reduction scenarios to explore.`
+        `Sample data loaded — ${result.activities_created} activities, a full report, ${result.scenarios_created} reduction scenarios, ${result.products_created} PCF products with LCA matrix, an EPD draft and ${result.cbam_imports_created} CBAM imports to explore.`
       );
       // The Header heals a selected period id it can't find in the cached
       // periods list — refresh that list BEFORE switching to the sample

@@ -260,3 +260,98 @@ async def test_sample_data_is_org_scoped(
     # First org's sample is still intact
     status = (await client.get("/api/sample-data", headers=auth_headers)).json()
     assert status["loaded"] is True
+
+
+@pytest.mark.asyncio
+async def test_load_seeds_the_tool_modules(
+    client, auth_headers, test_session, seed_reference
+):
+    """PCF/LCA/EPD/CBAM ride the same click: a computed+finalized steel coil
+    (with supplier-PCF primary data and an EPD draft pinned to it), a draft
+    bracket to compute manually, and three default-value CBAM imports."""
+    from app.database import sync_impact_factors
+    from app.models.cbam import CBAMImport, CBAMInstallation
+    from app.models.product import (
+        EPDProject,
+        Product,
+        ProductFootprint,
+        SupplierPCF,
+    )
+
+    await sync_impact_factors(test_session)
+
+    resp = await client.post("/api/sample-data", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["products_created"] == 2
+    assert body["epd_created"] is True
+    assert body["cbam_imports_created"] == 3
+
+    products = (await test_session.execute(select(Product))).scalars().all()
+    assert len(products) == 2
+    assert all(p.is_demo for p in products)
+
+    footprints = (await test_session.execute(select(ProductFootprint))).scalars().all()
+    assert len(footprints) == 1  # steel computed+final; bracket left draft
+    fp = footprints[0]
+    assert fp.status == "final"
+    # Stage-verified neighborhood: ~1,075 kg CO2e per tonne of coil
+    assert 900 < float(fp.total_kgco2e_per_unit) < 1_300
+    # Supplier-PCF billet dominates -> high primary-data share
+    assert fp.primary_data_share and fp.primary_data_share > 60
+    # LCA-lite matrix computed from the synced EF 3.1 library
+    assert fp.lca_results and len(fp.lca_results.get("indicators", fp.lca_results)) > 0
+
+    epds = (await test_session.execute(select(EPDProject))).scalars().all()
+    assert len(epds) == 1
+    assert epds[0].status == "draft"
+    assert epds[0].footprint_id == fp.id
+
+    spcfs = (await test_session.execute(select(SupplierPCF))).scalars().all()
+    assert len(spcfs) == 1 and spcfs[0].is_demo
+
+    imports = (await test_session.execute(select(CBAMImport))).scalars().all()
+    assert len(imports) == 3
+    assert all(i.is_demo for i in imports)
+    assert all(float(i.total_embedded_emissions_tco2e) > 0 for i in imports)
+    installations = (
+        (await test_session.execute(select(CBAMInstallation))).scalars().all()
+    )
+    assert len(installations) == 1 and installations[0].is_demo
+
+
+@pytest.mark.asyncio
+async def test_remove_takes_the_tool_modules_back_out(
+    client, auth_headers, test_session, seed_reference
+):
+    from app.models.cbam import CBAMImport, CBAMInstallation
+    from app.models.product import (
+        EPDProject,
+        Product,
+        ProductFootprint,
+        ProductInput,
+        SupplierPCF,
+    )
+
+    resp = await client.post("/api/sample-data", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+
+    resp = await client.delete("/api/sample-data", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["removed_products"] == 2
+    assert body["removed_cbam_imports"] == 3
+    # Nothing else referenced the demo period once the CBAM imports went
+    assert body["period_removed"] is True
+
+    for model in (
+        Product,
+        ProductInput,
+        ProductFootprint,
+        EPDProject,
+        SupplierPCF,
+        CBAMImport,
+        CBAMInstallation,
+    ):
+        rows = (await test_session.execute(select(model))).scalars().all()
+        assert rows == [], f"{model.__name__} not cleaned up"

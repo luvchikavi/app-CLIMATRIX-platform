@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/layout';
 import { Surface, PageHead } from '@/components/canopy';
 import { EmptyState } from '@/components/ui';
+import { LoadSampleDataButton } from '@/components/LoadSampleDataButton';
 import { useEpds } from '@/hooks/useEpd';
 import { EPD_STATUS_META } from '@/lib/epd';
 import { cn } from '@/lib/utils';
@@ -57,12 +58,17 @@ function EpdRegistryContent() {
       />
 
       {!epds?.length ? (
-        <EmptyState
-          icon={<FileStack className="h-8 w-8" />}
-          title="No EPD projects yet"
-          description="Open a product, compute + finalize its footprint, then hit “Prepare EPD” — the declaration pins that snapshot and walks the ISO 14025 workflow from there."
-          action={{ label: 'Go to products', onClick: () => router.push('/products') }}
-        />
+        <>
+          <EmptyState
+            icon={<FileStack className="h-8 w-8" />}
+            title="No EPD projects yet"
+            description="Open a product, compute + finalize its footprint, then hit “Prepare EPD” — the declaration pins that snapshot and walks the ISO 14025 workflow from there."
+            action={{ label: 'Go to products', onClick: () => router.push('/products') }}
+          />
+          <div className="mt-4 flex flex-col items-center text-center">
+            <LoadSampleDataButton caption="Or load sample data — it includes a ready EPD draft pinned to a finalized steel-coil footprint, so you can walk the whole ISO 14025 flow." />
+          </div>
+        </>
       ) : (
         <Surface padding="panel">
           <table className="w-full text-[13px]">

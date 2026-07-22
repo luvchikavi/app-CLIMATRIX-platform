@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/layout';
 import { Surface, PanelLabel, PageHead } from '@/components/canopy';
 import { Button, Input, Select, EmptyState } from '@/components/ui';
+import { LoadSampleDataButton } from '@/components/LoadSampleDataButton';
 import {
   useProducts,
   useCreateProduct,
@@ -259,6 +260,9 @@ export default function ProductsPage() {
             description="Define the product and its declared unit, add the bill of materials, and Climatrix computes the cradle-to-gate footprint from the same factor library that powers your corporate inventory."
             action={{ label: 'New product', onClick: () => setShowNew(true) }}
           />
+          <div className="flex flex-col items-center pb-2 text-center">
+            <LoadSampleDataButton caption="Not ready with your own BOM? Sample data includes a computed steel coil — PCF, full LCA matrix and an EPD draft — plus a draft product to try Compute on." />
+          </div>
         </Surface>
       ) : (
         <Surface padding="tight">
