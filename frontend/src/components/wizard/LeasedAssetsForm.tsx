@@ -14,7 +14,7 @@ import { useWizardStore } from '@/stores/wizard';
 import type { ActivityCreate } from '@/lib/api';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e, formatQty } from '@/lib/utils';
+import { formatCO2e, formatQty, formatFactor} from '@/lib/utils';
 import {
   Calculator,
   Save,
@@ -569,7 +569,7 @@ export function LeasedAssetsForm({ periodId, onSuccess }: LeasedAssetsFormProps)
               <p className="text-xs text-foreground-muted mt-1">
                 {method === 'area' && floorArea && (
                   <>
-                    {formatQty(floorArea)} m² × ~{formatQty(BUILDING_TYPES.find(b => b.key === buildingType)?.ef || 100)} kg CO2e/m²/year
+                    {formatQty(floorArea)} m² × ~{formatFactor(BUILDING_TYPES.find(b => b.key === buildingType)?.ef || 100)} kg CO2e/m²/year
                   </>
                 )}
                 {method === 'energy' && (

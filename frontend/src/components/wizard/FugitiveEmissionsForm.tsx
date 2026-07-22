@@ -16,7 +16,7 @@ import { useState } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity, useActivityOptions } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e, formatQty, num } from '@/lib/utils';
+import { formatCO2e, formatQty, formatFactor, num} from '@/lib/utils';
 import {
   Save,
   Plus,
@@ -232,7 +232,7 @@ export function FugitiveEmissionsForm({ periodId, onSuccess }: FugitiveEmissions
                 <div className="flex-1">
                   <span className="font-medium text-foreground">{selectedFactor.display_name}</span>
                   <span className="ml-2 text-xs text-foreground-muted">
-                    (GWP: {formatQty(selectedFactor.co2e_factor)})
+                    (GWP: {formatFactor(selectedFactor.co2e_factor)})
                   </span>
                 </div>
               ) : (
@@ -266,7 +266,7 @@ export function FugitiveEmissionsForm({ periodId, onSuccess }: FugitiveEmissions
                         className="w-full px-4 py-2 text-left text-sm hover:bg-primary/10 transition-colors flex justify-between items-center"
                       >
                         <span className="font-medium">{factor.display_name}</span>
-                        <span className="text-xs text-foreground-muted">GWP: {formatQty(factor.co2e_factor)}</span>
+                        <span className="text-xs text-foreground-muted">GWP: {formatFactor(factor.co2e_factor)}</span>
                       </button>
                     ))
                   ) : (
@@ -284,7 +284,7 @@ export function FugitiveEmissionsForm({ periodId, onSuccess }: FugitiveEmissions
                               className="w-full px-4 py-2 text-left text-sm hover:bg-primary/10 transition-colors flex justify-between items-center"
                             >
                               <span className="font-medium">{factor.display_name}</span>
-                              <span className="text-xs text-foreground-muted">GWP: {formatQty(factor.co2e_factor)}</span>
+                              <span className="text-xs text-foreground-muted">GWP: {formatFactor(factor.co2e_factor)}</span>
                             </button>
                           ))}
                         </div>
@@ -312,7 +312,7 @@ export function FugitiveEmissionsForm({ periodId, onSuccess }: FugitiveEmissions
               <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
               <div className="text-sm text-warning">
                 <p className="font-medium">High Global Warming Potential</p>
-                <p>This gas has a GWP of {formatQty(selectedFactor.co2e_factor)}. Consider transitioning to lower-GWP alternatives.</p>
+                <p>This gas has a GWP of {formatFactor(selectedFactor.co2e_factor)}. Consider transitioning to lower-GWP alternatives.</p>
               </div>
             </div>
           )}
@@ -322,7 +322,7 @@ export function FugitiveEmissionsForm({ periodId, onSuccess }: FugitiveEmissions
             <div className="flex items-center gap-2 text-info">
               <Info className="w-4 h-4" />
               <span>
-                GWP (100-year): <strong>{formatQty(selectedFactor.co2e_factor)}</strong> kg CO2e/kg
+                GWP (100-year): <strong>{formatFactor(selectedFactor.co2e_factor)}</strong> kg CO2e/kg
               </span>
             </div>
             <div className="mt-1 text-info/80">
@@ -377,7 +377,7 @@ export function FugitiveEmissionsForm({ periodId, onSuccess }: FugitiveEmissions
               <h4 className="font-medium text-primary">Estimated Emissions</h4>
               <p className="text-2xl font-bold text-primary">{formatCO2e(previewCO2e)}</p>
               <p className="text-xs text-primary/80 mt-1">
-                {formatQty(quantity)} kg × {formatQty(selectedFactor.co2e_factor)} GWP = {formatQty(previewCO2e)} kg CO2e
+                {formatQty(quantity)} kg × {formatFactor(selectedFactor.co2e_factor)} GWP = {formatQty(previewCO2e)} kg CO2e
               </p>
             </div>
           )}

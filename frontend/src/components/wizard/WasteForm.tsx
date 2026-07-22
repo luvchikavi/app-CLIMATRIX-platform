@@ -13,7 +13,7 @@ import { useState, useMemo } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e, formatQty } from '@/lib/utils';
+import { formatCO2e, formatQty, formatFactor} from '@/lib/utils';
 import { calculateSpendEmissions } from '@/lib/currency';
 import {
   Calculator,
@@ -203,7 +203,7 @@ export function WasteForm({ periodId, onSuccess }: WasteFormProps) {
         quantity: qty,
         unit: unit,
         co2e,
-        formula: `${formatQty(qty)} ${unit} × ${formatQty(ef)} kg/${unit === 'tonnes' ? 'tonne' : 'kg'} = ${co2e.toFixed(2)} kg CO2e`,
+        formula: `${formatQty(qty)} ${unit} × ${formatFactor(ef)} kg/${unit === 'tonnes' ? 'tonne' : 'kg'} = ${co2e.toFixed(2)} kg CO2e`,
         efSource: 'DEFRA 2024',
       };
     }
@@ -237,7 +237,7 @@ export function WasteForm({ periodId, onSuccess }: WasteFormProps) {
         quantity: qty,
         unit: unit,
         co2e,
-        formula: `${formatQty(qty)} ${unit} × ${formatQty(ef)} kg CO2e/${unit} = ${co2e.toFixed(2)} kg CO2e`,
+        formula: `${formatQty(qty)} ${unit} × ${formatFactor(ef)} kg CO2e/${unit} = ${co2e.toFixed(2)} kg CO2e`,
         efSource: 'User-provided (Waste Contractor)',
         supplierEf: ef,
       };

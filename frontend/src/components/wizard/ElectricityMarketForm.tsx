@@ -14,7 +14,7 @@ import { useState, useEffect } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e, formatQty } from '@/lib/utils';
+import { formatCO2e, formatQty, formatFactor} from '@/lib/utils';
 import { api, type PowerProducer } from '@/lib/api';
 import {
   Save,
@@ -617,7 +617,7 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
           <div className="flex items-center gap-2 text-info">
             <Info className="w-4 h-4" />
             <span>
-              Emission Factor: <strong>{formatQty(emissionFactor)}</strong> kg CO2e/kWh
+              Emission Factor: <strong>{formatFactor(emissionFactor)}</strong> kg CO2e/kWh
               {method === 'rec' && <span className="ml-2 text-green-600">(Renewable - Zero Emissions)</span>}
             </span>
           </div>
@@ -648,7 +648,7 @@ export function ElectricityMarketForm({ periodId, onSuccess }: ElectricityMarket
             'text-xs mt-1',
             method === 'rec' ? 'text-green-600' : 'text-primary/80'
           )}>
-            {formatQty(quantity)} kWh × {formatQty(emissionFactor)} kg CO2e/kWh
+            {formatQty(quantity)} kWh × {formatFactor(emissionFactor)} kg CO2e/kWh
           </p>
         </div>
       )}

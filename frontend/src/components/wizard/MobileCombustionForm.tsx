@@ -15,7 +15,7 @@ import { useState, useEffect } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity, useActivityOptions } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e, formatQty, num } from '@/lib/utils';
+import { formatCO2e, formatQty, formatFactor, num} from '@/lib/utils';
 import {
   Calculator,
   Save,
@@ -436,7 +436,7 @@ export function MobileCombustionForm({ periodId, onSuccess }: MobileCombustionFo
             <div className="flex items-center gap-2 text-info">
               <Info className="w-4 h-4" />
               <span>
-                Emission Factor: <strong>{formatQty(selectedFactor.co2e_factor)}</strong> kg CO2e/{selectedFactor.activity_unit}
+                Emission Factor: <strong>{formatFactor(selectedFactor.co2e_factor)}</strong> kg CO2e/{selectedFactor.activity_unit}
               </span>
             </div>
             <div className="mt-1 text-info/80">
@@ -610,7 +610,7 @@ export function MobileCombustionForm({ periodId, onSuccess }: MobileCombustionFo
               <h4 className="font-medium text-primary">Estimated Emissions</h4>
               <p className="text-2xl font-bold text-primary">{formatCO2e(previewCO2e)}</p>
               <p className="text-xs text-primary/80 mt-1">
-                {formatQty(quantity)} {selectedFactor.activity_unit} × {formatQty(selectedFactor.co2e_factor)} kg CO2e/{selectedFactor.activity_unit}
+                {formatQty(quantity)} {selectedFactor.activity_unit} × {formatFactor(selectedFactor.co2e_factor)} kg CO2e/{selectedFactor.activity_unit}
               </p>
             </div>
           )}

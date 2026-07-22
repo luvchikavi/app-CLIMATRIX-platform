@@ -4,7 +4,7 @@ import { useWizardStore } from '@/stores/wizard';
 import { Calculator, Eye, Info, Database, Save, Plus, Loader2, DollarSign, Scale } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e, formatQty, num } from '@/lib/utils';
+import { formatCO2e, formatQty, formatFactor, num} from '@/lib/utils';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { api, SpendConversionResult } from '@/lib/api';
 
@@ -236,7 +236,7 @@ export function DetailsForm({ periodId, onSuccess }: DetailsFormProps) {
 
       setPreview({
         co2e_kg: co2e,
-        formula: `${formatQty(entry.quantity)} ${selectedFactor.activity_unit} x ${formatQty(factorValue)} ${selectedFactor.factor_unit || 'kg CO2e/' + selectedFactor.activity_unit} = ${co2e.toFixed(2)} kg CO2e`,
+        formula: `${formatQty(entry.quantity)} ${selectedFactor.activity_unit} x ${formatFactor(factorValue)} ${selectedFactor.factor_unit || 'kg CO2e/' + selectedFactor.activity_unit} = ${co2e.toFixed(2)} kg CO2e`,
         factor_value: factorValue,
         factor_source: selectedFactor.source || 'Unknown',
         factor_unit: selectedFactor.factor_unit || `kg CO2e/${selectedFactor.activity_unit}`,
@@ -385,7 +385,7 @@ export function DetailsForm({ periodId, onSuccess }: DetailsFormProps) {
         <div className="flex items-center gap-2">
           <Database className="w-4 h-4 text-info/70" />
           <span className="text-sm text-info/80">
-            Emission Factor: <strong>{formatQty(selectedFactor.co2e_factor)}</strong> {selectedFactor.factor_unit || `kg CO2e/${selectedFactor.activity_unit}`}
+            Emission Factor: <strong>{formatFactor(selectedFactor.co2e_factor)}</strong> {selectedFactor.factor_unit || `kg CO2e/${selectedFactor.activity_unit}`}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -614,7 +614,7 @@ export function DetailsForm({ periodId, onSuccess }: DetailsFormProps) {
           <p className="text-sm text-success/80 font-mono">{preview.formula}</p>
           <div className="pt-2 border-t border-success/20 mt-2">
             <p className="text-xs text-success/70">
-              Factor: {formatQty(preview.factor_value)} {preview.factor_unit} | Source: {preview.factor_source}
+              Factor: {formatFactor(preview.factor_value)} {preview.factor_unit} | Source: {preview.factor_source}
             </p>
           </div>
         </div>

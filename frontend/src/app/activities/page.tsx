@@ -27,7 +27,7 @@ import {
   ConfirmDialog,
   toast,
 } from '@/components/ui';
-import { cn, formatQty } from '@/lib/utils';
+import { cn, formatQty, formatFactor} from '@/lib/utils';
 import { Loader2, Trash2, Pencil, ChevronDown, X } from 'lucide-react';
 import { SiteSelector } from '@/components/SiteSelector';
 import { AddActivityModal } from '@/components/wizard/AddActivityModal';
@@ -327,7 +327,7 @@ function ActivitiesContent() {
                       </TableCell>
                       <TableCell className="text-right text-xs text-foreground-muted">
                         {item.emission?.factor_value
-                          ? `${formatQty(item.emission.factor_value)} ${item.emission.factor_unit || ''}`
+                          ? `${formatFactor(item.emission.factor_value)} ${item.emission.factor_unit || ''}`
                           : '-'}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-foreground">
