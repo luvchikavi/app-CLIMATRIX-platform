@@ -3787,6 +3787,19 @@ export interface IngestionSession {
     duplicate_of?: string;
     notice?: string;
     skipped_sheets?: string[];
+    // Upload-driven relevance: what the commit did to the inventory map.
+    profile_updates?: {
+      category_code: string;
+      name: string;
+      row_count: number;
+      previous_relevance: string | null;
+    }[];
+    profile_conflicts?: {
+      category_code: string;
+      name: string;
+      row_count: number;
+      exclusion_reason: string | null;
+    }[];
   } | null;
   error_message: string | null;
   reporting_period_id: string | null;

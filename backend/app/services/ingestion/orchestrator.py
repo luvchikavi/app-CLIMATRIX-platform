@@ -31,6 +31,12 @@ from app.models.emission import (
     ImportBatch,
     ImportBatchStatus,
 )
+from app.models.hub import (
+    CATEGORY_BY_CODE,
+    HUB_CODE_FOR,
+    CategoryProfile,
+    CategoryRelevance,
+)
 from app.models.ingestion import (
     ClarificationQuestion,
     IngestionSession,
@@ -630,6 +636,7 @@ async def commit_session(
     pipeline = CalculationPipeline(session)
     committed = 0
     failed = 0
+    committed_by_hub: dict[str, int] = {}
 
     for row in rows:
         if not row.activity_key or row.quantity is None or not row.unit:
@@ -752,6 +759,10 @@ async def commit_session(
         row.updated_at = datetime.utcnow()
         committed += 1
 
+        hub_code = HUB_CODE_FOR.get(row.category_code or "")
+        if hub_code:
+            committed_by_hub[hub_code] = committed_by_hub.get(hub_code, 0) + 1
+
     batch.status = (
         ImportBatchStatus.COMPLETED if failed == 0 else ImportBatchStatus.PARTIAL
     )
@@ -759,12 +770,129 @@ async def commit_session(
     batch.failed_rows = failed
     batch.completed_at = datetime.utcnow()
 
+    # Upload-driven relevance: what just committed is evidence about the org's
+    # inventory map — fold it into the category profile and surface the result
+    # (chips + exclusion conflicts) on the commit success panel via summary.
+    updates, conflicts = await _sync_category_profile(
+        session, ingestion, committed_by_hub
+    )
+    summary = dict(ingestion.summary or {})
+    summary["profile_updates"] = updates
+    summary["profile_conflicts"] = conflicts
+    ingestion.summary = summary
+
     ingestion.import_batch_id = batch.id
     ingestion.committed_count = committed
     ingestion.status = IngestionStatus.COMMITTED
     ingestion.updated_at = datetime.utcnow()
     await session.flush()
     return ingestion
+
+
+async def _sync_category_profile(
+    session: AsyncSession,
+    ingestion: IngestionSession,
+    committed_by_hub: dict[str, int],
+) -> tuple[list[dict], list[dict]]:
+    """Committed data upgrades the org's inventory map (approve-by-exception).
+
+    For each hub category that just received committed rows, an unset or
+    not-sure org-level profile row is auto-marked ``relevant`` with upload
+    provenance; the success panel lets the user un-tick (back to not-sure).
+    Uploads only ever UPGRADE certainty: a documented exclusion
+    (``not_relevant``) is an auditor-facing decision and is never auto-flipped
+    — it raises a conflict entry instead. A category un-ticked against this
+    session's evidence is not re-suggested by the same session.
+    """
+    updates: list[dict] = []
+    conflicts: list[dict] = []
+    if not committed_by_hub:
+        return updates, conflicts
+
+    profiles: dict[str, CategoryProfile] = {
+        p.category_code: p
+        for p in (
+            (
+                await session.execute(
+                    select(CategoryProfile).where(
+                        CategoryProfile.organization_id == ingestion.organization_id,
+                        CategoryProfile.site_id.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+    }
+    now = datetime.utcnow()
+    for hub_code in sorted(committed_by_hub, key=_category_sort_key):
+        cat = CATEGORY_BY_CODE.get(hub_code)
+        if cat is None:
+            continue
+        row_count = committed_by_hub[hub_code]
+        profile = profiles.get(hub_code)
+        relevance = None
+        if profile is not None:
+            relevance = (
+                profile.relevance.value
+                if isinstance(profile.relevance, CategoryRelevance)
+                else profile.relevance
+            )
+
+        if relevance == CategoryRelevance.RELEVANT.value:
+            continue  # already declared — coverage numbers update as today
+        if relevance == CategoryRelevance.NOT_RELEVANT.value:
+            conflicts.append(
+                {
+                    "category_code": hub_code,
+                    "name": cat["name"],
+                    "row_count": row_count,
+                    "exclusion_reason": profile.exclusion_reason,
+                }
+            )
+            continue
+
+        details = dict(profile.details or {}) if profile is not None else {}
+        if str(ingestion.id) in (details.get("relevance_dismissed_sessions") or []):
+            continue
+        details["relevance_provenance"] = {
+            "source": "upload",
+            "session_id": str(ingestion.id),
+            "filename": ingestion.filename,
+            "at": now.isoformat(),
+        }
+        if profile is None:
+            profile = CategoryProfile(
+                organization_id=ingestion.organization_id,
+                site_id=None,
+                scope=cat["scope"],
+                category_code=hub_code,
+                relevance=CategoryRelevance.RELEVANT.value,
+                details=details,
+                updated_at=now,
+            )
+            session.add(profile)
+        else:
+            profile.relevance = CategoryRelevance.RELEVANT.value
+            profile.details = details
+            profile.updated_at = now
+        updates.append(
+            {
+                "category_code": hub_code,
+                "name": cat["name"],
+                "row_count": row_count,
+                "previous_relevance": relevance,
+            }
+        )
+    return updates, conflicts
+
+
+def _category_sort_key(code: str) -> tuple:
+    """'3.10' sorts after '3.9' — numeric, not lexicographic."""
+    try:
+        return tuple(int(part) for part in code.split("."))
+    except ValueError:
+        return (99, code)
 
 
 # ---------------------------------------------------------------------------

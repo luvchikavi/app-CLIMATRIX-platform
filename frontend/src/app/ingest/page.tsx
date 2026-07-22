@@ -14,7 +14,9 @@ import { useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/layout';
 import { Surface, PanelLabel, PageHead } from '@/components/canopy';
 import { Button, ScopeBadge, toast } from '@/components/ui';
+import { useQueryClient } from '@tanstack/react-query';
 import { usePeriods, useSites } from '@/hooks/useEmissions';
+import { useHubProfile, useSaveHubProfile } from '@/hooks/useHub';
 import { useEntitlementFlags } from '@/components/layout/TeaserGate';
 import { usePeriodStore } from '@/stores/period';
 import {
@@ -95,6 +97,7 @@ const CATEGORY_NAMES: Record<string, string> = {
 
 
 function IngestContent() {
+  const queryClient = useQueryClient();
   const { data: periods } = usePeriods();
   const { data: sites } = useSites();
   const [siteId, setSiteId] = useState<string>('');
@@ -246,6 +249,10 @@ function IngestContent() {
     try {
       const done = await api.commitIngestSession(session.id, periodId, siteId || undefined);
       setSession(done);
+      // The commit may have auto-marked categories relevant — the Measure
+      // matrix and the success-panel chips both read these caches.
+      queryClient.invalidateQueries({ queryKey: ['hub-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['hub-profile'] });
       toast.success(`${done.committed_count} rows added to your inventory`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Commit failed');
@@ -512,6 +519,7 @@ function IngestContent() {
             <p className="text-[12.5px] text-cy-muted">
               They&apos;re now calculated and included in your dashboard totals.
             </p>
+            <InventoryMapUpdates session={session} />
             <div className="mt-2 flex flex-wrap justify-center gap-2">
               <Link href="/hub">
                 <Button>Back to Measure →</Button>
@@ -535,6 +543,121 @@ export default function IngestPage() {
     <Suspense fallback={null}>
       <IngestContent />
     </Suspense>
+  );
+}
+
+/**
+ * Upload-driven relevance — the commit's effect on the inventory map.
+ *
+ * Categories the commit auto-marked relevant appear as chips; the ✕ is the
+ * approve-by-exception path (returns the category to "Not sure" via the
+ * normal profile PUT — no new endpoint). Data that landed in a documented
+ * exclusion shows as an amber conflict, never a block.
+ */
+function InventoryMapUpdates({ session }: { session: IngestionSessionDetail }) {
+  const updates = session.summary?.profile_updates ?? [];
+  const conflicts = session.summary?.profile_conflicts ?? [];
+  const { data: profile } = useHubProfile();
+  const save = useSaveHubProfile();
+  const [busyCode, setBusyCode] = useState<string | null>(null);
+
+  if (updates.length === 0 && conflicts.length === 0) return null;
+
+  const byCode = new Map((profile ?? []).map((p) => [p.category_code, p]));
+  // A chip stays while the category is still marked relevant; once un-ticked
+  // (here or on the Measure page) it disappears — reload-safe.
+  const visible = updates.filter(
+    (u) => (byCode.get(u.category_code)?.relevance ?? 'relevant') === 'relevant'
+  );
+
+  const untick = (code: string, name: string) => {
+    const existing = byCode.get(code);
+    const dismissed =
+      (existing?.details?.relevance_dismissed_sessions as string[] | undefined) ?? [];
+    setBusyCode(code);
+    save.mutate(
+      [
+        {
+          category_code: code,
+          relevance: 'not_sure',
+          exclusion_reason: null,
+          // Merged server-side into the existing details bag: remembers the
+          // dismissal so this session's rows never re-suggest the category.
+          details: {
+            relevance_provenance: { source: 'user', at: new Date().toISOString() },
+            relevance_dismissed_sessions: [...dismissed, session.id],
+          },
+        },
+      ],
+      {
+        onSuccess: () => toast.success(`${name} returned to "Not sure"`),
+        onError: (e) =>
+          toast.error(e instanceof Error ? e.message : 'Could not update — try again'),
+        onSettled: () => setBusyCode(null),
+      }
+    );
+  };
+
+  return (
+    <div className="mt-2 w-full max-w-xl space-y-3">
+      {visible.length > 0 && (
+        <div>
+          <p className="text-[12.5px] font-semibold text-cy-ink">
+            Your inventory map was updated — these categories are now marked relevant:
+          </p>
+          <div className="mt-2 flex flex-wrap justify-center gap-2">
+            {visible.map((u) => (
+              <span
+                key={u.category_code}
+                className="inline-flex items-center gap-1.5 rounded-full bg-cy-accent-soft px-3 py-1 text-[12px] font-semibold text-cy-accent"
+              >
+                {u.category_code} {u.name}
+                <span className="font-normal opacity-70">
+                  · {u.row_count} {u.row_count === 1 ? 'row' : 'rows'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => untick(u.category_code, u.name)}
+                  disabled={busyCode !== null}
+                  aria-label={`${u.name}: not part of our inventory — return to "Not sure"`}
+                  title='Not part of our inventory — return to "Not sure"'
+                  className="ml-0.5 rounded-full px-1 leading-none text-cy-accent transition-opacity hover:opacity-60 disabled:opacity-40"
+                >
+                  {busyCode === u.category_code ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    '✕'
+                  )}
+                </button>
+              </span>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11.5px] text-cy-faint">
+            Un-tick a category if this data doesn&apos;t belong to your inventory — it
+            returns to &quot;Not sure&quot;.
+          </p>
+        </div>
+      )}
+      {conflicts.map((c) => (
+        <p
+          key={c.category_code}
+          className="rounded-lg bg-cy-warn-soft px-3 py-2 text-left text-[12.5px] text-cy-ink"
+        >
+          <span aria-hidden="true">⚠ </span>
+          {c.row_count} row{c.row_count === 1 ? '' : 's'} landed in{' '}
+          <span className="font-semibold">
+            {c.category_code} {c.name}
+          </span>
+          , which you excluded
+          {c.exclusion_reason ? ` (“${c.exclusion_reason}”)` : ''}. The rows are
+          committed — review the exclusion on the{' '}
+          <Link href="/hub" className="font-semibold underline">
+            Measure
+          </Link>{' '}
+          page.
+        </p>
+      ))}
+    </div>
   );
 }
 

@@ -69,6 +69,19 @@ function CoverageBar({ category }: { category: HubCategory }) {
   const total = coverage.staged_count + coverage.committed_count;
 
   if (relevance === 'not_relevant') {
+    // Data committed into a documented exclusion — the one contradiction an
+    // auditor will ask about. Never blocks; stays amber until a human resolves.
+    if (coverage.committed_count > 0) {
+      return (
+        <p
+          className="truncate text-[12px] font-semibold text-cy-warn"
+          title={`Excluded (“${profile?.exclusion_reason || 'no reason recorded'}”) but ${coverage.committed_count} committed rows exist — mark it relevant, or remove the rows.`}
+        >
+          <span aria-hidden="true">⚠ </span>excluded by you — but {coverage.committed_count}{' '}
+          committed {coverage.committed_count === 1 ? 'row exists' : 'rows exist'}
+        </p>
+      );
+    }
     return (
       <p className="truncate text-[12px] italic text-cy-faint">
         {profile?.exclusion_reason || 'Excluded'}
@@ -161,7 +174,10 @@ function CategoryRow({
     <div
       className={cn(
         'grid grid-cols-1 gap-2 py-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1.6fr)_auto] sm:items-center sm:gap-4',
-        relevance === 'not_relevant' && 'opacity-60'
+        // A conflicted exclusion (committed rows exist) must not be dimmed away.
+        relevance === 'not_relevant' &&
+          category.coverage.committed_count === 0 &&
+          'opacity-60'
       )}
     >
       <button type="button" onClick={() => onOpen(category)} className="min-w-0 cursor-pointer text-left">
