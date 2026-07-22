@@ -5,7 +5,7 @@ import { useCreateActivity } from '@/hooks/useEmissions';
 import { Check, Loader2, AlertCircle, Plus, Trash2, Info, Package } from 'lucide-react';
 import { useState } from 'react';
 import { Button, Card, ScopeBadge } from '@/components/ui';
-import { formatCO2e, formatQty, num } from '@/lib/utils';
+import { formatCO2e, formatQty, formatFactor, num} from '@/lib/utils';
 
 interface ReviewStepProps {
   periodId: string;
@@ -183,7 +183,7 @@ export function ReviewStep({ periodId, onSuccess }: ReviewStepProps) {
           <div>
             <span className="text-sm text-foreground-muted">Emission Factor</span>
             <p className="font-semibold text-foreground">
-              {formatQty(selectedFactor?.co2e_factor)} {selectedFactor?.factor_unit || `kg CO2e/${entry.unit}`}
+              {formatFactor(selectedFactor?.co2e_factor)} {selectedFactor?.factor_unit || `kg CO2e/${entry.unit}`}
             </p>
           </div>
         </div>
@@ -209,7 +209,7 @@ export function ReviewStep({ periodId, onSuccess }: ReviewStepProps) {
             <span className="text-xl font-bold text-primary">{formatCO2e(previewCO2e)}</span>
           </div>
           <p className="text-xs text-foreground-muted mt-1 font-mono">
-            {formatQty(entry.quantity)} {entry.unit} x {formatQty(selectedFactor?.co2e_factor)} = {previewCO2e.toFixed(2)} kg CO2e
+            {formatQty(entry.quantity)} {entry.unit} x {formatFactor(selectedFactor?.co2e_factor)} = {previewCO2e.toFixed(2)} kg CO2e
           </p>
         </div>
       </Card>

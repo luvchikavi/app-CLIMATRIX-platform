@@ -13,7 +13,7 @@ import { useState, useMemo } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity } from '@/hooks/useEmissions';
 import { Button, Input, toast } from '@/components/ui';
-import { formatCO2e, formatQty } from '@/lib/utils';
+import { formatCO2e, formatQty, formatFactor} from '@/lib/utils';
 import { calculateSpendEmissions } from '@/lib/currency';
 import {
   Calculator,
@@ -192,7 +192,7 @@ export function TransportForm({ periodId, onSuccess }: TransportFormProps) {
         quantity: tonneKm,
         unit: 'tonne-km',
         co2e,
-        formula: `${tonneKm.toFixed(2)} tonne-km × ${formatQty(ef)} kg/tonne-km = ${co2e.toFixed(2)} kg CO2e`,
+        formula: `${tonneKm.toFixed(2)} tonne-km × ${formatFactor(ef)} kg/tonne-km = ${co2e.toFixed(2)} kg CO2e`,
         efSource: 'User-provided (Supplier)',
         supplierEf: ef,
       };

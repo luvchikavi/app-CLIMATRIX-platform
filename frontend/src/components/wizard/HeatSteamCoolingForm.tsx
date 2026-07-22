@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity, useActivityOptions } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e, formatQty, num } from '@/lib/utils';
+import { formatCO2e, formatQty, formatFactor, num} from '@/lib/utils';
 import {
   Save,
   Plus,
@@ -266,7 +266,7 @@ export function HeatSteamCoolingForm({ periodId, onSuccess }: HeatSteamCoolingFo
                 <div className="flex-1">
                   <span className="font-medium text-foreground">{selectedFactor.display_name}</span>
                   <span className="ml-2 text-xs text-foreground-muted">
-                    ({formatQty(selectedFactor.co2e_factor)} kg CO2e/kWh)
+                    ({formatFactor(selectedFactor.co2e_factor)} kg CO2e/kWh)
                   </span>
                 </div>
               ) : (
@@ -310,7 +310,7 @@ export function HeatSteamCoolingForm({ periodId, onSuccess }: HeatSteamCoolingFo
                       className="w-full px-4 py-2 text-left text-sm hover:bg-primary/10 transition-colors flex justify-between items-center"
                     >
                       <span className="font-medium">{factor.display_name}</span>
-                      <span className="text-xs text-foreground-muted">{formatQty(factor.co2e_factor)} kg CO2e/kWh</span>
+                      <span className="text-xs text-foreground-muted">{formatFactor(factor.co2e_factor)} kg CO2e/kWh</span>
                     </button>
                   ))}
                 </div>
@@ -410,7 +410,7 @@ export function HeatSteamCoolingForm({ periodId, onSuccess }: HeatSteamCoolingFo
           <h4 className="font-medium text-primary">Estimated Emissions</h4>
           <p className="text-2xl font-bold text-primary">{formatCO2e(previewCO2e)}</p>
           <p className="text-xs text-primary/80 mt-1">
-            {formatQty(quantity)} kWh × {formatQty(emissionFactor)} kg CO2e/kWh
+            {formatQty(quantity)} kWh × {formatFactor(emissionFactor)} kg CO2e/kWh
           </p>
         </div>
       )}

@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import { useWizardStore } from '@/stores/wizard';
 import { useCreateActivity, useActivityOptions, useOrganization } from '@/hooks/useEmissions';
 import { Button, Input } from '@/components/ui';
-import { formatCO2e, formatQty, num } from '@/lib/utils';
+import { formatCO2e, formatQty, formatFactor, num} from '@/lib/utils';
 import {
   Calculator,
   Save,
@@ -312,7 +312,7 @@ export function ElectricityLocationForm({ periodId, onSuccess }: ElectricityLoca
                 <div className="flex-1">
                   <span className="font-medium text-foreground">{selectedFactor.display_name}</span>
                   <span className="ml-2 text-xs text-foreground-muted">
-                    ({formatQty(selectedFactor.co2e_factor)} kg CO2e/kWh)
+                    ({formatFactor(selectedFactor.co2e_factor)} kg CO2e/kWh)
                   </span>
                 </div>
               ) : (
@@ -345,7 +345,7 @@ export function ElectricityLocationForm({ periodId, onSuccess }: ElectricityLoca
                         className="w-full px-4 py-2 text-left text-sm hover:bg-primary/10 transition-colors flex justify-between items-center"
                       >
                         <span className="font-medium">{factor.display_name}</span>
-                        <span className="text-xs text-foreground-muted">{formatQty(factor.co2e_factor)} kg CO2e/kWh</span>
+                        <span className="text-xs text-foreground-muted">{formatFactor(factor.co2e_factor)} kg CO2e/kWh</span>
                       </button>
                     ))
                   ) : (
@@ -362,7 +362,7 @@ export function ElectricityLocationForm({ periodId, onSuccess }: ElectricityLoca
                               className="w-full px-4 py-2 text-left text-sm hover:bg-primary/10 transition-colors flex justify-between items-center"
                             >
                               <span className="font-medium">{factor.display_name}</span>
-                              <span className="text-xs text-foreground-muted">{formatQty(factor.co2e_factor)} kg CO2e/kWh</span>
+                              <span className="text-xs text-foreground-muted">{formatFactor(factor.co2e_factor)} kg CO2e/kWh</span>
                             </button>
                           ))}
                         </div>
@@ -384,7 +384,7 @@ export function ElectricityLocationForm({ periodId, onSuccess }: ElectricityLoca
             <div className="flex items-center gap-2 text-info">
               <Info className="w-4 h-4" />
               <span>
-                Grid Emission Factor: <strong>{formatQty(selectedFactor.co2e_factor)}</strong> kg CO2e/kWh
+                Grid Emission Factor: <strong>{formatFactor(selectedFactor.co2e_factor)}</strong> kg CO2e/kWh
               </span>
             </div>
             <div className="mt-1 text-info/80 flex items-center gap-2 flex-wrap">
@@ -562,7 +562,7 @@ export function ElectricityLocationForm({ periodId, onSuccess }: ElectricityLoca
               <h4 className="font-medium text-primary">Estimated Emissions</h4>
               <p className="text-2xl font-bold text-primary">{formatCO2e(previewCO2e)}</p>
               <p className="text-xs text-primary/80 mt-1">
-                {formatQty(quantity)} kWh × {formatQty(selectedFactor.co2e_factor)} kg CO2e/kWh
+                {formatQty(quantity)} kWh × {formatFactor(selectedFactor.co2e_factor)} kg CO2e/kWh
               </p>
             </div>
           )}
