@@ -5,23 +5,19 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { api, InitiativeCategory, PersonalizedRecommendation } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import { usePeriodStore } from '@/stores/period';
-import { Card, CardHeader, CardTitle, CardContent, Badge, Button, toast } from '@/components/ui';
-import { cn, num, formatMoney } from '@/lib/utils';
+import { AppShell } from '@/components/layout';
+import { CanopyButton, PageHead, PillTabs, Surface } from '@/components/canopy';
+import { Badge, Button, EmptyState, toast } from '@/components/ui';
+import { num, formatMoney } from '@/lib/utils';
 import {
   Loader2,
-  ArrowLeft,
   Lightbulb,
-  TrendingDown,
-  DollarSign,
-  Clock,
   Zap,
   Truck,
   Leaf,
   Factory,
   Building2,
   Recycle,
-  Filter,
-  Plus,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -46,17 +42,6 @@ const categoryLabels: Record<string, string> = {
   behavior_change: 'Behavior Change',
   waste_reduction: 'Waste Reduction',
   carbon_removal: 'Carbon Removal',
-};
-
-const categoryColors: Record<string, string> = {
-  energy_efficiency: 'bg-warning/10 text-warning',
-  renewable_energy: 'bg-success/10 text-success',
-  fleet_transport: 'bg-primary/10 text-primary',
-  supply_chain: 'bg-secondary/10 text-secondary',
-  process_change: 'bg-error/10 text-error',
-  behavior_change: 'bg-warning/10 text-warning',
-  waste_reduction: 'bg-success/10 text-success',
-  carbon_removal: 'bg-primary/10 text-primary',
 };
 
 export default function RecommendationsPage() {
@@ -97,154 +82,118 @@ export default function RecommendationsPage() {
     enabled: !!selectedPeriodId,
   });
 
-  const categories = Object.keys(categoryLabels);
+  const filterTabs = [
+    { id: 'all', label: 'All' },
+    ...Object.keys(categoryLabels).map((cat) => ({ id: cat, label: categoryLabels[cat] })),
+  ];
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/decarbonization">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-cy-ink">Reduction recommendations</h1>
-            <p className="text-foreground-muted">Personalized initiatives based on your emission profile</p>
-          </div>
-        </div>
-      </div>
+    <AppShell>
+      <CanopyButton href="/decarbonization" variant="quiet" className="mb-2 inline-block">
+        ← Back to plan
+      </CanopyButton>
+      <PageHead
+        title="Reduction recommendations"
+        subtitle="Personalized initiatives based on your emission profile"
+      />
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="py-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Filter className="w-4 h-4 text-foreground-muted" />
-            <span className="text-sm text-foreground-muted mr-2">Filter by category:</span>
-            <Button
-              variant={categoryFilter === null ? 'primary' : 'ghost'}
-              size="sm"
-              onClick={() => setCategoryFilter(null)}
-            >
-              All
-            </Button>
-            {categories.map((cat) => (
-              <Button
-                key={cat}
-                variant={categoryFilter === cat ? 'primary' : 'ghost'}
-                size="sm"
-                onClick={() => setCategoryFilter(cat)}
-              >
-                {categoryLabels[cat]}
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Category filter */}
+      <Surface padding="tight" className="mb-4">
+        <PillTabs
+          tabs={filterTabs}
+          value={categoryFilter ?? 'all'}
+          onChange={(id) => setCategoryFilter(id === 'all' ? null : id)}
+        />
+      </Surface>
 
-      {/* Recommendations List */}
+      {/* Recommendations list */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
+          <Loader2 className="w-6 h-6 text-cy-accent animate-spin" aria-hidden="true" />
         </div>
       ) : !recommendations || recommendations.length === 0 ? (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center text-foreground-muted">
-              <Lightbulb className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No recommendations found.</p>
-              <p className="text-sm mt-1">Try changing the filter or import more emission data.</p>
-            </div>
-          </CardContent>
-        </Card>
+        <Surface>
+          <EmptyState
+            icon={<Lightbulb className="w-8 h-8" strokeWidth={1.5} />}
+            title="No recommendations found"
+            description="Try changing the filter or import more emission data."
+          />
+        </Surface>
       ) : (
         <div className="grid gap-4">
           {recommendations.map((rec) => {
             const Icon = categoryIcons[rec.initiative_category] || Lightbulb;
-            const colorClass = categoryColors[rec.initiative_category] || 'bg-foreground-muted/10 text-foreground-muted';
 
             return (
-              <Card key={`${rec.initiative_id}-${rec.target_activity_key}`} className="hover:border-primary/50 transition-colors">
-                <CardContent className="py-4">
-                  <div className="flex items-start gap-4">
-                    <div className={cn('p-3 rounded-lg', colorClass)}>
-                      <Icon className="w-6 h-6" />
+              <Surface key={`${rec.initiative_id}-${rec.target_activity_key}`}>
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-[12px] bg-cy-accent-soft text-cy-accent">
+                    <Icon className="w-5 h-5" strokeWidth={1.75} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-[16px] font-[650] tracking-[-0.01em] text-cy-ink">
+                          {rec.initiative_name}
+                        </h3>
+                        <p className="text-[12.5px] text-cy-muted mt-0.5">
+                          Targets: {rec.target_source_name}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant={rec.impact_score >= 7 ? 'success' : rec.impact_score >= 4 ? 'warning' : 'default'}>
+                          Impact {rec.impact_score}/10
+                        </Badge>
+                        <CanopyButton onClick={() => setAddingRec(rec)} className="px-3.5 py-2">
+                          Add to scenario
+                        </CanopyButton>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between gap-4">
+
+                    <p className="text-[13px] text-cy-muted mt-3">{rec.relevance_explanation}</p>
+
+                    <div className="flex flex-wrap items-center gap-x-8 gap-y-2.5 mt-4">
+                      <div>
+                        <p className="text-[13.5px] font-semibold tabular-nums text-cy-accent">
+                          −{Number(rec.potential_reduction_tco2e || 0).toLocaleString()} t CO₂e
+                        </p>
+                        <p className="text-[11.5px] text-cy-muted mt-0.5">
+                          {Number(rec.reduction_as_percent_of_total || 0).toFixed(1)}% of total
+                        </p>
+                      </div>
+
+                      {/* num(): "0.00" is a truthy string — guard on the value, not the field */}
+                      {num(rec.estimated_capex) > 0 && (
                         <div>
-                          <h3 className="font-semibold text-foreground text-lg">{rec.initiative_name}</h3>
-                          <p className="text-sm text-foreground-muted mt-1">
-                            Targets: {rec.target_source_name}
+                          <p className="text-[13.5px] font-semibold tabular-nums text-cy-ink">
+                            {formatMoney(rec.estimated_capex || 0)}
                           </p>
+                          <p className="text-[11.5px] text-cy-muted mt-0.5">Investment</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={rec.impact_score >= 7 ? 'success' : rec.impact_score >= 4 ? 'warning' : 'secondary'}>
-                            Impact: {rec.impact_score}/10
-                          </Badge>
-                          <Button size="sm" onClick={() => setAddingRec(rec)}>
-                            <Plus className="w-4 h-4 mr-1" />
-                            Add to Scenario
-                          </Button>
+                      )}
+
+                      {num(rec.payback_years) > 0 && (
+                        <div>
+                          <p className="text-[13.5px] font-semibold tabular-nums text-cy-ink">
+                            {Number(rec.payback_years || 0).toFixed(1)} years
+                          </p>
+                          <p className="text-[11.5px] text-cy-muted mt-0.5">Payback</p>
                         </div>
-                      </div>
+                      )}
 
-                      <p className="text-foreground-muted mt-3">{rec.relevance_explanation}</p>
-
-                      <div className="flex flex-wrap items-center gap-6 mt-4 pt-4 border-t border-border">
-                        <div className="flex items-center gap-2">
-                          <TrendingDown className="w-5 h-5 text-success" />
-                          <div>
-                            <p className="font-semibold text-success">
-                              -{Number(rec.potential_reduction_tco2e || 0).toLocaleString()} tCO2e
-                            </p>
-                            <p className="text-xs text-foreground-muted">
-                              {Number(rec.reduction_as_percent_of_total || 0).toFixed(1)}% of total
-                            </p>
-                          </div>
+                      {rec.co_benefits && rec.co_benefits.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 ml-auto">
+                          {rec.co_benefits.map((benefit, i) => (
+                            <Badge key={i} variant="default" size="sm">
+                              {benefit}
+                            </Badge>
+                          ))}
                         </div>
-
-                        {/* num(): "0.00" is a truthy string — guard on the value, not the field */}
-                        {num(rec.estimated_capex) > 0 && (
-                          <div className="flex items-center gap-2">
-                            <DollarSign className="w-5 h-5 text-foreground-muted" />
-                            <div>
-                              <p className="font-semibold text-foreground">
-                                {formatMoney(rec.estimated_capex || 0)}
-                              </p>
-                              <p className="text-xs text-foreground-muted">Investment</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {num(rec.payback_years) > 0 && (
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-5 h-5 text-foreground-muted" />
-                            <div>
-                              <p className="font-semibold text-foreground">
-                                {Number(rec.payback_years || 0).toFixed(1)} years
-                              </p>
-                              <p className="text-xs text-foreground-muted">Payback</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {rec.co_benefits && rec.co_benefits.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 ml-auto">
-                            {rec.co_benefits.map((benefit, i) => (
-                              <Badge key={i} variant="secondary" className="text-xs">
-                                {benefit}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </Surface>
             );
           })}
         </div>
@@ -257,7 +206,7 @@ export default function RecommendationsPage() {
           onClose={() => setAddingRec(null)}
         />
       )}
-    </div>
+    </AppShell>
   );
 }
 
@@ -290,44 +239,60 @@ function AddToScenarioModal({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            Add to Scenario
-            <button onClick={onClose} aria-label="Close">
-              <X className="w-5 h-5 text-foreground-muted" />
-            </button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-foreground-muted">
-            Add <span className="font-medium text-foreground">{rec.initiative_name}</span> to:
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Add to scenario">
+      <div className="bg-background-elevated rounded-cy shadow-xl max-w-md w-full">
+        {/* Header */}
+        <div className="flex items-start justify-between px-6 pt-6 pb-1">
+          <h2 className="text-[16px] font-bold text-foreground tracking-[-0.01em]">
+            Add to scenario
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-1.5 hover:bg-cy-row rounded-md text-cy-muted hover:text-foreground"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-4">
+          {error && (
+            <div className="px-3 py-2.5 rounded-[10px] bg-error-50 text-error text-[12.5px]">
+              {error}
+            </div>
+          )}
+          <p className="text-[12.5px] text-cy-muted">
+            Add <b className="font-semibold text-foreground">{rec.initiative_name}</b> to:
           </p>
           {scenarios.length === 0 ? (
-            <div className="text-sm text-foreground-muted">
+            <div className="text-[12.5px] text-cy-muted">
               You don&apos;t have any scenarios yet.{' '}
-              <Link href="/decarbonization/scenarios" className="text-primary underline">
+              <Link href="/decarbonization/scenarios" className="font-semibold text-cy-accent">
                 Create one first
               </Link>
               .
             </div>
           ) : (
             <>
-              <select
-                value={scenarioId}
-                onChange={(e) => setScenarioId(e.target.value)}
-                className="w-full rounded-[10px] border-0 bg-cy-row px-3 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
-              >
-                {scenarios.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              {error && <p className="text-sm text-error">{error}</p>}
+              <div>
+                <label className="block text-[11px] font-bold tracking-[0.06em] uppercase text-cy-faint mb-1.5">
+                  Scenario
+                </label>
+                <select
+                  value={scenarioId}
+                  onChange={(e) => setScenarioId(e.target.value)}
+                  className="w-full rounded-[10px] border-0 bg-cy-row px-3 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
+                >
+                  {scenarios.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={onClose}>
+                <Button variant="ghost" onClick={onClose}>
                   Cancel
                 </Button>
                 <Button onClick={() => addMutation.mutate()} disabled={addMutation.isPending || !scenarioId}>
@@ -337,8 +302,8 @@ function AddToScenarioModal({
               </div>
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

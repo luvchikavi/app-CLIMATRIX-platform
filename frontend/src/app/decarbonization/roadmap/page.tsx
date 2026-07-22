@@ -1,25 +1,18 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
-import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '@/components/ui';
+import { AppShell } from '@/components/layout';
+import { CanopyButton, PageHead, PanelLabel, StatCells, Surface } from '@/components/canopy';
+import { Badge, EmptyState } from '@/components/ui';
 import { cn, formatMoney } from '@/lib/utils';
-import {
-  Loader2,
-  ArrowLeft,
-  Target,
-  Calendar,
-  CheckCircle2,
-  Circle,
-  TrendingDown,
-  Flag,
-  Milestone,
-} from 'lucide-react';
-import Link from 'next/link';
+import { Loader2, Target, CheckCircle2, Circle, Flag } from 'lucide-react';
 
 export default function RoadmapPage() {
   const { user } = useAuthStore();
+  const router = useRouter();
 
   const { data: targets, isLoading: targetsLoading } = useQuery({
     queryKey: ['decarbonization-targets'],
@@ -49,211 +42,178 @@ export default function RoadmapPage() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/decarbonization">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-cy-ink">Decarbonization roadmap</h1>
-            <p className="text-foreground-muted">Your path to net zero</p>
-          </div>
-        </div>
-      </div>
+    <AppShell>
+      <CanopyButton href="/decarbonization" variant="quiet" className="mb-2 inline-block">
+        ← Back to plan
+      </CanopyButton>
+      <PageHead title="Decarbonization roadmap" subtitle="Your path to net zero" />
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
+          <Loader2 className="w-6 h-6 text-cy-accent animate-spin" aria-hidden="true" />
         </div>
       ) : !activeTarget ? (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center">
-              <Target className="w-16 h-16 mx-auto mb-4 text-foreground-muted opacity-50" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No Active Target</h3>
-              <p className="text-foreground-muted mb-4">
-                Set a decarbonization target to view your roadmap
-              </p>
-              <Link href="/decarbonization">
-                <Button>Set Target</Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+        <Surface>
+          <EmptyState
+            icon={<Target className="w-8 h-8" strokeWidth={1.5} />}
+            title="No active target"
+            description="Set a decarbonization target to view your roadmap."
+            action={{ label: 'Set target', onClick: () => router.push('/decarbonization'), icon: <></> }}
+          />
+        </Surface>
       ) : (
-        <>
-          {/* Target Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Flag className="w-5 h-5 text-primary" />
-                {activeTarget.name}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div>
-                  <p className="text-sm text-foreground-muted">Base Year</p>
-                  <p className="text-xl font-bold text-foreground">{activeTarget.base_year}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-foreground-muted">Target Year</p>
-                  <p className="text-xl font-bold text-foreground">{activeTarget.target_year}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-foreground-muted">Base Emissions</p>
-                  <p className="text-xl font-bold text-foreground">
-                    {Number(activeTarget.base_year_emissions_tco2e || 0).toLocaleString()} tCO2e
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-foreground-muted">Target Emissions</p>
-                  <p className="text-xl font-bold text-success">
-                    {Number(activeTarget.target_emissions_tco2e || 0).toLocaleString()} tCO2e
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid gap-4">
+          {/* Target summary */}
+          <Surface>
+            <PanelLabel>Active target</PanelLabel>
+            <h3 className="text-[16px] font-[650] tracking-[-0.01em] text-cy-ink mb-4">
+              {activeTarget.name}
+            </h3>
+            <StatCells
+              cells={[
+                { label: 'Base year', value: String(activeTarget.base_year) },
+                { label: 'Target year', value: String(activeTarget.target_year) },
+                {
+                  label: 'Base emissions',
+                  value: Number(activeTarget.base_year_emissions_tco2e || 0).toLocaleString(),
+                  sub: 't CO₂e',
+                },
+                {
+                  label: 'Target emissions',
+                  value: Number(activeTarget.target_emissions_tco2e || 0).toLocaleString(),
+                  sub: 't CO₂e',
+                },
+              ]}
+            />
+          </Surface>
 
           {/* Timeline */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Milestone className="w-5 h-5 text-foreground-muted" />
-                Timeline
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="relative">
-                {/* Timeline line */}
-                <div className="absolute left-4 top-8 bottom-8 w-0.5 bg-border" />
+          <Surface>
+            <PanelLabel>Timeline</PanelLabel>
+            <div className="relative">
+              {/* Timeline line — a quiet row-tint spine, no border */}
+              <div className="absolute left-4 top-8 bottom-8 w-0.5 bg-cy-row" aria-hidden="true" />
 
-                <div className="space-y-8">
-                  {milestoneYears.map((year, index) => {
-                    const isPast = year < currentYear;
-                    const isCurrent = year === currentYear;
-                    const isTarget = year === activeTarget.target_year;
-                    const isBase = year === activeTarget.base_year;
+              <div className="space-y-7">
+                {milestoneYears.map((year) => {
+                  const isPast = year < currentYear;
+                  const isCurrent = year === currentYear;
+                  const isTarget = year === activeTarget.target_year;
+                  const isBase = year === activeTarget.base_year;
 
-                    // Calculate expected emissions for this year (linear interpolation).
-                    // base_year_emissions_tco2e / target_reduction_percent arrive as strings
-                    // (Decimal serialized) — coerce with Number() or the math yields NaN.
-                    const baseEmissions = Number(activeTarget.base_year_emissions_tco2e || 0);
-                    const reductionPct = Number(activeTarget.target_reduction_percent || 0);
-                    const progress = (year - activeTarget.base_year) / (activeTarget.target_year - activeTarget.base_year);
-                    const expectedEmissions = baseEmissions * (1 - progress * (reductionPct / 100));
+                  // Calculate expected emissions for this year (linear interpolation).
+                  // base_year_emissions_tco2e / target_reduction_percent arrive as strings
+                  // (Decimal serialized) — coerce with Number() or the math yields NaN.
+                  const baseEmissions = Number(activeTarget.base_year_emissions_tco2e || 0);
+                  const reductionPct = Number(activeTarget.target_reduction_percent || 0);
+                  const progress = (year - activeTarget.base_year) / (activeTarget.target_year - activeTarget.base_year);
+                  const expectedEmissions = baseEmissions * (1 - progress * (reductionPct / 100));
 
-                    return (
-                      <div key={year} className="flex items-start gap-4 relative">
-                        <div className={cn(
-                          "w-8 h-8 rounded-full flex items-center justify-center z-10",
-                          isPast ? 'bg-success' :
-                          isCurrent ? 'bg-primary' :
-                          isTarget ? 'bg-warning' :
-                          'bg-background-muted border-2 border-border'
-                        )}>
-                          {isPast ? (
-                            <CheckCircle2 className="w-4 h-4 text-white" />
-                          ) : isCurrent ? (
-                            <Circle className="w-4 h-4 text-white fill-white" />
-                          ) : isTarget ? (
-                            <Flag className="w-4 h-4 text-white" />
-                          ) : (
-                            <Circle className="w-4 h-4 text-foreground-muted" />
-                          )}
+                  return (
+                    <div key={year} className="flex items-start gap-4 relative">
+                      <div
+                        className={cn(
+                          'w-8 h-8 rounded-full flex items-center justify-center z-10',
+                          isPast || isCurrent
+                            ? 'bg-cy-accent text-white'
+                            : isTarget
+                              ? 'bg-cy-warn-soft text-cy-warn'
+                              : 'bg-cy-row text-cy-faint'
+                        )}
+                      >
+                        {isPast ? (
+                          <CheckCircle2 className="w-4 h-4" />
+                        ) : isCurrent ? (
+                          <Circle className="w-4 h-4 fill-current" />
+                        ) : isTarget ? (
+                          <Flag className="w-4 h-4" />
+                        ) : (
+                          <Circle className="w-4 h-4" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 pb-3">
+                        <div className="flex items-center justify-between gap-4">
+                          <h4
+                            className={cn(
+                              'text-[13.5px] font-semibold tabular-nums',
+                              isCurrent ? 'text-cy-accent' : isTarget ? 'text-cy-warn' : 'text-cy-ink'
+                            )}
+                          >
+                            {year}
+                            {isBase && (
+                              <span className="ml-2 text-[11.5px] font-normal text-cy-muted">Base year</span>
+                            )}
+                            {isTarget && (
+                              <span className="ml-2 text-[11.5px] font-normal text-cy-muted">Target year</span>
+                            )}
+                            {isCurrent && (
+                              <Badge variant="success" size="sm" className="ml-2">
+                                Current
+                              </Badge>
+                            )}
+                          </h4>
+                          <div className="text-right">
+                            <p className="text-[13.5px] font-semibold tabular-nums text-cy-ink">
+                              {expectedEmissions.toLocaleString(undefined, { maximumFractionDigits: 0 })} t CO₂e
+                            </p>
+                            <p className="text-[11.5px] tabular-nums text-cy-muted">
+                              Target: −{(progress * Number(activeTarget.target_reduction_percent)).toFixed(0)}%
+                            </p>
+                          </div>
                         </div>
 
-                        <div className="flex-1 pb-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className={cn(
-                                "font-semibold",
-                                isCurrent ? 'text-primary' :
-                                isTarget ? 'text-warning' :
-                                'text-foreground'
-                              )}>
-                                {year}
-                                {isBase && <span className="ml-2 text-sm font-normal text-foreground-muted">(Base Year)</span>}
-                                {isTarget && <span className="ml-2 text-sm font-normal text-foreground-muted">(Target Year)</span>}
-                                {isCurrent && <Badge variant="success" className="ml-2">Current</Badge>}
-                              </h4>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-medium text-foreground">
-                                {expectedEmissions.toLocaleString(undefined, { maximumFractionDigits: 0 })} tCO2e
-                              </p>
-                              <p className="text-sm text-foreground-muted">
-                                Target: -{(progress * Number(activeTarget.target_reduction_percent)).toFixed(0)}%
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Progress bar for this year */}
-                          <div className="mt-2">
-                            <div className="w-full h-2 bg-background-muted rounded-full overflow-hidden">
-                              <div
-                                className={cn(
-                                  "h-full rounded-full transition-all",
-                                  isPast || isCurrent ? 'bg-success' : 'bg-border'
-                                )}
-                                style={{ width: `${(1 - progress) * 100}%` }}
-                              />
-                            </div>
+                        {/* Progress bar for this year */}
+                        <div className="mt-2">
+                          <div className="w-full h-2 bg-cy-row rounded-full overflow-hidden">
+                            <div
+                              className={cn(
+                                'h-full rounded-full transition-all',
+                                isPast || isCurrent ? 'bg-cy-accent' : 'bg-cy-warn-soft'
+                              )}
+                              style={{ width: `${(1 - progress) * 100}%` }}
+                            />
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  );
+                })}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </Surface>
 
-          {/* Active Scenario Summary */}
+          {/* Active scenario summary */}
           {activeScenario && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <TrendingDown className="w-5 h-5 text-success" />
-                    Active Scenario
-                  </div>
-                  <Badge variant="secondary">{activeScenario.name}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                  <div>
-                    <p className="text-sm text-foreground-muted">Total Initiatives</p>
-                    <p className="text-xl font-bold text-foreground">{activeScenario.initiatives_count || 0}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-foreground-muted">Expected Reduction</p>
-                    <p className="text-xl font-bold text-success">
-                      -{Number(activeScenario.total_reduction_tco2e || 0).toLocaleString()} tCO2e
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-foreground-muted">Total Investment</p>
-                    <p className="text-xl font-bold text-foreground">
-                      {formatMoney(activeScenario.total_investment || 0)}
-                    </p>
-                  </div>
-                </div>
-                {activeScenario.description && (
-                  <p className="text-foreground-muted mt-4">{activeScenario.description}</p>
-                )}
-              </CardContent>
-            </Card>
+            <Surface>
+              <div className="flex items-center justify-between mb-3.5">
+                <PanelLabel className="mb-0">Active scenario</PanelLabel>
+                <Badge variant="primary">{activeScenario.name}</Badge>
+              </div>
+              <StatCells
+                cells={[
+                  {
+                    label: 'Total initiatives',
+                    value: String(activeScenario.initiatives_count || 0),
+                  },
+                  {
+                    label: 'Expected reduction',
+                    value: `−${Number(activeScenario.total_reduction_tco2e || 0).toLocaleString()}`,
+                    sub: 't CO₂e',
+                  },
+                  {
+                    label: 'Total investment',
+                    value: formatMoney(activeScenario.total_investment || 0),
+                  },
+                ]}
+              />
+              {activeScenario.description && (
+                <p className="text-[13px] text-cy-muted mt-4">{activeScenario.description}</p>
+              )}
+            </Surface>
           )}
-        </>
+        </div>
       )}
-    </div>
+    </AppShell>
   );
 }
