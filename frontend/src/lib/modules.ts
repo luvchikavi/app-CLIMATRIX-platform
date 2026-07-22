@@ -76,10 +76,10 @@ export const MODULE_REGISTRY: ModuleDef[] = [
   {
     id: 'lca',
     name: 'LCA',
-    href: '/modules/lca',
+    href: '/products',
     icon: Microscope,
-    status: 'coming-soon',
-    blurb: 'Streamlined life-cycle assessment on the EF 3.1 impact method.',
+    status: 'beta',
+    blurb: 'Streamlined life-cycle assessment on the EF 3.1 impact method — computed on every product footprint.',
     features: ['ISO 14040/44', 'EF 3.1 impact categories', 'Lifecycle modules A1-D', 'Feeds EPD generation'],
   },
   {

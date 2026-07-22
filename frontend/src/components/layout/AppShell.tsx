@@ -57,12 +57,13 @@ export function AppShell({ children }: AppShellProps) {
     const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
     const isSuperAdmin = user?.role === 'super_admin';
 
-    // Journey-ordered rail. Coming-soon modules (PCAF/LCA/EPD) are not rail
+    // Journey-ordered rail. Coming-soon modules (PCAF) are not rail
     // entries at all — they live on /roadmap and the /modules catalog.
     // Tools holds real, working tools only; Workspace holds org-level pages.
     // Both groups render expanded so nothing hides behind a closed drawer.
     const cbam = MODULE_REGISTRY.find((m) => m.id === 'cbam');
     const pcf = MODULE_REGISTRY.find((m) => m.id === 'pcf');
+    const lca = MODULE_REGISTRY.find((m) => m.id === 'lca');
     const epd = MODULE_REGISTRY.find((m) => m.id === 'epd');
 
     return [
@@ -93,6 +94,18 @@ export function AppShell({ children }: AppShellProps) {
                   href: pcf.href,
                   active: isActive('/products'),
                   ...(pcf.status === 'beta' ? { badge: 'Beta' } : {}),
+                },
+              ]
+            : []),
+          // LCA lives inside the product pages (same route as PCF), so it
+          // gets its own row for discoverability but PCF owns the highlight.
+          ...(lca && lca.status !== 'coming-soon'
+            ? [
+                {
+                  label: lca.name,
+                  href: lca.href,
+                  active: false,
+                  ...(lca.status === 'beta' ? { badge: 'Beta' } : {}),
                 },
               ]
             : []),
