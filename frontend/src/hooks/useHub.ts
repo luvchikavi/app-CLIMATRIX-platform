@@ -18,6 +18,15 @@ export function useHubOverview(periodId?: string, siteId?: string) {
   });
 }
 
+/** The saved profile rows (org-level by default). */
+export function useHubProfile(siteId?: string) {
+  return useQuery({
+    queryKey: hubKeys.profile(siteId),
+    queryFn: () => api.getHubProfile(siteId),
+    staleTime: 30 * 1000,
+  });
+}
+
 /** Open questions for one category, across all uploads (drawer). */
 export function useHubQuestions(categoryCode: string | null, periodId?: string) {
   return useQuery({

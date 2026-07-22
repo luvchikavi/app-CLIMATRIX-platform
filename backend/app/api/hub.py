@@ -274,12 +274,21 @@ async def upsert_profile(
         )
         row = existing.get(e.category_code)
         if row:
+            # Only fields the caller actually sent are touched — the matrix's
+            # relevance-only saves must not wipe drawer answers or the
+            # upload-provenance entries living in ``details`` (which merge,
+            # never replace, for the same reason).
+            provided = e.model_fields_set
             row.relevance = e.relevance
             row.exclusion_reason = reason
-            row.calculate_this_period = e.calculate_this_period
-            row.data_owner = e.data_owner
-            row.expected_form = e.expected_form
-            row.details = e.details
+            if "calculate_this_period" in provided:
+                row.calculate_this_period = e.calculate_this_period
+            if "data_owner" in provided:
+                row.data_owner = e.data_owner
+            if "expected_form" in provided:
+                row.expected_form = e.expected_form
+            if "details" in provided and e.details is not None:
+                row.details = {**(row.details or {}), **e.details}
             row.updated_at = now
         else:
             row = CategoryProfile(
