@@ -99,14 +99,17 @@ export function SetTargetModal({
     ? baselineEmissions * (1 - reductionPercent / 100)
     : 0;
 
-  // The chosen pathway drives the form: its canonical year and a sensible
-  // default name follow the pick (only while creating — editing keeps values).
+  // The chosen pathway drives the form: switching pathway always moves the
+  // year to its canonical one (picking "Net zero 2050" while parked on 2030
+  // must not keep 2030); the name only follows while the user hasn't named
+  // the target themselves.
   const selectFramework = (option: (typeof frameworkOptions)[number]) => {
+    const changed = option.value !== framework;
     setFramework(option.value);
-    if (!existingTarget) {
-      if (option.targetYear) setTargetYear(option.targetYear);
-      if (!nameTouched) setName(option.defaultName);
+    if (option.targetYear && (changed || !existingTarget)) {
+      setTargetYear(option.targetYear);
     }
+    if (!nameTouched) setName(option.defaultName);
   };
 
   const createMutation = useMutation({
