@@ -21,12 +21,16 @@ interface SetTargetModalProps {
   basePeriodId?: string;
 }
 
+// Each pathway carries its canonical target year — picking one drives the
+// rest of the form (year + default name), so step 2 never asks cold.
 const frameworkOptions = [
   {
     value: 'sbti_1_5c' as TargetFramework,
     label: 'SBTi 1.5°C aligned',
     description: 'Most ambitious pathway — 42% reduction by 2030',
     reduction: 42,
+    targetYear: 2030 as number | null,
+    defaultName: 'SBTi 1.5°C — 2030',
     recommended: true,
   },
   {
@@ -34,6 +38,8 @@ const frameworkOptions = [
     label: 'SBTi well-below 2°C',
     description: 'Less aggressive — 25% reduction by 2030',
     reduction: 25,
+    targetYear: 2030 as number | null,
+    defaultName: 'SBTi well-below 2°C — 2030',
     recommended: false,
   },
   {
@@ -41,13 +47,17 @@ const frameworkOptions = [
     label: 'Net zero 2050',
     description: 'Long-term commitment to net zero emissions',
     reduction: 90,
+    targetYear: 2050 as number | null,
+    defaultName: 'Net zero — 2050',
     recommended: false,
   },
   {
     value: 'custom' as TargetFramework,
     label: 'Custom target',
-    description: 'Define your own reduction percentage',
+    description: 'Define your own reduction percentage and year',
     reduction: null,
+    targetYear: null as number | null,
+    defaultName: 'Custom target',
     recommended: false,
   },
 ];
@@ -67,7 +77,9 @@ export function SetTargetModal({
   const queryClient = useQueryClient();
 
   const [step, setStep] = useState(1);
-  const [name, setName] = useState(existingTarget?.name || 'SBTi 2030 Target');
+  const [name, setName] = useState(existingTarget?.name || 'SBTi 1.5°C — 2030');
+  // Once the user edits the name themselves, framework picks stop clobbering it.
+  const [nameTouched, setNameTouched] = useState(!!existingTarget);
   const [framework, setFramework] = useState<TargetFramework>(
     existingTarget?.framework as TargetFramework || 'sbti_1_5c'
   );
@@ -86,6 +98,19 @@ export function SetTargetModal({
   const targetEmissions = baselineEmissions
     ? baselineEmissions * (1 - reductionPercent / 100)
     : 0;
+
+  // The chosen pathway drives the form: switching pathway always moves the
+  // year to its canonical one (picking "Net zero 2050" while parked on 2030
+  // must not keep 2030); the name only follows while the user hasn't named
+  // the target themselves.
+  const selectFramework = (option: (typeof frameworkOptions)[number]) => {
+    const changed = option.value !== framework;
+    setFramework(option.value);
+    if (option.targetYear && (changed || !existingTarget)) {
+      setTargetYear(option.targetYear);
+    }
+    if (!nameTouched) setName(option.defaultName);
+  };
 
   const createMutation = useMutation({
     // Update in place when editing an existing target; otherwise create a new one.
@@ -119,12 +144,13 @@ export function SetTargetModal({
       includes_scope1: includeScope1,
       includes_scope2: includeScope2,
       includes_scope3: includeScope3,
+      // Sent for every framework, computed exactly as the review step displays
+      // them. For SBTi/net-zero the backend re-derives from the framework and
+      // years (TargetCalculationService) and overrides these — that's fine,
+      // the explicit values document intent; for custom they're required.
+      target_reduction_percent: reductionPercent,
+      target_emissions_tco2e: targetEmissions,
     };
-
-    if (framework === 'custom') {
-      data.target_reduction_percent = customReductionPercent;
-      data.target_emissions_tco2e = targetEmissions;
-    }
 
     createMutation.mutate(data);
   };
@@ -141,7 +167,11 @@ export function SetTargetModal({
               Plan · step {step} of 3
             </p>
             <h2 className="text-[16px] font-bold text-foreground tracking-[-0.01em]">
-              {existingTarget ? 'Edit your target' : `Set your ${targetYear} target`}
+              {existingTarget
+                ? 'Edit your target'
+                : framework === 'custom'
+                  ? 'Set your custom target'
+                  : `Set your ${targetYear} target`}
             </h2>
           </div>
           <button
@@ -176,7 +206,7 @@ export function SetTargetModal({
                 {frameworkOptions.map((option) => (
                   <button
                     key={option.value}
-                    onClick={() => setFramework(option.value)}
+                    onClick={() => selectFramework(option)}
                     className={cn(
                       'px-3.5 py-3 rounded-[12px] text-left transition-colors',
                       framework === option.value
@@ -235,9 +265,12 @@ export function SetTargetModal({
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setNameTouched(true);
+                  }}
                   className={fieldInput}
-                  placeholder="e.g., SBTi 2030 Target"
+                  placeholder="e.g., Net zero — 2050"
                 />
               </div>
 
@@ -261,6 +294,11 @@ export function SetTargetModal({
                     onChange={(e) => setTargetYear(Number(e.target.value))}
                     className={fieldInput}
                   />
+                  {framework !== 'custom' && selectedFramework && (
+                    <p className="text-[11.5px] text-cy-faint mt-1.5">
+                      From your {selectedFramework.label} pathway — adjustable
+                    </p>
+                  )}
                 </div>
               </div>
 

@@ -181,12 +181,17 @@ export interface SampleDataLoadResult {
   total_co2e_tonnes: number;
   target_created: boolean;
   scenarios_created: number;
+  products_created: number;
+  epd_created: boolean;
+  cbam_imports_created: number;
 }
 
 export interface SampleDataRemoveResult {
   removed_activities: number;
   removed_scenarios: number;
   removed_targets: number;
+  removed_products: number;
+  removed_cbam_imports: number;
   period_removed: boolean;
   periods_kept: number;
 }

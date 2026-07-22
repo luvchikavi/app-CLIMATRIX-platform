@@ -17,7 +17,9 @@ import {
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui';
 import { api } from '@/lib/api';
-import { formatQty } from '@/lib/utils';
+import { formatQty, num } from '@/lib/utils';
+import { LoadSampleDataButton } from '@/components/LoadSampleDataButton';
+import { useSampleDataStatus } from '@/hooks/useSampleData';
 import type {
   CBAMImport,
   CBAMInstallation,
@@ -70,7 +72,7 @@ function estimateCost(imp: CBAMImport, defaults: CBAMScreenDefaults | null): num
   if (!defaults) return null;
   const markup =
     imp.calculation_method === 'actual' ? 1 : 1 + defaults.default_value_markup_pct / 100;
-  return imp.total_emissions_tco2e * markup * defaults.ets_price_eur;
+  return num(imp.total_emissions_tco2e) * markup * defaults.ets_price_eur;
 }
 
 export function CBAMImports() {
@@ -118,9 +120,12 @@ export function CBAMImports() {
     }
   }, [filterYear, filterQuarter]);
 
+  // Sample data loads/removes outside this component's manual fetch lane —
+  // re-pull whenever that flag flips (also covers the initial load).
+  const { data: sampleStatus } = useSampleDataStatus();
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [loadData, sampleStatus?.loaded]);
 
   useEffect(() => {
     // Reference values for the estimated certificate cost column
@@ -218,8 +223,10 @@ export function CBAMImports() {
     setCnSearchResults([]);
   };
 
-  const totalEmissions = imports.reduce((sum, imp) => sum + imp.total_emissions_tco2e, 0);
-  const totalMassKg = imports.reduce((sum, imp) => sum + imp.mass_kg, 0);
+  // API decimals arrive as strings — sum via num() or the strip crashes
+  // with imports present (only ever "worked" against an empty register).
+  const totalEmissions = imports.reduce((sum, imp) => sum + num(imp.total_emissions_tco2e), 0);
+  const totalMassKg = imports.reduce((sum, imp) => sum + num(imp.mass_kg), 0);
   const totalCost = screenDefaults
     ? imports.reduce((sum, imp) => sum + (estimateCost(imp, screenDefaults) ?? 0), 0)
     : null;
@@ -483,11 +490,14 @@ export function CBAMImports() {
                 colSpan={9}
                 icon={<Package className="w-12 h-12" />}
                 title="No imports yet"
-                description="Record your first CBAM import to start tracking embedded emissions and certificate cost"
+                description="Record your first CBAM import to start tracking embedded emissions and certificate cost — or load sample data for three worked imports (steel, cement, aluminium) with default-value emissions"
                 action={
-                  <Button size="sm" onClick={() => setShowForm(true)}>
-                    Add Import
-                  </Button>
+                  <div className="flex flex-col items-center gap-2">
+                    <Button size="sm" onClick={() => setShowForm(true)}>
+                      Add Import
+                    </Button>
+                    <LoadSampleDataButton />
+                  </div>
                 }
               />
             ) : (

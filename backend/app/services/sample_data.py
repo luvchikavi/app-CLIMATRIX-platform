@@ -9,7 +9,7 @@ set and nothing else, so a user's real data is never touched.
 """
 
 import logging
-from datetime import date
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -17,22 +17,36 @@ from sqlalchemy import delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from app.data.cbam_data import get_sector_for_cn_code
 from app.data.sample_dataset import (
     SAMPLE_ACHIEVEMENT_CAP,
     SAMPLE_ACTIVITIES,
     SAMPLE_BASE_YEAR,
+    SAMPLE_BRACKET_BOM,
+    SAMPLE_CBAM_IMPORTS,
+    SAMPLE_CBAM_INSTALLATION,
     SAMPLE_DATA_QUALITY_SCORE,
+    SAMPLE_EPD,
     SAMPLE_PERIOD,
+    SAMPLE_PRODUCT_BRACKET,
+    SAMPLE_PRODUCT_STEEL,
     SAMPLE_REGION,
     SAMPLE_SCENARIO_1,
     SAMPLE_SCENARIO_2,
     SAMPLE_SITE,
+    SAMPLE_STEEL_BOM,
+    SAMPLE_SUPPLIER_PCF,
     SAMPLE_TARGET_DESCRIPTION,
     SAMPLE_TARGET_NAME,
     SAMPLE_TARGET_YEAR,
 )
-from app.models.cbam import CBAMImport
-from app.models.core import Organization, ReportingPeriod, Site, User
+from app.models.cbam import (
+    CBAMCalculationMethod,
+    CBAMImport,
+    CBAMInstallation,
+    CBAMSector,
+)
+from app.models.core import Organization, ReportingPeriod, Site, User, VerifierAccess
 from app.models.decarbonization import (
     DecarbonizationTarget,
     EmissionCheckpoint,
@@ -46,10 +60,21 @@ from app.models.decarbonization import (
 from app.models.emission import Activity, ConfidenceLevel, Emission, ImportBatch
 from app.models.hub import CategoryProfile
 from app.models.ingestion import IngestionSession
+from app.models.product import (
+    EPDProject,
+    FootprintStatus,
+    Product,
+    ProductFootprint,
+    ProductInput,
+    SupplierPCF,
+)
 from app.services.calculation import ActivityInput, CalculationPipeline
 from app.services.calculation.pipeline import CalculationError
 from app.services.calculation.normalizer import UnitConversionError
 from app.services.calculation.resolver import FactorNotFoundError
+from app.services.cbam_calculator import CBAMCalculator
+from app.services.epd import DEFAULT_SCOPE_MODULES
+from app.services.pcf import compute_footprint
 from app.services.decarbonization import (
     EmissionProfileService,
     RecommendationEngine,
@@ -203,6 +228,25 @@ class SampleDataService:
                 # if the initiative library or profile analysis is unavailable.
                 logger.exception("Sample data: decarbonization seeding failed")
 
+        # Tool modules ride the same click — each lane is best-effort so the
+        # core dataset always lands even if one module's seed trips.
+        products_created = 0
+        epd_created = False
+        try:
+            products_created, epd_created = await SampleDataService._seed_products(
+                session, org, user, period
+            )
+        except Exception:
+            logger.exception("Sample data: PCF/EPD seeding failed")
+
+        cbam_imports_created = 0
+        try:
+            cbam_imports_created = await SampleDataService._seed_cbam(
+                session, org.id, user.id, period.id
+            )
+        except Exception:
+            logger.exception("Sample data: CBAM seeding failed")
+
         await session.commit()
 
         return {
@@ -213,7 +257,168 @@ class SampleDataService:
             "total_co2e_tonnes": float(round(total_co2e_kg / 1000, 1)),
             "target_created": target_created,
             "scenarios_created": scenarios_created,
+            "products_created": products_created,
+            "epd_created": epd_created,
+            "cbam_imports_created": cbam_imports_created,
         }
+
+    @staticmethod
+    async def _seed_products(
+        session: AsyncSession,
+        org: Organization,
+        user: User,
+        period: ReportingPeriod,
+    ) -> tuple[int, bool]:
+        """PCF/LCA/EPD lane: a computed + finalized steel coil (with supplier
+        PCF and an EPD draft pinned to it) plus an uncomputed draft bracket so
+        the user still has a Compute of their own to click."""
+        spcf = SupplierPCF(
+            organization_id=org.id,
+            created_by=user.id,
+            is_demo=True,
+            **SAMPLE_SUPPLIER_PCF,
+        )
+        session.add(spcf)
+        await session.flush()
+
+        steel = Product(
+            organization_id=org.id,
+            created_by=user.id,
+            is_demo=True,
+            **SAMPLE_PRODUCT_STEEL,
+        )
+        session.add(steel)
+        await session.flush()
+
+        steel_inputs: list[ProductInput] = []
+        for i, line in enumerate(SAMPLE_STEEL_BOM):
+            data = dict(line)
+            data["quantity_per_unit"] = Decimal(data["quantity_per_unit"])
+            if data["input_type"] == "supplier_pcf":
+                data["supplier_pcf_id"] = spcf.id
+            bom_line = ProductInput(
+                organization_id=org.id,
+                product_id=steel.id,
+                sort_order=i,
+                **data,
+            )
+            steel_inputs.append(bom_line)
+            session.add(bom_line)
+        await session.flush()
+
+        computed = await compute_footprint(
+            session, org, steel, period, steel_inputs, {spcf.id: spcf}
+        )
+        footprint = ProductFootprint(
+            organization_id=org.id,
+            product_id=steel.id,
+            reporting_period_id=period.id,
+            declared_unit=steel.declared_unit,
+            declared_unit_amount=steel.declared_unit_amount,
+            created_by=user.id,
+            **computed,
+        )
+        footprint.status = FootprintStatus.FINAL.value
+        footprint.finalized_at = datetime.utcnow()
+        session.add(footprint)
+        await session.flush()
+
+        session.add(
+            EPDProject(
+                organization_id=org.id,
+                product_id=steel.id,
+                footprint_id=footprint.id,
+                declared_unit_amount=steel.declared_unit_amount,
+                scope_modules=list(DEFAULT_SCOPE_MODULES),
+                created_by=user.id,
+                **SAMPLE_EPD,
+            )
+        )
+
+        bracket = Product(
+            organization_id=org.id,
+            created_by=user.id,
+            is_demo=True,
+            **SAMPLE_PRODUCT_BRACKET,
+        )
+        session.add(bracket)
+        await session.flush()
+        for i, line in enumerate(SAMPLE_BRACKET_BOM):
+            data = dict(line)
+            data["quantity_per_unit"] = Decimal(data["quantity_per_unit"])
+            session.add(
+                ProductInput(
+                    organization_id=org.id,
+                    product_id=bracket.id,
+                    sort_order=i,
+                    **data,
+                )
+            )
+        await session.flush()
+
+        return 2, True
+
+    @staticmethod
+    async def _seed_cbam(
+        session: AsyncSession,
+        organization_id: UUID,
+        user_id: UUID,
+        period_id: UUID,
+    ) -> int:
+        """CBAM lane: one supplier installation + three imports computed with
+        the official default values (mirrors the create-import endpoint)."""
+        calculator = CBAMCalculator()
+
+        installation = CBAMInstallation(
+            organization_id=organization_id,
+            is_demo=True,
+            **SAMPLE_CBAM_INSTALLATION,
+        )
+        session.add(installation)
+        await session.flush()
+
+        created = 0
+        for row in SAMPLE_CBAM_IMPORTS:
+            mass_tonnes = Decimal(row["mass_tonnes"])
+            calc = calculator.calculate_embedded_emissions(
+                cn_code=row["cn_code"],
+                mass_tonnes=mass_tonnes,
+                country_code=row["origin_country"],
+            )
+            sector_str = get_sector_for_cn_code(row["cn_code"])
+            direct = calc["direct_emissions_tco2e"]
+            indirect = calc.get("indirect_emissions_tco2e", Decimal("0"))
+            total = calc["total_emissions_tco2e"]
+            session.add(
+                CBAMImport(
+                    organization_id=organization_id,
+                    reporting_period_id=period_id,
+                    installation_id=(
+                        installation.id if row["use_installation"] else None
+                    ),
+                    cn_code=row["cn_code"],
+                    sector=CBAMSector(sector_str) if sector_str else CBAMSector.OTHER,
+                    product_description=row["product_description"],
+                    import_date=date.today() - timedelta(days=row["days_ago"]),
+                    origin_country=row["origin_country"],
+                    net_mass_kg=mass_tonnes * 1000,
+                    net_mass_tonnes=mass_tonnes,
+                    calculation_method=CBAMCalculationMethod.DEFAULT_VALUE,
+                    default_value_used=True,
+                    direct_emissions_tco2e=direct,
+                    indirect_emissions_tco2e=indirect,
+                    total_embedded_emissions_tco2e=total,
+                    specific_embedded_emissions=(
+                        total / mass_tonnes if mass_tonnes > 0 else Decimal("0")
+                    ),
+                    net_emissions_tco2e=total,
+                    created_by=user_id,
+                    is_demo=True,
+                )
+            )
+            created += 1
+        await session.flush()
+        return created
 
     @staticmethod
     async def _seed_decarbonization(
@@ -493,6 +698,76 @@ class SampleDataService:
             )
             await session.execute(delete(Activity).where(Activity.id.in_(activity_ids)))
 
+        # PCF/LCA/EPD lane — footprints/BOM lines/EPDs hang off demo products,
+        # so explicit ordered deletes (UOW emits parents first on PG otherwise;
+        # the fix/pcf-delete-fk lesson).
+        product_ids = await _ids(
+            select(Product.id).where(
+                Product.organization_id == organization_id,
+                Product.is_demo == True,  # noqa: E712
+            )
+        )
+        if product_ids:
+            epd_ids = await _ids(
+                select(EPDProject.id).where(EPDProject.product_id.in_(product_ids))
+            )
+            if epd_ids:
+                await session.execute(
+                    delete(VerifierAccess).where(
+                        VerifierAccess.epd_project_id.in_(epd_ids)
+                    )
+                )
+                await session.execute(
+                    delete(EPDProject).where(EPDProject.id.in_(epd_ids))
+                )
+            await session.execute(
+                delete(ProductFootprint).where(
+                    ProductFootprint.product_id.in_(product_ids)
+                )
+            )
+            await session.execute(
+                delete(ProductInput).where(ProductInput.product_id.in_(product_ids))
+            )
+            await session.execute(delete(Product).where(Product.id.in_(product_ids)))
+        await session.execute(
+            delete(SupplierPCF).where(
+                SupplierPCF.organization_id == organization_id,
+                SupplierPCF.is_demo == True,  # noqa: E712
+            )
+        )
+
+        # CBAM lane — imports before their installation. Runs before the
+        # period-keeping check below so the demo period frees up.
+        cbam_import_ids = await _ids(
+            select(CBAMImport.id).where(
+                CBAMImport.organization_id == organization_id,
+                CBAMImport.is_demo == True,  # noqa: E712
+            )
+        )
+        if cbam_import_ids:
+            await session.execute(
+                delete(CBAMImport).where(CBAMImport.id.in_(cbam_import_ids))
+            )
+        demo_installations = (
+            (
+                await session.execute(
+                    select(CBAMInstallation).where(
+                        CBAMInstallation.organization_id == organization_id,
+                        CBAMInstallation.is_demo == True,  # noqa: E712
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for inst in demo_installations:
+            refs = await _count(CBAMImport, CBAMImport.installation_id == inst.id)
+            if refs == 0:
+                await session.delete(inst)
+            else:
+                inst.is_demo = False  # user linked own imports — keep it as theirs
+                session.add(inst)
+
         periods_removed = 0
         periods_kept = 0
         demo_periods = (
@@ -566,6 +841,8 @@ class SampleDataService:
             "removed_activities": len(activity_ids),
             "removed_scenarios": len(scenario_ids),
             "removed_targets": len(target_ids),
+            "removed_products": len(product_ids),
+            "removed_cbam_imports": len(cbam_import_ids),
             "period_removed": periods_removed > 0,
             "periods_kept": periods_kept,
         }

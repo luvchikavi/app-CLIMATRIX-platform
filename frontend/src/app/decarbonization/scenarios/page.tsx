@@ -4,21 +4,11 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ScenarioType } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
-import { Card, CardHeader, CardTitle, CardContent, Badge, Button, toast } from '@/components/ui';
+import { AppShell } from '@/components/layout';
+import { CanopyButton, PageHead, PanelLabel, StatCells, Surface } from '@/components/canopy';
+import { Badge, BadgeProps, Button, ConfirmDialog, EmptyState, toast } from '@/components/ui';
 import { cn, formatMoney } from '@/lib/utils';
-import {
-  Loader2,
-  ArrowLeft,
-  BarChart3,
-  Plus,
-  Play,
-  CheckCircle2,
-  Clock,
-  Target,
-  Trash2,
-  X,
-} from 'lucide-react';
-import Link from 'next/link';
+import { Loader2, BarChart3, Play, Trash2, X } from 'lucide-react';
 
 const scenarioTypeLabels: Record<string, string> = {
   aggressive: 'Aggressive',
@@ -27,11 +17,12 @@ const scenarioTypeLabels: Record<string, string> = {
   custom: 'Custom',
 };
 
-const scenarioTypeColors: Record<string, string> = {
-  aggressive: 'bg-error/10 text-error border-error/20',
-  moderate: 'bg-warning/10 text-warning border-warning/20',
-  conservative: 'bg-success/10 text-success border-success/20',
-  custom: 'bg-primary/10 text-primary border-primary/20',
+// Soft tint badges — no border variants (design contract: no lines on cards)
+const scenarioTypeVariants: Record<string, BadgeProps['variant']> = {
+  aggressive: 'error',
+  moderate: 'warning',
+  conservative: 'success',
+  custom: 'primary',
 };
 
 export default function ScenariosPage() {
@@ -39,6 +30,7 @@ export default function ScenariosPage() {
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<{ id: string; name: string } | null>(null);
 
   const { data: scenarios, isLoading } = useQuery({
     queryKey: ['scenarios', user?.organization_id],
@@ -69,133 +61,145 @@ export default function ScenariosPage() {
     onSuccess: () => {
       toast.success('Scenario deleted');
       setExpandedId(null);
+      setDeleting(null);
       refresh();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      setDeleting(null);
+      toast.error(e.message);
+    },
   });
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/decarbonization">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-[20px] font-[650] tracking-[-0.01em] text-cy-ink">Decarbonization scenarios</h1>
-            <p className="text-foreground-muted">Compare different reduction pathways</p>
-          </div>
-        </div>
-        <Button onClick={() => setShowCreate(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Scenario
-        </Button>
+    <AppShell>
+      <CanopyButton href="/decarbonization" variant="quiet" className="mb-2 inline-block">
+        ← Back to plan
+      </CanopyButton>
+      <div className="flex items-start justify-between gap-4">
+        <PageHead
+          title="Decarbonization scenarios"
+          subtitle="Compare different reduction pathways"
+        />
+        <CanopyButton onClick={() => setShowCreate(true)} className="shrink-0 mt-1">
+          Create scenario
+        </CanopyButton>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
+          <Loader2 className="w-6 h-6 text-cy-accent animate-spin" aria-hidden="true" />
         </div>
       ) : !scenarios || scenarios.length === 0 ? (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center">
-              <BarChart3 className="w-16 h-16 mx-auto mb-4 text-foreground-muted opacity-50" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No Scenarios Yet</h3>
-              <p className="text-foreground-muted mb-4">
-                Create your first scenario to model different reduction pathways
-              </p>
-              <Button onClick={() => setShowCreate(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Your First Scenario
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <Surface>
+          <EmptyState
+            icon={<BarChart3 className="w-8 h-8" strokeWidth={1.5} />}
+            title="No scenarios yet"
+            description="Create your first scenario to model different reduction pathways."
+            action={{ label: 'Create your first scenario', onClick: () => setShowCreate(true) }}
+          />
+        </Surface>
       ) : (
-        <div className="grid gap-6">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <SummaryStat icon={<BarChart3 className="w-5 h-5 text-primary" />} bg="bg-primary/10" value={scenarios.length} label="Total Scenarios" />
-            <SummaryStat icon={<CheckCircle2 className="w-5 h-5 text-success" />} bg="bg-success/10" value={scenarios.filter((s) => s.is_active).length} label="Active" />
-            <SummaryStat icon={<Clock className="w-5 h-5 text-warning" />} bg="bg-warning/10" value={scenarios.filter((s) => !s.is_active).length} label="Inactive" />
-          </div>
+        <div className="grid gap-4">
+          {/* Summary */}
+          <Surface>
+            <PanelLabel>Scenarios</PanelLabel>
+            <StatCells
+              cells={[
+                { label: 'Total scenarios', value: String(scenarios.length) },
+                { label: 'Active', value: String(scenarios.filter((s) => s.is_active).length) },
+                { label: 'Inactive', value: String(scenarios.filter((s) => !s.is_active).length) },
+              ]}
+            />
+          </Surface>
 
-          {/* Scenario Cards */}
+          {/* Scenario cards — the active one sits on the accent-soft tint */}
           {scenarios.map((scenario) => (
-            <Card
-              key={scenario.id}
-              className={cn('border-2', scenario.is_active ? 'border-primary' : 'border-transparent')}
-            >
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <BarChart3 className="w-5 h-5 text-foreground-muted" />
-                    <span>{scenario.name}</span>
-                    {scenario.is_active && <Badge variant="success">Active</Badge>}
-                  </div>
-                  <Badge className={scenarioTypeColors[scenario.scenario_type]}>
-                    {scenarioTypeLabels[scenario.scenario_type]}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {scenario.description && (
-                  <p className="text-foreground-muted mb-4">{scenario.description}</p>
-                )}
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  <Metric label="Total Reduction" value={`-${Number(scenario.total_reduction_tco2e || 0).toLocaleString()} tCO2e`} accent="text-success" />
-                  <Metric label="Investment" value={formatMoney(scenario.total_investment || 0)} />
-                  <Metric label="Annual Savings" value={`${formatMoney(scenario.total_annual_savings || 0)}/yr`} accent="text-success" />
-                  <Metric label="Target Achievement" value={`${Number(scenario.target_achievement_percent || 0).toFixed(0)}%`} />
+            <Surface key={scenario.id} tint={scenario.is_active ? 'soft' : 'none'}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <BarChart3 className="w-4.5 h-4.5 shrink-0 text-cy-muted" strokeWidth={1.75} />
+                  <h3 className="text-[16px] font-[650] tracking-[-0.01em] text-cy-ink truncate">
+                    {scenario.name}
+                  </h3>
+                  {scenario.is_active && <Badge variant="success">Active</Badge>}
                 </div>
+                <Badge variant={scenarioTypeVariants[scenario.scenario_type] ?? 'default'}>
+                  {scenarioTypeLabels[scenario.scenario_type]}
+                </Badge>
+              </div>
 
-                <div className="flex items-center justify-between pt-4 border-t border-border">
-                  <div className="flex items-center gap-2">
-                    <Target className="w-4 h-4 text-foreground-muted" />
-                    <span className="text-sm text-foreground-muted">
-                      {scenario.initiatives_count || 0} initiatives
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setExpandedId(expandedId === scenario.id ? null : scenario.id)}
+              {scenario.description && (
+                <p className="text-[13px] text-cy-muted mt-2">{scenario.description}</p>
+              )}
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                <Metric
+                  label="Total reduction"
+                  value={`−${Number(scenario.total_reduction_tco2e || 0).toLocaleString()} t CO₂e`}
+                  accent
+                />
+                <Metric label="Investment" value={formatMoney(scenario.total_investment || 0)} />
+                <Metric
+                  label="Annual savings"
+                  value={`${formatMoney(scenario.total_annual_savings || 0)}/yr`}
+                  accent
+                />
+                <Metric
+                  label="Target achievement"
+                  value={`${Number(scenario.target_achievement_percent || 0).toFixed(0)}%`}
+                />
+              </div>
+
+              <div className="flex items-center justify-between mt-5">
+                <span className="text-[12.5px] text-cy-muted">
+                  {scenario.initiatives_count || 0} initiatives
+                </span>
+                <div className="flex items-center gap-2">
+                  <CanopyButton
+                    variant="pill"
+                    onClick={() => setExpandedId(expandedId === scenario.id ? null : scenario.id)}
+                  >
+                    {expandedId === scenario.id ? 'Hide details' : 'View details'}
+                  </CanopyButton>
+                  {!scenario.is_active && (
+                    <CanopyButton
+                      className="px-3.5 py-2"
+                      onClick={() => activateMutation.mutate(scenario.id)}
+                      disabled={activateMutation.isPending}
                     >
-                      {expandedId === scenario.id ? 'Hide' : 'View Details'}
-                    </Button>
-                    {!scenario.is_active && (
-                      <Button size="sm" onClick={() => activateMutation.mutate(scenario.id)} disabled={activateMutation.isPending}>
-                        <Play className="w-4 h-4 mr-1" />
-                        Activate
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        if (confirm(`Delete scenario "${scenario.name}"?`)) deleteMutation.mutate(scenario.id);
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4 text-error" />
-                    </Button>
-                  </div>
+                      <Play className="w-3.5 h-3.5 inline-block mr-1 -mt-px" aria-hidden="true" />
+                      Activate
+                    </CanopyButton>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setDeleting({ id: scenario.id, name: scenario.name })}
+                    className="p-2 rounded-md text-cy-muted hover:text-error hover:bg-cy-row"
+                    aria-label={`Delete scenario ${scenario.name}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
+              </div>
 
-                {expandedId === scenario.id && (
-                  <ScenarioDetail scenarioId={scenario.id} onChanged={refresh} />
-                )}
-              </CardContent>
-            </Card>
+              {expandedId === scenario.id && (
+                <ScenarioDetail scenarioId={scenario.id} onChanged={refresh} />
+              )}
+            </Surface>
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => deleting && deleteMutation.mutate(deleting.id)}
+        title="Delete scenario"
+        message={`Delete scenario "${deleting?.name}"? Its selected initiatives are removed with it.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
 
       {showCreate && (
         <CreateScenarioModal
@@ -207,31 +211,22 @@ export default function ScenariosPage() {
           }}
         />
       )}
-    </div>
+    </AppShell>
   );
 }
 
-function SummaryStat({ icon, bg, value, label }: { icon: React.ReactNode; bg: string; value: number; label: string }) {
-  return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="flex items-center gap-3">
-          <div className={cn('p-2 rounded-lg', bg)}>{icon}</div>
-          <div>
-            <p className="text-[16px] font-[650] tabular-nums text-cy-ink">{value}</p>
-            <p className="text-sm text-foreground-muted">{label}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function Metric({ label, value, accent }: { label: string; value: string; accent?: string }) {
+function Metric({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div>
-      <p className="text-sm text-foreground-muted">{label}</p>
-      <p className={cn('text-xl font-bold', accent || 'text-foreground')}>{value}</p>
+      <p
+        className={cn(
+          'text-[16px] font-[650] tabular-nums',
+          accent ? 'text-cy-accent' : 'text-cy-ink'
+        )}
+      >
+        {value}
+      </p>
+      <p className="mt-0.5 text-[11.5px] text-cy-muted">{label}</p>
     </div>
   );
 }
@@ -253,27 +248,30 @@ function ScenarioDetail({ scenarioId, onChanged }: { scenarioId: string; onChang
   });
 
   return (
-    <div className="mt-4 pt-4 border-t border-border">
-      <p className="text-sm font-medium text-foreground mb-2">Initiatives in this scenario</p>
+    <div className="mt-5">
+      <PanelLabel className="mb-2">Initiatives in this scenario</PanelLabel>
       {isLoading ? (
-        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+        <Loader2 className="w-4 h-4 animate-spin text-cy-accent" />
       ) : !initiatives || initiatives.length === 0 ? (
-        <p className="text-sm text-foreground-muted">
+        <p className="text-[12.5px] text-cy-muted">
           No initiatives yet — add them from the Recommendations page.
         </p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {initiatives.map((si) => (
-            <div key={si.id} className="flex items-center justify-between rounded-lg bg-background-muted px-3 py-2">
-              <div className="text-sm text-foreground">
+            <div
+              key={si.id}
+              className="flex items-center justify-between rounded-[10px] bg-cy-row px-3 py-2"
+            >
+              <div className="text-[13px] text-cy-ink">
                 {si.initiative_name}
-                <span className="ml-2 text-xs text-foreground-muted">
-                  −{Number(si.expected_reduction_tco2e || 0).toLocaleString()} tCO2e
+                <span className="ml-2 text-[11.5px] tabular-nums text-cy-muted">
+                  −{Number(si.expected_reduction_tco2e || 0).toLocaleString()} t CO₂e
                 </span>
               </div>
               <button
                 onClick={() => removeMutation.mutate(si.initiative_id)}
-                className="text-foreground-muted hover:text-error"
+                className="text-cy-muted hover:text-error"
                 aria-label="Remove initiative"
               >
                 <X className="w-4 h-4" />
@@ -310,39 +308,55 @@ function CreateScenarioModal({
     onError: (e: Error) => setError(e.message),
   });
 
+  const fieldLabel = 'block text-[11px] font-bold tracking-[0.06em] uppercase text-cy-faint mb-1.5';
+  const fieldInput =
+    'w-full rounded-[10px] border-0 bg-cy-row px-3 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            Create Scenario
-            <button onClick={onClose} aria-label="Close">
-              <X className="w-5 h-5 text-foreground-muted" />
-            </button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Create scenario">
+      <div className="bg-background-elevated rounded-cy shadow-xl max-w-md w-full">
+        {/* Header */}
+        <div className="flex items-start justify-between px-6 pt-6 pb-1">
+          <h2 className="text-[16px] font-bold text-foreground tracking-[-0.01em]">
+            Create scenario
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-1.5 hover:bg-cy-row rounded-md text-cy-muted hover:text-foreground"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-4">
+          {error && (
+            <div className="px-3 py-2.5 rounded-[10px] bg-error-50 text-error text-[12.5px]">
+              {error}
+            </div>
+          )}
           {targets.length === 0 ? (
-            <div className="text-sm text-foreground-muted">
+            <div className="text-[12.5px] text-cy-muted">
               You need a decarbonization target first. Go back and click “Set Target”, then create a
               scenario against it.
             </div>
           ) : (
             <>
               <div>
-                <label className="text-sm font-medium text-foreground">Name</label>
+                <label className={fieldLabel}>Name</label>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="mt-1 w-full rounded-[10px] border-0 bg-cy-row px-3 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
+                  className={fieldInput}
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-foreground">Target</label>
+                <label className={fieldLabel}>Target</label>
                 <select
                   value={targetId}
                   onChange={(e) => setTargetId(e.target.value)}
-                  className="mt-1 w-full rounded-[10px] border-0 bg-cy-row px-3 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
+                  className={fieldInput}
                 >
                   {targets.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -352,11 +366,11 @@ function CreateScenarioModal({
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-foreground">Ambition</label>
+                <label className={fieldLabel}>Ambition</label>
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value as ScenarioType)}
-                  className="mt-1 w-full rounded-[10px] border-0 bg-cy-row px-3 py-2.5 text-[13px] font-semibold text-foreground placeholder:font-normal placeholder:text-cy-faint focus:outline-none focus:ring-2 focus:ring-cy-accent"
+                  className={fieldInput}
                 >
                   <option value="conservative">Conservative</option>
                   <option value="moderate">Moderate</option>
@@ -364,9 +378,8 @@ function CreateScenarioModal({
                   <option value="custom">Custom</option>
                 </select>
               </div>
-              {error && <p className="text-sm text-error">{error}</p>}
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={onClose}>
+                <Button variant="ghost" onClick={onClose}>
                   Cancel
                 </Button>
                 <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !targetId}>
@@ -376,8 +389,8 @@ function CreateScenarioModal({
               </div>
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

@@ -34,12 +34,17 @@ class SampleDataLoadResponse(BaseModel):
     total_co2e_tonnes: float
     target_created: bool
     scenarios_created: int
+    products_created: int
+    epd_created: bool
+    cbam_imports_created: int
 
 
 class SampleDataRemoveResponse(BaseModel):
     removed_activities: int
     removed_scenarios: int
     removed_targets: int
+    removed_products: int
+    removed_cbam_imports: int
     period_removed: bool
     periods_kept: int
 
