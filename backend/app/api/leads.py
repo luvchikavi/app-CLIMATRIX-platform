@@ -36,6 +36,11 @@ VALID_SOURCES = {
 }
 VALID_STATUSES = {"new", "contacted", "trial", "customer", "lost"}
 
+# Sources that came in through a live website form and deserve an instant
+# auto-acknowledgment email. "signup" already triggers the welcome email;
+# "conference"/"manual" are entered by the founder after the fact.
+AUTO_ACK_SOURCES = {"website_tryit", "website_trial", "website_demo", "forum"}
+
 
 # ============================================================================
 # Schemas
@@ -118,6 +123,7 @@ async def capture_lead(
     existing_query = select(Lead).where(Lead.email == email)
     existing_result = await session.execute(existing_query)
     lead = existing_result.scalar_one_or_none()
+    is_new_lead = lead is None
 
     if lead:
         # PUBLIC endpoint: only FILL empty fields — never let an anonymous
@@ -140,6 +146,19 @@ async def capture_lead(
         session.add(lead)
 
     await session.commit()
+
+    # Instant acknowledgment for first-time website-form leads. Signups get
+    # the welcome email instead; conference/manual entries are founder-typed,
+    # so an automated "we saw your message" would be wrong there. Repeat
+    # submitters are skipped so nobody can use us as an email cannon.
+    # Must never block or fail the capture.
+    if is_new_lead and payload.source in AUTO_ACK_SOURCES:
+        from app.services.email import email_service
+
+        try:
+            email_service.send_lead_ack_email(to_email=email, lead_name=payload.name)
+        except Exception:
+            pass
 
     # Write-only for the public: reflecting the stored lead would leak the
     # founder's internal notes and pipeline status to anyone posting an email.
