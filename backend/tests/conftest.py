@@ -18,6 +18,21 @@ from app.api.auth import get_password_hash
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
+@pytest.fixture(scope="function", autouse=True)
+def _unconfigure_email(monkeypatch):
+    """Tests must never reach a real SMTP relay: a developer's backend/.env
+    carries live Resend credentials, and settings load it regardless of
+    ENVIRONMENT=test — auth tests were really emailing newuser@company.com
+    on every local suite run. Blanking the singleton flips is_configured off,
+    so send_email takes its dev-mode log-only path; tests that assert
+    sending behavior monkeypatch the higher-level send_* methods anyway."""
+    from app.services.email import email_service
+
+    monkeypatch.setattr(email_service, "host", "")
+    monkeypatch.setattr(email_service, "user", "")
+    monkeypatch.setattr(email_service, "password", "")
+
+
 @pytest.fixture(scope="function")
 async def test_engine():
     """Create test database engine."""
