@@ -110,6 +110,9 @@ class Settings(BaseSettings):
     smtp_from_name: str = "CLIMATRIX"
     smtp_use_tls: bool = True
 
+    # Founder inbox notified on every new signup ("" disables)
+    signup_notification_email: str = "avi@climatrix.co"
+
     # Frontend URL (for email links)
     frontend_url: str = "http://localhost:3000"
 

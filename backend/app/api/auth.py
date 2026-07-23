@@ -344,6 +344,16 @@ async def google_login(
         except Exception:
             pass
 
+        # Founder heads-up — same never-block rule
+        try:
+            email_service.send_signup_notification_email(
+                new_user_email=user.email,
+                user_name=user.full_name or user.email,
+                org_name=organization.name,
+            )
+        except Exception:
+            pass
+
     # Fetch organization
     org_result = await session.execute(
         select(Organization).where(Organization.id == user.organization_id)
@@ -574,6 +584,16 @@ async def register(
     try:
         email_service.send_welcome_email(
             to_email=user.email,
+            user_name=user.full_name or user.email,
+            org_name=organization.name,
+        )
+    except Exception:
+        pass
+
+    # Founder heads-up — same never-block rule
+    try:
+        email_service.send_signup_notification_email(
+            new_user_email=user.email,
             user_name=user.full_name or user.email,
             org_name=organization.name,
         )
