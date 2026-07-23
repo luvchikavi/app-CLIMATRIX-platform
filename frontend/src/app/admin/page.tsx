@@ -292,7 +292,7 @@ export default function AdminDashboard() {
                 },
                 { label: 'Users', value: String(stats.total_users) },
                 {
-                  label: 'MRR (list-price est.)',
+                  label: 'MRR (Stripe-verified)',
                   value: `$${formatQty(cockpit?.mrr_usd ?? 0)}`,
                   sub: `${cockpit?.paying_orgs ?? 0} paying`,
                 },
@@ -507,6 +507,34 @@ export default function AdminDashboard() {
                   </div>
                 )}
               </Surface>
+
+              {/* Recent logins */}
+              <Surface>
+                <PanelLabel>Recent logins</PanelLabel>
+                {(cockpit.recent_logins ?? []).length === 0 ? (
+                  <p className="text-[12.5px] text-cy-muted">No logins recorded yet.</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {cockpit.recent_logins.map((login) => (
+                      <div
+                        key={`${login.email}-${login.last_login}`}
+                        className="flex items-center justify-between gap-3 text-[12.5px]"
+                      >
+                        <span className="min-w-0 truncate text-cy-ink">{login.email}</span>
+                        <span className="whitespace-nowrap text-cy-muted">
+                          {login.organization_name} ·{' '}
+                          {new Date(login.last_login).toLocaleString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Surface>
             </div>
             </>
           )}
@@ -597,7 +625,7 @@ export default function AdminDashboard() {
                   <StatCells
                     cells={[
                       {
-                        label: 'MRR (list-price est.)',
+                        label: 'MRR (Stripe-verified)',
                         value: `$${formatQty(cockpit.mrr_usd)}`,
                       },
                       { label: 'ARR run-rate', value: `$${formatQty(cockpit.arr_usd)}` },

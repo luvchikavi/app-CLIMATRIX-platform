@@ -55,3 +55,46 @@ async def test_cockpit_shape_and_counts(client, admin_headers, test_user):
     # Finance block present (no paid orgs in fixtures => zero MRR).
     assert body["mrr_usd"] >= 0
     assert isinstance(body["plans"], list)
+
+
+@pytest.mark.asyncio
+async def test_paying_requires_stripe_subscription(
+    client, admin_headers, test_org, test_session
+):
+    """Orgs flipped to active by hand (HQ, demo) must not read as revenue:
+    'paying' means a real Stripe subscription id."""
+    resp = await client.get("/api/admin/cockpit", headers=admin_headers)
+    body = resp.json()
+    assert body["paying_orgs"] == 0
+    assert body["mrr_usd"] == 0
+    assert "No Stripe-verified payments yet" in body["revenue_note"]
+
+    test_org.stripe_subscription_id = "sub_test_123"
+    test_session.add(test_org)
+    await test_session.commit()
+
+    resp = await client.get("/api/admin/cockpit", headers=admin_headers)
+    body = resp.json()
+    assert body["paying_orgs"] == 1
+    assert body["mrr_usd"] == 297
+    assert body["revenue_note"] == "Stripe-verified subscriptions only."
+
+
+@pytest.mark.asyncio
+async def test_recent_logins_listed(client, admin_headers, test_user):
+    """A real login surfaces in the cockpit's recent-logins panel."""
+    login = await client.post(
+        "/api/auth/login",
+        data={"username": "test@example.com", "password": "testpassword123"},
+    )
+    assert login.status_code == 200
+
+    resp = await client.get("/api/admin/cockpit", headers=admin_headers)
+    body = resp.json()
+    entry = next(
+        (r for r in body["recent_logins"] if r["email"] == "test@example.com"),
+        None,
+    )
+    assert entry is not None
+    assert entry["organization_name"] == "Test Organization"
+    assert entry["last_login"] is not None
