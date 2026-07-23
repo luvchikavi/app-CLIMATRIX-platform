@@ -219,6 +219,69 @@ class EmailService:
 
         return self.send_email(to_email, subject, html_content, text_content)
 
+    def send_lead_ack_email(self, to_email: str, lead_name: Optional[str]) -> bool:
+        """Instant acknowledgment to a new website lead (demo/trial/try-it form)."""
+        first_name = (lead_name or "").strip().split(" ")[0]
+        greeting = f"Hello {first_name}," if first_name else "Hello,"
+
+        subject = "Thanks for your interest in CLIMATRIX"
+
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: #10b981; color: white; padding: 20px; text-align: center; }}
+                .content {{ padding: 20px; background: #f9fafb; }}
+                .button {{ display: inline-block; background: #10b981; color: white; padding: 12px 24px;
+                          text-decoration: none; border-radius: 6px; margin: 20px 0; }}
+                .footer {{ padding: 20px; text-align: center; color: #666; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>CLIMATRIX</h1>
+                </div>
+                <div class="content">
+                    <p>{greeting}</p>
+                    <p>Thanks for reaching out &mdash; we received your message and a real person
+                       from the CLIMATRIX team will get back to you within one business day.</p>
+                    <p>In the meantime:</p>
+                    <ul>
+                        <li>Live demo: <a href="https://climatrix.co/demo">climatrix.co/demo</a></li>
+                        <li>Start free: <a href="https://app.climatrix.co">app.climatrix.co</a></li>
+                    </ul>
+                    <p>Avi Luvchik<br>Founder, CLIMATRIX<br>
+                       <a href="https://climatrix.co">climatrix.co</a></p>
+                </div>
+                <div class="footer">
+                    <p>This is an automated confirmation from CLIMATRIX.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        text_content = f"""
+        {greeting}
+
+        Thanks for reaching out — we received your message and a real person
+        from the CLIMATRIX team will get back to you within one business day.
+
+        In the meantime:
+        - Live demo: https://climatrix.co/demo
+        - Start free: https://app.climatrix.co
+
+        Avi Luvchik
+        Founder, CLIMATRIX
+        https://climatrix.co
+        """
+
+        return self.send_email(to_email, subject, html_content, text_content)
+
     async def send_invitation_email(
         self,
         to_email: str,

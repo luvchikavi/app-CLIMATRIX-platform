@@ -180,3 +180,91 @@ async def test_update_lead_forbidden_for_org_admin(client, auth_headers, admin_h
         json={"status": "contacted"},
     )
     assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_new_website_lead_gets_auto_ack(client, monkeypatch):
+    """A first-time website-form lead triggers the instant acknowledgment."""
+    from app.services.email import email_service
+
+    sent = []
+    monkeypatch.setattr(
+        email_service,
+        "send_lead_ack_email",
+        lambda to_email, lead_name: sent.append((to_email, lead_name)) or True,
+    )
+
+    resp = await client.post(
+        "/api/leads",
+        json={
+            "email": "ack@example.com",
+            "name": "Ack Person",
+            "source": "website_demo",
+        },
+    )
+    assert resp.status_code == 200
+    assert sent == [("ack@example.com", "Ack Person")]
+
+
+@pytest.mark.asyncio
+async def test_repeat_lead_gets_no_auto_ack(client, monkeypatch):
+    """Re-submitting an existing lead must NOT re-send the acknowledgment —
+    otherwise the public endpoint becomes an email cannon."""
+    from app.services.email import email_service
+
+    sent = []
+    monkeypatch.setattr(
+        email_service,
+        "send_lead_ack_email",
+        lambda to_email, lead_name: sent.append(to_email) or True,
+    )
+
+    for _ in range(2):
+        resp = await client.post(
+            "/api/leads",
+            json={"email": "once@example.com", "source": "website_trial"},
+        )
+        assert resp.status_code == 200
+
+    assert sent == ["once@example.com"]
+
+
+@pytest.mark.asyncio
+async def test_founder_entered_sources_get_no_auto_ack(client, monkeypatch):
+    """conference/manual/signup leads are not live form submissions —
+    no automated 'we saw your message' for them."""
+    from app.services.email import email_service
+
+    sent = []
+    monkeypatch.setattr(
+        email_service,
+        "send_lead_ack_email",
+        lambda to_email, lead_name: sent.append(to_email) or True,
+    )
+
+    for i, source in enumerate(["conference", "manual", "signup"]):
+        resp = await client.post(
+            "/api/leads",
+            json={"email": f"noack{i}@example.com", "source": source},
+        )
+        assert resp.status_code == 200
+
+    assert sent == []
+
+
+@pytest.mark.asyncio
+async def test_auto_ack_failure_never_breaks_capture(client, monkeypatch):
+    """Email backend blowing up must not lose the lead."""
+    from app.services.email import email_service
+
+    def boom(to_email, lead_name):
+        raise RuntimeError("smtp down")
+
+    monkeypatch.setattr(email_service, "send_lead_ack_email", boom)
+
+    resp = await client.post(
+        "/api/leads",
+        json={"email": "boom@example.com", "source": "website_tryit"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True}
