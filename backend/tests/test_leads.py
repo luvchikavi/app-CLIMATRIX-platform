@@ -268,3 +268,57 @@ async def test_auto_ack_failure_never_breaks_capture(client, monkeypatch):
     )
     assert resp.status_code == 200
     assert resp.json() == {"ok": True}
+
+
+@pytest.mark.asyncio
+async def test_new_website_lead_notifies_founder(client, monkeypatch):
+    """The founder gets the lead's contact details the moment it arrives."""
+    from app.services.email import email_service
+
+    notified = []
+    monkeypatch.setattr(
+        email_service,
+        "send_lead_notification_email",
+        lambda lead_email, lead_name, lead_org, source, what_tried: notified.append(
+            (lead_email, lead_name, lead_org, source, what_tried)
+        )
+        or True,
+    )
+
+    resp = await client.post(
+        "/api/leads",
+        json={
+            "email": "hot@prospect.com",
+            "name": "Hot Prospect",
+            "organization_name": "Prospect GmbH",
+            "source": "website_demo",
+            "what_tried": "cbam-check",
+        },
+    )
+    assert resp.status_code == 200
+    assert notified == [
+        (
+            "hot@prospect.com",
+            "Hot Prospect",
+            "Prospect GmbH",
+            "website_demo",
+            "cbam-check",
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_founder_notification_failure_never_breaks_capture(client, monkeypatch):
+    from app.services.email import email_service
+
+    def boom(**kwargs):
+        raise RuntimeError("smtp down")
+
+    monkeypatch.setattr(email_service, "send_lead_notification_email", boom)
+
+    resp = await client.post(
+        "/api/leads",
+        json={"email": "still-captured@example.com", "source": "website_trial"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True}

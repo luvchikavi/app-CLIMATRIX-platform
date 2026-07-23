@@ -160,6 +160,18 @@ async def capture_lead(
         except Exception:
             pass
 
+        # And tell the founder — the lead's email is the whole point.
+        try:
+            email_service.send_lead_notification_email(
+                lead_email=email,
+                lead_name=payload.name,
+                lead_org=payload.organization_name,
+                source=payload.source,
+                what_tried=payload.what_tried,
+            )
+        except Exception:
+            pass
+
     # Write-only for the public: reflecting the stored lead would leak the
     # founder's internal notes and pipeline status to anyone posting an email.
     return {"ok": True}

@@ -247,6 +247,47 @@ class EmailService:
 
         return self.send_email(to_email, subject, html_content, text_content)
 
+    def send_lead_notification_email(
+        self,
+        lead_email: str,
+        lead_name: Optional[str],
+        lead_org: Optional[str],
+        source: str,
+        what_tried: Optional[str],
+    ) -> bool:
+        """Ping the founder inbox about a new inbound lead — the reply-worthy
+        contact details front and center."""
+        to_email = settings.signup_notification_email
+        if not to_email:
+            return True
+
+        who = lead_name or lead_email
+        subject = f"New CLIMATRIX lead: {who} ({source})"
+
+        crm_url = f"{settings.frontend_url}/admin"
+        html_content = f"""
+        <p>New lead just came in:</p>
+        <ul>
+            <li><strong>Email:</strong> <a href="mailto:{lead_email}">{lead_email}</a></li>
+            <li><strong>Name:</strong> {lead_name or "—"}</li>
+            <li><strong>Company:</strong> {lead_org or "—"}</li>
+            <li><strong>Source:</strong> {source}</li>
+            <li><strong>What they tried:</strong> {what_tried or "—"}</li>
+        </ul>
+        <p><a href="{crm_url}">Open the lead CRM</a></p>
+        """
+        text_content = (
+            f"New lead just came in:\n"
+            f"Email: {lead_email}\n"
+            f"Name: {lead_name or '—'}\n"
+            f"Company: {lead_org or '—'}\n"
+            f"Source: {source}\n"
+            f"What they tried: {what_tried or '—'}\n"
+            f"CRM: {crm_url}\n"
+        )
+
+        return self.send_email(to_email, subject, html_content, text_content)
+
     def send_lead_ack_email(self, to_email: str, lead_name: Optional[str]) -> bool:
         """Instant acknowledgment to a new website lead (demo/trial/try-it form)."""
         first_name = (lead_name or "").strip().split(" ")[0]
