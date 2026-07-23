@@ -130,6 +130,12 @@ class CockpitRecentLead(BaseModel):
     created_at: datetime
 
 
+class CockpitRecentLogin(BaseModel):
+    email: str
+    organization_name: str
+    last_login: datetime
+
+
 class CockpitClient(BaseModel):
     """One managed client — everything is a live query, never a projection."""
 
@@ -198,6 +204,7 @@ class CockpitOut(BaseModel):
     lead_sources: list[CockpitLeadSlice]
     recent_signups: list[CockpitRecentSignup]
     recent_leads: list[CockpitRecentLead]
+    recent_logins: list[CockpitRecentLogin]
     clients: list[CockpitClient]
     attention: CockpitAttention
 
@@ -296,6 +303,7 @@ async def get_cockpit(
                 Organization.subscription_plan,
                 Organization.subscription_status,
                 Organization.is_active,
+                Organization.stripe_subscription_id,
             )
         )
     ).all()
@@ -311,7 +319,9 @@ async def get_cockpit(
         status = (r.subscription_status or "").lower()
         if status == "trialing":
             trialing_orgs += 1
-        if status == "active" and plan in PLAN_PRICES_USD:
+        # "Paying" means a real Stripe subscription — internal orgs flipped to
+        # active by hand (HQ, the demo org) must never read as revenue.
+        if status == "active" and plan in PLAN_PRICES_USD and r.stripe_subscription_id:
             paying_orgs += 1
             mrr_usd += PLAN_PRICES_USD[plan]
         plan_counts[plan] = plan_counts.get(plan, 0) + 1
@@ -383,6 +393,20 @@ async def get_cockpit(
     recent_signups = [
         CockpitRecentSignup(email=email, organization_name=org_name, created_at=created)
         for email, created, org_name in recent_signup_rows
+    ]
+
+    recent_login_rows = (
+        await session.execute(
+            select(User.email, User.last_login, Organization.name)
+            .join(Organization, User.organization_id == Organization.id)
+            .where(User.last_login.isnot(None))  # type: ignore[union-attr]
+            .order_by(User.last_login.desc())
+            .limit(10)
+        )
+    ).all()
+    recent_logins = [
+        CockpitRecentLogin(email=email, organization_name=org_name, last_login=ts)
+        for email, ts, org_name in recent_login_rows
     ]
 
     recent_lead_rows = (
@@ -526,7 +550,12 @@ async def get_cockpit(
         total_co2e_tonnes=float(total_co2e_kg) / 1000,
         mrr_usd=mrr_usd,
         arr_usd=mrr_usd * 12,
-        revenue_note="List-price estimate — Stripe billing not yet connected.",
+        revenue_note=(
+            "Stripe-verified subscriptions only."
+            if paying_orgs
+            else "No Stripe-verified payments yet — plan mix below is "
+            "list-price potential, not revenue."
+        ),
         paying_orgs=paying_orgs,
         trialing_orgs=trialing_orgs,
         leads_total=leads_total,
@@ -537,6 +566,7 @@ async def get_cockpit(
         lead_sources=lead_sources,
         recent_signups=recent_signups,
         recent_leads=recent_leads,
+        recent_logins=recent_logins,
         clients=clients,
         attention=CockpitAttention(
             trials_expiring_7d=trials_expiring,

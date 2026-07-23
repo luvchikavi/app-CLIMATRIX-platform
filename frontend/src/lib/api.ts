@@ -3186,6 +3186,7 @@ export interface CockpitData {
   lead_sources: { status: string; count: number }[];
   recent_signups: { email: string; organization_name: string; created_at: string }[];
   recent_leads: { email: string; source: string; status: string; created_at: string }[];
+  recent_logins: { email: string; organization_name: string; last_login: string }[];
   clients: CockpitClient[];
   attention: {
     trials_expiring_7d: {
