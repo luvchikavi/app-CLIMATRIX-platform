@@ -219,6 +219,34 @@ class EmailService:
 
         return self.send_email(to_email, subject, html_content, text_content)
 
+    def send_signup_notification_email(
+        self, new_user_email: str, user_name: str, org_name: str
+    ) -> bool:
+        """Ping the founder inbox about a brand-new signup."""
+        to_email = settings.signup_notification_email
+        if not to_email:
+            return True
+
+        subject = f"New CLIMATRIX signup: {org_name}"
+
+        cockpit_url = f"{settings.frontend_url}/admin"
+        html_content = f"""
+        <p>New organization signed up:</p>
+        <ul>
+            <li><strong>Organization:</strong> {org_name}</li>
+            <li><strong>User:</strong> {user_name} ({new_user_email})</li>
+        </ul>
+        <p><a href="{cockpit_url}">Open the cockpit</a></p>
+        """
+        text_content = (
+            f"New organization signed up:\n"
+            f"Organization: {org_name}\n"
+            f"User: {user_name} ({new_user_email})\n"
+            f"Cockpit: {cockpit_url}\n"
+        )
+
+        return self.send_email(to_email, subject, html_content, text_content)
+
     def send_lead_ack_email(self, to_email: str, lead_name: Optional[str]) -> bool:
         """Instant acknowledgment to a new website lead (demo/trial/try-it form)."""
         first_name = (lead_name or "").strip().split(" ")[0]
