@@ -49,9 +49,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Legacy /register links (old website builds) → register mode on /login,
-  // keeping any extra params (e.g. ?plan=starter from pricing CTAs).
-  if (pathname === '/register') {
+  // Legacy /register and /signup links (old website builds) → register mode
+  // on /login, keeping any extra params (e.g. ?plan=starter from pricing
+  // CTAs). Without this, /signup fell through to the sign-IN form.
+  if (pathname === '/register' || pathname === '/signup') {
     const loginUrl = new URL('/login', request.url);
     searchParams.forEach((v, k) => loginUrl.searchParams.set(k, v));
     loginUrl.searchParams.set('register', 'true');

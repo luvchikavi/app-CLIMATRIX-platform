@@ -230,7 +230,7 @@ export default function PricingPage() {
                       onClick={() => {
                         if (plan.id === 'enterprise') {
                           window.location.href =
-                            'mailto:sales@climatrix.co?subject=CLIMATRIX%20Enterprise%20Demo';
+                            'https://climatrix.co/demo';
                         } else {
                           window.location.href = `/?register=true&plan=${plan.id}`;
                         }
@@ -292,7 +292,7 @@ export default function PricingPage() {
                   <Button
                     onClick={() => {
                       window.location.href =
-                        'mailto:sales@climatrix.co?subject=CLIMATRIX%20Report%20Pass';
+                        'https://climatrix.co/demo';
                     }}
                   >
                     Get a Report Pass
