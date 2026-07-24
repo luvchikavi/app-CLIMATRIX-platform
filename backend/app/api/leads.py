@@ -262,12 +262,12 @@ async def send_follow_up(
             "formula shown.</p>"
             "<p>If you'd like, I'll walk you through what your full Scope 1/2/3 "
             "picture would look like — 20 minutes, your data.</p>"
-            "<p>Avi Luvchik<br/>Founder, Climatrix — climatrix.co</p>"
+            f"{email_service.founder_signature_html()}"
         ),
         text_content=(
             f"Hi {first_name},\n\nThanks for trying Climatrix{tried}. Happy to walk "
             "you through your full Scope 1/2/3 picture — 20 minutes, your data.\n\n"
-            "Avi Luvchik, Founder — climatrix.co"
+            f"{email_service.founder_signature_text()}"
         ),
     )
     if not ok:

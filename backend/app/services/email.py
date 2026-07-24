@@ -31,6 +31,46 @@ class EmailService:
         """Check if email is properly configured."""
         return bool(self.host and self.user and self.password)
 
+    # ------------------------------------------------------------------
+    # Founder signature — shared by every prospect-facing email
+    # ------------------------------------------------------------------
+
+    FOUNDER_NAME = "Avi Luvchik"
+    FOUNDER_TITLE = "Founder & CEO, CLIMATRIX"
+    FOUNDER_EMAIL = "avi@climatrix.co"
+    COMPANY_URL = "https://climatrix.co"
+    LOGO_URL = "https://climatrix.co/logo.png"
+
+    def founder_signature_html(self) -> str:
+        """Email-client-safe (table-based) signature block."""
+        return f"""
+        <table cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
+            <tr>
+                <td style="vertical-align:middle;">
+                    <a href="{self.COMPANY_URL}">
+                        <img src="{self.LOGO_URL}" width="56" height="56" alt="CLIMATRIX"
+                             style="border-radius:10px; display:block;">
+                    </a>
+                </td>
+                <td style="vertical-align:middle; padding-left:14px; font-family:Arial,sans-serif;
+                           font-size:14px; line-height:1.5; color:#333;">
+                    <strong>{self.FOUNDER_NAME}</strong><br>
+                    {self.FOUNDER_TITLE}<br>
+                    <a href="mailto:{self.FOUNDER_EMAIL}" style="color:#10b981;">{self.FOUNDER_EMAIL}</a>
+                    &nbsp;&middot;&nbsp;
+                    <a href="{self.COMPANY_URL}" style="color:#10b981;">climatrix.co</a>
+                </td>
+            </tr>
+        </table>
+        """
+
+    def founder_signature_text(self) -> str:
+        return (
+            f"{self.FOUNDER_NAME}\n"
+            f"{self.FOUNDER_TITLE}\n"
+            f"{self.FOUNDER_EMAIL} | {self.COMPANY_URL}"
+        )
+
     def send_email(
         self,
         to_email: str,
@@ -295,6 +335,17 @@ class EmailService:
 
         subject = "Thanks for your interest in CLIMATRIX"
 
+        booking_html = ""
+        booking_text = ""
+        if settings.demo_booking_url:
+            booking_html = f"""
+                    <p style="text-align: center;">
+                        <a href="{settings.demo_booking_url}" class="button">Pick a demo time now</a>
+                    </p>"""
+            booking_text = (
+                f"\n        Pick a demo time now: {settings.demo_booking_url}\n"
+            )
+
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -317,14 +368,13 @@ class EmailService:
                 <div class="content">
                     <p>{greeting}</p>
                     <p>Thanks for reaching out &mdash; we received your message and a real person
-                       from the CLIMATRIX team will get back to you within one business day.</p>
+                       from the CLIMATRIX team will get back to you within one business day.</p>{booking_html}
                     <p>In the meantime:</p>
                     <ul>
                         <li>Live demo: <a href="https://climatrix.co/demo">climatrix.co/demo</a></li>
                         <li>Start free: <a href="https://app.climatrix.co">app.climatrix.co</a></li>
                     </ul>
-                    <p>Avi Luvchik<br>Founder, CLIMATRIX<br>
-                       <a href="https://climatrix.co">climatrix.co</a></p>
+                    {self.founder_signature_html()}
                 </div>
                 <div class="footer">
                     <p>This is an automated confirmation from CLIMATRIX.</p>
@@ -339,15 +389,63 @@ class EmailService:
 
         Thanks for reaching out — we received your message and a real person
         from the CLIMATRIX team will get back to you within one business day.
-
+        {booking_text}
         In the meantime:
         - Live demo: https://climatrix.co/demo
         - Start free: https://app.climatrix.co
 
-        Avi Luvchik
-        Founder, CLIMATRIX
-        https://climatrix.co
+        {self.founder_signature_text()}
         """
+
+        return self.send_email(to_email, subject, html_content, text_content)
+
+    def send_lead_reminder_email(self, leads: list[dict]) -> bool:
+        """Remind the founder about leads still uncontacted past the window.
+
+        Each dict: email, name, organization_name, source, created_at (datetime),
+        what_tried. One digest per sweep — never one email per lead.
+        """
+        to_email = settings.signup_notification_email
+        if not to_email or not leads:
+            return True
+
+        n = len(leads)
+        subject = (
+            f"⏰ {n} lead{'s' if n > 1 else ''} waiting "
+            f"{settings.lead_reminder_hours}h+ without contact"
+        )
+
+        crm_url = f"{settings.frontend_url}/admin"
+        rows_html = ""
+        rows_text = ""
+        for lead in leads:
+            who = lead.get("name") or lead["email"]
+            org = lead.get("organization_name") or "—"
+            age_days = lead["age_hours"] / 24
+            rows_html += f"""
+            <li><a href="mailto:{lead['email']}">{who}</a>
+                &mdash; {org} &middot; {lead['source']} &middot;
+                waiting {age_days:.1f} days</li>"""
+            rows_text += (
+                f"- {who} <{lead['email']}> — {org} · {lead['source']} · "
+                f"waiting {age_days:.1f} days\n"
+            )
+
+        html_content = f"""
+        <p>These leads asked for a demo / left details and have not been
+           contacted yet:</p>
+        <ul>{rows_html}
+        </ul>
+        <p>Reply directly (mailto links above) or
+           <a href="{crm_url}">open the lead CRM</a> and use
+           <strong>Send follow-up</strong> — it emails them and moves the lead
+           to <em>contacted</em> in one click.</p>
+        """
+        text_content = (
+            "These leads have not been contacted yet:\n\n"
+            f"{rows_text}\n"
+            f"Lead CRM: {crm_url}\n"
+        )
 
         return self.send_email(to_email, subject, html_content, text_content)
 

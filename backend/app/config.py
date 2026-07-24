@@ -113,6 +113,16 @@ class Settings(BaseSettings):
     # Founder inbox notified on every new signup ("" disables)
     signup_notification_email: str = "avi@climatrix.co"
 
+    # Lead follow-up automation
+    # Public scheduling link offered in the demo-request acknowledgment
+    # ("" omits the button until the founder provides one)
+    demo_booking_url: str = ""
+    # Remind the founder about leads still uncontacted after this many hours
+    # (0 disables the reminder loop entirely)
+    lead_reminder_hours: int = 48
+    # How often the background sweep looks for overdue leads
+    lead_reminder_check_minutes: int = 360
+
     # Frontend URL (for email links)
     frontend_url: str = "http://localhost:3000"
 

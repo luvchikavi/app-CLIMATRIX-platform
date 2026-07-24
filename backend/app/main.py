@@ -60,8 +60,20 @@ async def lifespan(app: FastAPI):
     """Application lifespan - startup and shutdown events."""
     # Startup
     await init_db()
+
+    # Uncontacted-lead reminder sweep (inline — prod runs no worker).
+    reminder_task = None
+    if settings.environment != "test" and settings.lead_reminder_hours > 0:
+        import asyncio
+
+        from app.services.lead_reminders import lead_reminder_loop
+
+        reminder_task = asyncio.create_task(lead_reminder_loop())
+
     yield
     # Shutdown
+    if reminder_task:
+        reminder_task.cancel()
     await close_db()
 
 
