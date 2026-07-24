@@ -35,3 +35,6 @@ class Lead(SQLModel, table=True):
 
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     updated_at: Optional[datetime] = Field(default=None)
+
+    # When the uncontacted-lead reminder was sent to the founder (once per lead)
+    reminder_sent_at: Optional[datetime] = Field(default=None)
